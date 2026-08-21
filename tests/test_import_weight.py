@@ -84,6 +84,22 @@ json.dump(sorted({k.split(".")[0] for k in sys.modules}), sys.stdout)
     assert "sentence_transformers" not in loaded
 
 
+def test_import_aimu_does_not_load_the_async_surface():
+    """aio is reachable but not paid for until touched."""
+    assert "fastmcp" not in loaded_modules()
+
+
+def test_aio_is_still_reachable_both_ways():
+    probe = """
+import aimu
+from aimu import aio as a2
+assert aimu.aio is a2
+print("ok")
+"""
+    proc = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, check=True)
+    assert proc.stdout.strip() == "ok"
+
+
 def test_absent_provider_symbol_is_none_not_an_error():
     """Today's contract: a provider symbol whose dep is missing evaluates to None."""
     probe = """

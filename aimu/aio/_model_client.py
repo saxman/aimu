@@ -7,115 +7,37 @@ wrap (so model weights are loaded only once). See Decision 7 in the plan.
 
 from __future__ import annotations
 
+from importlib import import_module
 from typing import Any, AsyncIterator, Iterable, Optional, Union
 
 from aimu.models.base import AdHocModel, Model, ModelSpec, StreamChunk, StreamingContentType
-from aimu.models.model_client import _GENERIC_COMPAT_PROVIDER, resolve_model
+from aimu.models.model_client import _GENERIC_COMPAT_PROVIDER, _TEXT_PROVIDERS, resolve_model
 
 from ._base import AsyncBaseModelClient
 
-# --- Optional provider imports (mirror the sync registry) ---
+# Provider prefix -> (async module, async client class name). Described, not imported:
+# nothing here loads until a specific row is requested. The enum side of dispatch is
+# the *sync* _TEXT_PROVIDERS table (the enum classes are shared with the sync surface;
+# only the client classes differ), so this table only needs to cover the client half.
+# `hf` and `llamacpp` are deliberately absent: those two prefixes have no
+# async-from-enum path (aio.client() refuses direct construction and points at the
+# sync-wrap pattern instead; see _IN_PROCESS_MODEL_GUIDANCE below).
+_ASYNC_CLIENTS: dict[str, tuple[str, str]] = {
+    "ollama": ("aimu.aio.providers.ollama", "AsyncOllamaClient"),
+    "anthropic": ("aimu.aio.providers.anthropic", "AsyncAnthropicClient"),
+    "openai": ("aimu.aio.providers.openai.text", "AsyncOpenAIClient"),
+    "gemini": ("aimu.aio.providers.gemini.text", "AsyncGeminiClient"),
+    "lmstudio": ("aimu.aio.providers.openai_compat", "AsyncLMStudioOpenAIClient"),
+    "ollama-openai": ("aimu.aio.providers.openai_compat", "AsyncOllamaOpenAIClient"),
+    "hf-openai": ("aimu.aio.providers.openai_compat", "AsyncHFOpenAIClient"),
+    "vllm": ("aimu.aio.providers.openai_compat", "AsyncVLLMOpenAIClient"),
+    "llamaserver": ("aimu.aio.providers.openai_compat", "AsyncLlamaServerOpenAIClient"),
+    "sglang": ("aimu.aio.providers.openai_compat", "AsyncSGLangOpenAIClient"),
+    "omlx": ("aimu.aio.providers.openai_compat", "AsyncOMLXOpenAIClient"),
+}
+_GENERIC_ASYNC_COMPAT: tuple[str, str] = ("aimu.aio.providers.openai_compat", "AsyncOpenAICompatClient")
 
-try:
-    from aimu.models.providers.ollama import OllamaModel
-
-    from .providers.ollama import AsyncOllamaClient
-
-    _HAS_OLLAMA = True
-except ImportError:
-    _HAS_OLLAMA = False
-    AsyncOllamaClient = None  # type: ignore[assignment,misc]
-    OllamaModel = None  # type: ignore[assignment,misc]
-
-try:
-    from aimu.models.providers.hf.text import HuggingFaceClient, HuggingFaceModel
-
-    from .providers.hf.text import AsyncHuggingFaceClient
-
-    _HAS_HF = True
-except ImportError:
-    _HAS_HF = False
-    AsyncHuggingFaceClient = None  # type: ignore[assignment,misc]
-    HuggingFaceClient = None  # type: ignore[assignment,misc]
-    HuggingFaceModel = None  # type: ignore[assignment,misc]
-
-try:
-    from aimu.models.providers.anthropic import AnthropicModel
-
-    from .providers.anthropic import AsyncAnthropicClient
-
-    _HAS_ANTHROPIC = True
-except ImportError:
-    _HAS_ANTHROPIC = False
-    AsyncAnthropicClient = None  # type: ignore[assignment,misc]
-    AnthropicModel = None  # type: ignore[assignment,misc]
-
-try:
-    from aimu.models.providers.gemini.text import GeminiModel
-    from aimu.models.providers.openai.text import OpenAIModel
-    from aimu.models.providers.openai_compat import (
-        HFOpenAIModel,
-        LlamaServerOpenAIModel,
-        LMStudioOpenAIModel,
-        OllamaOpenAIModel,
-        OMLXOpenAIModel,
-        SGLangOpenAIModel,
-        VLLMOpenAIModel,
-    )
-
-    from .providers.gemini.text import AsyncGeminiClient
-    from .providers.openai.text import AsyncOpenAIClient
-    from .providers.openai_compat import (
-        AsyncHFOpenAIClient,
-        AsyncLlamaServerOpenAIClient,
-        AsyncLMStudioOpenAIClient,
-        AsyncOllamaOpenAIClient,
-        AsyncOMLXOpenAIClient,
-        AsyncOpenAICompatClient,
-        AsyncSGLangOpenAIClient,
-        AsyncVLLMOpenAIClient,
-    )
-
-    _HAS_OPENAI_COMPAT = True
-except ImportError:
-    _HAS_OPENAI_COMPAT = False
-    AsyncOpenAIClient = AsyncGeminiClient = AsyncLMStudioOpenAIClient = AsyncOllamaOpenAIClient = None  # type: ignore[assignment,misc]
-    AsyncHFOpenAIClient = AsyncVLLMOpenAIClient = AsyncLlamaServerOpenAIClient = AsyncSGLangOpenAIClient = None  # type: ignore[assignment,misc]
-    AsyncOMLXOpenAIClient = None  # type: ignore[assignment,misc]
-    AsyncOpenAICompatClient = None  # type: ignore[assignment,misc]
-    OpenAIModel = GeminiModel = LMStudioOpenAIModel = OllamaOpenAIModel = None  # type: ignore[assignment,misc]
-    HFOpenAIModel = VLLMOpenAIModel = LlamaServerOpenAIModel = SGLangOpenAIModel = None  # type: ignore[assignment,misc]
-    OMLXOpenAIModel = None  # type: ignore[assignment,misc]
-
-try:
-    from aimu.models.providers.llamacpp import LlamaCppClient, LlamaCppModel
-
-    from .providers.llamacpp import AsyncLlamaCppClient
-
-    _HAS_LLAMACPP = True
-except ImportError:
-    _HAS_LLAMACPP = False
-    AsyncLlamaCppClient = None  # type: ignore[assignment,misc]
-    LlamaCppClient = None  # type: ignore[assignment,misc]
-    LlamaCppModel = None  # type: ignore[assignment,misc]
-
-
-# Ad-hoc models are not enum members, so they are routed to the async OpenAI-compat client
-# by provider prefix rather than by isinstance (mirrors the sync _sync_compat_client).
-if _HAS_OPENAI_COMPAT:
-    _ASYNC_COMPAT_CLIENTS = {
-        "llamaserver": AsyncLlamaServerOpenAIClient,
-        "lmstudio": AsyncLMStudioOpenAIClient,
-        "vllm": AsyncVLLMOpenAIClient,
-        "hf-openai": AsyncHFOpenAIClient,
-        "sglang": AsyncSGLangOpenAIClient,
-        "ollama-openai": AsyncOllamaOpenAIClient,
-        "omlx": AsyncOMLXOpenAIClient,
-        _GENERIC_COMPAT_PROVIDER: AsyncOpenAICompatClient,
-    }
-else:
-    _ASYNC_COMPAT_CLIENTS = {}
-
+_IN_PROCESS_PREFIXES = frozenset({"hf", "llamacpp"})
 
 _IN_PROCESS_MODEL_GUIDANCE = (
     "In-process providers (HuggingFace, LlamaCpp) load model weights into memory; "
@@ -124,6 +46,26 @@ _IN_PROCESS_MODEL_GUIDANCE = (
     "    sync_client = aimu.client({model})\n"
     "    async_client = aio.client(sync_client)"
 )
+
+
+def _load_async_client(module_name: str, class_name: str):
+    return getattr(import_module(module_name), class_name)
+
+
+def _wrap_target(model: Any) -> Optional[tuple[str, str]]:
+    """``(async_module, async_class_name)`` for wrapping a sync in-process client instance.
+
+    A sync ``HuggingFaceClient``/``LlamaCppClient`` instance can only exist if its
+    defining module was already imported by the caller, so matching on
+    ``type(model).__module__`` + class name identifies it without importing anything.
+    """
+    module_name = type(model).__module__
+    class_name = type(model).__name__
+    if module_name == "aimu.models.providers.hf.text" and class_name == "HuggingFaceClient":
+        return "aimu.aio.providers.hf.text", "AsyncHuggingFaceClient"
+    if module_name == "aimu.models.providers.llamacpp" and class_name == "LlamaCppClient":
+        return "aimu.aio.providers.llamacpp", "AsyncLlamaCppClient"
+    return None
 
 
 class AsyncModelClient(AsyncBaseModelClient):
@@ -145,10 +87,10 @@ class AsyncModelClient(AsyncBaseModelClient):
 
     def __init__(self, model: Union[Model, ModelSpec, str, Any], **kwargs: Any) -> None:
         # In-process wrapping path: passed an existing sync client.
-        if _HAS_HF and HuggingFaceClient is not None and isinstance(model, HuggingFaceClient):
-            self._client: AsyncBaseModelClient = AsyncHuggingFaceClient(model, **kwargs)
-        elif _HAS_LLAMACPP and LlamaCppClient is not None and isinstance(model, LlamaCppClient):
-            self._client = AsyncLlamaCppClient(model, **kwargs)
+        wrap_target = _wrap_target(model)
+        if wrap_target is not None:
+            client_cls = _load_async_client(*wrap_target)
+            self._client: AsyncBaseModelClient = client_cls(model, **kwargs)
         else:
             # Normal construction path: model enum or string.
             if isinstance(model, str):
@@ -156,7 +98,13 @@ class AsyncModelClient(AsyncBaseModelClient):
                 if resolved.base_url is not None:
                     kwargs["base_url"] = resolved.base_url
                 if isinstance(resolved.model, AdHocModel):
-                    self._client = _ASYNC_COMPAT_CLIENTS[resolved.provider](resolved.model, **kwargs)
+                    async_entry = (
+                        _GENERIC_ASYNC_COMPAT
+                        if resolved.provider == _GENERIC_COMPAT_PROVIDER
+                        else _ASYNC_CLIENTS[resolved.provider]
+                    )
+                    client_cls = _load_async_client(*async_entry)
+                    self._client = client_cls(resolved.model, **kwargs)
                     self.model = self._client.model
                     self.model_kwargs = self._client.model_kwargs
                     return
@@ -167,39 +115,33 @@ class AsyncModelClient(AsyncBaseModelClient):
                     "ModelSpec is the value type held by enum members."
                 )
 
-            # Guard in-process model types: refuse direct construction; point to wrapping pattern.
-            if _HAS_HF and HuggingFaceModel is not None and isinstance(model, HuggingFaceModel):
-                raise ValueError(_IN_PROCESS_MODEL_GUIDANCE.format(model=f"HuggingFaceModel.{model.name}"))
-            if _HAS_LLAMACPP and LlamaCppModel is not None and isinstance(model, LlamaCppModel):
-                raise ValueError(_IN_PROCESS_MODEL_GUIDANCE.format(model=f"LlamaCppModel.{model.name}"))
-
-            if _HAS_OLLAMA and isinstance(model, OllamaModel):
-                self._client = AsyncOllamaClient(model, **kwargs)
-            elif _HAS_ANTHROPIC and isinstance(model, AnthropicModel):
-                self._client = AsyncAnthropicClient(model, **kwargs)
-            elif _HAS_OPENAI_COMPAT and isinstance(model, OpenAIModel):
-                self._client = AsyncOpenAIClient(model, **kwargs)
-            elif _HAS_OPENAI_COMPAT and isinstance(model, GeminiModel):
-                self._client = AsyncGeminiClient(model, **kwargs)
-            elif _HAS_OPENAI_COMPAT and isinstance(model, LMStudioOpenAIModel):
-                self._client = AsyncLMStudioOpenAIClient(model, **kwargs)
-            elif _HAS_OPENAI_COMPAT and isinstance(model, OllamaOpenAIModel):
-                self._client = AsyncOllamaOpenAIClient(model, **kwargs)
-            elif _HAS_OPENAI_COMPAT and isinstance(model, HFOpenAIModel):
-                self._client = AsyncHFOpenAIClient(model, **kwargs)
-            elif _HAS_OPENAI_COMPAT and isinstance(model, VLLMOpenAIModel):
-                self._client = AsyncVLLMOpenAIClient(model, **kwargs)
-            elif _HAS_OPENAI_COMPAT and isinstance(model, LlamaServerOpenAIModel):
-                self._client = AsyncLlamaServerOpenAIClient(model, **kwargs)
-            elif _HAS_OPENAI_COMPAT and isinstance(model, SGLangOpenAIModel):
-                self._client = AsyncSGLangOpenAIClient(model, **kwargs)
-            elif _HAS_OPENAI_COMPAT and isinstance(model, OMLXOpenAIModel):
-                self._client = AsyncOMLXOpenAIClient(model, **kwargs)
-            else:
+            # Dispatch by the model enum's defining module + class name (mirrors the sync
+            # ModelClient). The enum classes are shared with the sync surface, so matching
+            # against the sync _TEXT_PROVIDERS table costs no import.
+            member_module = type(model).__module__
+            member_enum = type(model).__name__
+            entry = next(
+                (e for e in _TEXT_PROVIDERS if e.module == member_module and e.enum_name == member_enum),
+                None,
+            )
+            if entry is None:
                 raise ValueError(
                     f"No available async client for model type {type(model).__name__!r}. "
                     "Ensure the required optional dependency is installed."
                 )
+
+            # Guard in-process model types: refuse direct construction; point to wrapping pattern.
+            if entry.prefix in _IN_PROCESS_PREFIXES:
+                raise ValueError(_IN_PROCESS_MODEL_GUIDANCE.format(model=f"{entry.enum_name}.{model.name}"))
+
+            async_entry = _ASYNC_CLIENTS.get(entry.prefix)
+            if async_entry is None:
+                raise ValueError(
+                    f"No available async client for model type {type(model).__name__!r}. "
+                    "Ensure the required optional dependency is installed."
+                )
+            client_cls = _load_async_client(*async_entry)
+            self._client = client_cls(model, **kwargs)
 
         # Mirror attributes (super().__init__ would clobber inner client state).
         self.model = self._client.model
@@ -289,8 +231,8 @@ class AsyncModelClient(AsyncBaseModelClient):
         audio: Optional[list] = None,
         response_format: Optional[dict] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
-        # Forward response_format only when set (non-None only on the native structured path,
-        # where the inner client accepts it); parse-path inner clients never receive it.
+        # Forward response_format only when set (non-None only on the native structured
+        # path, where the inner client accepts it); parse-path inner clients never receive it.
         extra = {"response_format": response_format} if response_format is not None else {}
         return await self._client._generate(prompt, generate_kwargs, stream=stream, images=images, audio=audio, **extra)
 

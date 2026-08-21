@@ -35,9 +35,9 @@ except PackageNotFoundError:  # not installed (e.g. running from a source checko
     __version__ = "0.0.0+unknown"
 
 if TYPE_CHECKING:
+    from . import aio
     from .agents import Agent
 
-from . import aio
 from .models import (
     HAS_GEMINI_IMAGE,
     extract_tool_calls,
@@ -63,17 +63,9 @@ from .models import (
     EmbeddingSpec,
     FallbackClient,
     FallbackExhaustedError,
-    GeminiImageClient,
-    GeminiImageModel,
     GeminiImageSpec,
-    HuggingFaceAudioClient,
-    HuggingFaceAudioModel,
     HuggingFaceAudioSpec,
-    HuggingFaceImageClient,
-    HuggingFaceImageModel,
     HuggingFaceImageSpec,
-    HuggingFaceSpeechClient,
-    HuggingFaceSpeechModel,
     HuggingFaceSpeechSpec,
     ImageClient,
     ImageModel,
@@ -81,8 +73,6 @@ from .models import (
     Model,
     ModelClient,
     ModelSpec,
-    OpenAISpeechClient,
-    OpenAISpeechModel,
     OpenAISpeechSpec,
     SpeechClient,
     SpeechModel,
@@ -669,3 +659,48 @@ __all__ = [
     "transcribe",
     "transcription_client",
 ]
+
+
+# Concrete provider client/enum re-exports that must NOT be named in the eager
+# `from .models import (...)` block above: naming them there would force
+# `aimu.models.__getattr__` to import the provider (diffusers, soundfile, openai, ...)
+# at `import aimu` time, defeating the whole lazy-loading effort. Resolved here instead,
+# delegating to `aimu.models`'s own lazy resolution (None if the dep is absent, raises
+# with the cause chained if installed-but-broken).
+_LAZY_PROVIDER_SYMBOLS = frozenset(
+    {
+        "GeminiImageClient",
+        "GeminiImageModel",
+        "HuggingFaceAudioClient",
+        "HuggingFaceAudioModel",
+        "HuggingFaceImageClient",
+        "HuggingFaceImageModel",
+        "HuggingFaceSpeechClient",
+        "HuggingFaceSpeechModel",
+        "OpenAISpeechClient",
+        "OpenAISpeechModel",
+    }
+)
+
+
+def __getattr__(name: str):
+    """Resolve ``aio`` and provider re-exports on first access (PEP 562).
+
+    ``aio`` pulls in the async provider surface (and ``fastmcp``); deferring it here
+    keeps a bare ``import aimu`` cheap while ``aimu.aio`` and ``from aimu import aio``
+    both keep working unchanged.
+    """
+    if name == "aio":
+        # importlib.import_module (not `from . import aio`) sidesteps CPython's
+        # _handle_fromlist, which probes the parent package with hasattr() first --
+        # that probe would re-enter this __getattr__ and recurse indefinitely.
+        import importlib
+
+        _aio = importlib.import_module(".aio", __name__)
+        globals()["aio"] = _aio  # cache, so later attribute access is a plain lookup
+        return _aio
+    if name in _LAZY_PROVIDER_SYMBOLS:
+        from . import models as _models
+
+        return getattr(_models, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

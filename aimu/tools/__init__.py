@@ -17,11 +17,29 @@ Built-in tools live in :mod:`aimu.tools.builtin` and are grouped by domain
 ``builtin.misc``). Pass a group directly: ``Agent(client, tools=builtin.web)``.
 """
 
+from importlib import import_module
+
 from . import builtin
 from .approval import ToolApproval, approve_all
-from .client import MCPClient, MCPConnectionError
 from .context import ToolContext
 from .decorator import ToolArgumentError, ToolSignatureError, coerce_tool_arguments, tool
+
+# MCPClient / MCPConnectionError live in .client, which imports fastmcp at module level.
+# fastmcp is a required (not optional) dependency, so this isn't the HAS_*-gated pattern
+# used for provider SDKs elsewhere -- it's a plain lazy import, deferring the cost of
+# loading fastmcp (and its own dependency tree) until a caller actually touches MCP.
+_LAZY_CLIENT_SYMBOLS = frozenset({"MCPClient", "MCPConnectionError"})
+
+
+def __getattr__(name: str):
+    if name in _LAZY_CLIENT_SYMBOLS:
+        return getattr(import_module(".client", __name__), name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    return sorted({*globals(), *_LAZY_CLIENT_SYMBOLS})
+
 
 __all__ = [
     "MCPClient",

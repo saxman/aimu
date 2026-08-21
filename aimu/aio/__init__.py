@@ -61,40 +61,43 @@ from .workflows.parallel import Parallel
 from .workflows.evaluator import EvaluatorOptimizer
 from .workflows.plan_execute_evaluator import PlanExecuteEvaluator
 
-try:
-    from .providers.hf.audio import AsyncHuggingFaceAudioClient
-except ImportError:
-    AsyncHuggingFaceAudioClient = None  # type: ignore[assignment,misc]
+from importlib import import_module
 
-try:
-    from .providers.hf.image import AsyncHuggingFaceImageClient
-except ImportError:
-    AsyncHuggingFaceImageClient = None  # type: ignore[assignment,misc]
+from aimu.models._internal.factory import installed
 
-try:
-    from .providers.gemini.image import AsyncGeminiImageClient
-except ImportError:
-    AsyncGeminiImageClient = None  # type: ignore[assignment,misc]
+# symbol name -> (module, third-party dependency probed for availability)
+_LAZY_ASYNC_SYMBOLS: dict[str, tuple[str, str]] = {
+    "AsyncHuggingFaceAudioClient": ("aimu.aio.providers.hf.audio", "soundfile"),
+    "AsyncHuggingFaceImageClient": ("aimu.aio.providers.hf.image", "diffusers"),
+    "AsyncGeminiImageClient": ("aimu.aio.providers.gemini.image", "google.genai"),
+    "AsyncHuggingFaceSpeechClient": ("aimu.aio.providers.hf.speech", "soundfile"),
+    "AsyncOpenAISpeechClient": ("aimu.aio.providers.openai.speech", "openai"),
+    "AsyncHuggingFaceTranscriptionClient": ("aimu.aio.providers.hf.transcription", "transformers"),
+    "AsyncOpenAITranscriptionClient": ("aimu.aio.providers.openai_transcription", "openai"),
+}
 
-try:
-    from .providers.hf.speech import AsyncHuggingFaceSpeechClient
-except ImportError:
-    AsyncHuggingFaceSpeechClient = None  # type: ignore[assignment,misc]
 
-try:
-    from .providers.openai.speech import AsyncOpenAISpeechClient
-except ImportError:
-    AsyncOpenAISpeechClient = None  # type: ignore[assignment,misc]
+def __getattr__(name: str):
+    """Resolve async provider clients on first access (PEP 562).
 
-try:
-    from .providers.hf.transcription import AsyncHuggingFaceTranscriptionClient
-except ImportError:
-    AsyncHuggingFaceTranscriptionClient = None  # type: ignore[assignment,misc]
+    Absent dependency yields None, matching the contract the deleted except-ImportError
+    blocks established; an installed-but-broken dependency raises with the cause chained.
+    """
+    entry = _LAZY_ASYNC_SYMBOLS.get(name)
+    if entry is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module_name, requires = entry
+    if not installed(requires):
+        return None
+    try:
+        return getattr(import_module(module_name), name)
+    except ImportError as exc:
+        raise ImportError(f"{name} requires {requires!r}, which is installed but failed to import: {exc}") from exc
 
-try:
-    from .providers.openai_transcription import AsyncOpenAITranscriptionClient
-except ImportError:
-    AsyncOpenAITranscriptionClient = None  # type: ignore[assignment,misc]
+
+def __dir__() -> list[str]:
+    return sorted({*globals(), *_LAZY_ASYNC_SYMBOLS})
+
 
 __all__ = [
     "Agent",
