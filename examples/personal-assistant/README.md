@@ -100,9 +100,12 @@ in your working directory: skills under `skills/` and history in `history.json`.
 Authored skill scripts run as **real subprocesses with your user privileges, no sandbox**, exactly
 like OpenClaw and Hermes Agent. Real capability is the point of a personal assistant, but it means a
 prompt-injected or mistaken model can run arbitrary code on your machine. Only run this with a model
-and inputs you trust. The daemon prints a notice to this effect on startup. For untrusted code,
-`builtin.execute_python` is a sandboxed alternative (no filesystem or subprocess access). Script
-execution also blocks the event loop for up to its 30-second timeout.
+and inputs you trust. The daemon prints a notice to this effect on startup. AIMU has no containment
+story for untrusted code -- `builtin.execute_python` isn't one either, it just stops accidents, not a
+deliberate escape attempt. There is no in-library sandbox to fall back on; the two real options are
+gating with the `tool_approval` hook below, or shelling out to an external sandbox (container, VM,
+throwaway account) that AIMU doesn't provide. Script execution also blocks the event loop for up to
+its 30-second timeout.
 
 As a guardrail, the CLI gates the full-access `add_skill_script` tool with AIMU's
 [tool-approval hook](../../docs/how-to/gate-tool-calls.md): by default it asks for a y/n

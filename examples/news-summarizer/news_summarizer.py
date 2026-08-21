@@ -66,8 +66,9 @@ def search_recent_news(query: str, num_results: int = 8) -> str:
 
 
 # Tools every news-gathering agent gets: a news-restricted search, page fetch (which
-# prepends a "Published:" line from article metadata), the clock, and a Python sandbox
-# so the model can compute the 24-hour cutoff deterministically instead of guessing.
+# prepends a "Published:" line from article metadata), the clock, and an in-process
+# Python REPL so the model can compute the 24-hour cutoff deterministically instead
+# of guessing.
 TOOLS = [search_recent_news, builtin.get_webpage, builtin.get_current_date_and_time, builtin.execute_python]
 
 # Cap output length per turn so a long multi-article digest isn't truncated mid-stream.

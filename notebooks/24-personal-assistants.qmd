@@ -134,7 +134,7 @@ print("Discoverable now:", "weekly-review" in manager.skills)
 
 A skill can bundle executable scripts. AIMU registers every `scripts/*.py` and `scripts/*.sh` as a `{skill}__{stem}` tool that runs the script as a subprocess (`.py` via the current Python, `.sh` via `bash`), with an optional `args` string forwarded to the script. `write_skill(..., scripts={...})` authors them; below we run them directly via the skills server.
 
-> **Full access.** Skill scripts run with your user privileges, no sandbox (the OpenClaw/Hermes model). Only enable this for a model and inputs you trust. `builtin.execute_python` is the sandboxed alternative.
+> **Full access.** Skill scripts run with your user privileges, no sandbox (the OpenClaw/Hermes model). Only enable this for a model and inputs you trust. AIMU ships no sandbox at all -- `builtin.execute_python` included, which only stops accidents, not a deliberate attempt. For untrusted input, gate script authoring/execution behind `tool_approval`, or run the code in an external sandbox this library doesn't provide.
 
 ```{python}
 from aimu.skills import build_skills_server, write_skill

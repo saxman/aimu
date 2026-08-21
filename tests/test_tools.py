@@ -495,22 +495,47 @@ def test_execute_python_not_in_all_tools():
     assert builtin.execute_python not in builtin.ALL_TOOLS
 
 
-def test_make_tools_python_sandbox_kwarg():
+def test_make_tools_allow_code_execution_kwarg():
     from unittest.mock import MagicMock
 
     client = MagicMock()
     client.model.supports_vision = False
-    tools = builtin.make_tools(client, python_sandbox=True)
+    tools = builtin.make_tools(client, allow_code_execution=True)
     assert builtin.execute_python in tools
 
 
-def test_make_tools_python_sandbox_false_by_default():
+def test_make_tools_allow_code_execution_false_by_default():
     from unittest.mock import MagicMock
 
     client = MagicMock()
     client.model.supports_vision = False
     tools = builtin.make_tools(client)
     assert builtin.execute_python not in tools
+
+
+def test_execute_python_does_not_claim_to_be_a_sandbox():
+    """The docstring is what the model reads; it must not promise containment.
+
+    Both claims it used to make are one-liners to defeat:
+      ().__class__.__mro__[-1].__subclasses__()  ->  subprocess.Popen
+      json.codecs.sys.modules["os"].getcwd()     ->  the filesystem
+    """
+    from aimu.tools.builtin import execute_python
+
+    doc = execute_python.__doc__.lower()
+    assert "sandbox" not in doc
+    assert "not available" not in doc
+    assert "not a security boundary" in doc
+
+
+def test_make_tools_uses_the_honest_kwarg():
+    import inspect
+
+    from aimu.tools.builtin import make_tools
+
+    params = inspect.signature(make_tools).parameters
+    assert "allow_code_execution" in params
+    assert "python_sandbox" not in params
 
 
 # ---------------------------------------------------------------------------

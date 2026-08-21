@@ -324,7 +324,7 @@ def calculate(expression: str) -> str:
         return f"Error: {e}"
 
 
-# Modules allowed inside the execute_python sandbox.
+# Modules allowlisted for execute_python.
 _SANDBOX_ALLOWLIST = frozenset(
     [
         "math",
@@ -350,12 +350,17 @@ _SANDBOX_BUILTINS = {
 
 @tool
 def execute_python(code: str) -> str:
-    """Execute Python code in a sandboxed environment and return the output.
+    """Execute Python code in this process and return its output.
 
-    Captures stdout and the value of the last expression. Imports are limited
-    to: math, statistics, json, re, itertools, functools, datetime, zoneinfo,
-    and numpy/pandas/scipy/matplotlib when installed. File system and subprocess
-    access are not available.
+    NOT A SECURITY BOUNDARY. Code runs in the calling process with restricted builtins
+    and an import allowlist, which stops accidents, not attempts: a one-line expression
+    reaches `subprocess.Popen` through the type hierarchy, and the filesystem through an
+    allowlisted module's transitive attributes. Treat any code reaching this tool as code
+    you have chosen to run. Gate it with `tool_approval` when the caller is untrusted.
+
+    Captures stdout and the value of the last expression. Pre-imports math, statistics,
+    json, re, itertools, functools, datetime, zoneinfo, and numpy/pandas/scipy/matplotlib
+    when installed.
 
     Args:
         code: Python code to execute.
@@ -372,7 +377,7 @@ def execute_python(code: str) -> str:
 
     def _restricted_import(name, globals=None, locals=None, fromlist=(), level=0):
         if name.split(".")[0] not in _SANDBOX_ALLOWLIST:
-            raise ImportError(f"'{name}' is not available in the sandbox")
+            raise ImportError(f"'{name}' is not in the execute_python import allowlist")
         return _real_import(name, globals, locals, fromlist, level)
 
     sandbox_builtins = {**_SANDBOX_BUILTINS, "__import__": _restricted_import}
@@ -933,7 +938,7 @@ def make_tools(
     audio_steps: Optional[int] = None,
     speech_client=None,
     memory_store=None,
-    python_sandbox: bool = False,
+    allow_code_execution: bool = False,
 ):
     """Assemble the standard tool list for a chat client.
 
@@ -949,9 +954,8 @@ def make_tools(
       singleton with one bound to that client.
     - If *memory_store* is provided, appends ``store_memory``, ``search_memories``,
       and ``list_memories`` tools bound to that store.
-    - If *python_sandbox* is ``True``, appends :func:`execute_python` so the
-      agent can run sandboxed Python code. Not included by default because code
-      execution carries higher risk than other built-in tools.
+    - If *allow_code_execution* is ``True``, appends :func:`execute_python`.
+      Read its docstring first; it is not a sandbox.
     """
     tools = list(ALL_TOOLS)
     if image_client is not None:
@@ -967,7 +971,7 @@ def make_tools(
         tools = [t for t in tools if t is not generate_speech] + [bound_speech]
     if memory_store is not None:
         tools.extend(make_memory_tools(memory_store))
-    if python_sandbox:
+    if allow_code_execution:
         tools.append(execute_python)
     return tools
 
@@ -1654,9 +1658,8 @@ def make_transcription_tool(client):
 
 transcription = [transcribe_audio]
 
-# execute_python is in the compute subgroup for discoverability but intentionally
-# excluded from ALL_TOOLS; code execution is higher-risk than other builtins.
-# Opt in explicitly via ``tools=builtin.compute`` or ``make_tools(python_sandbox=True)``.
+# execute_python is excluded from ALL_TOOLS: it runs code in this process with no
+# containment, so it is opt-in via builtin.compute or make_tools(allow_code_execution=True).
 ALL_TOOLS = [
     *misc,
     *time,

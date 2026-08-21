@@ -379,7 +379,7 @@ AIMU supports two tool registration routes that can be combined on the same clie
 - **[aimu/tools/builtin.py](aimu/tools/builtin.py)**: built-in general-purpose tools, each decorated with `@tool` for direct in-process use. Pass an entire subgroup with `tools=builtin.web + [my_tool]`:
   - **`builtin.web`**: `get_weather`, `get_webpage`, `get_webpage_html`, `search`, `wikipedia`
   - **`builtin.fs`**: `list_directory`, `read_file`
-  - **`builtin.compute`**: `calculate`, `execute_python` (sandboxed Python REPL; see below)
+  - **`builtin.compute`**: `calculate`, `execute_python` (in-process Python REPL, not a sandbox; see below)
   - **`builtin.time`**: `get_current_date_and_time`, `convert_time` (its own group so a role scoped to other work can still be given a clock without `echo`)
   - **`builtin.misc`**: `echo`
   - **`builtin.ALL_TOOLS`**: flat list of every built-in (kept for back-compat)
@@ -395,7 +395,7 @@ AIMU supports two tool registration routes that can be combined on the same clie
   - `convert_time(datetime_str, from_timezone, to_timezone)`: Converts an ISO-8601 timestamp between IANA zones, DST-correct. Flags times a DST transition makes nonexistent (spring-forward gap) or ambiguous (fall-back overlap); an input that already carries an offset keeps it and the output notes that `from_timezone` was ignored
   - `get_weather(location)`: Current weather via Open-Meteo API (city name or coordinates)
   - `calculate(expression)`: Safe arithmetic expression evaluator
-  - `execute_python(code)`: Sandboxed Python REPL. Executes `code` in a fresh `exec()` namespace per call; captures stdout and returns the last expression value. Allowed imports: `math`, `statistics`, `json`, `re`, `itertools`, `functools`, `datetime`, `zoneinfo`, and `numpy`/`pandas`/`scipy`/`matplotlib` when installed. Filesystem (`open`, `os`, `pathlib`) and subprocess access are blocked. **Not in `ALL_TOOLS` by default**; opt in via `tools=builtin.compute` or `make_tools(..., python_sandbox=True)`.
+  - `execute_python(code)`: In-process Python REPL, opt-in. Executes `code` in a fresh `exec()` namespace per call; captures stdout and returns the last expression value. Pre-imports `math`, `statistics`, `json`, `re`, `itertools`, `functools`, `datetime`, `zoneinfo`, and `numpy`/`pandas`/`scipy`/`matplotlib` when installed. **Not a security boundary** -- restricted builtins and an import allowlist stop accidents, not attempts. **Not in `ALL_TOOLS`**; opt in via `tools=builtin.compute` or `make_tools(..., allow_code_execution=True)`.
   - `get_webpage(url)`: Fetches page and returns visible text with HTML stripped
   - `get_webpage_html(url)`: Fetches page and returns raw HTML markup (truncated); stateless, server-rendered HTML only. For form inspection/submission with cookies, use `make_web_tools()`
   - `search(query, num_results)`: Web search via SearXNG (`SEARXNG_BASE_URL` env var)
@@ -977,7 +977,7 @@ Key files and their roles:
 - **[aimu/tools/builtin.py](aimu/tools/builtin.py)**: `generate_audio` generator tool + `make_audio_tool()` factory (parallel to image equivalents):
   - `generate_audio(prompt: str)` is a generator `@tool` yielding `AUDIO_GENERATING` chunks and returning the saved file path. Backed by a lazy `_audio_client` singleton; model via `AIMU_AUDIO_MODEL` env var (**required**; the tool raises if unset; no default is downloaded).
   - `make_audio_tool(client, *, duration_s=None)`: binds a fresh tool to a caller-supplied client.
-  - `make_tools(base_client, image_client=None, preview_every=None, audio_client=None, speech_client=None, memory_store=None, python_sandbox=False)`: `audio_client` and `speech_client` kwargs replace their respective singletons when provided; `memory_store` appends `make_memory_tools(store)` when set; `python_sandbox=True` appends `execute_python`.
+  - `make_tools(base_client, image_client=None, preview_every=None, audio_client=None, speech_client=None, memory_store=None, allow_code_execution=False)`: `audio_client` and `speech_client` kwargs replace their respective singletons when provided; `memory_store` appends `make_memory_tools(store)` when set; `allow_code_execution=True` appends `execute_python`.
   - New subgroup `audio = [generate_audio]` (parallel to `image`); included in `ALL_TOOLS`.
 
 - **Async twin**: full mirror under `aimu.aio`:

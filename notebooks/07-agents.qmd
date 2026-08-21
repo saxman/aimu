@@ -274,7 +274,7 @@ print(result)
 
 ## F - execute_python Tool
 
-The `execute_python` built-in runs sandboxed Python code inside an agent -- useful for data analysis and computation. It is in `builtin.compute` but not `ALL_TOOLS`; opt in explicitly.
+The `execute_python` built-in runs Python code in-process inside an agent -- useful for data analysis and computation. It is **not a security boundary** (restricted builtins and an import allowlist stop accidents, not attempts), so it is in `builtin.compute` but not `ALL_TOOLS`; opt in explicitly.
 
 ```{python}
 from aimu.tools import builtin

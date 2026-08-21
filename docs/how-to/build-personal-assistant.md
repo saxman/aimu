@@ -161,8 +161,11 @@ write_skill(
 !!! danger "Scripts run with full access (no sandbox)"
     Skill scripts execute as real subprocesses with your user privileges, exactly like OpenClaw and
     Hermes Agent. There is no sandbox. Only run an assistant that can author/run scripts with a model
-    and inputs you trust. (`builtin.execute_python` is the sandboxed alternative for untrusted code:
-    no filesystem or subprocess access.) The subprocess also blocks the event loop for up to its
+    and inputs you trust. AIMU ships no containment boundary for untrusted code -- `builtin.execute_python`
+    is not one either; it stops accidents, not attempts, from code you've already chosen to run. For
+    untrusted input, gate the authoring/execution tools with a [`tool_approval`](gate-tool-calls.md)
+    hook, or run generated code in an external sandbox (a container, a VM, a locked-down user account)
+    that this library does not provide. The subprocess also blocks the event loop for up to its
     30-second timeout.
 
 Because of that, the example gates the full-access `add_skill_script` tool with a
