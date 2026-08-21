@@ -68,3 +68,40 @@ def test_import_aimu_does_not_load_torch_or_transformers():
     loaded = loaded_modules()
     assert "torch" not in loaded
     assert "transformers" not in loaded
+
+
+def test_has_flags_do_not_import_their_providers():
+    """Reading every HAS_* flag must stay import-free."""
+    probe = """
+import sys, json
+import aimu.models as m
+[getattr(m, n) for n in dir(m) if n.startswith("HAS_")]
+json.dump(sorted({k.split(".")[0] for k in sys.modules}), sys.stdout)
+"""
+    proc = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, check=True)
+    loaded = set(json.loads(proc.stdout))
+    assert "torch" not in loaded
+    assert "sentence_transformers" not in loaded
+
+
+def test_absent_provider_symbol_is_none_not_an_error():
+    """Today's contract: a provider symbol whose dep is missing evaluates to None."""
+    probe = """
+import sys, json
+from unittest import mock
+import importlib.util as u
+
+real = u.find_spec
+def fake(name, package=None):
+    if name == "ollama":
+        return None
+    return real(name, package)
+
+with mock.patch.object(u, "find_spec", fake):
+    import aimu.models as m
+    json.dump({"flag": m.HAS_OLLAMA, "sym": m.OllamaModel is None}, sys.stdout)
+"""
+    proc = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, check=True)
+    out = json.loads(proc.stdout)
+    assert out["flag"] is False
+    assert out["sym"] is True

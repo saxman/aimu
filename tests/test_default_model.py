@@ -6,6 +6,7 @@ and the omitted-``model`` wiring on the top-level ``aimu.*`` entry points.
 
 from __future__ import annotations
 
+import importlib.machinery
 import sys
 import types
 
@@ -287,7 +288,12 @@ def _fake_openai_serving(*ids):
         def __init__(self, **kwargs):
             self.models = _FakeModels()
 
-    return types.SimpleNamespace(OpenAI=_FakeOpenAI)
+    # A real __spec__ so `importlib.util.find_spec("openai")` (which `installed()` -- and
+    # now the lazy `aimu.models.__getattr__` -- calls) reports this stub as installed,
+    # rather than raising ValueError on a spec-less sys.modules entry.
+    stub = types.SimpleNamespace(OpenAI=_FakeOpenAI)
+    stub.__spec__ = importlib.machinery.ModuleSpec("openai", None)
+    return stub
 
 
 @pytest.mark.skipif(not aimu.models.HAS_OPENAI_COMPAT, reason="openai-compat providers not installed")
