@@ -56,16 +56,12 @@ name = "aimu"
 version = "0.18.0"
 source = { editable = "." }
 dependencies = [
-    { name = "chromadb" },
     { name = "fastmcp" },
-    { name = "nest-asyncio" },
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "requests" },
-    { name = "sqlalchemy" },
     { name = "tinydb" },
     { name = "tzdata", marker = "sys_platform == 'win32'" },
-    { name = "watchdog" },
 ]
 
 [package.optional-dependencies]
@@ -78,6 +74,7 @@ all = [
     { name = "accelerate" },
     { name = "anthropic" },
     { name = "bitsandbytes" },
+    { name = "chromadb" },
     { name = "deepeval" },
     { name = "diffusers" },
     { name = "google-genai" },
@@ -93,6 +90,7 @@ all = [
     { name = "sentence-transformers" },
     { name = "sentencepiece" },
     { name = "soundfile" },
+    { name = "sqlalchemy" },
     { name = "starlette" },
     { name = "streamlit" },
     { name = "torch" },
@@ -139,6 +137,9 @@ hf = [
 llamacpp = [
     { name = "llama-cpp-python" },
 ]
+memory = [
+    { name = "chromadb" },
+]
 notebooks = [
     { name = "jupyter" },
     { name = "jupytext" },
@@ -148,6 +149,9 @@ ollama = [
 ]
 openai-compat = [
     { name = "openai" },
+]
+prompts = [
+    { name = "sqlalchemy" },
 ]
 tuning = [
     { name = "pandas" },
@@ -164,10 +168,10 @@ web = [
 requires-dist = [
     { name = "a2a-sdk", marker = "extra == 'a2a'", specifier = ">=0.3.24,<0.4" },
     { name = "accelerate", marker = "extra == 'hf'" },
-    { name = "aimu", extras = ["ollama", "anthropic", "openai-compat", "google", "llamacpp", "hf", "web", "tuning", "evals", "a2a"], marker = "extra == 'all'" },
+    { name = "aimu", extras = ["ollama", "anthropic", "openai-compat", "google", "llamacpp", "hf", "web", "tuning", "evals", "a2a", "memory", "prompts"], marker = "extra == 'all'" },
     { name = "anthropic", marker = "extra == 'anthropic'", specifier = ">=0.50.0" },
     { name = "bitsandbytes", marker = "extra == 'hf'" },
-    { name = "chromadb" },
+    { name = "chromadb", marker = "extra == 'memory'" },
     { name = "deepeval", marker = "extra == 'evals'" },
     { name = "diffusers", marker = "extra == 'hf'", specifier = ">=0.30" },
     { name = "fastmcp" },
@@ -181,7 +185,6 @@ requires-dist = [
     { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.6" },
     { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.5" },
     { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'", specifier = ">=0.27" },
-    { name = "nest-asyncio" },
     { name = "ollama", marker = "extra == 'ollama'" },
     { name = "openai", marker = "extra == 'openai-compat'", specifier = ">=1.0.0" },
     { name = "pandas", marker = "extra == 'tuning'" },
@@ -197,7 +200,7 @@ requires-dist = [
     { name = "sentence-transformers", marker = "extra == 'hf'", specifier = ">=3" },
     { name = "sentencepiece", marker = "extra == 'hf'" },
     { name = "soundfile", marker = "extra == 'hf'" },
-    { name = "sqlalchemy" },
+    { name = "sqlalchemy", marker = "extra == 'prompts'" },
     { name = "starlette", marker = "extra == 'web'" },
     { name = "streamlit", marker = "extra == 'web'" },
     { name = "tinydb" },
@@ -208,9 +211,8 @@ requires-dist = [
     { name = "tzdata", marker = "sys_platform == 'win32'" },
     { name = "uvicorn", marker = "extra == 'a2a'", specifier = ">=0.30" },
     { name = "uvicorn", marker = "extra == 'web'", specifier = ">=0.30" },
-    { name = "watchdog" },
 ]
-provides-extras = ["ollama", "anthropic", "openai-compat", "google", "llamacpp", "hf", "web", "tuning", "evals", "a2a", "dev", "notebooks", "docs", "all"]
+provides-extras = ["ollama", "anthropic", "openai-compat", "google", "llamacpp", "hf", "web", "tuning", "evals", "a2a", "memory", "prompts", "dev", "notebooks", "docs", "all"]
 
 [[package]]
 name = "aiofile"

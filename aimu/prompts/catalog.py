@@ -19,8 +19,11 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, create_engine, desc
-from sqlalchemy.orm import declarative_base, sessionmaker
+try:
+    from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, create_engine, desc
+    from sqlalchemy.orm import declarative_base, sessionmaker
+except ImportError as exc:  # pragma: no cover - exercised via tests/test_optional_extras.py
+    raise ImportError("PromptCatalog requires the [prompts] extra (sqlalchemy): pip install 'aimu[prompts]'") from exc
 
 Base = declarative_base()
 

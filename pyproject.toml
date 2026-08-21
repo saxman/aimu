@@ -7,11 +7,7 @@ requires-python = ">=3.11"
 license = {file = "LICENSE"}
 
 dependencies = [
-    "sqlalchemy",
-    "chromadb",
     "fastmcp",
-    "nest_asyncio",
-    "watchdog",
     "tinydb",
     "requests",
     "python-dotenv",
@@ -97,6 +93,15 @@ a2a = [
     "a2a-sdk>=0.3.24,<0.4",
     "uvicorn>=0.30",
 ]
+memory = [
+    # Vector-backed semantic memory (SemanticMemoryStore). chromadb pulls onnxruntime,
+    # grpcio, and opentelemetry, so it is an extra rather than a core dependency.
+    "chromadb",
+]
+prompts = [
+    # Versioned prompt storage (PromptCatalog).
+    "sqlalchemy",
+]
 
 # === Development tooling ===
 # For working on AIMU itself; not part of `all`.
@@ -125,7 +130,7 @@ docs = [
 ]
 
 # Every provider backend + every runtime capability (development tooling excluded).
-all = ["aimu[ollama,anthropic,openai_compat,google,llamacpp,hf,web,tuning,evals,a2a]"]
+all = ["aimu[ollama,anthropic,openai_compat,google,llamacpp,hf,web,tuning,evals,a2a,memory,prompts]"]
 
 [build-system]
 requires = ["setuptools"]
