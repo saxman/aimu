@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Union
 
 from .base import AdHocModel, BaseModelClient, Model, ModelSpec, StreamChunk
+from ._internal.factory import ProviderEntry, installed
 from ._internal.model_defaults import available_text_models, resolve_default_text_model_enum
 from ._internal.model_string import parse_model_string
 
@@ -18,103 +19,43 @@ __all__ = [
     "resolve_model_string",
 ]
 
-# --- Optional provider imports ---
+_OPENAI_COMPAT = "aimu.models.providers.openai_compat"
 
-try:
-    from .providers.ollama import OllamaClient, OllamaModel
+# Provider table: described, not imported. `requires` is the third-party module probed
+# for availability; nothing here loads until _load_provider asks for one row.
+_TEXT_PROVIDERS: list[ProviderEntry] = [
+    ProviderEntry("ollama", "aimu.models.providers.ollama", "OllamaModel", "OllamaClient", "ollama", ""),
+    ProviderEntry("hf", "aimu.models.providers.hf.text", "HuggingFaceModel", "HuggingFaceClient", "transformers", ""),
+    ProviderEntry("anthropic", "aimu.models.providers.anthropic", "AnthropicModel", "AnthropicClient", "anthropic", ""),
+    ProviderEntry("openai", "aimu.models.providers.openai.text", "OpenAIModel", "OpenAIClient", "openai", ""),
+    ProviderEntry("gemini", "aimu.models.providers.gemini.text", "GeminiModel", "GeminiClient", "openai", ""),
+    ProviderEntry("lmstudio", _OPENAI_COMPAT, "LMStudioOpenAIModel", "LMStudioOpenAIClient", "openai", ""),
+    ProviderEntry("ollama-openai", _OPENAI_COMPAT, "OllamaOpenAIModel", "OllamaOpenAIClient", "openai", ""),
+    ProviderEntry("hf-openai", _OPENAI_COMPAT, "HFOpenAIModel", "HFOpenAIClient", "openai", ""),
+    ProviderEntry("vllm", _OPENAI_COMPAT, "VLLMOpenAIModel", "VLLMOpenAIClient", "openai", ""),
+    ProviderEntry("llamaserver", _OPENAI_COMPAT, "LlamaServerOpenAIModel", "LlamaServerOpenAIClient", "openai", ""),
+    ProviderEntry("sglang", _OPENAI_COMPAT, "SGLangOpenAIModel", "SGLangOpenAIClient", "openai", ""),
+    ProviderEntry("omlx", _OPENAI_COMPAT, "OMLXOpenAIModel", "OMLXOpenAIClient", "openai", ""),
+    ProviderEntry("llamacpp", "aimu.models.providers.llamacpp", "LlamaCppModel", "LlamaCppClient", "llama_cpp", ""),
+]
 
-    _HAS_OLLAMA = True
-except ImportError:
-    _HAS_OLLAMA = False
-    OllamaClient = None  # type: ignore[assignment,misc]
-    OllamaModel = None  # type: ignore[assignment,misc]
 
-try:
-    from .providers.hf.text import HuggingFaceClient, HuggingFaceModel
-
-    _HAS_HF = True
-except ImportError:
-    _HAS_HF = False
-    HuggingFaceClient = None  # type: ignore[assignment,misc]
-    HuggingFaceModel = None  # type: ignore[assignment,misc]
-
-try:
-    from .providers.anthropic import AnthropicClient, AnthropicModel
-
-    _HAS_ANTHROPIC = True
-except ImportError:
-    _HAS_ANTHROPIC = False
-    AnthropicClient = None  # type: ignore[assignment,misc]
-    AnthropicModel = None  # type: ignore[assignment,misc]
-
-try:
-    from .providers.gemini.text import GeminiClient, GeminiModel
-    from .providers.openai.text import OpenAIClient, OpenAIModel
-    from .providers.openai_compat import (
-        HFOpenAIClient,
-        HFOpenAIModel,
-        LlamaServerOpenAIClient,
-        LlamaServerOpenAIModel,
-        LMStudioOpenAIClient,
-        LMStudioOpenAIModel,
-        OllamaOpenAIClient,
-        OllamaOpenAIModel,
-        OMLXOpenAIClient,
-        OMLXOpenAIModel,
-        OpenAICompatClient,
-        SGLangOpenAIClient,
-        SGLangOpenAIModel,
-        VLLMOpenAIClient,
-        VLLMOpenAIModel,
-    )
-
-    _HAS_OPENAI_COMPAT = True
-except ImportError:
-    _HAS_OPENAI_COMPAT = False
-    OpenAIClient = GeminiClient = LMStudioOpenAIClient = OllamaOpenAIClient = None  # type: ignore[assignment,misc]
-    HFOpenAIClient = VLLMOpenAIClient = LlamaServerOpenAIClient = SGLangOpenAIClient = None  # type: ignore[assignment,misc]
-    OMLXOpenAIClient = None  # type: ignore[assignment,misc]
-    OpenAICompatClient = None  # type: ignore[assignment,misc]
-    OpenAIModel = GeminiModel = LMStudioOpenAIModel = OllamaOpenAIModel = None  # type: ignore[assignment,misc]
-    HFOpenAIModel = VLLMOpenAIModel = LlamaServerOpenAIModel = SGLangOpenAIModel = None  # type: ignore[assignment,misc]
-    OMLXOpenAIModel = None  # type: ignore[assignment,misc]
-
-try:
-    from .providers.llamacpp import LlamaCppClient, LlamaCppModel
-
-    _HAS_LLAMACPP = True
-except ImportError:
-    _HAS_LLAMACPP = False
-    LlamaCppClient = None  # type: ignore[assignment,misc]
-    LlamaCppModel = None  # type: ignore[assignment,misc]
+def _load_provider(prefix: str) -> Optional[tuple[Any, Any]]:
+    """``(ModelEnum, ClientClass)`` for one provider, or None when its dep is absent."""
+    entry = next((e for e in _TEXT_PROVIDERS if e.prefix == prefix), None)
+    if entry is None or not entry.available:
+        return None
+    return entry.load()
 
 
 def _provider_registry() -> dict[str, tuple[Any, Any]]:
     """Map ``"provider"`` strings to ``(ModelEnum, ClientClass)`` pairs.
 
-    Only available providers (whose optional dependency is installed) appear in the table.
-    Used by :func:`resolve_model_string` to look up a model by string identifier.
+    Only installed providers appear. This imports every installed provider, so it is for
+    the paths that genuinely need to search them all -- bare-name resolution and
+    discovery. Anything that knows its provider should call :func:`_load_provider`.
     """
-    registry: dict[str, tuple[Any, Any]] = {}
-    if _HAS_OLLAMA:
-        registry["ollama"] = (OllamaModel, OllamaClient)
-    if _HAS_HF:
-        registry["hf"] = (HuggingFaceModel, HuggingFaceClient)
-    if _HAS_ANTHROPIC:
-        registry["anthropic"] = (AnthropicModel, AnthropicClient)
-    if _HAS_OPENAI_COMPAT:
-        registry["openai"] = (OpenAIModel, OpenAIClient)
-        registry["gemini"] = (GeminiModel, GeminiClient)
-        registry["lmstudio"] = (LMStudioOpenAIModel, LMStudioOpenAIClient)
-        registry["ollama-openai"] = (OllamaOpenAIModel, OllamaOpenAIClient)
-        registry["hf-openai"] = (HFOpenAIModel, HFOpenAIClient)
-        registry["vllm"] = (VLLMOpenAIModel, VLLMOpenAIClient)
-        registry["llamaserver"] = (LlamaServerOpenAIModel, LlamaServerOpenAIClient)
-        registry["sglang"] = (SGLangOpenAIModel, SGLangOpenAIClient)
-        registry["omlx"] = (OMLXOpenAIModel, OMLXOpenAIClient)
-    if _HAS_LLAMACPP:
-        registry["llamacpp"] = (LlamaCppModel, LlamaCppClient)
-    return registry
+    return {e.prefix: e.load() for e in _TEXT_PROVIDERS if e.available}
 
 
 def resolve_model_string(model_str: str) -> Model:
@@ -128,18 +69,19 @@ def resolve_model_string(model_str: str) -> Model:
 
     Raises ``ValueError`` with the list of valid ids when the provider or id is unknown.
     """
+    available_providers = sorted(e.prefix for e in _TEXT_PROVIDERS if e.available)
     if ":" not in model_str:
         raise ValueError(
             f"Model string must be in 'provider:model_id' form, got: {model_str!r}. "
-            f"Available providers: {sorted(_provider_registry())}"
+            f"Available providers: {available_providers}"
         )
     provider, _, model_id = model_str.partition(":")
-    registry = _provider_registry()
-    if provider not in registry:
+    loaded = _load_provider(provider)
+    if loaded is None:
         raise ValueError(
-            f"Unknown provider {provider!r}. Available providers (with installed deps): {sorted(registry)}"
+            f"Unknown provider {provider!r}. Available providers (with installed deps): {available_providers}"
         )
-    model_enum, _ = registry[provider]
+    model_enum, _ = loaded
     for member in model_enum:
         if member.value == model_id:
             return member
@@ -199,7 +141,7 @@ def resolve_model(model_str: str) -> ResolvedModel:
     provider, model_id, base_url, flags = parsed.provider, parsed.model_id, parsed.base_url, parsed.flags
 
     if provider == _GENERIC_COMPAT_PROVIDER:
-        if not _HAS_OPENAI_COMPAT:
+        if not installed("openai"):
             raise ImportError("The 'openai-compat' provider requires the openai-compatible extra.")
         if base_url is None:
             raise ValueError(f"Provider {provider!r} requires an endpoint: use 'openai-compat:<model_id>@<base_url>'.")
@@ -209,7 +151,7 @@ def resolve_model(model_str: str) -> ResolvedModel:
     if provider not in registry:
         # ``openai-compat`` is only usable when the openai_compat extra is installed; don't
         # advertise it as available otherwise (it would fail with a different ImportError).
-        available = sorted(list(registry) + ([_GENERIC_COMPAT_PROVIDER] if _HAS_OPENAI_COMPAT else []))
+        available = sorted(list(registry) + ([_GENERIC_COMPAT_PROVIDER] if installed("openai") else []))
         raise ValueError(f"Unknown provider {provider!r}. Available providers (with installed deps): {available}")
 
     if base_url is not None and provider not in _BASE_URL_PROVIDERS:
@@ -235,6 +177,8 @@ def resolve_model(model_str: str) -> ResolvedModel:
 def _sync_compat_client(provider: str):
     """The sync OpenAI-compat client class for an ad-hoc model's provider prefix."""
     if provider == _GENERIC_COMPAT_PROVIDER:
+        from .providers.openai_compat import OpenAICompatClient
+
         return OpenAICompatClient
     return _provider_registry()[provider][1]
 
@@ -340,40 +284,23 @@ class ModelClient(BaseModelClient):
                 "'provider:model_id' string. ModelSpec is the value type held by enum members."
             )
 
-        # Dispatch to concrete client by model enum type.
-        # isinstance checks are guarded by _HAS_* flags (short-circuit and) so
-        # that a None model class from a missing optional dep never reaches isinstance().
-        if _HAS_OLLAMA and isinstance(model, OllamaModel):
-            self._client: BaseModelClient = OllamaClient(model, **kwargs)
-        elif _HAS_HF and isinstance(model, HuggingFaceModel):
-            self._client = HuggingFaceClient(model, **kwargs)
-        elif _HAS_ANTHROPIC and isinstance(model, AnthropicModel):
-            self._client = AnthropicClient(model, **kwargs)
-        elif _HAS_OPENAI_COMPAT and isinstance(model, OpenAIModel):
-            self._client = OpenAIClient(model, **kwargs)
-        elif _HAS_OPENAI_COMPAT and isinstance(model, GeminiModel):
-            self._client = GeminiClient(model, **kwargs)
-        elif _HAS_OPENAI_COMPAT and isinstance(model, LMStudioOpenAIModel):
-            self._client = LMStudioOpenAIClient(model, **kwargs)
-        elif _HAS_OPENAI_COMPAT and isinstance(model, OllamaOpenAIModel):
-            self._client = OllamaOpenAIClient(model, **kwargs)
-        elif _HAS_OPENAI_COMPAT and isinstance(model, HFOpenAIModel):
-            self._client = HFOpenAIClient(model, **kwargs)
-        elif _HAS_OPENAI_COMPAT and isinstance(model, VLLMOpenAIModel):
-            self._client = VLLMOpenAIClient(model, **kwargs)
-        elif _HAS_OPENAI_COMPAT and isinstance(model, LlamaServerOpenAIModel):
-            self._client = LlamaServerOpenAIClient(model, **kwargs)
-        elif _HAS_OPENAI_COMPAT and isinstance(model, SGLangOpenAIModel):
-            self._client = SGLangOpenAIClient(model, **kwargs)
-        elif _HAS_OPENAI_COMPAT and isinstance(model, OMLXOpenAIModel):
-            self._client = OMLXOpenAIClient(model, **kwargs)
-        elif _HAS_LLAMACPP and isinstance(model, LlamaCppModel):
-            self._client = LlamaCppClient(model, **kwargs)
-        else:
+        # Dispatch to concrete client by the model enum's defining module + class name.
+        # Matching on both is required: the nine OpenAI-compatible providers share one
+        # module (aimu.models.providers.openai_compat), so the module alone would not
+        # identify the row.
+        member_module = type(model).__module__
+        member_enum = type(model).__name__
+        entry = next(
+            (e for e in _TEXT_PROVIDERS if e.module == member_module and e.enum_name == member_enum),
+            None,
+        )
+        if entry is None:
             raise ValueError(
                 f"No available client for model type {type(model).__name__!r}. "
-                "Ensure the required optional dependency is installed (e.g. pip install aimu[ollama])."
+                "Ensure the required optional dependency is installed."
             )
+        _enum_cls, client_cls = entry.load()
+        self._client: BaseModelClient = client_cls(model, **kwargs)
 
         # Mirror non-mutable attributes so callers can read them directly on this wrapper.
         # super().__init__() is intentionally not called; it would reset inner client state.

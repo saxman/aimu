@@ -62,3 +62,9 @@ def test_unknown_dependency_is_unavailable_not_an_error():
         install_hint="never",
     )
     assert entry.available is False
+
+
+def test_import_aimu_does_not_load_torch_or_transformers():
+    loaded = loaded_modules()
+    assert "torch" not in loaded
+    assert "transformers" not in loaded
