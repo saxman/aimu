@@ -795,6 +795,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -847,6 +851,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/compare-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compare models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -1676,6 +1708,34 @@
     
   
     Build an orchestrator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/spawn-subagents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spawn sub-agents
   
 
     
@@ -3323,6 +3383,7 @@ cell-by-cell. For interactive execution, pick one:</p>
 <li><strong>Plain Python over framework primitives.</strong> No <code>Runnable</code> protocol, no <code>BaseTool</code>, no LCEL <code>|</code>, no Pydantic for tool args. See <a href="../explanation/design-principles/">design principles</a> for the full list of what's deliberately out of scope.</li>
 <li><strong>OpenAI message dicts as the only data model.</strong> No <code>Message</code> class. Provider-specific formats are adapted at request time, never persisted.</li>
 <li><strong>Loud failures.</strong> Bad input raises with an actionable message. Silent skips and <code>try/except: pass</code> are reviewed carefully.</li>
+<li><strong>Legibility beats convenience.</strong> AIMU exists so people can find out what models and systems can actually do, so the question a review asks is: <em>does this make a model's real behaviour more legible, or does it hide it?</em> A change that is more convenient but obscures what the model did (a silent fallback, a swallowed capability mismatch, a wrapper that hides the request) is working against the point, however clean it looks.</li>
 </ul>
 <h2 id="adding-a-new-provider">Adding a new provider<a class="headerlink" href="#adding-a-new-provider" title="Permanent link">&para;</a></h2>
 <p>Write a client module under <code>aimu/models/providers/</code> (a flat <code>providers/&lt;name&gt;.py</code>, or a <code>providers/&lt;name&gt;/&lt;modality&gt;.py</code> subpackage only if the provider ships several standalone modality clients), subclass <code>BaseModelClient</code> (or <code>OpenAICompatClient</code> for OpenAI-compatible endpoints), wire it into the <code>ModelClient</code> factory and <code>_provider_registry()</code>, export it from <code>aimu/models/__init__.py</code> under a <code>HAS_*</code> flag, and mirror it on the async surface.</p>

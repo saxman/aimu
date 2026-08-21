@@ -799,6 +799,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -854,6 +858,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compare-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compare models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -1683,6 +1715,34 @@
     
   
     Build an orchestrator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../spawn-subagents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spawn sub-agents
   
 
     
@@ -3166,6 +3226,7 @@
 
 <h1 id="benchmark-models">Benchmark models<a class="headerlink" href="#benchmark-models" title="Permanent link">&para;</a></h1>
 <p><code>Benchmark</code> runs one prompt over a dataset across multiple <code>BaseModelClient</code> instances and aggregates per-row scores into a comparison DataFrame. Rows are driven through <code>chat()</code> with <code>client.reset()</code> between rows, so the harness handles plain <code>ModelClient</code> and <code>Agent.as_model_client()</code> views uniformly.</p>
+<p>This is how a hunch about a model becomes a number. One prompt tells you an anecdote; a dataset tells you whether the model you preferred is actually better, and whether the scaffolding you wrapped around it earned its keep. For the informal version of the same activity (capability flags, one prompt across providers, token cost, reading a run's tool calls) start with <a href="../compare-models/">compare models</a>.</p>
 <h2 id="basic-comparison">Basic comparison<a class="headerlink" href="#basic-comparison" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>

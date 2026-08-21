@@ -797,6 +797,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -849,6 +853,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/compare-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compare models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -1678,6 +1710,34 @@
     
   
     Build an orchestrator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/spawn-subagents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spawn sub-agents
   
 
     
@@ -2956,11 +3016,12 @@
 
 
 <h1 id="explanation">Explanation<a class="headerlink" href="#explanation" title="Permanent link">&para;</a></h1>
-<p>Understanding-oriented documentation. The <em>why</em>: what AIMU is, how its parts fit together, and what tradeoffs the design makes (and refuses to make).</p>
+<p>Understanding-oriented documentation. The <em>why</em>: what AIMU is for, how its parts fit together, and what tradeoffs the design makes (and refuses to make).</p>
+<p>The short version: AIMU exists so you can find out what generative AI models and systems are actually capable of, and every design decision below is an attempt to keep the library from getting in the way of that.</p>
 <p>Read these when you want to know <em>why</em> the API looks the way it does, not just how to use it.</p>
 <ul>
 <li><strong><a href="architecture/">Architecture</a></strong>: the load-bearing shape: <code>BaseModelClient</code>, <code>Agent</code>, <code>Runner</code>, how providers dispatch.</li>
-<li><strong><a href="design-principles/">Design principles</a></strong>: what AIMU deliberately <em>doesn't</em> do, and why (the line that separates AIMU from LangChain / LangGraph / Strands / PydanticAI).</li>
+<li><strong><a href="design-principles/">Design principles</a></strong>: why AIMU exists, the six principles that follow from it, and what each one therefore rules out (the line that separates AIMU from LangChain / LangGraph / Strands / PydanticAI). Start here.</li>
 <li><strong><a href="agents-vs-workflows/">Agents vs workflows</a></strong>: Anthropic's taxonomy and when to pick which.</li>
 <li><strong><a href="streamchunk-model/">StreamChunk model</a></strong>: why one chunk type instead of three.</li>
 <li><strong><a href="system-message-lifecycle/">System message lifecycle</a></strong>: seeded before the first chat, then swapped in place mid-conversation; <code>reset()</code> clears history.</li>

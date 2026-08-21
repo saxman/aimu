@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://saxman.github.io/aimu/how-to/switch-providers/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../compare-models/">
       
       
         <link rel="next" href="../add-custom-tool/">
@@ -799,6 +799,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -854,6 +858,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../compare-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compare models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -1890,6 +1922,34 @@
     
   
     Build an orchestrator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../spawn-subagents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spawn sub-agents
   
 
     
@@ -3332,6 +3392,7 @@
 
 <h1 id="switch-providers">Switch providers<a class="headerlink" href="#switch-providers" title="Permanent link">&para;</a></h1>
 <p>Every AIMU client implements the same <code>BaseModelClient</code> interface, so swapping backends is a one-line change. <code>ModelClient</code> is the factory; it accepts either a <code>Model</code> enum member or a <code>"provider:model_id"</code> string.</p>
+<p>That is worth more than the refactoring convenience: it is what makes comparing models cheap. Run the same task on three providers and the only thing that varied is the model, so the difference you see is the models' and not your harness's. <a href="../compare-models/">Compare models</a> is that loop end to end.</p>
 <h2 id="use-a-model-string">Use a model string<a class="headerlink" href="#use-a-model-string" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>

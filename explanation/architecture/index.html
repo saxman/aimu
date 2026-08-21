@@ -797,6 +797,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -849,6 +853,34 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/compare-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compare models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
               
             
               
@@ -1678,6 +1710,34 @@
     
   
     Build an orchestrator
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/spawn-subagents/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spawn sub-agents
   
 
     
@@ -3322,6 +3382,9 @@ once and every provider, modality, agent, and workflow behaves the same way:</p>
 <p>There is no <code>Message</code> class, no <code>Runnable</code> protocol, no graph DSL. Conversation state is a plain
 <code>list[dict]</code> in OpenAI format. Everything below is a consequence of keeping these interfaces small
 and composable — see <a href="../design-principles/">Design principles</a>.</p>
+<p>Fitting in your head is the point, not a nicety. You can follow any request from your call site to
+the provider payload, so when a run does something unexpected you can tell whether the model did it
+or the library did.</p>
 <h2 id="the-big-picture">The big picture<a class="headerlink" href="#the-big-picture" title="Permanent link">&para;</a></h2>
 <p>A request flows top-down: the ergonomic top-level API resolves a model and hands off to either a
 plain client (one turn) or a <code>Runner</code> that drives the model over multiple turns. Tool <em>execution</em>
