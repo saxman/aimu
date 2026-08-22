@@ -617,11 +617,27 @@ class VLLMOpenAIModel(Model):
     # Model values are HuggingFace repo paths (as used by `vllm serve --model`).
     LLAMA_3_1_8B = Wire("meta-llama/Llama-3.1-8B-Instruct")
     LLAMA_3_2_3B = Wire("meta-llama/Llama-3.2-3B-Instruct")
+    # Mistral
     MISTRAL_7B = Wire("mistralai/Mistral-7B-Instruct-v0.3")
+    MAGISTRAL_SMALL_24B = Wire("mistralai/Magistral-Small-2506")
+    MINISTRAL_3_14B = Wire("mistralai/Ministral-3-14B-Instruct-2512")
+    # Microsoft
     PHI_4_MINI_3_8B = Wire("microsoft/Phi-4-mini-instruct")
+    PHI_4_14B = Wire("microsoft/phi-4")
+    # Alibaba. Qwen 3.5/3.6/3.8 are a unified vision-language family: vision is built into the
+    # base weights rather than shipped as a separate -VL variant, so this server serves image
+    # input directly from the plain repo. (Qwen3 32B/8B/4B below are the older text-only
+    # generation and stay vision=False.)
     QWEN_3_4B = Wire("Qwen/Qwen3-4B")
     QWEN_3_8B = Wire("Qwen/Qwen3-8B")
+    QWEN_3_32B = Wire("Qwen/Qwen3-32B")
+    QWEN_3_5_9B = Wire("Qwen/Qwen3.5-9B")
+    QWEN_3_6_27B = Wire("Qwen/Qwen3.6-27B")
+    QWEN_3_6_35B = Wire("Qwen/Qwen3.6-35B-A3B")
+    QWEN_3_8_27B = Wire("Qwen/Qwen3.8-27B")
+    # DeepSeek
     DEEPSEEK_R1_7B = Wire("deepseek-ai/DeepSeek-R1-Distill-Qwen-7B")
+    DEEPSEEK_R1_8B = Wire("deepseek-ai/DeepSeek-R1-Distill-Llama-8B")
     GEMMA_3_12B = Wire(
         "google/gemma-3-12b-it",
         why="OpenAI-compat servers parse tool calls server-side; the in-process HF and native "
@@ -634,6 +650,23 @@ class VLLMOpenAIModel(Model):
     GEMMA_4_31B = Wire("google/gemma-4-31B-it")
     # Gemma 4 E4B/12B support audio natively; vLLM accepts input_audio blocks, but this path is
     # unverified against these weights, so leave audio=False until confirmed. (26B/31B: no native audio.)
+    # NVIDIA
+    NEMOTRON_CASCADE_2_30B = Wire("nvidia/Nemotron-Cascade-2-30B-A3B")
+    # NVIDIA publishes no un-suffixed NVIDIA-Nemotron-3-Nano-30B-A3B repo (confirmed 401 on that
+    # path); only precision-suffixed repos exist. Use the -BF16 reference checkpoint id verbatim
+    # -- there is no shorter form to fall back to. Distinct from the multimodal
+    # Nemotron-3-Nano-Omni-30B-A3B-Reasoning line, which is a different model.
+    NEMOTRON_3_NANO_30B = Wire("nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16")
+    # Zhipu AI: doesn't use tools reliably (matches OllamaModel's own note); this is an
+    # intrinsic weights limitation rather than a serving-path one, so no tools=True override
+    # here either. The _Q4 in the member name carries over from OllamaModel's quantized
+    # glm-4.7-flash:q4_K_M tag for cross-provider name matching; this catalog's resolved repo
+    # is the unquantized reference checkpoint.
+    GLM_4_7_FLASH_31B_Q4 = Wire("zai-org/GLM-4.7-Flash")
+    # OpenAI (open-weight)
+    GPT_OSS_20B = Wire("openai/gpt-oss-20b")
+    # HuggingFace: tool call responses don't always look correct (matches OllamaModel's note)
+    SMOLLM2_1_7B = Wire("HuggingFaceTB/SmolLM2-1.7B-Instruct")
     # Muse Glimmer emits channel-scoped reasoning and ATEM-style XML tool calls instead of
     # <think> tags and JSON, so serving it needs vLLM's dedicated parsers, which must be
     # enabled together (they key off the same framing):
@@ -641,6 +674,8 @@ class VLLMOpenAIModel(Model):
     #     --enable-auto-tool-choice --tool-call-parser muse_glimmer --reasoning-parser muse_glimmer
     # With those set, reasoning arrives as reasoning_content and tool calls in the standard
     # OpenAI shape; without them both channels collapse into content and tools never surface.
+    # SGLang and transformers-serve have no equivalent Muse Glimmer parser, so this member stays
+    # vLLM-only (tests/test_model_catalog_facts.py's namespace guard carries the exception).
     MUSE_GLIMMER_30B = Wire("meta-models/Muse-Glimmer-30B")
 
 
@@ -658,11 +693,27 @@ class HFOpenAIModel(Model):
     # Model values are HuggingFace repo paths (as used by `transformers serve <model-id>`).
     LLAMA_3_1_8B = Wire("meta-llama/Llama-3.1-8B-Instruct")
     LLAMA_3_2_3B = Wire("meta-llama/Llama-3.2-3B-Instruct")
+    # Mistral
     MISTRAL_7B = Wire("mistralai/Mistral-7B-Instruct-v0.3")
+    MAGISTRAL_SMALL_24B = Wire("mistralai/Magistral-Small-2506")
+    MINISTRAL_3_14B = Wire("mistralai/Ministral-3-14B-Instruct-2512")
+    # Microsoft
     PHI_4_MINI_3_8B = Wire("microsoft/Phi-4-mini-instruct")
+    PHI_4_14B = Wire("microsoft/phi-4")
+    # Alibaba. Qwen 3.5/3.6/3.8 are a unified vision-language family: vision is built into the
+    # base weights rather than shipped as a separate -VL variant, so this server serves image
+    # input directly from the plain repo. (Qwen3 32B/8B/4B below are the older text-only
+    # generation and stay vision=False.)
     QWEN_3_4B = Wire("Qwen/Qwen3-4B")
     QWEN_3_8B = Wire("Qwen/Qwen3-8B")
+    QWEN_3_32B = Wire("Qwen/Qwen3-32B")
+    QWEN_3_5_9B = Wire("Qwen/Qwen3.5-9B")
+    QWEN_3_6_27B = Wire("Qwen/Qwen3.6-27B")
+    QWEN_3_6_35B = Wire("Qwen/Qwen3.6-35B-A3B")
+    QWEN_3_8_27B = Wire("Qwen/Qwen3.8-27B")
+    # DeepSeek
     DEEPSEEK_R1_7B = Wire("deepseek-ai/DeepSeek-R1-Distill-Qwen-7B")
+    DEEPSEEK_R1_8B = Wire("deepseek-ai/DeepSeek-R1-Distill-Llama-8B")
     GEMMA_3_12B = Wire(
         "google/gemma-3-12b-it",
         why="OpenAI-compat servers parse tool calls server-side; the in-process HF and native "
@@ -675,6 +726,23 @@ class HFOpenAIModel(Model):
     GEMMA_4_31B = Wire("google/gemma-4-31B-it")
     # Gemma 4 E4B/12B support audio natively, but audio input over transformers-serve's OpenAI-compat
     # endpoint is immature, so leave audio=False. (26B/31B: no native audio.)
+    # NVIDIA
+    NEMOTRON_CASCADE_2_30B = Wire("nvidia/Nemotron-Cascade-2-30B-A3B")
+    # NVIDIA publishes no un-suffixed NVIDIA-Nemotron-3-Nano-30B-A3B repo (confirmed 401 on that
+    # path); only precision-suffixed repos exist. Use the -BF16 reference checkpoint id verbatim
+    # -- there is no shorter form to fall back to. Distinct from the multimodal
+    # Nemotron-3-Nano-Omni-30B-A3B-Reasoning line, which is a different model.
+    NEMOTRON_3_NANO_30B = Wire("nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16")
+    # Zhipu AI: doesn't use tools reliably (matches OllamaModel's own note); this is an
+    # intrinsic weights limitation rather than a serving-path one, so no tools=True override
+    # here either. The _Q4 in the member name carries over from OllamaModel's quantized
+    # glm-4.7-flash:q4_K_M tag for cross-provider name matching; this catalog's resolved repo
+    # is the unquantized reference checkpoint.
+    GLM_4_7_FLASH_31B_Q4 = Wire("zai-org/GLM-4.7-Flash")
+    # OpenAI (open-weight)
+    GPT_OSS_20B = Wire("openai/gpt-oss-20b")
+    # HuggingFace: tool call responses don't always look correct (matches OllamaModel's note)
+    SMOLLM2_1_7B = Wire("HuggingFaceTB/SmolLM2-1.7B-Instruct")
 
 
 class HFOpenAIClient(OpenAICompatClient):
@@ -743,11 +811,27 @@ class SGLangOpenAIModel(Model):
     # Model values are HuggingFace repo paths (as used by `python -m sglang.launch_server --model-path`).
     LLAMA_3_1_8B = Wire("meta-llama/Llama-3.1-8B-Instruct")
     LLAMA_3_2_3B = Wire("meta-llama/Llama-3.2-3B-Instruct")
+    # Mistral
     MISTRAL_7B = Wire("mistralai/Mistral-7B-Instruct-v0.3")
+    MAGISTRAL_SMALL_24B = Wire("mistralai/Magistral-Small-2506")
+    MINISTRAL_3_14B = Wire("mistralai/Ministral-3-14B-Instruct-2512")
+    # Microsoft
     PHI_4_MINI_3_8B = Wire("microsoft/Phi-4-mini-instruct")
+    PHI_4_14B = Wire("microsoft/phi-4")
+    # Alibaba. Qwen 3.5/3.6/3.8 are a unified vision-language family: vision is built into the
+    # base weights rather than shipped as a separate -VL variant, so this server serves image
+    # input directly from the plain repo. (Qwen3 32B/8B/4B below are the older text-only
+    # generation and stay vision=False.)
     QWEN_3_4B = Wire("Qwen/Qwen3-4B")
     QWEN_3_8B = Wire("Qwen/Qwen3-8B")
+    QWEN_3_32B = Wire("Qwen/Qwen3-32B")
+    QWEN_3_5_9B = Wire("Qwen/Qwen3.5-9B")
+    QWEN_3_6_27B = Wire("Qwen/Qwen3.6-27B")
+    QWEN_3_6_35B = Wire("Qwen/Qwen3.6-35B-A3B")
+    QWEN_3_8_27B = Wire("Qwen/Qwen3.8-27B")
+    # DeepSeek
     DEEPSEEK_R1_7B = Wire("deepseek-ai/DeepSeek-R1-Distill-Qwen-7B")
+    DEEPSEEK_R1_8B = Wire("deepseek-ai/DeepSeek-R1-Distill-Llama-8B")
     GEMMA_3_12B = Wire(
         "google/gemma-3-12b-it",
         why="OpenAI-compat servers parse tool calls server-side; the in-process HF and native "
@@ -760,6 +844,23 @@ class SGLangOpenAIModel(Model):
     GEMMA_4_31B = Wire("google/gemma-4-31B-it")
     # Gemma 4 E4B/12B support audio natively; SGLang accepts input_audio blocks, but this path is
     # unverified against these weights, so leave audio=False until confirmed. (26B/31B: no native audio.)
+    # NVIDIA
+    NEMOTRON_CASCADE_2_30B = Wire("nvidia/Nemotron-Cascade-2-30B-A3B")
+    # NVIDIA publishes no un-suffixed NVIDIA-Nemotron-3-Nano-30B-A3B repo (confirmed 401 on that
+    # path); only precision-suffixed repos exist. Use the -BF16 reference checkpoint id verbatim
+    # -- there is no shorter form to fall back to. Distinct from the multimodal
+    # Nemotron-3-Nano-Omni-30B-A3B-Reasoning line, which is a different model.
+    NEMOTRON_3_NANO_30B = Wire("nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16")
+    # Zhipu AI: doesn't use tools reliably (matches OllamaModel's own note); this is an
+    # intrinsic weights limitation rather than a serving-path one, so no tools=True override
+    # here either. The _Q4 in the member name carries over from OllamaModel's quantized
+    # glm-4.7-flash:q4_K_M tag for cross-provider name matching; this catalog's resolved repo
+    # is the unquantized reference checkpoint.
+    GLM_4_7_FLASH_31B_Q4 = Wire("zai-org/GLM-4.7-Flash")
+    # OpenAI (open-weight)
+    GPT_OSS_20B = Wire("openai/gpt-oss-20b")
+    # HuggingFace: tool call responses don't always look correct (matches OllamaModel's note)
+    SMOLLM2_1_7B = Wire("HuggingFaceTB/SmolLM2-1.7B-Instruct")
 
 
 class SGLangOpenAIClient(OpenAICompatClient):

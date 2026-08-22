@@ -140,3 +140,23 @@ def test_ollama_shim_catalog_matches_the_native_one():
     native = {m.name: m.value for m in OllamaModel}
     shim = {m.name: m.value for m in OllamaOpenAIModel}
     assert shim == native
+
+
+def test_hf_repo_runtimes_share_one_id_namespace():
+    """vLLM, SGLang and HF Serve are all launched with a HuggingFace repo path.
+
+    A model servable by one is servable by the others, so a name present in one and
+    absent from another is drift. (Muse Glimmer is the documented exception: vLLM has
+    dedicated tool/reasoning parsers for its framing and the other two do not.)
+    """
+    from aimu.models.providers.openai_compat import HFOpenAIModel, SGLangOpenAIModel, VLLMOpenAIModel
+
+    catalogs = {"vLLM": VLLMOpenAIModel, "SGLang": SGLangOpenAIModel, "HF Serve": HFOpenAIModel}
+    exceptions = {"MUSE_GLIMMER_30B"}
+    sets = {name: {m.name for m in enum} - exceptions for name, enum in catalogs.items()}
+    reference = sets["vLLM"]
+    for name, members in sets.items():
+        assert members == reference, f"{name} differs: {members ^ reference}"
+
+    ids = {name: {m.name: m.value for m in enum if m.name not in exceptions} for name, enum in catalogs.items()}
+    assert ids["SGLang"] == ids["vLLM"] and ids["HF Serve"] == ids["vLLM"]

@@ -155,36 +155,36 @@ llama-cpp model ids are hints; the actual model is loaded from `model_path=` reg
 |---|:---:|:---:|:---:|---|
 | `LLAMA_3_1_8B` | ✅ | ✗ | ✗ | all |
 | `LLAMA_3_2_3B` | ✅ | ✗ | ✗ | all except LM Studio |
-| `MAGISTRAL_SMALL_24B` | ✅ | ✅ | ✗ | Ollama |
-| `MINISTRAL_3_14B` | ✅ | ✗ | ✗ | Ollama |
+| `MAGISTRAL_SMALL_24B` | ✅ | ✅ | ✗ | Ollama, vLLM, HF Serve, SGLang |
+| `MINISTRAL_3_14B` | ✅ | ✗ | ✗ | Ollama, vLLM, HF Serve, SGLang |
 | `MISTRAL_7B` | ✅ | ✗ | ✗ | all |
 | `PHI_4_MINI_3_8B` | ✅ | ✗ | ✗ | all |
-| `PHI_4_14B` | ✗ | ✗ | ✗ | Ollama |
+| `PHI_4_14B` | ✗ | ✗ | ✗ | Ollama, vLLM, HF Serve, SGLang |
 | `QWEN_3_4B` | ✅ | ✅ | ✗ | all |
 | `QWEN_3_8B` | ✅ | ✅ | ✗ | all |
-| `QWEN_3_32B` | ✅ | ✅ | ✗ | Ollama |
-| `QWEN_3_5_9B` | ✅ | ✅ | ✅ | Ollama, LM Studio |
-| `QWEN_3_6_27B` | ✅ | ✅ | ✅ | Ollama |
-| `QWEN_3_6_35B` | ✅ | ✅ | ✅ | Ollama, oMLX ¶ |
+| `QWEN_3_32B` | ✅ | ✅ | ✗ | Ollama, vLLM, HF Serve, SGLang |
+| `QWEN_3_5_9B` | ✅ | ✅ | ✅ | Ollama, LM Studio, vLLM, HF Serve, SGLang |
+| `QWEN_3_6_27B` | ✅ | ✅ | ✅ | Ollama, vLLM, HF Serve, SGLang |
+| `QWEN_3_6_35B` | ✅ | ✅ | ✅ | Ollama, vLLM, HF Serve, SGLang, oMLX ¶ |
 | `QWEN_3_6_35B_4BIT` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
 | `QWEN_3_6_35B_8BIT` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
 | `QWEN_3_6_35B_BF16` | ✅ | ✅ | ✅ | oMLX ¶ |
-| `QWEN_3_8_27B` ◆ | ✅ | ✅ | ✅ | Ollama, oMLX ¶ |
+| `QWEN_3_8_27B` ◆ | ✅ | ✅ | ✅ | Ollama, vLLM, HF Serve, SGLang, oMLX ¶ |
 | `QWEN_3_8_27B_4BIT` ◆ | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
 | `QWEN_3_8_27B_8BIT` ◆ | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
 | `QWEN_3_8_27B_BF16` ◆ | ✅ | ✅ | ✅ | oMLX ¶ |
-| `DEEPSEEK_R1_8B` | ✗ | ✅ | ✗ | Ollama |
+| `DEEPSEEK_R1_8B` | ✗ | ✅ | ✗ | Ollama, vLLM, HF Serve, SGLang |
 | `DEEPSEEK_R1_7B` | ✗ | ✅ | ✗ | all except Ollama |
 | `GEMMA_3_12B` | ✅ † | ✗ | ✅ | all except LM Studio |
 | `GEMMA_4_E4B` | ✅ | ✅ | ✅ | all |
 | `GEMMA_4_12B` | ✅ | ✅ | ✅ | all |
 | `GEMMA_4_26B` | ✅ | ✅ | ✅ | all |
 | `GEMMA_4_31B` | ✅ | ✅ | ✅ | all |
-| `NEMOTRON_CASCADE_2_30B` | ✅ | ✅ | ✗ | Ollama |
-| `NEMOTRON_3_NANO_30B` | ✅ | ✅ | ✗ | Ollama |
-| `GLM_4_7_FLASH_31B_Q4` | ✗ | ✅ | ✗ | Ollama |
-| `GPT_OSS_20B` | ✅ | ✅ | ✗ | Ollama |
-| `SMOLLM2_1_7B` | ✗ | ✗ | ✗ | Ollama |
+| `NEMOTRON_CASCADE_2_30B` | ✅ | ✅ | ✗ | Ollama, vLLM, HF Serve, SGLang |
+| `NEMOTRON_3_NANO_30B` | ✅ | ✅ | ✗ | Ollama, vLLM, HF Serve, SGLang |
+| `GLM_4_7_FLASH_31B_Q4` | ✗ | ✅ | ✗ | Ollama, vLLM, HF Serve, SGLang |
+| `GPT_OSS_20B` | ✅ | ✅ | ✗ | Ollama, vLLM, HF Serve, SGLang |
+| `SMOLLM2_1_7B` | ✗ | ✗ | ✗ | Ollama, vLLM, HF Serve, SGLang |
 | `MUSE_GLIMMER_30B` | ✅ | ✅ | ✅ | Ollama, vLLM, oMLX ‡ |
 | `MUSE_GLIMMER_30B_4BIT` | ✅ | ✅ | ✅ | oMLX ‡ ¶ |
 | `MUSE_GLIMMER_30B_8BIT` | ✅ | ✅ | ✅ | oMLX ‡ ¶ |
