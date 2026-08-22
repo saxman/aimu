@@ -116,7 +116,7 @@ Some Ollama models can technically be asked for tools but produce unreliable too
 | `MAGISTRAL_SMALL` | `mistralai/Magistral-Small-2509` | ✅ | ✗ | ✗ |
 | `MISTRAL_NEMO_12B` | `mistralai/Mistral-Nemo-Instruct-2407` | ✅ | ✗ | ✗ |
 | `MISTRAL_7B` | `mistralai/Mistral-7B-Instruct-v0.3` | ✅ | ✗ | ✗ |
-| `PHI_4_MINI_3_8B` | `microsoft/Phi-4-mini-instruct` | ✅ | ✗ | ✗ |
+| `PHI_4_MINI_3_8B` | `microsoft/Phi-4-mini-instruct` | ✗ | ✗ | ✗ |
 | `PHI_4_14B` | `microsoft/phi-4` | ✗ | ✗ | ✗ |
 | `DEEPSEEK_R1_8B` | `deepseek-ai/DeepSeek-R1-Distill-Llama-8B` | ✗ | ✅ | ✗ |
 | `SMOLLM3_3B` | `HuggingFaceTB/SmolLM3-3B` | ✅ | ✅ | ✗ |

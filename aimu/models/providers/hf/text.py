@@ -209,7 +209,18 @@ class HuggingFaceModel(Model):
     MISTRAL_7B = (Wire("mistralai/Mistral-7B-Instruct-v0.3"), ToolCallFormat.JSON_ARRAY)
 
     # Microsoft
-    PHI_4_MINI_3_8B = Wire("microsoft/Phi-4-mini-instruct")
+    # tools=False here is deliberate, not an oversight: this member takes no ToolCallFormat
+    # (defaults to ToolCallFormat.NA, whose parse() always returns None) and does not take the
+    # processor parse path either (that route is Gemma 4 / Magistral only), so a tool call in the
+    # model's raw output can never be extracted on this in-process path. OpenAI-compat servers
+    # parse tool calls server-side, so they keep tools=True for the same weights; Ollama parses
+    # server-side too and returns pre-parsed tool_calls, unrelated to ToolCallFormat. See
+    # tests/test_model_catalog_consistency.py.
+    PHI_4_MINI_3_8B = Wire(
+        "microsoft/Phi-4-mini-instruct",
+        why="HF in-process client has no tool-call parse path for this model (no ToolCallFormat, no processor route)",
+        tools=False,
+    )
     PHI_4_14B = Wire("microsoft/phi-4")
 
     # DeepSeek

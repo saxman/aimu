@@ -143,6 +143,7 @@ EXPECTED_OVERRIDES = {
     ("SGLangOpenAIModel", "GEMMA_3_12B", "tools"),
     ("VLLMOpenAIModel", "GEMMA_3_12B", "tools"),
     ("LlamaCppModel", "GEMMA_4_12B", "vision"),
+    ("HuggingFaceModel", "PHI_4_MINI_3_8B", "tools"),
 }
 
 
