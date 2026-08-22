@@ -9,12 +9,18 @@ different per provider.
 The cross-provider *identity* is the enum-member **name** (``QWEN_3_8B``), which
 is what ``resolve_model_enum`` uses to search every provider enum for a bare
 name. A shared name must describe the *same model*, but that agreement is now
-**structural** rather than asserted here: intrinsic capability flags (tools /
-thinking / vision / thinking_levels / thinking_optional) live once, in
-``aimu/models/_catalog.py``'s ``MODEL_FACTS`` table, keyed on the member name.
-Every catalog entry is a ``Wire`` that resolves against that one entry, so
-there is no per-provider restatement left to drift out of sync -- see that
-module's docstring for the intrinsic-vs-serving-path rationale in full.
+**structural** rather than asserted here, for every *local-runtime* catalog:
+intrinsic capability flags (tools / thinking / vision / thinking_levels /
+thinking_optional) live once, in ``aimu/models/_catalog.py``'s ``MODEL_FACTS``
+table, keyed on the member name. Every local-runtime catalog entry is a
+``Wire`` that resolves against that one entry, so there is no per-provider
+restatement left to drift out of sync -- see that module's docstring for the
+intrinsic-vs-serving-path rationale in full.
+
+Cloud-provider catalogs (``AnthropicModel``, ``GeminiModel``, ``OpenAIModel``)
+are deliberately **outside** ``MODEL_FACTS``: each hosted model ships under
+exactly one provider, so there is no cross-provider restatement to unify.
+They still assign bare ``ModelSpec(...)`` values, not ``Wire``.
 
 What this file still guards, because ``MODEL_FACTS`` agreement alone can't
 catch it:
@@ -26,6 +32,9 @@ catch it:
   ``test_overrides_are_explained`` pins the exact set below, so a new one is a
   reviewed act rather than a silent addition.
 * Enum-internal footguns unrelated to ``MODEL_FACTS`` (``test_no_silent_enum_aliases``).
+* A cloud-catalog member name colliding with ``MODEL_FACTS`` or a local-runtime
+  member (``test_cloud_names_do_not_collide_with_local_runtime``), since a cloud
+  catalog carries no ``Wire`` for ``test_overrides_are_explained`` to see.
 * The HuggingFace chat-template pins (``think_opener_in_prompt``), which have
   nothing to do with cross-provider agreement and are verified against each
   repo's own template.
@@ -135,6 +144,51 @@ EXPECTED_OVERRIDES = {
     ("VLLMOpenAIModel", "GEMMA_3_12B", "tools"),
     ("LlamaCppModel", "GEMMA_4_12B", "vision"),
 }
+
+
+def test_cloud_names_do_not_collide_with_local_runtime():
+    """A cloud-catalog member name must not collide with ``MODEL_FACTS`` or a local member.
+
+    Cloud catalogs (``AnthropicModel``, ``GeminiModel``, ``OpenAIModel``) assign bare
+    ``ModelSpec`` values and sit outside ``MODEL_FACTS`` by design: each hosted model ships
+    under exactly one provider, so there is no cross-provider restatement to unify. But that
+    also means ``test_overrides_are_explained`` has nothing to check for these members --
+    it only looks at ``Wire``-based entries, since a bare ``ModelSpec`` carries no ``_wire``.
+
+    If a cloud member's name ever matches a ``MODEL_FACTS`` key or a local-runtime member's
+    name, that is either a genuine model that ships under both a cloud and a local-runtime
+    provider (which belongs in ``MODEL_FACTS``, with the cloud catalog switched to a
+    ``Wire(...)`` against it), or an accidental name collision -- and either way, the person
+    who caused it needs to know, rather than have ``resolve_model_enum`` silently hand back
+    whichever one wins the availability tiebreaker. Not purely hypothetical: ``GPT_OSS_20B``
+    is an open-weights model already catalogued locally that a hosted provider could
+    plausibly also carry under the same name.
+    """
+    from aimu.models._catalog import MODEL_FACTS
+
+    cloud_names: dict[str, str] = {}
+    local_names: dict[str, str] = {}
+    for enum_name, enum in _text_model_enums().items():
+        for member_name, raw in enum.__members__.items():
+            wire = getattr(raw, "_wire", None)
+            table = local_names if wire is not None else cloud_names
+            table.setdefault(member_name, enum_name)
+
+    facts_collisions = sorted(set(cloud_names) & set(MODEL_FACTS))
+    assert not facts_collisions, (
+        f"cloud member name(s) {facts_collisions} also appear as MODEL_FACTS keys. If this is a "
+        f"genuine model available from both a cloud and a local-runtime provider, add it (or "
+        f"confirm it) in MODEL_FACTS and switch the cloud catalog entry to Wire(...); otherwise "
+        f"rename one of them to remove the accidental collision."
+    )
+
+    local_collisions = sorted(set(cloud_names) & set(local_names))
+    assert not local_collisions, (
+        f"cloud member name(s) {local_collisions} collide with a local-runtime catalog member: "
+        f"{[(name, cloud_names[name], local_names[name]) for name in local_collisions]}. If this "
+        f"is a genuine cross-provider model, add it to MODEL_FACTS and switch the cloud entry to "
+        f"Wire(...); otherwise rename one of them to remove the accidental collision."
+    )
 
 
 # Expected ``think_opener_in_prompt`` per HuggingFace thinking model, verified against each
