@@ -3,13 +3,13 @@ from ..base import (
     StreamingContentType,
     StreamChunk,
     Model,
-    ModelSpec,
     BaseModelClient,
     BaseEmbeddingClient,
     EmbeddingModel,
     OllamaEmbeddingSpec,
     classproperty,
 )
+from .._catalog import Wire
 from .._internal.generate_kwargs import Unsupported
 from .._internal.image_input import _adapt_messages_for_ollama, _build_user_content_blocks, _ollama_split_message
 from .._internal.thinking import pop_thinking
@@ -22,34 +22,6 @@ from typing import Any, Iterator, Optional, Union
 logger = logging.getLogger(__name__)
 
 
-_GEMMA_KWARGS = {"temperature": 1.0, "top_p": 0.95, "top_k": 64}
-# Qwen 3.6 27B and 3.8 share a thinking-mode profile; 3.5 and 3.6 35B-A3B each differ only in
-# presence_penalty (1.5 rather than 0.0), per their own cards.
-# Values are from each model card's thinking-mode row, verified 2026-08-17.
-_QWEN_THINKING_KWARGS = {
-    "temperature": 1.0,
-    "top_p": 0.95,
-    "top_k": 20,
-    "min_p": 0.0,
-    "presence_penalty": 0.0,
-    "repetition_penalty": 1.0,
-}
-_QWEN_3_5_THINKING_KWARGS = {**_QWEN_THINKING_KWARGS, "presence_penalty": 1.5}
-# Qwen 3.6 35B-A3B's card gives a different presence_penalty for its "general tasks"
-# thinking row (1.5) than the 27B's (0.0), verified against both cards 2026-08-17.
-_QWEN_3_6_35B_THINKING_KWARGS = {**_QWEN_THINKING_KWARGS, "presence_penalty": 1.5}
-# Every Qwen 3.5 / 3.6 / 3.8 card specifies the same instruct-mode row.
-_QWEN_INSTRUCT_KWARGS = {
-    "temperature": 0.7,
-    "top_p": 0.80,
-    "top_k": 20,
-    "min_p": 0.0,
-    "presence_penalty": 1.5,
-    "repetition_penalty": 1.0,
-}
-_MUSE_GLIMMER_KWARGS = {"temperature": 1.0, "top_p": 0.95, "top_k": 64}
-
-
 class OllamaModel(Model):
     # Alibaba
     # Qwen 3.5/3.6/3.8 are a unified vision-language family (vision is built into the base
@@ -59,95 +31,47 @@ class OllamaModel(Model):
     #
     # Note the name spacing: QWEN_3_8_27B is Qwen *3.8* at 27B, while QWEN_3_8B further down is
     # Qwen *3* at 8B. Both follow the catalog's "version parts, then size" scheme.
-    QWEN_3_8_27B = ModelSpec(
-        "qwen3.8:27b",
-        tools=True,
-        thinking=True,
-        vision=True,
-        generation_kwargs=_QWEN_THINKING_KWARGS,
-        nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
-        thinking_levels=True,
-        structured_output=True,
-    )
-    QWEN_3_6_35B = ModelSpec(
-        "qwen3.6:35b",
-        tools=True,
-        thinking=True,
-        vision=True,
-        generation_kwargs=_QWEN_3_6_35B_THINKING_KWARGS,
-        nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
-        structured_output=True,
-    )
-    QWEN_3_6_27B = ModelSpec(
-        "qwen3.6:27b",
-        tools=True,
-        thinking=True,
-        vision=True,
-        generation_kwargs=_QWEN_THINKING_KWARGS,
-        nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
-        structured_output=True,
-    )
-    QWEN_3_5_9B = ModelSpec(
-        "qwen3.5:9b",
-        tools=True,
-        thinking=True,
-        vision=True,
-        generation_kwargs=_QWEN_3_5_THINKING_KWARGS,
-        nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
-        structured_output=True,
-    )
-    QWEN_3_32B = ModelSpec("qwen3:32b", tools=True, thinking=True, structured_output=True)
-    QWEN_3_8B = ModelSpec("qwen3:8b", tools=True, thinking=True, structured_output=True)
+    QWEN_3_8_27B = Wire("qwen3.8:27b", structured_output=True)
+    QWEN_3_6_35B = Wire("qwen3.6:35b", structured_output=True)
+    QWEN_3_6_27B = Wire("qwen3.6:27b", structured_output=True)
+    QWEN_3_5_9B = Wire("qwen3.5:9b", structured_output=True)
+    QWEN_3_32B = Wire("qwen3:32b", structured_output=True)
+    QWEN_3_8B = Wire("qwen3:8b", structured_output=True)
     # Google: these weights support audio; add audio=True once Ollama API exposes audio input
-    GEMMA_4_E4B = ModelSpec(
-        "gemma4:e4b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS, structured_output=True
-    )
-    GEMMA_4_12B = ModelSpec(
-        "gemma4:12b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS, structured_output=True
-    )
-    GEMMA_4_26B = ModelSpec(
-        "gemma4:26b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS, structured_output=True
-    )
-    GEMMA_4_31B = ModelSpec(
-        "gemma4:31b", tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS, structured_output=True
-    )
-    GEMMA_3_12B = ModelSpec("gemma3:12b", vision=True, structured_output=True)
+    GEMMA_4_E4B = Wire("gemma4:e4b", structured_output=True)
+    GEMMA_4_12B = Wire("gemma4:12b", structured_output=True)
+    GEMMA_4_26B = Wire("gemma4:26b", structured_output=True)
+    GEMMA_4_31B = Wire("gemma4:31b", structured_output=True)
+    GEMMA_3_12B = Wire("gemma3:12b", structured_output=True)
     # NVIDIA
-    NEMOTRON_CASCADE_2_30B = ModelSpec("nemotron-cascade-2:30b", tools=True, thinking=True, structured_output=True)
-    NEMOTRON_3_NANO_30B = ModelSpec("nemotron-3-nano:30b", tools=True, thinking=True, structured_output=True)
+    NEMOTRON_CASCADE_2_30B = Wire("nemotron-cascade-2:30b", structured_output=True)
+    NEMOTRON_3_NANO_30B = Wire("nemotron-3-nano:30b", structured_output=True)
     # Zhipu AI: doesn't use tools when expected
-    GLM_4_7_FLASH_31B_Q4 = ModelSpec("glm-4.7-flash:q4_K_M", thinking=True, structured_output=True)
+    GLM_4_7_FLASH_31B_Q4 = Wire("glm-4.7-flash:q4_K_M", structured_output=True)
     # OpenAI
-    GPT_OSS_20B = ModelSpec("gpt-oss:20b", tools=True, thinking=True, structured_output=True)
+    GPT_OSS_20B = Wire("gpt-oss:20b", structured_output=True)
     # Mistral
-    MAGISTRAL_SMALL_24B = ModelSpec("magistral:24b", tools=True, thinking=True, structured_output=True)
-    MINISTRAL_3_14B = ModelSpec("ministral-3:14b", tools=True, structured_output=True)
+    MAGISTRAL_SMALL_24B = Wire("magistral:24b", structured_output=True)
+    MINISTRAL_3_14B = Wire("ministral-3:14b", structured_output=True)
     # Microsoft
-    PHI_4_MINI_3_8B = ModelSpec("phi4-mini:3.8b", structured_output=True)
-    PHI_4_14B = ModelSpec("phi4:14b", structured_output=True)
+    PHI_4_MINI_3_8B = Wire("phi4-mini:3.8b", structured_output=True)
+    PHI_4_14B = Wire("phi4:14b", structured_output=True)
     # DeepSeek
-    DEEPSEEK_R1_8B = ModelSpec("deepseek-r1:8b", thinking=True, structured_output=True)
+    DEEPSEEK_R1_8B = Wire("deepseek-r1:8b", structured_output=True)
     # HuggingFace: tool call responses don't always look correct
-    SMOLLM2_1_7B = ModelSpec("smollm2:1.7b", structured_output=True)
+    SMOLLM2_1_7B = Wire("smollm2:1.7b", structured_output=True)
     # Meta: Muse Glimmer is an agentic vision-language model (a ViT-G/14 perception encoder
     # ships in the same weights, so the plain tag serves image input) that emits channel-scoped
     # reasoning and ATEM-style XML tool calls rather than <think> tags and JSON. Ollama parses
     # both server-side and exposes them as its native thinking field and tool_calls, so all
     # three capabilities are available on this path. The Ollama registry lists the tag as
     # Text, Image + Tools + Thinking.
-    MUSE_GLIMMER_30B = ModelSpec(
-        "muse-glimmer:30b",
-        tools=True,
-        thinking=True,
-        vision=True,
-        generation_kwargs=_MUSE_GLIMMER_KWARGS,
-        structured_output=True,
-    )
+    MUSE_GLIMMER_30B = Wire("muse-glimmer:30b", structured_output=True)
     # Tool calling verified reliable on current Ollama builds (both models called the
     # correct tool with correct arguments across every trial). An earlier flag disabled tools
     # here after older Ollama versions emitted unreliable calls; that no longer reproduces.
-    LLAMA_3_2_3B = ModelSpec("llama3.2:3b", tools=True, structured_output=True)
-    LLAMA_3_1_8B = ModelSpec("llama3.1:8b", tools=True, structured_output=True)
+    LLAMA_3_2_3B = Wire("llama3.2:3b", structured_output=True)
+    LLAMA_3_1_8B = Wire("llama3.1:8b", structured_output=True)
 
 
 _DROPPED_USER_TURN = "no user query found in messages"

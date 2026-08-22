@@ -64,7 +64,6 @@ def test_duplicate_ids_still_alias_like_modelspec():
     colliding _value_, lookup by value silently picks one, and
     test_model_catalog_consistency.py::test_no_silent_enum_aliases can never fail again.
     """
-    from aimu.models._base.text import Model
 
     class Dup(Model):
         QWEN_3_8B = Wire("same-id")

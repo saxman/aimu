@@ -10,13 +10,16 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Iterable, Iterator, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterable, Iterator, Optional, Union
 
 from .._internal.chat_state import _ChatStateMixin
 from .._internal.generate_kwargs import _GenerateKwargsMixin
 from .._internal.streaming import filter_chunks as _filter_chunks_fn
 from .._internal.streaming import resolve_include as _resolve_include_fn
 from .shared import StreamChunk, StreamingContentType, classproperty
+
+if TYPE_CHECKING:
+    from .._catalog import Wire
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +82,7 @@ class Model(Enum):
     string so code can call e.g. ``ollama.pull(model.value)``.
     """
 
-    def __init__(self, spec: ModelSpec):
+    def __init__(self, spec: "ModelSpec | Wire"):
         # A catalog may assign a `Wire` (aimu/models/_catalog.py) instead of a bare `ModelSpec`,
         # so its intrinsic flags come from the shared MODEL_FACTS table rather than being
         # restated per provider. Resolve it into the ModelSpec it stands for before anything
