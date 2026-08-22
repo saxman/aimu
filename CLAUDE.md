@@ -303,7 +303,7 @@ The codebase uses an abstract base class pattern for model clients:
 
     Helpers `is_text()` / `is_tool_call()` / `is_image_progress()` dispatch on phase.
   - `ModelSpec`: frozen dataclass with `id: str`, `tools: bool`, `thinking: bool`, `vision: bool`, `audio: bool`, `structured_output: bool`, `generation_kwargs: dict | None`, plus three thinking-control fields: `thinking_levels: bool` (accepts a portable `"low"`/`"medium"`/`"high"` effort level), `thinking_optional: bool` (default `True`; `False` means the model always reasons and cannot be disabled), and `nonthinking_generation_kwargs: dict | None` (the sampling profile the card specifies for instruct/non-thinking mode; `None` means `generation_kwargs` applies in both modes). `__post_init__` raises `ValueError` if either thinking-control flag is set on a model with `thinking=False`. Equality and hash use `id` only, so it can hold a dict and still be used as an enum value. Each `Model` enum member's value is a `ModelSpec`.
-  - `Model(Enum)`: base enum. Each member's value is a `ModelSpec`. Members expose `.value` (the id string), `.spec` (the `ModelSpec`), `.supports_tools`, `.supports_thinking`, `.supports_vision`, `.supports_audio`, `.supports_structured_output`, `.generation_kwargs`.
+  - `Model(Enum)`: base enum. A member's value is a `Wire` on the local-runtime text catalogs (see "Model Definitions" below) or a bare `ModelSpec` on the cloud ones and on every non-text modality; `Model.__init__` resolves a `Wire` into the `ModelSpec` it stands for before reading any flag, so both forms behave identically downstream. Members expose `.value` (the id string), `.spec` (the resolved `ModelSpec`), `.supports_tools`, `.supports_thinking`, `.supports_vision`, `.supports_audio`, `.supports_structured_output`, `.generation_kwargs`.
 
 - **[aimu/models/model_client.py](aimu/models/model_client.py)**: `ModelClient(BaseModelClient)` factory/wrapper class:
   - Single public construction path. Accepts a `Model` enum member or a `"provider:model_id"` string.
@@ -334,7 +334,11 @@ The codebase uses an abstract base class pattern for model clients:
     - GPU offloading via `n_gpu_layers=-1` (all layers); `n_gpu_layers=0` for CPU-only
     - Thinking model support via `<think>...</think>` tag parsing (same as OpenAI-compat clients)
 
-- **Model Definitions**: Each client defines a `Model` enum (e.g., `OllamaModel`) where each member's value is a `ModelSpec(id, tools=..., thinking=..., vision=..., generation_kwargs=...)`. Provider-specific extras (e.g. HuggingFace `ToolCallFormat`, `think_opener_in_prompt`) become additional positional elements in the enum member tuple after the `ModelSpec`. Every concrete client exposes the derived classproperties:
+- **Model Definitions**: Each client defines a `Model` enum (e.g., `OllamaModel`). What a member's value looks like depends on whether the model can ship under more than one provider:
+  - **Local-runtime text catalogs** (`OllamaModel`, `HuggingFaceModel`, `LlamaCppModel`, and the seven `*OpenAIModel` server catalogs) assign a `Wire(id, why=None, **overrides)` from [aimu/models/_catalog.py](aimu/models/_catalog.py). The member declares only what that *runtime* is authoritative for: the wire id that server accepts, its serving-path flags (`structured_output`, `audio`), and any override. The intrinsic flags -- `tools`, `thinking`, `vision`, `thinking_levels`, `thinking_optional`, and the card's two sampling profiles -- come from the shared `MODEL_FACTS` table, keyed on the enum-member name. Overriding an intrinsic flag **requires** a `why=` naming the concrete mechanism that serving path lacks; `resolve_wire` raises at import without one. Serving-path flags need no `why=`, since the catalog is stating its own capability rather than contradicting a fact.
+  - **Cloud text catalogs** (`AnthropicModel`, `OpenAIModel`, `GeminiModel`) keep a bare `ModelSpec(id, tools=..., thinking=..., ...)`. Their models ship under exactly one provider, so there is nothing to share and the indirection would be pure cost. The **non-text modality** enums are untouched by the facts table for the same reason, and carry their own spec types (`HuggingFaceImageSpec`, `HuggingFaceAudioSpec`, `OpenAISpeechSpec`, and so on) rather than `ModelSpec` at all.
+
+  Provider-specific extras (e.g. HuggingFace `ToolCallFormat`, `think_opener_in_prompt`) become additional positional elements in the enum member tuple after the `Wire` or `ModelSpec`; they are in-process chat-template details with no cross-provider meaning, so they never move to the facts table. Every concrete client exposes the derived classproperties:
   - `TOOL_MODELS`: members where `supports_tools=True`
   - `THINKING_MODELS`: members where `supports_thinking=True`
   - `VISION_MODELS`: members where `supports_vision=True`
@@ -868,7 +872,10 @@ namespaces are disjoint (HF repo paths contain a `/`, oMLX ids are bare director
 **Catalog shape**: Qwen 3.6 35B-A3B carries per-quantization members (`QWEN_3_6_35B_4BIT` /
 `_8BIT` / `_BF16`) alongside the bare `QWEN_3_6_35B`, because each MLX quantization is a separate
 `mlx-community` repo. Every id within an enum **must be distinct**: `Model.__init__` assigns
-`_value_ = spec.id` before enum's duplicate scan runs and `ModelSpec.__eq__`/`__hash__` are id-only,
+`_value_ = spec.id` before enum's duplicate scan runs, and both `Wire.__eq__`/`__hash__` and
+`ModelSpec.__eq__`/`__hash__` are id-only (`Wire`'s are deliberate: without them a duplicate id
+would stop aliasing and instead leave two live members sharing a `_value_`, which is worse --
+lookup by value silently picks one, and the guard below could never fail),
 so two members sharing an id silently become an **alias** -- the second vanishes from iteration (and
 from `TOOL_MODELS`/`VISION_MODELS`, the discovery probes, and the consistency checks) and its flags
 are discarded, with no warning. Guarded by
