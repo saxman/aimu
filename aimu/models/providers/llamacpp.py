@@ -35,7 +35,7 @@ class LlamaCppModel(Model):
     QWEN_3_4B = Wire("qwen3-4b")
     QWEN_3_8B = Wire("qwen3-8b")
     DEEPSEEK_R1_7B = Wire("deepseek-r1-7b")
-    PHI_4_MINI = Wire("phi-4-mini")
+    PHI_4_MINI_3_8B = Wire("phi-4-mini")
     # thinking=True matches every other Gemma 4 catalog entry; llama-cpp surfaces reasoning
     # via the shared <think> parser (same as QWEN_3_8B above). vision is intentionally omitted:
     # llama-cpp vision needs an mmproj projector supplied via the chat_handler= constructor

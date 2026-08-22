@@ -89,7 +89,7 @@ Gemini 2.5 thinking models emit `<think>` tags on Google's OpenAI-compatible end
 | `GPT_OSS_20B` | `gpt-oss:20b` | ✅ | ✅ | ✗ |
 | `MAGISTRAL_SMALL_24B` | `magistral:24b` | ✅ | ✅ | ✗ |
 | `MINISTRAL_3_14B` | `ministral-3:14b` | ✅ | ✗ | ✗ |
-| `PHI_4_MINI_3_8B` | `phi4-mini:3.8b` | ✗ | ✗ | ✗ |
+| `PHI_4_MINI_3_8B` | `phi4-mini:3.8b` | ✅ | ✗ | ✗ |
 | `PHI_4_14B` | `phi4:14b` | ✗ | ✗ | ✗ |
 | `DEEPSEEK_R1_8B` | `deepseek-r1:8b` | ✗ | ✅ | ✗ |
 | `SMOLLM2_1_7B` | `smollm2:1.7b` | ✗ | ✗ | ✗ |
@@ -116,7 +116,7 @@ Some Ollama models can technically be asked for tools but produce unreliable too
 | `MAGISTRAL_SMALL` | `mistralai/Magistral-Small-2509` | ✅ | ✗ | ✗ |
 | `MISTRAL_NEMO_12B` | `mistralai/Mistral-Nemo-Instruct-2407` | ✅ | ✗ | ✗ |
 | `MISTRAL_7B` | `mistralai/Mistral-7B-Instruct-v0.3` | ✅ | ✗ | ✗ |
-| `PHI_4_MINI_3_8B` | `microsoft/Phi-4-mini-instruct` | ✗ | ✗ | ✗ |
+| `PHI_4_MINI_3_8B` | `microsoft/Phi-4-mini-instruct` | ✅ | ✗ | ✗ |
 | `PHI_4_14B` | `microsoft/phi-4` | ✗ | ✗ | ✗ |
 | `DEEPSEEK_R1_8B` | `deepseek-ai/DeepSeek-R1-Distill-Llama-8B` | ✗ | ✅ | ✗ |
 | `SMOLLM3_3B` | `HuggingFaceTB/SmolLM3-3B` | ✅ | ✅ | ✗ |
@@ -138,7 +138,7 @@ Some Ollama models can technically be asked for tools but produce unreliable too
 | `QWEN_3_4B` | `qwen3-4b` | ✅ | ✅ | ✗ |
 | `QWEN_3_8B` | `qwen3-8b` | ✅ | ✅ | ✗ |
 | `DEEPSEEK_R1_7B` | `deepseek-r1-7b` | ✗ | ✅ | ✗ |
-| `PHI_4_MINI` | `phi-4-mini` | ✅ | ✗ | ✗ |
+| `PHI_4_MINI_3_8B` | `phi-4-mini` | ✅ | ✗ | ✗ |
 | `GEMMA_4_12B` | `gemma-4-12b` | ✅ | ✅ | ✗ |
 
 llama-cpp model ids are hints; the actual model is loaded from `model_path=` regardless. Capability flags are honoured by the client.
@@ -154,7 +154,7 @@ llama-cpp model ids are hints; the actual model is loaded from `model_path=` reg
 | `LLAMA_3_1_8B` | ✅ | ✗ | ✗ | all |
 | `LLAMA_3_2_3B` | ✅ | ✗ | ✗ | all except LM Studio |
 | `MISTRAL_7B` | ✅ | ✗ | ✗ | all |
-| `PHI_4_MINI` | ✅ | ✗ | ✗ | all |
+| `PHI_4_MINI_3_8B` | ✅ | ✗ | ✗ | all |
 | `QWEN_3_4B` | ✅ | ✅ | ✗ | all |
 | `QWEN_3_8B` | ✅ | ✅ | ✗ | all |
 | `QWEN_3_5_9B` | ✅ | ✅ | ✅ | Ollama, LM Studio |

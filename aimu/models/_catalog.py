@@ -295,11 +295,14 @@ MODEL_FACTS: dict[str, ModelFacts] = {
     "NEMOTRON_3_NANO_30B": ModelFacts(tools=True, thinking=True),
     "NEMOTRON_CASCADE_2_30B": ModelFacts(tools=True, thinking=True),
     "NEMOTRON_H_8B": ModelFacts(tools=True),
-    # Microsoft. PHI_4_MINI and PHI_4_MINI_3_8B are two catalog names for what should be one
-    # model (tools disagree: True vs False); left as-is here, collapsed in Task 6.
+    # Microsoft. PHI_4_MINI and PHI_4_MINI_3_8B were two catalog names for one model, collapsed
+    # onto PHI_4_MINI_3_8B in Task 6. tools=True per microsoft/Phi-4-mini-instruct's chat
+    # template (tokenizer_config.json emits a <|tool|>{tools}<|/tool|> block for a system
+    # message carrying tools, i.e. the model is trained for function calling) and Ollama's own
+    # registry page for phi4-mini, which carries the "tools" capability badge. Ollama's prior
+    # tools=False here was a stale entry, not a serving-path limitation.
     "PHI_4_14B": ModelFacts(),
-    "PHI_4_MINI": ModelFacts(tools=True),
-    "PHI_4_MINI_3_8B": ModelFacts(),
+    "PHI_4_MINI_3_8B": ModelFacts(tools=True),
     # HuggingFace
     "SMOLLM2_1_7B": ModelFacts(),
     "SMOLLM3_3B": ModelFacts(tools=True, thinking=True, generation_kwargs={"temperature": 0.6, "top_p": 0.95}),

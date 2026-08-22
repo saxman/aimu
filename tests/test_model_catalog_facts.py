@@ -110,3 +110,20 @@ def test_wire_member_with_unknown_name_fails_at_class_creation():
 
         class Bad(Model):
             NOT_A_REAL_MODEL = Wire("x")
+
+
+def test_phi_4_mini_has_one_canonical_name():
+    import aimu.models as models
+
+    for attr in dir(models):
+        enum = getattr(models, attr)
+        if not attr.endswith("Model") or attr == "Model" or enum is None:
+            continue
+        try:
+            names = {m.name for m in enum}
+        except TypeError:
+            continue
+        assert "PHI_4_MINI" not in names, (
+            f"{attr} still carries PHI_4_MINI; it is the same model as PHI_4_MINI_3_8B "
+            f"and a duplicate name makes resolve_model_enum treat them as unrelated."
+        )
