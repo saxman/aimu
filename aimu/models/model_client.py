@@ -213,9 +213,16 @@ def resolve_model_enum(model: Union[Model, str]) -> Model:
     Accepts, in order:
 
     - a ``Model`` enum member (returned unchanged);
-    - a ``"provider:model_id"`` string (delegates to :func:`resolve_model_string`);
+    - a ``"provider:model_id"`` string (parsed by :func:`resolve_model`);
     - a bare enum-member *name* (e.g. ``"QWEN_3_8B"``), looked up across every installed
       provider's ``Model`` enum.
+
+    A ``Model`` member names a catalogued id and carries nothing else, so the two extended
+    string forms have no representation here and are refused **by name**: an ``@endpoint`` and
+    an ad-hoc ``id;flags``. Both are accepted by :class:`ModelClient` itself, which is why the
+    refusal has to say which part it cannot represent; reporting a catalogued id as unknown
+    (what validating the unsplit string did) points the reader at a typo that is not there.
+    Callers wanting either form want the string, not this function.
 
     A bare name that ships under more than one provider's enum (common for text, where the same
     id is offered by many providers) is **ambiguous**. Rather than blindly picking the
@@ -235,7 +242,19 @@ def resolve_model_enum(model: Union[Model, str]) -> Model:
     if not isinstance(model, str):
         raise TypeError(f"Expected a Model enum member or a string, got {type(model).__name__}.")
     if ":" in model:
-        return resolve_model_string(model)
+        resolved = resolve_model(model)
+        if resolved.base_url is not None:
+            raise ValueError(
+                f"Model string {model!r} names an endpoint, which a Model enum member cannot carry. "
+                f"Pass the string to ModelClient directly, or drop '@{resolved.base_url}' to resolve "
+                f"the model alone."
+            )
+        if isinstance(resolved.model, AdHocModel):
+            raise ValueError(
+                f"Model string {model!r} defines an ad-hoc model, which has no Model enum member. "
+                f"Pass the string to ModelClient directly."
+            )
+        return resolved.model
 
     registry = _provider_registry()
     matches = [

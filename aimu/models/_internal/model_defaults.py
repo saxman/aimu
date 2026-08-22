@@ -370,11 +370,15 @@ def resolve_default_text_model(*, include_hf_cache: bool = True) -> str:
     :func:`available_text_models` for what that means for remote servers.
     """
     _load_dotenv()
-    from ..model_client import resolve_model_string
+    from ..model_client import resolve_model
 
     env_val = os.environ.get(LANGUAGE_MODEL_ENV)
     if env_val:
-        resolve_model_string(env_val)  # validate now; raises a clear ValueError on a bad id
+        # Validated with the extended parser, not the narrow provider:model_id one, because the
+        # string returned here is handed to a client factory that parses the extended form. A
+        # narrower validator rejects strings the factory would have accepted, which is what made
+        # `@base_url` reachable by an explicit argument but never by this env var.
+        resolve_model(env_val)  # raises a clear ValueError on a bad provider, id, endpoint, or flag
         return env_val
 
     probes = [_ollama_installed_text_models]
@@ -399,16 +403,34 @@ def resolve_default_text_model(*, include_hf_cache: bool = True) -> str:
 def resolve_default_text_model_enum(*, include_hf_cache: bool = True) -> "Model":
     """Like :func:`resolve_default_text_model`, but return the ``Model`` enum member.
 
-    Order: ``AIMU_LANGUAGE_MODEL`` (parsed via :func:`resolve_model_string`) → the first
-    locally available model (tool-capable preferred; see :func:`available_text_models`) →
+    Order: ``AIMU_LANGUAGE_MODEL`` (parsed via :func:`resolve_model`) → the first locally
+    available model (tool-capable preferred; see :func:`available_text_models`) →
     ``ValueError``. Never selects a cloud provider and never downloads weights.
+
+    A ``Model`` member names a catalogued id and carries nothing else, so the two extended
+    forms have no representation here and are refused by name: an ``@endpoint`` and an ad-hoc
+    ``id;flags``. Both are valid in the env var (see :func:`resolve_default_text_model`, which
+    returns the string), which is exactly why the refusal has to say so rather than report a
+    valid id as unknown. Callers wanting the extended forms want the string resolver.
     """
     _load_dotenv()
-    from ..model_client import resolve_model_string
+    from ..model_client import AdHocModel, resolve_model
 
     env_val = os.environ.get(LANGUAGE_MODEL_ENV)
     if env_val:
-        return resolve_model_string(env_val)
+        resolved = resolve_model(env_val)
+        if resolved.base_url is not None:
+            raise ValueError(
+                f"{LANGUAGE_MODEL_ENV}={env_val!r} names an endpoint, which a Model enum member "
+                f"cannot carry. Use resolve_default_text_model() for the string form, or drop "
+                f"'@{resolved.base_url}' to resolve the model alone."
+            )
+        if isinstance(resolved.model, AdHocModel):
+            raise ValueError(
+                f"{LANGUAGE_MODEL_ENV}={env_val!r} defines an ad-hoc model, which has no Model enum "
+                f"member. Use resolve_default_text_model() for the string form."
+            )
+        return resolved.model
 
     member = _first(available_text_models(include_hf_cache=include_hf_cache))
     if member is not None:

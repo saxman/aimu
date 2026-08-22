@@ -226,18 +226,24 @@ def _fresh_async_subagent_client(model):
     """Build a fresh isolated :class:`AsyncModelClient` for one spawn.
 
     Cloud/Ollama models are constructed directly. In-process providers (HuggingFace, LlamaCpp) can't
-    be built from an enum on the aio surface, so a *fresh* sync client is wrapped per spawn — fresh
-    preserves message isolation, and the process weight cache prevents a reload.
+    be built from an enum on the aio surface, so a *fresh* sync client is wrapped per spawn (fresh
+    preserves message isolation, and the process weight cache prevents a reload).
+
+    A string model reaches :class:`AsyncModelClient` unresolved, and is resolved here only to answer
+    the in-process question. That split is the point: an extended model string carries an
+    ``@base_url`` and ``;flags`` that no resolved enum can hold, so resolving *for* the constructor
+    would drop the endpoint and run the sub-agent against the provider default while its parent
+    talked to the override. The sync twin hands its string to ``ModelClient`` for the same reason.
     """
     from aimu.aio._model_client import AsyncModelClient
-    from aimu.models.model_client import resolve_model_string
+    from aimu.models.model_client import resolve_model
 
-    resolved = resolve_model_string(model) if isinstance(model, str) else model
+    resolved = resolve_model(model).model if isinstance(model, str) else model
     if _is_in_process_model(resolved):
         import aimu
 
         return AsyncModelClient(aimu.client(resolved))
-    return AsyncModelClient(resolved)
+    return AsyncModelClient(model if isinstance(model, str) else resolved)
 
 
 def make_async_subagent_tool(

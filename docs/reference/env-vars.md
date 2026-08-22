@@ -37,7 +37,7 @@ These set the default `model=` when the argument is omitted, for both the top-le
 
 Resolution order is env var → local discovery → error:
 
-1. `AIMU_LANGUAGE_MODEL`, if set. It is validated immediately with `resolve_model_string()`, so a typo'd id raises at resolution time rather than at the first request.
+1. `AIMU_LANGUAGE_MODEL`, if set. It is validated immediately with `resolve_model()`, so a typo'd id raises at resolution time rather than at the first request.
 2. Otherwise the first *already-available* local model: a running Ollama server → the local HuggingFace cache → a reachable local OpenAI-compatible server, preferring a tool-capable one. The pick is logged at `WARNING`, so an implicit default is never silent.
 3. Otherwise `ValueError`, naming the installed text providers.
 
@@ -46,6 +46,17 @@ A cloud provider is never auto-selected and weights are never downloaded, so the
 ```ini
 AIMU_LANGUAGE_MODEL=ollama:qwen3.5:9b
 ```
+
+The value is the **full model string**, so the `@endpoint` and ad-hoc `;flags` forms work here exactly as they do in an explicit `model=` argument:
+
+```ini
+AIMU_LANGUAGE_MODEL=ollama:qwen3.5:9b@http://gpu-box:11434
+AIMU_LANGUAGE_MODEL=lmstudio:some-local-build@http://box:1234;tools,vision
+```
+
+Note this pins only the *client*. Local discovery stays endpoint-blind (see [switch-providers.md](../how-to/switch-providers.md)), so export `OLLAMA_HOST` as well when a remote server should also be considered by `available_text_models()`.
+
+`resolve_default_text_model_enum()` is the exception, and it says so: it returns a `Model` enum member, which can carry neither an endpoint nor ad-hoc flags, so it rejects both by name rather than reporting a valid id as unknown. Use the string resolver for those.
 
 The async surface skips the HuggingFace-cache probe (an `hf:` default would mean wrapping a sync in-process client), so it resolves from Ollama and local OpenAI-compatible servers only.
 

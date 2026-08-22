@@ -13,7 +13,7 @@ import pytest
 
 from aimu.aio.tools import builtin as _aio_builtin
 from aimu.aio.tools.builtin import make_async_subagent_tool
-from aimu.models import StreamChunk, StreamingContentType
+from aimu.models import OllamaModel, StreamChunk, StreamingContentType
 
 # Capture the real fresh-client builder before the autouse fixture patches the module attribute,
 # so the branch tests below can exercise the genuine cloud-vs-in-process logic.
@@ -523,3 +523,35 @@ async def test_a_specs_generate_kwargs_dict_is_not_shared_with_the_spawned_clien
     await spawn("cold", "two")
     assert spec_kwargs == {"temperature": 0.1}
     assert _FakeAsyncClient.instances[-1].default_generate_kwargs == {"temperature": 0.1}
+
+
+def test_fresh_client_keeps_an_extended_model_string_intact(monkeypatch):
+    """An ``@base_url`` model string has to reach the sub-agent's client unresolved.
+
+    A spawn's model arrives as a plain string (a spec's ``"model"`` key, or the default the spawn
+    tool was built with), so the extended grammar has to survive the trip. Resolving to an enum
+    here would reject the string outright, and a resolved enum could not carry the endpoint even
+    if it parsed: the sub-agent would talk to the provider default while its parent talked to the
+    override. AsyncModelClient already parses the full grammar, so the string is what it gets.
+    """
+    seen = {}
+    monkeypatch.setattr(_aio_builtin, "_is_in_process_model", lambda m: False)
+    monkeypatch.setattr("aimu.aio._model_client.AsyncModelClient", lambda m: seen.setdefault("arg", m))
+
+    model_str = "ollama:qwen3.5:9b@http://example.local:11434"
+    _REAL_FRESH_CLIENT(model_str)
+    assert seen["arg"] == model_str
+
+
+def test_fresh_client_builds_a_real_client_for_an_endpoint_string():
+    """End to end, with no patching: the endpoint reaches the client the sub-agent runs on.
+
+    The unit test above pins the pass-through; this pins the outcome that motivated it, so a
+    future refactor cannot satisfy the contract while still sending the sub-agent to localhost.
+    """
+    client = _REAL_FRESH_CLIENT("ollama:qwen3.5:9b@http://example.local:11434")
+    assert client.model is OllamaModel.QWEN_3_5_9B
+    # AsyncModelClient -> AsyncOllamaClient -> ollama.AsyncClient -> httpx.AsyncClient, which is the
+    # only place the resolved host is readable back; the SDK exposes no accessor for it.
+    httpx_client = client._client._client._client
+    assert str(httpx_client.base_url).rstrip("/") == "http://example.local:11434"

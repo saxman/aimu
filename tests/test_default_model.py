@@ -59,12 +59,37 @@ def test_pick_returns_none_when_nothing_installed():
 def test_text_env_var_takes_precedence(monkeypatch):
     monkeypatch.setenv("AIMU_LANGUAGE_MODEL", "fake:model")
     # Patch the validator so the test doesn't depend on which providers are installed.
-    monkeypatch.setattr("aimu.models.model_client.resolve_model_string", lambda s: s)
+    monkeypatch.setattr("aimu.models.model_client.resolve_model", lambda s: s)
     assert _defaults.resolve_default_text_model() == "fake:model"
 
 
 def test_text_bad_env_var_raises(monkeypatch):
     monkeypatch.setenv("AIMU_LANGUAGE_MODEL", "bogus-provider:whatever")
+    with pytest.raises(ValueError):
+        _defaults.resolve_default_text_model()
+
+
+def test_text_env_var_accepts_an_endpoint_suffix(monkeypatch):
+    """``AIMU_LANGUAGE_MODEL`` may carry the full extended string, endpoint included.
+
+    The value is validated here and parsed for real by the client factory, so validation has to
+    accept every form the factory does. Validating with the narrow ``provider:model_id`` resolver
+    rejected ``@base_url`` outright, which made the endpoint reachable by an explicit
+    ``aimu.client(...)`` argument but never by the env var.
+    """
+    monkeypatch.setenv("AIMU_LANGUAGE_MODEL", "ollama:qwen3.5:9b@http://gpu-box:11434")
+    assert _defaults.resolve_default_text_model() == "ollama:qwen3.5:9b@http://gpu-box:11434"
+
+
+def test_text_env_var_accepts_an_adhoc_id_with_flags(monkeypatch):
+    """The ad-hoc form is part of the same extended syntax, so the env var takes it too."""
+    monkeypatch.setenv("AIMU_LANGUAGE_MODEL", "lmstudio:some-local-build@http://box:1234;tools,vision")
+    assert _defaults.resolve_default_text_model() == "lmstudio:some-local-build@http://box:1234;tools,vision"
+
+
+def test_text_env_var_with_endpoint_still_rejects_an_unknown_id(monkeypatch):
+    """An endpoint does not switch a curated-catalog provider into accepting any id."""
+    monkeypatch.setenv("AIMU_LANGUAGE_MODEL", "ollama:no-such-tag:1b@http://gpu-box:11434")
     with pytest.raises(ValueError):
         _defaults.resolve_default_text_model()
 
@@ -132,10 +157,28 @@ def test_available_text_models_skips_hf_cache_when_disabled(monkeypatch):
     assert [m.value for m in _defaults.available_text_models(include_hf_cache=False)] == ["s"]
 
 
+def test_default_enum_env_var_endpoint_says_an_enum_cannot_carry_one(monkeypatch):
+    """An endpoint is valid syntax the enum return type cannot express, so say that.
+
+    A ``Model`` member names a catalogued id and nothing else, so this resolver has no way to
+    hand back the endpoint. Rejecting is correct; reporting it as an unknown model id (which is
+    what validating the unsplit string did) sends the reader looking for a typo in a valid id.
+    """
+    monkeypatch.setenv("AIMU_LANGUAGE_MODEL", "ollama:qwen3.5:9b@http://gpu-box:11434")
+    with pytest.raises(ValueError, match="endpoint"):
+        _defaults.resolve_default_text_model_enum()
+
+
 def test_default_enum_env_var_takes_precedence(monkeypatch):
+    from aimu.models.model_client import ResolvedModel
+
     sentinel = object()
     monkeypatch.setenv("AIMU_LANGUAGE_MODEL", "fake:model")
-    monkeypatch.setattr("aimu.models.model_client.resolve_model_string", lambda s: sentinel)
+    # Patch the validator so the test doesn't depend on which providers are installed.
+    monkeypatch.setattr(
+        "aimu.models.model_client.resolve_model",
+        lambda s: ResolvedModel(sentinel, "fake", None),
+    )
     assert _defaults.resolve_default_text_model_enum() is sentinel
 
 

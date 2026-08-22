@@ -125,6 +125,14 @@ client = aimu.client()                          # auto-resolved default (logs th
 export AIMU_LANGUAGE_MODEL="ollama:qwen3.5:9b"  # pin the default deterministically
 ```
 
+The env var takes the same full model string an explicit `model=` does, so a remote server can be pinned there too:
+
+```bash
+export AIMU_LANGUAGE_MODEL="ollama:qwen3.5:9b@http://gpu-box:11434"
+```
+
+That pins the client only. Discovery stays endpoint-blind, so export `OLLAMA_HOST=http://gpu-box:11434` alongside it when `available_text_models()` should see the remote server's models as well.
+
 To inspect or choose among what's available instead of taking the auto-pick:
 
 ```python

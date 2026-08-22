@@ -116,6 +116,13 @@ def resolve_model_string(model_str: str, entries: list[ProviderEntry], *, modali
 
     Matches *exact* enum-member values only; ad-hoc ids are handled inside each
     concrete client's ``__init__`` (pass the string straight to the factory).
+
+    Which is why an uncatalogued id does not report as simply unknown. It may well be valid
+    (a HuggingFace repo, a provider alias); what is true is narrower, and is what the error
+    says: this function returns an enum member, and an uncatalogued id has none. The text
+    modality's :func:`aimu.resolve_model_enum` refuses its own unrepresentable forms in the
+    same terms, from a parse that can name them exactly. Here the parse cannot tell an
+    ad-hoc id from a typo, so the message offers the catalog *and* the way past it.
     """
     label = modality.capitalize()
     prefixes = available_prefixes(entries)
@@ -135,7 +142,11 @@ def resolve_model_string(model_str: str, entries: list[ProviderEntry], *, modali
         if member.value == model_id:
             return member
     available = sorted(m.value for m in model_enum)
-    raise ValueError(f"Provider {provider!r} has no {modality} model id {model_id!r}. Available: {available}")
+    raise ValueError(
+        f"Provider {provider!r} has no catalogued {modality} model id {model_id!r}. Available: {available}. "
+        f"An uncatalogued id has no enum member to return, but may still be usable: pass the whole "
+        f"string to {label}Client instead."
+    )
 
 
 def build_client(

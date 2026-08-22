@@ -160,6 +160,44 @@ def test_resolve_model_enum_ambiguous_prefers_tool_capable(monkeypatch):
     assert mc.resolve_model_enum("SHARED") is tooly
 
 
+def test_resolve_model_enum_endpoint_says_an_enum_cannot_carry_one():
+    """An endpoint is valid model-string syntax that the enum return type cannot express.
+
+    ``ModelClient("ollama:<id>@<url>")`` accepts this string, so reporting the id as unknown
+    (which validating the unsplit string did) points the reader at a typo in an id that is
+    catalogued and correct, while never naming the suffix that is the actual problem.
+    """
+    from aimu.models import HAS_OLLAMA, resolve_model_enum
+
+    if not HAS_OLLAMA:
+        pytest.skip("ollama extra not installed")
+    with pytest.raises(ValueError, match="endpoint"):
+        resolve_model_enum("ollama:qwen3.5:9b@http://gpu-box:11434")
+
+
+def test_resolve_model_enum_adhoc_id_says_an_enum_cannot_carry_one():
+    """Same for the ad-hoc form: valid for a client, unrepresentable as an enum member.
+
+    No ``@endpoint`` here, so the ad-hoc branch is what answers rather than the endpoint one.
+    """
+    from aimu.models import HAS_OPENAI_COMPAT, resolve_model_enum
+
+    if not HAS_OPENAI_COMPAT:
+        pytest.skip("openai_compat extra not installed")
+    with pytest.raises(ValueError, match="ad-hoc"):
+        resolve_model_enum("lmstudio:some-local-build;tools")
+
+
+def test_resolve_model_enum_endpoint_still_rejects_an_unknown_catalog_id():
+    """An endpoint does not turn a curated-catalog provider into an ad-hoc one."""
+    from aimu.models import HAS_OLLAMA, resolve_model_enum
+
+    if not HAS_OLLAMA:
+        pytest.skip("ollama extra not installed")
+    with pytest.raises(ValueError, match="no model id"):
+        resolve_model_enum("ollama:no-such-tag:1b@http://gpu-box:11434")
+
+
 def test_resolve_model_enum_unknown_name_raises():
     from aimu.models import resolve_model_enum
 

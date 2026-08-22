@@ -224,6 +224,18 @@ def test_resolve_image_model_enum_delegates_provider_id_string():
     assert resolve_image_model_enum("hf:stabilityai/stable-diffusion-3.5-medium") is HuggingFaceImageModel.SD_3_5_MEDIUM
 
 
+def test_resolve_image_model_enum_uncatalogued_id_points_at_the_client():
+    """An uncatalogued id may still be a valid one, so say what the enum cannot return.
+
+    ``ImageClient("hf:<any repo>")`` accepts an id absent from the catalog (each concrete client
+    parses the string itself), so listing the catalog and calling the id unknown is only half the
+    story: this resolver returns an enum member, and an uncatalogued id has none. Matches the
+    wording ``resolve_model_enum`` uses for the text modality's ad-hoc form.
+    """
+    with pytest.raises(ValueError, match="ImageClient"):
+        resolve_image_model_enum("hf:some-org/not-in-the-catalog")
+
+
 def test_resolve_image_model_enum_unknown_name_raises():
     with pytest.raises(ValueError, match="Unknown image model name"):
         resolve_image_model_enum("NOT_A_REAL_IMAGE_MODEL")

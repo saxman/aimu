@@ -50,6 +50,12 @@ def test_resolve_embedding_model_string_requires_colon():
         resolve_embedding_model_string("text-embedding-3-small")
 
 
+def test_resolve_embedding_model_string_uncatalogued_id_points_at_the_client():
+    """The pointer is emitted by the shared modality resolver, so every modality gets it."""
+    with pytest.raises(ValueError, match="EmbeddingClient"):
+        resolve_embedding_model_string("ollama:not-in-the-catalog")
+
+
 def test_resolve_embedding_model_string_unknown_provider():
     with pytest.raises(ValueError, match="Unknown embedding provider"):
         resolve_embedding_model_string("nope:foo")
