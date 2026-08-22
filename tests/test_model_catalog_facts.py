@@ -256,6 +256,43 @@ def test_gguf_catalogs_do_not_advertise_vision():
                 )
 
 
+def test_hf_tools_true_requires_a_parse_route():
+    """``supports_tools=True`` on a ``HuggingFaceModel`` member requires a way to parse the call.
+
+    A tool call the in-process client cannot parse out of the model's raw output is
+    indistinguishable from prose -- the model "calls" a tool and the caller never finds out.
+    This is not hypothetical: mid-branch, ``HuggingFaceModel.PHI_4_MINI_3_8B`` briefly advertised
+    ``tools=True`` on exactly this path (every catalog agreed on the same wrong value, so nothing
+    keyed on cross-catalog agreement caught it -- it was caught twice by human inspection).
+
+    Reading ``aimu/models/providers/hf/text.py::HuggingFaceClient.__init__``, a member has a
+    parse route one of two ways: a ``tool_call_format`` other than ``ToolCallFormat.NA`` (the
+    per-model regex/XML/JSON parsers), or the processor ``parse_response()`` path, which that
+    method enables only for ``model.value.startswith("google/gemma-4")``. (``MAGISTRAL_SMALL``
+    also loads via the processor branch, but its route to tool calls is its own
+    ``ToolCallFormat.BRACKETED``, already covered by the first condition -- the processor branch
+    itself does not set ``_uses_processor_parse_response`` for it.)
+
+    Deliberately one-directional: the converse (a parse route with ``tools=False``) has a benign
+    existing hit, ``DEEPSEEK_R1_8B`` (``ToolCallFormat.XML`` declared for symmetry with its
+    Ollama/vLLM siblings' catalogs, weights that don't reliably call tools), so asserting the
+    reverse would fail on a case that isn't a bug.
+    """
+    from aimu.models.providers.hf.text import HuggingFaceModel, ToolCallFormat
+
+    for member in HuggingFaceModel:
+        if not member.supports_tools:
+            continue
+        has_parse_route = member.tool_call_format != ToolCallFormat.NA or member.value.startswith("google/gemma-4")
+        assert has_parse_route, (
+            f"HuggingFaceModel.{member.name} claims tools=True but has no tool-call parse route "
+            f"(tool_call_format is NA and its wire id does not start with 'google/gemma-4', the "
+            f"only processor-parse-response path). Either give it a ToolCallFormat, or set "
+            f"tools=False here via Wire(..., why=..., tools=False) if this serving path genuinely "
+            f"cannot surface a tool call for these weights."
+        )
+
+
 def test_mlx_members_are_quant_suffixed_and_have_base_facts():
     """A quant-suffixed member is the same weights at a different precision.
 

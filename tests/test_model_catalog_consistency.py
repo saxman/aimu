@@ -56,6 +56,14 @@ INTRINSIC_FLAGS = (
     "thinking_optional",
 )
 
+# The three cloud catalogs, named explicitly rather than inferred from "has no _wire". Each
+# hosted model ships under exactly one provider, so these are deliberately outside MODEL_FACTS
+# and assign bare ModelSpec values instead of Wire. Every *other* text-model catalog is a
+# local runtime and is expected to wire every member into MODEL_FACTS -- see
+# test_every_local_runtime_member_has_a_wire, which enforces that directly rather than via a
+# property (having no _wire) that a missing Wire would itself produce.
+CLOUD_CATALOG_NAMES = frozenset({"AnthropicModel", "OpenAIModel", "GeminiModel"})
+
 
 def _text_model_enums() -> dict[str, type]:
     """Every installed text-model enum exposed from ``aimu.models``.
@@ -110,6 +118,39 @@ def test_no_silent_enum_aliases(enum_name):
         f"ModelSpec.id, so they are absent from iteration and their flags are discarded. "
         f"Give each member a distinct id."
     )
+
+
+def test_every_local_runtime_member_has_a_wire():
+    """Every member of every non-cloud text catalog must resolve through MODEL_FACTS.
+
+    ``test_overrides_are_explained`` and ``test_cloud_names_do_not_collide_with_local_runtime``
+    both used to infer "this member is a local-runtime member" from "it has a ``_wire``" -- a
+    property a missing ``Wire`` would itself remove, making the inference circular. A local
+    catalog that forgot to migrate a member to ``Wire(...)`` (writing a bare ``ModelSpec``
+    directly instead, as every catalog did before this migration) would carry no ``_wire``,
+    silently drop out of every check keyed on that property, and pass clean: two catalogs could
+    disagree completely on a shared name and nothing here would notice. Demonstrated in the
+    review that motivated this test: a fake ``VLLMOpenAIModel``/``SGLangOpenAIModel`` pair, both
+    declaring the same name via a bare ``ModelSpec`` with opposite ``tools``/``thinking`` flags,
+    passes every other guard in this file.
+
+    This test instead asserts the property directly, against the explicit ``CLOUD_CATALOG_NAMES``
+    set, so a member can no longer opt out of the check by omitting the very thing it's missing.
+    """
+    for enum_name, enum in _text_model_enums().items():
+        if enum_name in CLOUD_CATALOG_NAMES:
+            continue
+        missing = sorted(
+            member_name for member_name, raw in enum.__members__.items() if getattr(raw, "_wire", None) is None
+        )
+        assert not missing, (
+            f"{enum_name} member(s) {missing} carry a bare ModelSpec instead of a Wire. Local-"
+            f"runtime catalogs must wire every member into aimu/models/_catalog.py's MODEL_FACTS "
+            f"table: add the model's intrinsic facts there (if not already present under this "
+            f"name) and replace the member's value with Wire(id) (plus why=... on any override of "
+            f"an intrinsic flag this serving path can't deliver). If this catalog is genuinely a "
+            f"cloud provider, add its enum name to CLOUD_CATALOG_NAMES above instead."
+        )
 
 
 def test_overrides_are_explained():
@@ -192,11 +233,17 @@ EXPECTED_OVERRIDES = {
 def test_cloud_names_do_not_collide_with_local_runtime():
     """A cloud-catalog member name must not collide with ``MODEL_FACTS`` or a local member.
 
-    Cloud catalogs (``AnthropicModel``, ``GeminiModel``, ``OpenAIModel``) assign bare
-    ``ModelSpec`` values and sit outside ``MODEL_FACTS`` by design: each hosted model ships
-    under exactly one provider, so there is no cross-provider restatement to unify. But that
-    also means ``test_overrides_are_explained`` has nothing to check for these members --
-    it only looks at ``Wire``-based entries, since a bare ``ModelSpec`` carries no ``_wire``.
+    Cloud catalogs (``CLOUD_CATALOG_NAMES``: ``AnthropicModel``, ``GeminiModel``,
+    ``OpenAIModel``) assign bare ``ModelSpec`` values and sit outside ``MODEL_FACTS`` by
+    design: each hosted model ships under exactly one provider, so there is no cross-provider
+    restatement to unify. But that also means ``test_overrides_are_explained`` has nothing to
+    check for these members -- it only looks at ``Wire``-based entries.
+
+    "Cloud" is determined here by the explicit ``CLOUD_CATALOG_NAMES`` set, not by "this member
+    has no ``_wire``" -- that property is also what a local-runtime catalog would exhibit if it
+    forgot to migrate a member to ``Wire(...)``, which would make this test blind to exactly the
+    collision it exists to catch. ``test_every_local_runtime_member_has_a_wire`` separately
+    guarantees every non-cloud catalog member actually has a ``_wire``.
 
     If a cloud member's name ever matches a ``MODEL_FACTS`` key or a local-runtime member's
     name, that is either a genuine model that ships under both a cloud and a local-runtime
@@ -212,9 +259,8 @@ def test_cloud_names_do_not_collide_with_local_runtime():
     cloud_names: dict[str, str] = {}
     local_names: dict[str, str] = {}
     for enum_name, enum in _text_model_enums().items():
-        for member_name, raw in enum.__members__.items():
-            wire = getattr(raw, "_wire", None)
-            table = local_names if wire is not None else cloud_names
+        table = cloud_names if enum_name in CLOUD_CATALOG_NAMES else local_names
+        for member_name in enum.__members__:
             table.setdefault(member_name, enum_name)
 
     facts_collisions = sorted(set(cloud_names) & set(MODEL_FACTS))
