@@ -615,6 +615,22 @@ VLLM_BASE_URL = "http://localhost:8000/v1"
 
 class VLLMOpenAIModel(Model):
     # Model values are HuggingFace repo paths (as used by `vllm serve --model`).
+    #
+    # tools=True below states a fact about the weights (this model was trained for function
+    # calling), not a guarantee that vLLM will surface it. vLLM's OpenAI-compatible server
+    # gates tool_calls behind two launch flags -- `--enable-auto-tool-choice` and
+    # `--tool-call-parser <name>` -- and without them the model still runs and still emits
+    # its tool call, just as unstructured text/JSON inside `content` rather than a
+    # structured `tool_calls` entry. That failure mode looks exactly like "the model ignored
+    # its tools" to a caller iterating `message.tool_calls`, so if a tools=True model here
+    # never calls a tool, check the launch flags before doubting the model. The parser
+    # `<name>` is specific to the model family and to the installed vLLM version (values are
+    # added and renamed across releases), so this catalog deliberately does not enumerate
+    # one per model -- look it up in vLLM's own tool-calling docs
+    # (https://docs.vllm.ai/en/latest/features/tool_calling.html) for the model and vLLM
+    # version actually running. MUSE_GLIMMER_30B below is the one member whose parser value
+    # is pinned in a comment, because that value was independently verified for a specific
+    # vLLM release; it is the exception this note explains, not the pattern to copy.
     LLAMA_3_1_8B = Wire("meta-llama/Llama-3.1-8B-Instruct")
     LLAMA_3_2_3B = Wire("meta-llama/Llama-3.2-3B-Instruct")
     # Mistral
@@ -691,6 +707,12 @@ HF_OPENAI_BASE_URL = "http://localhost:8000/v1"
 
 class HFOpenAIModel(Model):
     # Model values are HuggingFace repo paths (as used by `transformers serve <model-id>`).
+    #
+    # Unlike VLLMOpenAIModel/SGLangOpenAIModel above, transformers serve has no pluggable
+    # --tool-call-parser launch flag to gate tool_calls behind: its docs state tool calling
+    # "works with any model whose tokenizer declares tool call tokens" (detected from the
+    # chat template at request time), so a tools=True member here needs no launch-time
+    # opt-in to surface structured tool_calls.
     LLAMA_3_1_8B = Wire("meta-llama/Llama-3.1-8B-Instruct")
     LLAMA_3_2_3B = Wire("meta-llama/Llama-3.2-3B-Instruct")
     # Mistral
@@ -809,6 +831,18 @@ SGLANG_BASE_URL = "http://localhost:30000/v1"
 
 class SGLangOpenAIModel(Model):
     # Model values are HuggingFace repo paths (as used by `python -m sglang.launch_server --model-path`).
+    #
+    # tools=True below states a fact about the weights (this model was trained for function
+    # calling), not a guarantee that SGLang will surface it. SGLang's OpenAI-compatible
+    # server gates tool_calls behind a `--tool-call-parser <name>` launch flag; without it a
+    # tool-calling model still runs and still emits its tool call, just as unstructured
+    # text/JSON inside `content` rather than a structured `tool_calls` entry -- indistinguishable
+    # from "the model ignored its tools" to a caller iterating `message.tool_calls`, so check
+    # the launch flag before doubting the model. The parser `<name>` is specific to the model
+    # family and to the installed SGLang version (values are added and renamed across
+    # releases), so this catalog deliberately does not enumerate one per model -- look it up
+    # in SGLang's own tool-parser docs (https://docs.sglang.io/advanced_features/tool_parser.html)
+    # for the model and SGLang version actually running.
     LLAMA_3_1_8B = Wire("meta-llama/Llama-3.1-8B-Instruct")
     LLAMA_3_2_3B = Wire("meta-llama/Llama-3.2-3B-Instruct")
     # Mistral
