@@ -165,6 +165,75 @@ def test_hf_repo_runtimes_share_one_id_namespace():
 GGUF_VISION_RATIONALE = "mmproj"
 
 
+_INTRINSIC_FLAGS = ("supports_tools", "supports_thinking", "supports_vision", "thinking_levels", "thinking_optional")
+
+
+def _cross_provider_bare_names(min_enums: int = 2) -> frozenset[str]:
+    """Names carried as a bare member by at least *min_enums* distinct text-model catalogs.
+
+    ``MODEL_FACTS`` exists to state a cross-provider identity once (see its module docstring):
+    a name that earns a place there is expected to be reachable, bare, from more than one
+    provider. A name that is a bare member in exactly **one** catalog is not serving that role
+    -- it is a single-provider one-off -- and that is precisely the shape that can accidentally
+    string-prefix an unrelated, longer sibling name. This module's own catalog has a real
+    example: ``HuggingFaceModel.MAGISTRAL_SMALL`` (the 2509 revision, vision-capable, kept
+    deliberately separate per ``_catalog.py``'s note on the two non-interchangeable Magistral
+    releases) is a bare member in exactly one enum, and is a literal string-prefix of the
+    unrelated ``MAGISTRAL_SMALL_24B`` (the 2506 revision, catalogued broadly elsewhere) --
+    without this filter a naive prefix match would treat the latter as a "quant sibling" of the
+    former and wrongly exempt it from the GGUF vision check below. Every genuine
+    per-quantization base in these catalogs (``GPT_OSS_20B``, ``PHI_4_MINI_3_8B``, ``QWEN_3_32B``,
+    ...) ships across many providers (Ollama, the HF-repo trio, the GGUF trio, ...), so requiring
+    at least two is a real discriminator, not an arbitrary cutoff -- see
+    ``test_cross_provider_bare_names_excludes_single_catalog_names`` below.
+    """
+    import aimu.models as models
+
+    counts: dict[str, int] = {}
+    for attr in dir(models):
+        if not attr.endswith("Model") or attr == "Model":
+            continue
+        enum = getattr(models, attr)
+        if enum is None:
+            continue
+        try:
+            members = list(enum)
+        except TypeError:
+            continue
+        if not members or not all(hasattr(members[0], flag) for flag in _INTRINSIC_FLAGS):
+            continue
+        for name in {m.name for m in enum}:
+            counts[name] = counts.get(name, 0) + 1
+    return frozenset(name for name, count in counts.items() if count >= min_enums)
+
+
+def _quant_base(name: str, facts: dict) -> str | None:
+    """If *name* is a per-quantization sibling of a ``MODEL_FACTS`` base, return that base.
+
+    A quant member's name is its base model's ``MODEL_FACTS`` key plus ``"_"`` plus whatever
+    suffix the quantization actually ships under. That suffix is **not** standardized upstream:
+    most are ``_4BIT``/``_8BIT``/``_BF16``, but Task 11 alone added ``_FP16`` (Phi-4-mini's third
+    precision has no bf16 build, only an "-mlx-fp16" one) and ``_MXFP4_Q4``/``_MXFP4_Q8``
+    (gpt-oss ships natively quantized to mxfp4, so its mlx-community build is a Q4/Q8
+    requantization of that format, not a plain bit-width one). An enumerated suffix allowlist
+    needs a new entry every time upstream invents another naming scheme -- which happened three
+    times in that one task alone -- and silently stops matching in the meantime. Matching on "is
+    there a known base model name this is an extension of" instead needs no such upkeep: any
+    future suffix, however it's spelled, is still recognised because the base name is still a
+    prefix of it.
+
+    Candidates are restricted to ``_cross_provider_bare_names()`` (see its docstring for why:
+    plain string-prefix matching over the *entire* ``MODEL_FACTS`` table has a real
+    false-positive, ``MAGISTRAL_SMALL`` prefixing ``MAGISTRAL_SMALL_24B``, that this filter
+    excludes). The longest surviving candidate wins, so a more specific key beats a shorter one
+    when both happen to match.
+    """
+    candidates = [
+        key for key in facts if name != key and name.startswith(key + "_") and key in _cross_provider_bare_names()
+    ]
+    return max(candidates, key=len) if candidates else None
+
+
 def test_gguf_catalogs_do_not_advertise_vision():
     """No GGUF path loads an mmproj projector by default, so none may claim vision.
 
@@ -177,8 +246,8 @@ def test_gguf_catalogs_do_not_advertise_vision():
 
     for enum in (LlamaCppModel, LlamaServerOpenAIModel, LMStudioOpenAIModel):
         for member in enum:
-            if member.name.endswith(("_4BIT", "_8BIT", "_BF16")):
-                continue  # LM Studio's MLX entries are not a GGUF path
+            if _quant_base(member.name, MODEL_FACTS) is not None:
+                continue  # a per-quantization sibling is an MLX entry, not a GGUF one
             assert member.supports_vision is False, f"{enum.__name__}.{member.name} claims vision"
             wire = getattr(member, "_wire", None)
             if wire and "vision" in wire.overrides:
@@ -196,8 +265,47 @@ def test_mlx_members_are_quant_suffixed_and_have_base_facts():
     from aimu.models.providers.openai_compat import OMLXOpenAIModel
 
     for member in OMLXOpenAIModel:
-        base, sep, quant = member.name.rpartition("_")
-        if sep and quant in {"4BIT", "8BIT", "BF16"} and base in MODEL_FACTS:
+        base = _quant_base(member.name, MODEL_FACTS)
+        if base is not None:
             assert MODEL_FACTS[member.name] == MODEL_FACTS[base], (
                 f"{member.name} declares different facts from its base model {base}"
             )
+
+
+def test_cross_provider_bare_names_excludes_single_catalog_names():
+    """Pins the false-positive this task's fix exists to prevent.
+
+    ``MAGISTRAL_SMALL`` (HuggingFaceModel's 2509 revision) and ``MAGISTRAL_SMALL_24B`` (the
+    2506 revision, catalogued broadly elsewhere) are unrelated models that happen to share a
+    string prefix. A naive "any MODEL_FACTS key is a valid base" match would treat the latter as
+    a quantization of the former; ``_cross_provider_bare_names()`` must exclude
+    ``MAGISTRAL_SMALL`` (a bare member of exactly one catalog) while still admitting genuinely
+    cross-provider names like ``GPT_OSS_20B``.
+    """
+    names = _cross_provider_bare_names()
+    assert "MAGISTRAL_SMALL" not in names
+    assert "GPT_OSS_20B" in names
+    assert "PHI_4_MINI_3_8B" in names
+
+
+def test_quant_base_does_not_misidentify_an_unrelated_prefixed_model():
+    """The regression this task's fix targets: a real member, not a synthetic string.
+
+    ``MAGISTRAL_SMALL_24B`` is a bare model in its own right (catalogued across most local
+    runtimes), not a quantization of the differently-versioned ``MAGISTRAL_SMALL``. Before the
+    ``_cross_provider_bare_names()`` filter, plain prefix matching over all of ``MODEL_FACTS``
+    misidentified it as one, which would have wrongly exempted it from
+    ``test_gguf_catalogs_do_not_advertise_vision``'s vision check.
+    """
+    assert _quant_base("MAGISTRAL_SMALL_24B", MODEL_FACTS) is None
+
+
+def test_quant_base_recognizes_every_task_11_irregular_suffix():
+    """The members this fix was written for: none end in ``_4BIT``/``_8BIT``/``_BF16``."""
+    for name, expected_base in (
+        ("PHI_4_MINI_3_8B_FP16", "PHI_4_MINI_3_8B"),
+        ("GPT_OSS_20B_MXFP4_Q4", "GPT_OSS_20B"),
+        ("GPT_OSS_20B_MXFP4_Q8", "GPT_OSS_20B"),
+    ):
+        assert not name.endswith(("_4BIT", "_8BIT", "_BF16"))
+        assert _quant_base(name, MODEL_FACTS) == expected_base
