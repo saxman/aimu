@@ -25,6 +25,19 @@ def _make_cache_key(model_path: str, n_ctx: int, n_gpu_layers: int, chat_format:
     return (model_path, n_ctx, n_gpu_layers, str(chat_format))
 
 
+# Shared by every vision-capable member of LlamaCppModel below. llama-cpp vision needs an mmproj
+# projector supplied via the chat_handler= constructor kwarg, which the default GGUF path does not
+# load, so a member whose weights are intrinsically vision-capable (per MODEL_FACTS) still
+# overrides vision=False here: the catalog describes the default path, and advertising vision
+# would let a caller pass images that fail at request time. See
+# tests/test_model_catalog_facts.py::test_gguf_catalogs_do_not_advertise_vision.
+_NO_MMPROJ = (
+    "llama-cpp vision needs an mmproj projector supplied via chat_handler=, which the default "
+    "GGUF path does not load; advertising vision would let a caller pass images that fail at "
+    "request time"
+)
+
+
 class LlamaCppModel(Model):
     # tools=True consistent with the verified Ollama Llama tool calling and the llama.cpp-based
     # llama-server build (llama-cpp-python runs the same engine). Requires a chat_format that
@@ -32,22 +45,45 @@ class LlamaCppModel(Model):
     LLAMA_3_1_8B = Wire("llama-3.1-8b")
     LLAMA_3_2_3B = Wire("llama-3.2-3b")
     MISTRAL_7B = Wire("mistral-7b")
+    MAGISTRAL_SMALL_24B = Wire("magistral-small-24b")
+    MINISTRAL_3_14B = Wire("ministral-3-14b")
+    PHI_4_MINI_3_8B = Wire("phi-4-mini")
+    PHI_4_14B = Wire("phi-4")
     QWEN_3_4B = Wire("qwen3-4b")
     QWEN_3_8B = Wire("qwen3-8b")
+    QWEN_3_32B = Wire("qwen3-32b")
+    # Qwen 3.5/3.6/3.8 are a unified vision-language family in the weights, but the default GGUF
+    # path here loads no mmproj projector, so every member below overrides vision=False. See
+    # _NO_MMPROJ above.
+    QWEN_3_5_9B = Wire("qwen3.5-9b", why=_NO_MMPROJ, vision=False)
+    QWEN_3_6_27B = Wire("qwen3.6-27b", why=_NO_MMPROJ, vision=False)
+    QWEN_3_6_35B = Wire("qwen3.6-35b-a3b", why=_NO_MMPROJ, vision=False)
+    # thinking_levels=True on every Qwen 3.8 member: verified against the model's own
+    # chat_template.jinja, which validates reasoning_effort against {xhigh, medium, low}. See
+    # providers/hf/text.py for the full note.
+    QWEN_3_8_27B = Wire("qwen3.8-27b", why=_NO_MMPROJ, vision=False)
     DEEPSEEK_R1_7B = Wire("deepseek-r1-7b")
-    PHI_4_MINI_3_8B = Wire("phi-4-mini")
+    DEEPSEEK_R1_8B = Wire("deepseek-r1-8b")
+    GEMMA_3_12B = Wire("gemma-3-12b", why=_NO_MMPROJ, vision=False)
     # thinking=True matches every other Gemma 4 catalog entry; llama-cpp surfaces reasoning
-    # via the shared <think> parser (same as QWEN_3_8B above). vision is intentionally omitted:
-    # llama-cpp vision needs an mmproj projector supplied via the chat_handler= constructor
-    # kwarg, which the default GGUF path does not load, so advertising vision=True would let a
-    # caller pass images that error out. See tests/test_model_catalog_consistency.py.
-    GEMMA_4_12B = Wire(
-        "gemma-4-12b",
-        why="llama-cpp vision needs an mmproj projector supplied via chat_handler=, which the "
-        "default GGUF path does not load; advertising vision would let a caller pass images "
-        "that fail at request time",
-        vision=False,
-    )
+    # via the shared <think> parser (same as QWEN_3_8B above). vision is overridden False on all
+    # four for the same mmproj reason. Gemma 4 E4B/12B support audio natively, but llama-cpp has
+    # no audio-input path; leave audio=False.
+    GEMMA_4_E4B = Wire("gemma-4-e4b", why=_NO_MMPROJ, vision=False)
+    GEMMA_4_12B = Wire("gemma-4-12b", why=_NO_MMPROJ, vision=False)
+    GEMMA_4_26B = Wire("gemma-4-26b-a4b", why=_NO_MMPROJ, vision=False)
+    GEMMA_4_31B = Wire("gemma-4-31b", why=_NO_MMPROJ, vision=False)
+    NEMOTRON_CASCADE_2_30B = Wire("nemotron-cascade-2-30b-a3b")
+    NEMOTRON_3_NANO_30B = Wire("nemotron-3-nano-30b-a3b")
+    # Zhipu AI: doesn't use tools reliably (matches OllamaModel's own note); this is an intrinsic
+    # weights limitation, not a serving-path one, so no tools=True override here either.
+    GLM_4_7_FLASH_31B_Q4 = Wire("glm-4.7-flash-q4")
+    GPT_OSS_20B = Wire("gpt-oss-20b")
+    SMOLLM2_1_7B = Wire("smollm2-1.7b")
+    # No MUSE_GLIMMER_30B here: llama-cpp-python runs the same llama.cpp engine as llama-server
+    # and LM Studio, whose catalogs document why the model is omitted (undocumented parsing of
+    # its channel-scoped reasoning and ATEM-style XML tool calls on this engine -- see
+    # LMStudioOpenAIModel in openai_compat.py).
 
 
 # llama-cpp-python's create_chat_completion takes every sampling knob, spelling the repetition one

@@ -558,6 +558,18 @@ class OllamaOpenAIClient(OpenAICompatClient):
         super().__init__(model, base_url=base_url, **kwargs)
 
 
+# Shared by every vision-capable member of both GGUF-serving catalogs below (LM Studio and
+# llama-server). Neither server loads an mmproj projector by default -- LM Studio and
+# llama-server each need their own explicit flag for it -- so a member whose weights are
+# intrinsically vision-capable (per MODEL_FACTS) still overrides vision=False here: the
+# catalog describes the default path, and advertising vision would let a caller pass images
+# that fail at request time. See tests/test_model_catalog_facts.py::test_gguf_catalogs_do_not_advertise_vision.
+_NO_MMPROJ = (
+    "the default GGUF path loads no mmproj projector, so advertising vision would let a caller "
+    "pass images that fail at request time"
+)
+
+
 LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
 
 
@@ -566,41 +578,80 @@ class LMStudioOpenAIModel(Model):
     # tools=True consistent with the verified Ollama Llama tool calling and the llama.cpp-based
     # llama-server build (LM Studio runs the same GGUF/llama.cpp engine).
     LLAMA_3_1_8B = Wire("llama-3.1-8b-instruct")
+    LLAMA_3_2_3B = Wire("llama-3.2-3b-instruct")
     MISTRAL_7B = Wire("mistral-7b-instruct-v0.3")
     PHI_4_MINI_3_8B = Wire("phi-4-mini-instruct")
+    PHI_4_14B = Wire("phi-4")
     QWEN_3_4B = Wire("qwen3-4b")
     QWEN_3_8B = Wire("qwen3-8b")
-    # Qwen 3.5 is a unified vision-language model; load its multimodal GGUF in LM Studio for
-    # image input (same convention as the Gemma 4 vision entries below). Qwen3 8B/4B are text-only.
-    QWEN_3_5_9B = Wire("qwen3.5-9b")
+    QWEN_3_32B = Wire("qwen3-32b")
+    # Qwen 3.5/3.6/3.8 are a unified vision-language family in the weights (image input is built
+    # into the base model, not a separate -VL variant), but LM Studio's GGUF path loads no mmproj
+    # projector by default, so every bare (GGUF) member below overrides vision=False. See
+    # _NO_MMPROJ above and the MLX quant siblings further down, which stay vision=True.
+    QWEN_3_5_9B = Wire("qwen3.5-9b", why=_NO_MMPROJ, vision=False)
+    QWEN_3_6_27B = Wire("qwen3.6-27b", why=_NO_MMPROJ, vision=False)
+    # Bare GGUF build of Qwen 3.6 35B-A3B, distinct from the MLX-quantized _4BIT/_8BIT members
+    # below: a quant-free LM Studio key resolves to the GGUF build, those quant-suffixed keys to
+    # an mlx-community download.
+    QWEN_3_6_35B = Wire("qwen3.6-35b-a3b", why=_NO_MMPROJ, vision=False)
     # LM Studio ships an MLX engine alongside llama.cpp and picks it automatically for MLX weights
     # on Apple Silicon. The loaded-model key derives from the downloaded repo, so an mlx-community
     # download keeps its quant suffix -- unlike the GGUF entries above, whose keys are quant-free.
     # Member names match OMLXOpenAIModel's so the cross-provider consistency guard covers the pair.
-    # Qwen 3.6 35B-A3B is a unified vision-language MoE, hence vision=True (matching
-    # OllamaModel.QWEN_3_6_35B). No bare QWEN_3_6_35B here: a quant-free LM Studio key would be the
-    # GGUF build, which is not an MLX path. No bf16 either -- a 35B unquantized is impractical here.
+    # Qwen 3.6 35B-A3B is a unified vision-language MoE (matching OllamaModel.QWEN_3_6_35B); MLX
+    # inference is a separate path from the GGUF one this catalog's vision override targets, so
+    # these quant-suffixed members are left vision=True (Task 11's business, not this one's). No
+    # bf16 -- a 35B unquantized is impractical here.
     QWEN_3_6_35B_4BIT = Wire("qwen3.6-35b-a3b-4bit")
     QWEN_3_6_35B_8BIT = Wire("qwen3.6-35b-a3b-8bit")
+    # Bare GGUF build of Qwen 3.8 27B, distinct from the MLX-quantized _4BIT/_8BIT members below.
+    # thinking_levels=True on every Qwen 3.8 member: verified against the model's own
+    # chat_template.jinja, which validates reasoning_effort against {xhigh, medium, low}. See
+    # providers/hf/text.py for the full note.
+    QWEN_3_8_27B = Wire("qwen3.8-27b", why=_NO_MMPROJ, vision=False)
     # Qwen 3.8 27B is dense rather than MoE, but the MLX story is identical: quant-suffixed keys
-    # from an mlx-community download, no bare member (a quant-free key would be the GGUF build).
-    # At 27B dense, bf16 is impractical here too, so only the two practical quants are listed.
-    # thinking_levels=True on the Qwen 3.8 members: verified against the model's own
-    # chat_template.jinja, which validates reasoning_effort against {xhigh, medium, low}.
-    # See providers/hf/text.py for the full note.
+    # from an mlx-community download, no bare member here (the bare GGUF build is catalogued
+    # above, separately from these MLX quants). At 27B dense, bf16 is impractical here too, so
+    # only the two practical quants are listed.
     QWEN_3_8_27B_4BIT = Wire("qwen3.8-27b-4bit")
     QWEN_3_8_27B_8BIT = Wire("qwen3.8-27b-8bit")
     # No MUSE_GLIMMER_30B here, for two independent reasons: LM Studio distributes it as GGUF only
     # (no MLX build, so it is not an MLX path at all), and whether its llama.cpp engine parses the
     # model's channel-scoped reasoning and ATEM-style XML tool calls is still undocumented. Adding
     # it would mean guessing tools/thinking. See OMLXOpenAIModel for the path that does parse them.
+    # (The same reasoning excludes it from LlamaServerOpenAIModel and LlamaCppModel: both run the
+    # same llama.cpp-derived engine as LM Studio's GGUF path.)
     DEEPSEEK_R1_7B = Wire("deepseek-r1-distill-qwen-7b")
+    DEEPSEEK_R1_8B = Wire("deepseek-r1-8b")
+    # Zhipu AI: doesn't use tools reliably (matches OllamaModel's own note); this is an intrinsic
+    # weights limitation, not a serving-path one, so no tools=True override here either.
+    GLM_4_7_FLASH_31B_Q4 = Wire("glm-4.7-flash-q4_k_m")
+    GPT_OSS_20B = Wire("gpt-oss-20b")
+    MAGISTRAL_SMALL_24B = Wire("magistral-small-24b")
+    MINISTRAL_3_14B = Wire("ministral-3-14b")
+    NEMOTRON_CASCADE_2_30B = Wire("nemotron-cascade-2-30b-a3b")
+    NEMOTRON_3_NANO_30B = Wire("nemotron-3-nano-30b-a3b")
+    SMOLLM2_1_7B = Wire("smollm2-1.7b-instruct")
+    # OpenAI-compat servers (LM Studio included) parse tool calls server-side; the in-process HF
+    # and native Ollama paths have no tool-parse format assigned for Gemma 3 (same override as
+    # HFOpenAIModel/LlamaServerOpenAIModel/SGLangOpenAIModel/VLLMOpenAIModel). vision=False for the
+    # same mmproj reason as every other member above.
+    GEMMA_3_12B = Wire(
+        "gemma-3-12b-it",
+        why=(
+            "tools=True: OpenAI-compat servers parse tool calls server-side; the in-process HF and "
+            "native Ollama paths have no tool-parse format assigned for Gemma 3. vision=False: " + _NO_MMPROJ
+        ),
+        tools=True,
+        vision=False,
+    )
     # Gemma 4 E4B/12B support audio natively, but LM Studio has no audio-input path (image-only);
-    # leave audio=False.
-    GEMMA_4_E4B = Wire("gemma-4-e4b-it")
-    GEMMA_4_12B = Wire("gemma-4-12b-it")
-    GEMMA_4_26B = Wire("gemma-4-26b-a4b-it")
-    GEMMA_4_31B = Wire("gemma-4-31b-it")
+    # leave audio=False. All four also override vision=False: see _NO_MMPROJ above.
+    GEMMA_4_E4B = Wire("gemma-4-e4b-it", why=_NO_MMPROJ, vision=False)
+    GEMMA_4_12B = Wire("gemma-4-12b-it", why=_NO_MMPROJ, vision=False)
+    GEMMA_4_26B = Wire("gemma-4-26b-a4b-it", why=_NO_MMPROJ, vision=False)
+    GEMMA_4_31B = Wire("gemma-4-31b-it", why=_NO_MMPROJ, vision=False)
 
 
 class LMStudioOpenAIClient(OpenAICompatClient):
@@ -788,22 +839,53 @@ class LlamaServerOpenAIModel(Model):
     LLAMA_3_1_8B = Wire("llama-3.1-8b-instruct.gguf")
     LLAMA_3_2_3B = Wire("llama-3.2-3b-instruct.gguf")
     MISTRAL_7B = Wire("mistral-7b-instruct-v0.3.gguf")
+    MAGISTRAL_SMALL_24B = Wire("magistral-small-24b.gguf")
+    MINISTRAL_3_14B = Wire("ministral-3-14b.gguf")
     PHI_4_MINI_3_8B = Wire("phi-4-mini-instruct.gguf")
+    PHI_4_14B = Wire("phi-4.gguf")
     QWEN_3_4B = Wire("qwen3-4b.gguf")
     QWEN_3_8B = Wire("qwen3-8b.gguf")
+    QWEN_3_32B = Wire("qwen3-32b.gguf")
+    # Qwen 3.5/3.6/3.8 are a unified vision-language family in the weights, but the default GGUF
+    # path llama-server loads has no mmproj projector, so every member below overrides
+    # vision=False. See _NO_MMPROJ above.
+    QWEN_3_5_9B = Wire("qwen3.5-9b.gguf", why=_NO_MMPROJ, vision=False)
+    QWEN_3_6_27B = Wire("qwen3.6-27b.gguf", why=_NO_MMPROJ, vision=False)
+    QWEN_3_6_35B = Wire("qwen3.6-35b-a3b.gguf", why=_NO_MMPROJ, vision=False)
+    # thinking_levels=True on every Qwen 3.8 member: verified against the model's own
+    # chat_template.jinja, which validates reasoning_effort against {xhigh, medium, low}. See
+    # providers/hf/text.py for the full note.
+    QWEN_3_8_27B = Wire("qwen3.8-27b.gguf", why=_NO_MMPROJ, vision=False)
     DEEPSEEK_R1_7B = Wire("deepseek-r1-distill-qwen-7b.gguf")
+    DEEPSEEK_R1_8B = Wire("deepseek-r1-8b.gguf")
     GEMMA_3_12B = Wire(
         "gemma-3-12b-it.gguf",
-        why="OpenAI-compat servers parse tool calls server-side; the in-process HF and native "
-        "Ollama paths have no tool-parse format assigned for Gemma 3",
+        why=(
+            "tools=True: OpenAI-compat servers parse tool calls server-side; the in-process HF and "
+            "native Ollama paths have no tool-parse format assigned for Gemma 3. vision=False: " + _NO_MMPROJ
+        ),
         tools=True,
+        vision=False,
     )
     # Gemma 4 E4B/12B support audio natively, but llama-server (GGUF) has no audio-input path;
-    # leave audio=False.
-    GEMMA_4_E4B = Wire("gemma-4-e4b-it.gguf")
-    GEMMA_4_12B = Wire("gemma-4-12b-it.gguf")
-    GEMMA_4_26B = Wire("gemma-4-26b-a4b-it.gguf")
-    GEMMA_4_31B = Wire("gemma-4-31b-it.gguf")
+    # leave audio=False. All four also override vision=False: see _NO_MMPROJ above.
+    GEMMA_4_E4B = Wire("gemma-4-e4b-it.gguf", why=_NO_MMPROJ, vision=False)
+    GEMMA_4_12B = Wire("gemma-4-12b-it.gguf", why=_NO_MMPROJ, vision=False)
+    GEMMA_4_26B = Wire("gemma-4-26b-a4b-it.gguf", why=_NO_MMPROJ, vision=False)
+    GEMMA_4_31B = Wire("gemma-4-31b-it.gguf", why=_NO_MMPROJ, vision=False)
+    # NVIDIA
+    NEMOTRON_CASCADE_2_30B = Wire("nemotron-cascade-2-30b-a3b.gguf")
+    NEMOTRON_3_NANO_30B = Wire("nemotron-3-nano-30b-a3b.gguf")
+    # Zhipu AI: doesn't use tools reliably (matches OllamaModel's own note); this is an intrinsic
+    # weights limitation, not a serving-path one, so no tools=True override here either.
+    GLM_4_7_FLASH_31B_Q4 = Wire("glm-4.7-flash-q4_k_m.gguf")
+    # OpenAI (open-weight)
+    GPT_OSS_20B = Wire("gpt-oss-20b.gguf")
+    # HuggingFace: tool call responses don't always look correct (matches OllamaModel's note)
+    SMOLLM2_1_7B = Wire("smollm2-1.7b-instruct.gguf")
+    # No MUSE_GLIMMER_30B here: llama-server runs the same llama.cpp engine as LM Studio, whose
+    # catalog documents why the model is omitted (undocumented parsing of its channel-scoped
+    # reasoning and ATEM-style XML tool calls on this engine -- see LMStudioOpenAIModel).
 
 
 # llama-server accepts llama.cpp's own /completion sampling parameters on its OpenAI endpoint, where

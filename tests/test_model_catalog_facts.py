@@ -160,3 +160,28 @@ def test_hf_repo_runtimes_share_one_id_namespace():
 
     ids = {name: {m.name: m.value for m in enum if m.name not in exceptions} for name, enum in catalogs.items()}
     assert ids["SGLang"] == ids["vLLM"] and ids["HF Serve"] == ids["vLLM"]
+
+
+GGUF_VISION_RATIONALE = "mmproj"
+
+
+def test_gguf_catalogs_do_not_advertise_vision():
+    """No GGUF path loads an mmproj projector by default, so none may claim vision.
+
+    llama-cpp takes one via chat_handler=, and llama-server/LM Studio via their own flags,
+    but the catalog describes the default path. Advertising vision would let a caller pass
+    images that fail at request time.
+    """
+    from aimu.models.providers.llamacpp import LlamaCppModel
+    from aimu.models.providers.openai_compat import LlamaServerOpenAIModel, LMStudioOpenAIModel
+
+    for enum in (LlamaCppModel, LlamaServerOpenAIModel, LMStudioOpenAIModel):
+        for member in enum:
+            if member.name.endswith(("_4BIT", "_8BIT", "_BF16")):
+                continue  # LM Studio's MLX entries are not a GGUF path
+            assert member.supports_vision is False, f"{enum.__name__}.{member.name} claims vision"
+            wire = getattr(member, "_wire", None)
+            if wire and "vision" in wire.overrides:
+                assert GGUF_VISION_RATIONALE in (wire.why or ""), (
+                    f"{enum.__name__}.{member.name} overrides vision without naming the projector"
+                )

@@ -144,6 +144,37 @@ EXPECTED_OVERRIDES = {
     ("VLLMOpenAIModel", "GEMMA_3_12B", "tools"),
     ("LlamaCppModel", "GEMMA_4_12B", "vision"),
     ("HuggingFaceModel", "PHI_4_MINI_3_8B", "tools"),
+    # Task 10: no GGUF path (llama-server, LM Studio, llama-cpp) loads an mmproj projector by
+    # default, so every intrinsically vision-capable member on those three catalogs overrides
+    # vision=False. LMStudioOpenAIModel.GEMMA_3_12B additionally overrides tools=True, for the
+    # same OpenAI-compat-servers-parse-tool-calls-server-side reason as the four catalogs above.
+    ("LlamaServerOpenAIModel", "GEMMA_3_12B", "vision"),
+    ("LlamaServerOpenAIModel", "GEMMA_4_E4B", "vision"),
+    ("LlamaServerOpenAIModel", "GEMMA_4_12B", "vision"),
+    ("LlamaServerOpenAIModel", "GEMMA_4_26B", "vision"),
+    ("LlamaServerOpenAIModel", "GEMMA_4_31B", "vision"),
+    ("LlamaServerOpenAIModel", "QWEN_3_5_9B", "vision"),
+    ("LlamaServerOpenAIModel", "QWEN_3_6_27B", "vision"),
+    ("LlamaServerOpenAIModel", "QWEN_3_6_35B", "vision"),
+    ("LlamaServerOpenAIModel", "QWEN_3_8_27B", "vision"),
+    ("LMStudioOpenAIModel", "GEMMA_3_12B", "tools"),
+    ("LMStudioOpenAIModel", "GEMMA_3_12B", "vision"),
+    ("LMStudioOpenAIModel", "GEMMA_4_E4B", "vision"),
+    ("LMStudioOpenAIModel", "GEMMA_4_12B", "vision"),
+    ("LMStudioOpenAIModel", "GEMMA_4_26B", "vision"),
+    ("LMStudioOpenAIModel", "GEMMA_4_31B", "vision"),
+    ("LMStudioOpenAIModel", "QWEN_3_5_9B", "vision"),
+    ("LMStudioOpenAIModel", "QWEN_3_6_27B", "vision"),
+    ("LMStudioOpenAIModel", "QWEN_3_6_35B", "vision"),
+    ("LMStudioOpenAIModel", "QWEN_3_8_27B", "vision"),
+    ("LlamaCppModel", "GEMMA_3_12B", "vision"),
+    ("LlamaCppModel", "GEMMA_4_E4B", "vision"),
+    ("LlamaCppModel", "GEMMA_4_26B", "vision"),
+    ("LlamaCppModel", "GEMMA_4_31B", "vision"),
+    ("LlamaCppModel", "QWEN_3_5_9B", "vision"),
+    ("LlamaCppModel", "QWEN_3_6_27B", "vision"),
+    ("LlamaCppModel", "QWEN_3_6_35B", "vision"),
+    ("LlamaCppModel", "QWEN_3_8_27B", "vision"),
 }
 
 
