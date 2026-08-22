@@ -127,3 +127,16 @@ def test_phi_4_mini_has_one_canonical_name():
             f"{attr} still carries PHI_4_MINI; it is the same model as PHI_4_MINI_3_8B "
             f"and a duplicate name makes resolve_model_enum treat them as unrelated."
         )
+
+
+def test_ollama_shim_catalog_matches_the_native_one():
+    """The OpenAI shim fronts the same install with the same registry tags.
+
+    Any name in one and not the other is drift, not a capability difference.
+    """
+    from aimu.models.providers.ollama import OllamaModel
+    from aimu.models.providers.openai_compat import OllamaOpenAIModel
+
+    native = {m.name: m.value for m in OllamaModel}
+    shim = {m.name: m.value for m in OllamaOpenAIModel}
+    assert shim == native

@@ -26,7 +26,7 @@ class OllamaModel(Model):
     # Alibaba
     # Qwen 3.5/3.6/3.8 are a unified vision-language family (vision is built into the base
     # weights, not a separate -VL variant), so the plain tags serve image input. The Ollama
-    # registry lists these tags with "Text, Image" capability. (Qwen3 32B/8B below are the
+    # registry lists these tags with "Text, Image" capability. (Qwen3 32B/8B/4B below are the
     # older text-only generation and stay vision=False.)
     #
     # Note the name spacing: QWEN_3_8_27B is Qwen *3.8* at 27B, while QWEN_3_8B further down is
@@ -37,6 +37,7 @@ class OllamaModel(Model):
     QWEN_3_5_9B = Wire("qwen3.5:9b", structured_output=True)
     QWEN_3_32B = Wire("qwen3:32b", structured_output=True)
     QWEN_3_8B = Wire("qwen3:8b", structured_output=True)
+    QWEN_3_4B = Wire("qwen3:4b", structured_output=True)
     # Google: these weights support audio; add audio=True once Ollama API exposes audio input
     GEMMA_4_E4B = Wire("gemma4:e4b", structured_output=True)
     GEMMA_4_12B = Wire("gemma4:12b", structured_output=True)
@@ -53,6 +54,7 @@ class OllamaModel(Model):
     # Mistral
     MAGISTRAL_SMALL_24B = Wire("magistral:24b", structured_output=True)
     MINISTRAL_3_14B = Wire("ministral-3:14b", structured_output=True)
+    MISTRAL_7B = Wire("mistral:7b", structured_output=True)
     # Microsoft
     PHI_4_MINI_3_8B = Wire("phi4-mini:3.8b", structured_output=True)
     PHI_4_14B = Wire("phi4:14b", structured_output=True)

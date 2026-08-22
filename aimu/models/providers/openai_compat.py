@@ -461,41 +461,70 @@ OLLAMA_BASE_URL = "http://localhost:11434/v1"
 
 
 class OllamaOpenAIModel(Model):
-    # Model values are Ollama model tags (as used by `ollama pull`).
-    # Llama 3.1/3.2 tool calling verified reliable on current Ollama builds (same backend as
-    # the native OllamaModel catalog).
-    LLAMA_3_1_8B = Wire("llama3.1:8b")
-    LLAMA_3_2_3B = Wire("llama3.2:3b")
-    MISTRAL_7B = Wire("mistral:7b")
-    PHI_4_MINI_3_8B = Wire("phi4-mini:3.8b")
-    QWEN_3_4B = Wire("qwen3:4b")
-    QWEN_3_8B = Wire("qwen3:8b")
-    # Qwen 3.5 is a unified vision-language model (vision built into the base weights); the
-    # Ollama tag serves image input over the OpenAI-compat endpoint. Qwen3 8B/4B above are the
-    # older text-only generation.
-    QWEN_3_5_9B = Wire("qwen3.5:9b")
-    # Qwen 3.6 serves over the OpenAI-compat endpoint exactly like 3.5 above. On Apple Silicon,
-    # Ollama 0.19+ runs it on its MLX backend automatically; that's transparent to this client (the
-    # tag is unchanged), so there is nothing MLX-specific to declare here.
-    QWEN_3_6_35B = Wire("qwen3.6:35b")
-    # Qwen 3.8 27B is the same shape again: a unified vision-language dense model whose Ollama tag
-    # carries the vision/tools/thinking capabilities. (QWEN_3_8_27B is Qwen 3.8 at 27B; QWEN_3_8B
-    # above is Qwen 3 at 8B.) thinking_levels=True: Qwen 3.8's chat template accepts a
-    # reasoning_effort kwarg (see aimu/models/providers/hf/text.py for the verification).
-    QWEN_3_8_27B = Wire("qwen3.8:27b")
-    DEEPSEEK_R1_8B = Wire("deepseek-r1:8b")
-    GEMMA_3_12B = Wire("gemma3:12b")
-    # Gemma 4 E4B/12B support audio natively, but the Ollama API doesn't expose audio input yet
-    # (the native OllamaModel catalog omits audio for the same reason); leave audio=False.
-    GEMMA_4_E4B = Wire("gemma4:e4b")
-    GEMMA_4_12B = Wire("gemma4:12b")
-    GEMMA_4_26B = Wire("gemma4:26b")
-    GEMMA_4_31B = Wire("gemma4:31b")
-    # Muse Glimmer is a vision-language model whose perception encoder ships in the same
+    # Model values are Ollama model tags (as used by `ollama pull`); this shim fronts the same
+    # install and the same registry tags as the native OllamaModel catalog above, so the two
+    # are kept in parity member-for-member (tests/test_model_catalog_facts.py enforces it).
+    #
+    # structured_output=True on every member below, matching the native catalog: Ollama's
+    # OpenAI-compatible endpoint also supports response_format for JSON-schema-constrained
+    # output, per Ollama's own docs ("Structured outputs work through the OpenAI-compatible
+    # API via response_format" -- docs/capabilities/structured-outputs.mdx), not just the
+    # native API's format= parameter.
+    #
+    # Alibaba
+    # Qwen 3.5/3.6/3.8 are a unified vision-language family (vision is built into the base
+    # weights, not a separate -VL variant); the Ollama tag serves image input over the
+    # OpenAI-compat endpoint too. (Qwen3 32B/8B/4B below are the older text-only generation and
+    # stay vision=False.)
+    #
+    # Note the name spacing: QWEN_3_8_27B is Qwen *3.8* at 27B, while QWEN_3_8B further down is
+    # Qwen *3* at 8B. Both follow the catalog's "version parts, then size" scheme.
+    # thinking_levels=True: Qwen 3.8's chat template accepts a reasoning_effort kwarg (see
+    # aimu/models/providers/hf/text.py for the verification).
+    QWEN_3_8_27B = Wire("qwen3.8:27b", structured_output=True)
+    # On Apple Silicon, Ollama 0.19+ runs qwen3.6 tags on its MLX backend automatically; that's
+    # transparent to this client (the tag is unchanged), so there is nothing MLX-specific to
+    # declare here.
+    QWEN_3_6_35B = Wire("qwen3.6:35b", structured_output=True)
+    QWEN_3_6_27B = Wire("qwen3.6:27b", structured_output=True)
+    QWEN_3_5_9B = Wire("qwen3.5:9b", structured_output=True)
+    QWEN_3_32B = Wire("qwen3:32b", structured_output=True)
+    QWEN_3_8B = Wire("qwen3:8b", structured_output=True)
+    QWEN_3_4B = Wire("qwen3:4b", structured_output=True)
+    # Google: these weights support audio; add audio=True once Ollama API exposes audio input
+    # (the native OllamaModel catalog omits it for the same reason).
+    GEMMA_4_E4B = Wire("gemma4:e4b", structured_output=True)
+    GEMMA_4_12B = Wire("gemma4:12b", structured_output=True)
+    GEMMA_4_26B = Wire("gemma4:26b", structured_output=True)
+    GEMMA_4_31B = Wire("gemma4:31b", structured_output=True)
+    GEMMA_3_12B = Wire("gemma3:12b", structured_output=True)
+    # NVIDIA
+    NEMOTRON_CASCADE_2_30B = Wire("nemotron-cascade-2:30b", structured_output=True)
+    NEMOTRON_3_NANO_30B = Wire("nemotron-3-nano:30b", structured_output=True)
+    # Zhipu AI: doesn't use tools when expected
+    GLM_4_7_FLASH_31B_Q4 = Wire("glm-4.7-flash:q4_K_M", structured_output=True)
+    # OpenAI
+    GPT_OSS_20B = Wire("gpt-oss:20b", structured_output=True)
+    # Mistral
+    MAGISTRAL_SMALL_24B = Wire("magistral:24b", structured_output=True)
+    MINISTRAL_3_14B = Wire("ministral-3:14b", structured_output=True)
+    MISTRAL_7B = Wire("mistral:7b", structured_output=True)
+    # Microsoft
+    PHI_4_MINI_3_8B = Wire("phi4-mini:3.8b", structured_output=True)
+    PHI_4_14B = Wire("phi4:14b", structured_output=True)
+    # DeepSeek
+    DEEPSEEK_R1_8B = Wire("deepseek-r1:8b", structured_output=True)
+    # HuggingFace: tool call responses don't always look correct
+    SMOLLM2_1_7B = Wire("smollm2:1.7b", structured_output=True)
+    # Meta: Muse Glimmer is a vision-language model whose perception encoder ships in the same
     # weights. It emits channel-scoped reasoning and ATEM-style XML tool calls, which Ollama
     # parses server-side, so reasoning arrives here as reasoning_content and tool calls in the
     # standard OpenAI shape.
-    MUSE_GLIMMER_30B = Wire("muse-glimmer:30b")
+    MUSE_GLIMMER_30B = Wire("muse-glimmer:30b", structured_output=True)
+    # Llama 3.1/3.2 tool calling verified reliable on current Ollama builds (same backend as
+    # the native OllamaModel catalog).
+    LLAMA_3_2_3B = Wire("llama3.2:3b", structured_output=True)
+    LLAMA_3_1_8B = Wire("llama3.1:8b", structured_output=True)
 
 
 # Ollama's OpenAI shim maps a fixed OpenAI field set onto its native call and reads none of the three

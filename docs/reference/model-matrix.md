@@ -78,6 +78,7 @@ Gemini 2.5 thinking models emit `<think>` tags on Google's OpenAI-compatible end
 | `QWEN_3_5_9B` | `qwen3.5:9b` | ✅ | ✅ | ✅ |
 | `QWEN_3_32B` | `qwen3:32b` | ✅ | ✅ | ✗ |
 | `QWEN_3_8B` | `qwen3:8b` | ✅ | ✅ | ✗ |
+| `QWEN_3_4B` | `qwen3:4b` | ✅ | ✅ | ✗ |
 | `GEMMA_4_E4B` | `gemma4:e4b` | ✅ | ✅ | ✅ |
 | `GEMMA_4_12B` | `gemma4:12b` | ✅ | ✅ | ✅ |
 | `GEMMA_4_26B` | `gemma4:26b` | ✅ | ✅ | ✅ |
@@ -89,6 +90,7 @@ Gemini 2.5 thinking models emit `<think>` tags on Google's OpenAI-compatible end
 | `GPT_OSS_20B` | `gpt-oss:20b` | ✅ | ✅ | ✗ |
 | `MAGISTRAL_SMALL_24B` | `magistral:24b` | ✅ | ✅ | ✗ |
 | `MINISTRAL_3_14B` | `ministral-3:14b` | ✅ | ✗ | ✗ |
+| `MISTRAL_7B` | `mistral:7b` | ✅ | ✗ | ✗ |
 | `PHI_4_MINI_3_8B` | `phi4-mini:3.8b` | ✅ | ✗ | ✗ |
 | `PHI_4_14B` | `phi4:14b` | ✗ | ✗ | ✗ |
 | `DEEPSEEK_R1_8B` | `deepseek-r1:8b` | ✗ | ✅ | ✗ |
@@ -153,11 +155,16 @@ llama-cpp model ids are hints; the actual model is loaded from `model_path=` reg
 |---|:---:|:---:|:---:|---|
 | `LLAMA_3_1_8B` | ✅ | ✗ | ✗ | all |
 | `LLAMA_3_2_3B` | ✅ | ✗ | ✗ | all except LM Studio |
+| `MAGISTRAL_SMALL_24B` | ✅ | ✅ | ✗ | Ollama |
+| `MINISTRAL_3_14B` | ✅ | ✗ | ✗ | Ollama |
 | `MISTRAL_7B` | ✅ | ✗ | ✗ | all |
 | `PHI_4_MINI_3_8B` | ✅ | ✗ | ✗ | all |
+| `PHI_4_14B` | ✗ | ✗ | ✗ | Ollama |
 | `QWEN_3_4B` | ✅ | ✅ | ✗ | all |
 | `QWEN_3_8B` | ✅ | ✅ | ✗ | all |
+| `QWEN_3_32B` | ✅ | ✅ | ✗ | Ollama |
 | `QWEN_3_5_9B` | ✅ | ✅ | ✅ | Ollama, LM Studio |
+| `QWEN_3_6_27B` | ✅ | ✅ | ✅ | Ollama |
 | `QWEN_3_6_35B` | ✅ | ✅ | ✅ | Ollama, oMLX ¶ |
 | `QWEN_3_6_35B_4BIT` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
 | `QWEN_3_6_35B_8BIT` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
@@ -173,6 +180,11 @@ llama-cpp model ids are hints; the actual model is loaded from `model_path=` reg
 | `GEMMA_4_12B` | ✅ | ✅ | ✅ | all |
 | `GEMMA_4_26B` | ✅ | ✅ | ✅ | all |
 | `GEMMA_4_31B` | ✅ | ✅ | ✅ | all |
+| `NEMOTRON_CASCADE_2_30B` | ✅ | ✅ | ✗ | Ollama |
+| `NEMOTRON_3_NANO_30B` | ✅ | ✅ | ✗ | Ollama |
+| `GLM_4_7_FLASH_31B_Q4` | ✗ | ✅ | ✗ | Ollama |
+| `GPT_OSS_20B` | ✅ | ✅ | ✗ | Ollama |
+| `SMOLLM2_1_7B` | ✗ | ✗ | ✗ | Ollama |
 | `MUSE_GLIMMER_30B` | ✅ | ✅ | ✅ | Ollama, vLLM, oMLX ‡ |
 | `MUSE_GLIMMER_30B_4BIT` | ✅ | ✅ | ✅ | oMLX ‡ ¶ |
 | `MUSE_GLIMMER_30B_8BIT` | ✅ | ✅ | ✅ | oMLX ‡ ¶ |
