@@ -152,8 +152,16 @@ def test_ollama_embed(monkeypatch):
     from aimu.models.providers import ollama as ollama_module
     from aimu.models.providers.ollama import OllamaEmbeddingClient, OllamaEmbeddingModel
 
-    monkeypatch.setattr(ollama_module.ollama, "pull", lambda *_a, **_k: None)
-    monkeypatch.setattr(ollama_module.ollama, "embed", lambda **_: {"embeddings": [[0.5, 0.6], [0.7, 0.8]]})
+    class FakeClient:
+        def pull(self, *_a, **_k):
+            return None
+
+        def embed(self, **_):
+            return {"embeddings": [[0.5, 0.6], [0.7, 0.8]]}
+
+    # The embedding client is host-bound (see tests/test_ollama_host.py), so pull and embed go
+    # through an `ollama.Client` instance rather than the module-level functions.
+    monkeypatch.setattr(ollama_module.ollama, "Client", lambda **_k: FakeClient())
     client = OllamaEmbeddingClient(OllamaEmbeddingModel.NOMIC_EMBED_TEXT)
     assert client.embed(["x", "y"]) == [[0.5, 0.6], [0.7, 0.8]]
     assert client.embed("x") == [0.5, 0.6]

@@ -97,7 +97,13 @@ def _provider_prefix(member: "Model") -> str:
 
 
 def _ollama_installed_names() -> set[str]:
-    """Model names pulled on a running Ollama server (empty set if unreachable)."""
+    """Model names pulled on a running Ollama server (empty set if unreachable).
+
+    This probes the server the module-level ``ollama.list()`` resolves to: ``OLLAMA_HOST`` if
+    set, else ``127.0.0.1:11434``. A per-client ``host=`` (see :class:`OllamaClient`) is
+    deliberately invisible here -- discovery runs before any client exists, so there is no host
+    to read. Set ``OLLAMA_HOST`` to point discovery at a remote server.
+    """
     try:
         from .. import HAS_OLLAMA
 
@@ -227,6 +233,13 @@ def available_text_models(*, include_hf_cache: bool = True) -> list:
     ``include_hf_cache=False`` skips the HuggingFace cache probe (the async surface cannot
     wrap an ``hf:`` in-process client directly).
 
+    **The Ollama probe is env-driven, not client-driven.** It reads ``OLLAMA_HOST`` (else
+    ``127.0.0.1:11434``); a remote server reached with a per-client ``OllamaClient(host=...)``
+    does not appear here, and neither do the models on it. Export ``OLLAMA_HOST`` when you want
+    discovery, default-model resolution, and ambiguous-name tiebreaking to consider a remote
+    server. The same applies to the local OpenAI-compatible probes, which try each provider's
+    default ``base_url`` rather than any ``base_url=`` a caller passed a client.
+
     See :func:`resolve_default_text_model_enum` for the single auto-pick, and
     :func:`aimu.resolve_model_enum` to resolve a *named* model to an enum member.
     """
@@ -351,6 +364,10 @@ def resolve_default_text_model(*, include_hf_cache: bool = True) -> str:
     ``include_hf_cache`` is set ``False`` by the async surface: an ``hf:`` default would
     need to wrap a sync client (in-process Decision 7), so the async path probes only
     Ollama and local OpenAI-compatible servers.
+
+    The probes look at default endpoints only (``OLLAMA_HOST`` or localhost for Ollama, each
+    provider's default ``base_url`` for the local servers); see
+    :func:`available_text_models` for what that means for remote servers.
     """
     _load_dotenv()
     from ..model_client import resolve_model_string

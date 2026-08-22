@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Models
+
+- **New** **`host=` points the native Ollama clients at a remote server** (`OllamaClient`, `AsyncOllamaClient`, `OllamaEmbeddingClient`; plus the string form `"ollama:qwen3.5:9b@http://gpu-box:11434"`). Reaching an Ollama box on the LAN previously meant the process-wide `OLLAMA_HOST` env var or nothing: the native clients built `ollama.Client()` with no host, and `ollama:<id>@<endpoint>` raised, because the endpoint suffix was accepted only by the OpenAI-compatible providers. One env var also cannot address two servers from one process.
+  ```python
+  client = aimu.client("ollama:qwen3.5:9b", host="http://gpu-box:11434")
+  client = aimu.client("ollama:qwen3.5:9b@http://gpu-box:11434")   # same thing, string form
+  ```
+  The kwarg is the ollama SDK's own spelling, forwarded verbatim (the rule `timeout`/`max_retries` already follow), so a bare host, `host:port`, and `scheme://host:port` all work. An unset `host` is **omitted** rather than passed as `None`, leaving the SDK's own `OLLAMA_HOST`-else-localhost resolution in charge. A `/v1` suffix **raises**: the native API is served from the server root, so the OpenAI-compat habit would 404 at request time on `.../v1/api/chat`, and the message names `ollama-openai` as the provider that does want `/v1`.
+- **Fix** **`OllamaEmbeddingClient` stops silently embedding against localhost**, and gains `timeout=` on the way. It called module-level `ollama.pull` / `ollama.embed`, so it had no way to honour a host at all -- pairing a remote text client with a local embedder produced vectors from a different model than the one the caller thought they had chosen, with nothing to indicate it. It now holds an `ollama.Client` like the text clients do. Give it the same `host=`.
+- **Change** **Accepting a remote endpoint and accepting an uncatalogued model id are now separate policies** (`_ENDPOINT_PROVIDERS` and `_ADHOC_PROVIDERS` in `aimu.models.model_client`, split out of the single `_BASE_URL_PROVIDERS`). One set had been doing both jobs, so admitting `ollama` to the endpoint list would also have opened the ad-hoc form to it -- and Ollama's ids are registry tags whose capabilities AIMU knows, which is exactly the case the curated catalog exists for. `ollama:some-unknown-tag` still raises, with or without an endpoint or capability flags. The endpoint-to-kwarg mapping (`base_url=` for the OpenAI-compatible providers, `host=` for `ollama`) lives in one shared `endpoint_kwargs()` called by both the sync and async factories.
+- **Fix** **The modality factories stop swallowing a client's own constructor kwargs into `model_kwargs`** (`ProviderEntry.direct_kwargs` in `aimu.models._internal.factory`). All five bundled every kwarg into `model_kwargs`, which is right for a weight-loading client (`device=` belongs to `from_pretrained`) but wrong for a parameter the client declares itself: `aimu.embedding_client("ollama:nomic-embed-text", host="gpu-box")` accepted the kwarg and then quietly embedded against localhost. Each provider entry now names the params its client declares, and those are forwarded as real keyword arguments. Listing them in the table beats inspecting the signature: the split is visible where the providers are described, and a mismatch fails loudly instead of vanishing.
+- **Docs** **The local-discovery probes are documented as endpoint-blind.** `available_text_models()`, the omitted-`model` default, and ambiguous-bare-name resolution all run before any client exists, so a per-client `host=` or `base_url=` is invisible to them: Ollama discovery reads `OLLAMA_HOST` (else `127.0.0.1:11434`) and the OpenAI-compat probes try each provider's *default* `base_url`. Stated in the `available_text_models` / `resolve_default_text_model` docstrings, the `_ollama_installed_names` probe itself, and [docs/how-to/switch-providers.md](docs/how-to/switch-providers.md). Export `OLLAMA_HOST` when discovery should consider a remote server too.
+
 ## v0.19.0 (2026-08-21): a fifth-of-a-second import, lighter installs, and a truthful sandbox claim
 
 ### Models

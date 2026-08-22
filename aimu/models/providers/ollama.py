@@ -198,6 +198,27 @@ OLLAMA_GENERATE_KWARGS = {
 }
 
 
+def _ollama_client_kwargs(host: Optional[str], timeout: Optional[float]) -> dict:
+    """Build the ``ollama.Client`` / ``ollama.AsyncClient`` constructor kwargs.
+
+    Unset values are omitted rather than forwarded as ``None``, so with no ``host`` the SDK's
+    own resolution (``OLLAMA_HOST``, else ``127.0.0.1:11434``) stays in charge. Shared with the
+    async twin and the embedding client so the omit rule and the ``/v1`` guard live in one place.
+    """
+    if host is not None and host.rstrip("/").endswith("/v1"):
+        raise ValueError(
+            f"host={host!r} points at an OpenAI-compatible endpoint. The native Ollama API is served "
+            "from the server root (the SDK appends '/api/...'), so drop the '/v1' suffix. To use "
+            "Ollama's OpenAI-compatible endpoint instead, use the 'ollama-openai' provider."
+        )
+    kwargs: dict = {}
+    if host is not None:
+        kwargs["host"] = host
+    if timeout is not None:
+        kwargs["timeout"] = timeout
+    return kwargs
+
+
 class OllamaClient(BaseModelClient):
     MODELS = OllamaModel
 
@@ -213,6 +234,8 @@ class OllamaClient(BaseModelClient):
         model_keep_alive_seconds: int = 60,
         timeout: Optional[float] = None,
         max_retries: Optional[int] = None,
+        *,
+        host: Optional[str] = None,
     ):
         super().__init__(model, None, system_message)
 
@@ -224,7 +247,8 @@ class OllamaClient(BaseModelClient):
 
         # TODO extend model_keep_alive_seconds to other model clients
         self.model_keep_alive_seconds = model_keep_alive_seconds
-        self._client = ollama.Client(**({"timeout": timeout} if timeout is not None else {}))
+        self._client = ollama.Client(**_ollama_client_kwargs(host, timeout))
+        # Runs against `host` when set, so the pull lands on the remote server.
         self._client.pull(model.value)
 
     @classproperty
@@ -519,6 +543,10 @@ class OllamaEmbeddingClient(BaseEmbeddingClient):
     Pass an :class:`OllamaEmbeddingModel` member, an :class:`OllamaEmbeddingSpec`, or an
     ``"ollama:<model_id>"`` string. The model is pulled on construction (same as
     :class:`OllamaClient`).
+
+    ``host`` targets a remote Ollama server; pass the same value used for the text client, since
+    embedding a corpus against one server and querying against another silently produces vectors
+    from two different models.
     """
 
     MODELS = OllamaEmbeddingModel
@@ -527,6 +555,9 @@ class OllamaEmbeddingClient(BaseEmbeddingClient):
         self,
         model: "OllamaEmbeddingModel | OllamaEmbeddingSpec | str",
         model_kwargs: Optional[dict] = None,
+        *,
+        host: Optional[str] = None,
+        timeout: Optional[float] = None,
     ):
         if isinstance(model, str):
             spec = _parse_embedding_model_string(model)
@@ -541,10 +572,11 @@ class OllamaEmbeddingClient(BaseEmbeddingClient):
             )
         super().__init__(model=model, model_kwargs=model_kwargs)
         self.spec = spec
-        ollama.pull(spec.id)
+        self._client = ollama.Client(**_ollama_client_kwargs(host, timeout))
+        self._client.pull(spec.id)
 
     def _embed(self, texts: list[str], **kwargs: Any) -> list[list[float]]:
-        response = ollama.embed(model=self.spec.id, input=texts, **kwargs)
+        response = self._client.embed(model=self.spec.id, input=texts, **kwargs)
         return [list(vector) for vector in response["embeddings"]]
 
     def __repr__(self) -> str:

@@ -93,7 +93,13 @@ def resolve_model_string(model_str: str) -> Model:
 # ad-hoc (not-in-catalog) model ids both make sense. ``omlx`` belongs here for a stronger reason
 # than the rest: its model ids are user-chosen ``--model-dir`` subdirectory names, so the ad-hoc
 # ``omlx:<dir>;tools,thinking,vision`` form is a primary way in, not just an escape hatch.
-_BASE_URL_PROVIDERS = {"llamaserver", "lmstudio", "vllm", "hf-openai", "sglang", "ollama-openai", "omlx"}
+# Two distinct policies that coincided until the native `ollama` provider gained an endpoint:
+# _ADHOC_PROVIDERS also accept a model id absent from their enum (plus capability flags), because
+# their ids are user-chosen (a GGUF filename, an oMLX directory name, a loaded-model key).
+# `ollama` takes an endpoint but stays curated-catalog: its ids are registry tags whose
+# capabilities AIMU knows, so an unknown tag is a mistake rather than a local build.
+_ADHOC_PROVIDERS = {"llamaserver", "lmstudio", "vllm", "hf-openai", "sglang", "ollama-openai", "omlx"}
+_ENDPOINT_PROVIDERS = _ADHOC_PROVIDERS | {"ollama"}
 _GENERIC_COMPAT_PROVIDER = "openai-compat"
 _CAPABILITY_FLAGS = {"tools", "thinking", "vision", "audio", "structured"}
 
@@ -157,8 +163,8 @@ def resolve_model(model_str: str) -> ResolvedModel:
         )
         raise ValueError(f"Unknown provider {provider!r}. Available providers (with installed deps): {available}")
 
-    if base_url is not None and provider not in _BASE_URL_PROVIDERS:
-        supported = sorted(_BASE_URL_PROVIDERS | {_GENERIC_COMPAT_PROVIDER})
+    if base_url is not None and provider not in _ENDPOINT_PROVIDERS:
+        supported = sorted(_ENDPOINT_PROVIDERS | {_GENERIC_COMPAT_PROVIDER})
         raise ValueError(f"Provider {provider!r} does not accept an @base_url. Supported: {supported}.")
 
     enum_cls, _client_cls = loaded
@@ -171,10 +177,22 @@ def resolve_model(model_str: str) -> ResolvedModel:
             )
         return ResolvedModel(match, provider, base_url)
 
-    if provider not in _BASE_URL_PROVIDERS:
+    if provider not in _ADHOC_PROVIDERS:
         available = sorted(member.value for member in enum_cls)
         raise ValueError(f"Provider {provider!r} has no model id {model_id!r}. Available: {available}")
     return ResolvedModel(AdHocModel(_build_adhoc_spec(model_id, flags)), provider, base_url)
+
+
+def endpoint_kwargs(provider: str, base_url: Optional[str]) -> dict:
+    """Map a model string's ``@endpoint`` onto the provider's own constructor kwarg.
+
+    The OpenAI-compatible providers take ``base_url``; the native ``ollama`` provider takes the
+    ollama SDK's ``host`` (AIMU forwards each SDK's own spelling rather than inventing one). Both
+    the sync and async factories call this, so the mapping is stated once.
+    """
+    if base_url is None:
+        return {}
+    return {"host": base_url} if provider == "ollama" else {"base_url": base_url}
 
 
 def _sync_compat_client(provider: str):
@@ -275,8 +293,7 @@ class ModelClient(BaseModelClient):
     def __init__(self, model: Union[Model, ModelSpec, str], **kwargs: Any) -> None:
         if isinstance(model, str):
             resolved = resolve_model(model)
-            if resolved.base_url is not None:
-                kwargs["base_url"] = resolved.base_url
+            kwargs.update(endpoint_kwargs(resolved.provider, resolved.base_url))
             if isinstance(resolved.model, AdHocModel):
                 client_cls = _sync_compat_client(resolved.provider)
                 self._client = client_cls(resolved.model, **kwargs)

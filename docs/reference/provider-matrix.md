@@ -6,7 +6,7 @@ Every supported provider, with the extra needed to install it, the env var (if a
 
 | Provider key (in model string) | Client class | Extra | API key | Default endpoint | Provider-specific kwargs | Async kind |
 |---|---|---|---|---|---|---|
-| `ollama` | `OllamaClient` | `aimu[ollama]` | none | local | `model_keep_alive_seconds=60` | native (`ollama.AsyncClient`) |
+| `ollama` | `OllamaClient` | `aimu[ollama]` | none | `OLLAMA_HOST`, else localhost:11434 | `host=`, `model_keep_alive_seconds=60` | native (`ollama.AsyncClient`) |
 | `hf` | `HuggingFaceClient` | `aimu[hf]` | none (HF login for gated models) | local | `model_kwargs={...}` (passed to `from_pretrained`) | wrapped sync via `asyncio.to_thread` |
 | `anthropic` | `AnthropicClient` | `aimu[anthropic]` | `ANTHROPIC_API_KEY` | api.anthropic.com | `model_kwargs={...}` | native (`AsyncAnthropic`) |
 | `openai` | `OpenAIClient` | `aimu[openai_compat]` | `OPENAI_API_KEY` | api.openai.com | `model_kwargs={...}` | native (`AsyncOpenAI`) |
@@ -50,6 +50,9 @@ import aimu
 
 # Ollama: keep model warm
 aimu.client("ollama:qwen3.5:9b", model_keep_alive_seconds=300)
+
+# Ollama on another machine (or `"ollama:qwen3.5:9b@http://gpu-box:11434"`)
+aimu.client("ollama:qwen3.5:9b", host="http://gpu-box:11434")
 
 # llama-cpp: required model_path
 aimu.client("llamacpp:qwen3-8b", model_path="/path/to/qwen3-8b.gguf")
@@ -197,6 +200,7 @@ override you where an API demands it (see the notes below).
 
 - **`GeminiClient`** uses Google's OpenAI-compatible endpoint. Gemini 2.5 thinking models emit `<think>` tags on this endpoint, so the shared `_ThinkingParser` works as-is.
 - **`OllamaClient`** (native API) supports vision via the message-level `images=` field; only inline base64 / data URLs work, http(s) URLs raise `ValueError`.
+- **`OllamaClient`, `AsyncOllamaClient`, and `OllamaEmbeddingClient`** take `host=` for a remote server, forwarded to the ollama SDK verbatim (bare host, `host:port`, or `scheme://host:port` all work). Pass the **server root**, not the `/v1` OpenAI-compatible path: the native API is served from the root, so a `/v1` suffix raises `ValueError` pointing at the `ollama-openai` provider. `OllamaClient` pulls the model eagerly in its constructor, so with `host=` set the pull runs on the remote machine. Give the embedding client the same `host=` as the text client -- embedding a corpus on one server and querying on another silently mixes vectors from two models.
 - **`LlamaCppClient`** loads GGUF files in-process. Vision needs an `mmproj` projector via the `chat_handler=` kwarg (e.g. `Llava15ChatHandler(clip_model_path=...)`).
 - **`HuggingFaceClient`** uses `AutoProcessor` for vision when available (Gemma 3/4, Qwen 3.5/3.6 VL). The model's `tool_call_format` enum value (`XML` / `JSON_OBJECT` / `JSON_ARRAY` / `BRACKETED`) tells the client how to parse tool calls.
 - **MLX on Apple Silicon.** Three providers execute MLX-optimized weights: `omlx` (a dedicated MLX server), `lmstudio` (LM Studio's MLX engine, selected automatically for MLX weights), and `ollama` (0.19+ runs an MLX backend on Apple Silicon for its own model library, transparently — the tags are unchanged, and it wants >32 GB of unified memory). **`hf` and `llamacpp` are not MLX paths**: `HuggingFaceClient` is torch/`transformers` and `LlamaCppClient` is GGML/GGUF, and neither can load MLX's quantized safetensors layout. mlx-community models are *hosted* on the HuggingFace Hub but only mlx-lm/mlx-vlm can run them, so there is no in-process MLX client.

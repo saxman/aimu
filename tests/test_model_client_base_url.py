@@ -42,7 +42,7 @@ def test_default_localhost_when_no_url():
 
 # oMLX (MLX inference on Apple Silicon). These three double as the sync wiring canary for the
 # provider: together they prove the guarded import, the _provider_registry entry, the isinstance
-# dispatch branch, and _BASE_URL_PROVIDERS membership all landed.
+# dispatch branch, and _ADHOC_PROVIDERS membership all landed.
 
 
 def test_omlx_known_id_default_localhost():
@@ -70,7 +70,7 @@ def test_omlx_muse_glimmer_full_capabilities():
 
 def test_omlx_adhoc_directory_id():
     # oMLX ids are user-chosen --model-dir subdirectory names, so the ad-hoc form is a primary
-    # way in rather than an escape hatch. It only works because "omlx" is in _BASE_URL_PROVIDERS.
+    # way in rather than an escape hatch. It only works because "omlx" is in _ADHOC_PROVIDERS.
     c = ModelClient("omlx:my-own-conversion-4bit;tools,thinking,vision")
     assert c.model.value == "my-own-conversion-4bit"
     assert c.model.supports_tools is True

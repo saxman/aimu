@@ -738,7 +738,7 @@ class OMLXOpenAIModel(Model):
     #     hf download mlx-community/Qwen3.6-35B-A3B-4bit --local-dir $MODEL_DIR/Qwen3.6-35B-A3B-4bit
     # Like LlamaServerOpenAIModel's GGUF filenames these are conventions, not contracts; a folder
     # named anything else is reachable ad hoc via `omlx:<dir>;tools,thinking,vision` (omlx is in
-    # model_client._BASE_URL_PROVIDERS). oMLX also accepts a `<model>:<profile>` alias form, e.g.
+    # model_client._ADHOC_PROVIDERS). oMLX also accepts a `<model>:<profile>` alias form, e.g.
     # `omlx:Qwen3.6-35B-A3B:fast`; the extra colon survives because only the first ':' splits the
     # provider off, the same way an Ollama `name:tag` does.
     #

@@ -15,6 +15,7 @@ from aimu.models.providers.ollama import (
     OLLAMA_GENERATE_KWARGS,
     OllamaClient,
     OllamaModel,
+    _ollama_client_kwargs,
     _raise_if_context_overflowed,
 )
 
@@ -40,6 +41,8 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         model_keep_alive_seconds: int = 60,
         timeout: Optional[float] = None,
         max_retries: Optional[int] = None,
+        *,
+        host: Optional[str] = None,
     ):
         super().__init__(model, None, system_message)
 
@@ -53,8 +56,9 @@ class AsyncOllamaClient(AsyncBaseModelClient):
 
         # Model pull happens lazily on first request; `ollama.AsyncClient` doesn't
         # expose a separate pull. Users who want eager pull can call
-        # `ollama.pull(model.value)` themselves.
-        self._client = ollama.AsyncClient(**({"timeout": timeout} if timeout is not None else {}))
+        # `ollama.Client(host=host).pull(model.value)` themselves -- module-level
+        # `ollama.pull` would target OLLAMA_HOST rather than this client's `host`.
+        self._client = ollama.AsyncClient(**_ollama_client_kwargs(host, timeout))
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805

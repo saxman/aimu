@@ -17,16 +17,46 @@ client = aimu.client("gemini:gemini-2.5-flash")
 
 Model strings have the form `"provider:model_id"`. Colons inside the model id (e.g. Ollama's `qwen3.5:9b`) are preserved.
 
-## Point at a remote or custom OpenAI-compatible server
+## Point at a remote server
 
-The OpenAI-compatible local-server providers default to `localhost` (see the [provider keys](#provider-keys) table). To reach one on another host or port, append `@<base_url>` to the model string:
+Every local provider defaults to `localhost` (see the [provider keys](#provider-keys) table). To reach one on another host or port, append `@<endpoint>` to the model string:
 
 ```python
 client = aimu.client("llamaserver:qwen3-8b.gguf@http://gpu-box:8080/v1")
 client = aimu.client("vllm:Qwen/Qwen3-8B@http://gpu-box:8000/v1")
+client = aimu.client("ollama:qwen3.5:9b@http://gpu-box:11434")
 ```
 
-This is the string-form equivalent of the `base_url=` kwarg (see [Pass provider-specific kwargs](#pass-provider-specific-kwargs)); use whichever fits how the model is configured.
+This is the string-form equivalent of a constructor kwarg (see [Pass provider-specific kwargs](#pass-provider-specific-kwargs)); use whichever fits how the model is configured. Each provider takes its own SDK's spelling — `base_url=` for the OpenAI-compatible providers, `host=` for the native `ollama` one:
+
+```python
+client = aimu.client("vllm:Qwen/Qwen3-8B", base_url="http://gpu-box:8000/v1")
+client = aimu.client("ollama:qwen3.5:9b", host="http://gpu-box:11434")
+```
+
+### Remote Ollama
+
+The native `ollama` provider takes `host=` on all three of its clients (`OllamaClient`, `AsyncOllamaClient`, `OllamaEmbeddingClient`), forwarded to the ollama SDK verbatim, so a bare host, `host:port`, or `scheme://host:port` all work. Two things to know:
+
+- **Pass the server root, not `/v1`.** The native API is served from the root, so `host="http://gpu-box:11434/v1"` raises `ValueError`. If you want Ollama's OpenAI-compatible endpoint (which does want `/v1`), use the `ollama-openai` provider instead.
+- **Give the embedding client the same host.** Embedding a corpus against one server and querying against another silently mixes vectors from two different models.
+
+```python
+client = aimu.client("ollama:qwen3.5:9b", host="gpu-box")
+embedder = aimu.embedding_client("ollama:nomic-embed-text", host="gpu-box")
+```
+
+`OllamaClient` pulls the model in its constructor, so with `host=` set the pull runs on the remote machine.
+
+### Local discovery stays env-driven
+
+`host=` and `base_url=` configure *one client*. They are invisible to the local-availability probes behind [`aimu.available_text_models()`](../reference/provider-matrix.md), the omitted-`model` default, and ambiguous bare-name resolution — those run before any client exists, so they read `OLLAMA_HOST` (else `127.0.0.1:11434`) for Ollama and each OpenAI-compatible provider's *default* `base_url` for the local servers. Export `OLLAMA_HOST` when you want discovery to see a remote server too:
+
+```bash
+export OLLAMA_HOST=http://gpu-box:11434
+```
+
+With it set, `aimu.client()` with no model can auto-select from the remote server's models, and `aimu.available_text_models()` lists them.
 
 ### Run a model not in the catalog
 
@@ -42,7 +72,8 @@ client = aimu.client("openai-compat:my-model@http://gpu-box:9000/v1;tools")
 
 Notes:
 
-- `@<base_url>` is accepted only by the OpenAI-compatible local-server providers (`llamaserver`, `lmstudio`, `vllm`, `hf-openai`, `sglang`, `ollama-openai`, `omlx`) and the generic `openai-compat` prefix. Passing it to a cloud or in-process provider raises `ValueError`.
+- `@<endpoint>` is accepted by the local providers (`ollama`, `llamaserver`, `lmstudio`, `vllm`, `hf-openai`, `sglang`, `ollama-openai`, `omlx`) and the generic `openai-compat` prefix. Passing it to a cloud or in-process provider raises `ValueError`.
+- **Ad-hoc ids are narrower than endpoints.** The native `ollama` provider accepts an endpoint but stays catalog-only: its ids are registry tags whose capabilities AIMU knows, so `ollama:some-unknown-tag` raises rather than becoming an ad-hoc model. The ad-hoc form is for providers whose ids are user-chosen (a GGUF filename, an oMLX directory name, an LM Studio loaded-model key).
 - The generic `openai-compat` prefix always requires `@<base_url>` (it has no default) and always takes an ad-hoc id.
 - Flags apply only to ad-hoc ids, and an omitted flag defaults to `False`, so declare `;tools` (etc.) for the capabilities your model actually has. Passing flags with a catalog id raises `ValueError` — the catalog already declares its capabilities.
 - No authentication is added; the endpoint is assumed unauthenticated (`api_key` is unset).
@@ -105,7 +136,7 @@ aimu.resolve_default_text_model_enum()  # the single auto-pick, as an enum membe
 
 | Provider key | Extra | API key env var |
 |---|---|---|
-| `ollama` | `aimu[ollama]` | None |
+| `ollama` | `aimu[ollama]` | None (`OLLAMA_HOST`, else localhost:11434) |
 | `hf` | `aimu[hf]` | None |
 | `llamacpp` | `aimu[llamacpp]` | None (`model_path=` required) |
 | `anthropic` | `aimu[anthropic]` | `ANTHROPIC_API_KEY` |

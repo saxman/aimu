@@ -11,7 +11,7 @@ from importlib import import_module
 from typing import Any, AsyncIterator, Iterable, Optional, Union
 
 from aimu.models.base import AdHocModel, Model, ModelSpec, StreamChunk, StreamingContentType
-from aimu.models.model_client import _GENERIC_COMPAT_PROVIDER, _TEXT_PROVIDERS, resolve_model
+from aimu.models.model_client import _GENERIC_COMPAT_PROVIDER, _TEXT_PROVIDERS, endpoint_kwargs, resolve_model
 
 from ._base import AsyncBaseModelClient
 
@@ -95,8 +95,7 @@ class AsyncModelClient(AsyncBaseModelClient):
             # Normal construction path: model enum or string.
             if isinstance(model, str):
                 resolved = resolve_model(model)
-                if resolved.base_url is not None:
-                    kwargs["base_url"] = resolved.base_url
+                kwargs.update(endpoint_kwargs(resolved.provider, resolved.base_url))
                 if isinstance(resolved.model, AdHocModel):
                     async_entry = (
                         _GENERIC_ASYNC_COMPAT
