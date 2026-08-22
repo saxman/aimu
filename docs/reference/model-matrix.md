@@ -171,22 +171,55 @@ No `MUSE_GLIMMER_30B` here: llama-cpp-python runs the same llama.cpp engine as l
 
 `OllamaOpenAIModel`, `LMStudioOpenAIModel`, `VLLMOpenAIModel`, `HFOpenAIModel`, `LlamaServerOpenAIModel`, `SGLangOpenAIModel`, and `OMLXOpenAIModel` enumerate a shared set of common open models. Capability flags for a given member are the same across servers (except where footnoted); the **model id format differs per server** — LM Studio uses loaded model keys, Ollama uses `name:tag`, vLLM/SGLang/HF Serve use HuggingFace repo paths, llama-server uses GGUF filenames, and oMLX uses `--model-dir` subdirectory names — so consult the enum source for each server's exact ids.
 
-**"all" in the Servers column means the six non-MLX servers** (Ollama, LM Studio, vLLM, HF Serve, llama-server, SGLang). `OMLXOpenAIModel` ships only MLX conversions, so it carries just the Qwen 3.6 35B-A3B, Qwen 3.8 27B, and Muse Glimmer 30B families and is named explicitly on the rows it does carry. `tests/test_docs_model_matrix.py` checks this column against the enums.
+**"all" in the Servers column means the six non-MLX servers** (Ollama, LM Studio, vLLM, HF Serve, llama-server, SGLang). `OMLXOpenAIModel` ships only MLX conversions, so it carries a quant-suffixed member for every model with a confirmed `mlx-community` build (most of the catalog below) and is named explicitly on the rows it does carry; LM Studio carries the same set under its own MLX-engine ids, alongside its GGUF builds. `tests/test_docs_model_matrix.py` checks this column against the enums.
 
 | Enum member | Tools | Thinking | Vision | Servers |
 |---|:---:|:---:|:---:|---|
 | `LLAMA_3_1_8B` | ✅ | ✗ | ✗ | all |
+| `LLAMA_3_1_8B_4BIT` | ✅ | ✗ | ✗ | oMLX, LM Studio ¶ |
+| `LLAMA_3_1_8B_8BIT` | ✅ | ✗ | ✗ | oMLX, LM Studio ¶ |
+| `LLAMA_3_1_8B_BF16` | ✅ | ✗ | ✗ | oMLX, LM Studio ¶ |
 | `LLAMA_3_2_3B` | ✅ | ✗ | ✗ | all |
+| `LLAMA_3_2_3B_4BIT` | ✅ | ✗ | ✗ | oMLX, LM Studio ¶ |
+| `LLAMA_3_2_3B_8BIT` | ✅ | ✗ | ✗ | oMLX, LM Studio ¶ |
+| `LLAMA_3_2_3B_BF16` | ✅ | ✗ | ✗ | oMLX, LM Studio ¶ |
 | `MAGISTRAL_SMALL_24B` | ✅ | ✅ | ✗ | all |
+| `MAGISTRAL_SMALL_24B_BF16` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
 | `MINISTRAL_3_14B` | ✅ | ✗ | ✗ | all |
+| `MINISTRAL_3_14B_4BIT` | ✅ | ✗ | ✗ | oMLX, LM Studio ¶ |
+| `MINISTRAL_3_14B_8BIT` | ✅ | ✗ | ✗ | oMLX, LM Studio ¶ |
+| `MINISTRAL_3_14B_BF16` | ✅ | ✗ | ✗ | oMLX, LM Studio ¶ |
 | `MISTRAL_7B` | ✅ | ✗ | ✗ | all |
+| `MISTRAL_7B_4BIT` | ✅ | ✗ | ✗ | oMLX, LM Studio ¶ |
+| `MISTRAL_7B_8BIT` | ✅ | ✗ | ✗ | oMLX, LM Studio ¶ |
 | `PHI_4_MINI_3_8B` | ✅ | ✗ | ✗ | all |
+| `PHI_4_MINI_3_8B_4BIT` | ✅ | ✗ | ✗ | oMLX, LM Studio ¶ |
+| `PHI_4_MINI_3_8B_8BIT` | ✅ | ✗ | ✗ | oMLX, LM Studio ¶ |
+| `PHI_4_MINI_3_8B_FP16` | ✅ | ✗ | ✗ | oMLX, LM Studio ¶ |
 | `PHI_4_14B` | ✗ | ✗ | ✗ | all |
+| `PHI_4_14B_4BIT` | ✗ | ✗ | ✗ | oMLX, LM Studio ¶ |
+| `PHI_4_14B_8BIT` | ✗ | ✗ | ✗ | oMLX, LM Studio ¶ |
+| `PHI_4_14B_BF16` | ✗ | ✗ | ✗ | oMLX, LM Studio ¶ |
 | `QWEN_3_4B` | ✅ | ✅ | ✗ | all |
+| `QWEN_3_4B_4BIT` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `QWEN_3_4B_8BIT` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `QWEN_3_4B_BF16` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
 | `QWEN_3_8B` | ✅ | ✅ | ✗ | all |
+| `QWEN_3_8B_4BIT` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `QWEN_3_8B_8BIT` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `QWEN_3_8B_BF16` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
 | `QWEN_3_32B` | ✅ | ✅ | ✗ | all |
+| `QWEN_3_32B_4BIT` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `QWEN_3_32B_8BIT` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `QWEN_3_32B_BF16` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
 | `QWEN_3_5_9B` | ✅ | ✅ | ✅ ※ | all |
+| `QWEN_3_5_9B_4BIT` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
+| `QWEN_3_5_9B_8BIT` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
+| `QWEN_3_5_9B_BF16` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
 | `QWEN_3_6_27B` | ✅ | ✅ | ✅ ※ | all |
+| `QWEN_3_6_27B_4BIT` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
+| `QWEN_3_6_27B_8BIT` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
+| `QWEN_3_6_27B_BF16` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
 | `QWEN_3_6_35B` | ✅ | ✅ | ✅ ※ | Ollama, LM Studio, vLLM, HF Serve, llama-server, SGLang, oMLX ¶ |
 | `QWEN_3_6_35B_4BIT` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
 | `QWEN_3_6_35B_8BIT` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
@@ -196,27 +229,61 @@ No `MUSE_GLIMMER_30B` here: llama-cpp-python runs the same llama.cpp engine as l
 | `QWEN_3_8_27B_8BIT` ◆ | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
 | `QWEN_3_8_27B_BF16` ◆ | ✅ | ✅ | ✅ | oMLX ¶ |
 | `DEEPSEEK_R1_8B` | ✗ | ✅ | ✗ | all |
+| `DEEPSEEK_R1_8B_4BIT` | ✗ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `DEEPSEEK_R1_8B_8BIT` | ✗ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `DEEPSEEK_R1_8B_BF16` | ✗ | ✅ | ✗ | oMLX, LM Studio ¶ |
 | `DEEPSEEK_R1_7B` | ✗ | ✅ | ✗ | all except Ollama |
+| `DEEPSEEK_R1_7B_4BIT` | ✗ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `DEEPSEEK_R1_7B_8BIT` | ✗ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `DEEPSEEK_R1_7B_BF16` | ✗ | ✅ | ✗ | oMLX, LM Studio ¶ |
 | `GEMMA_3_12B` | ✅ † | ✗ | ✅ ※ | all |
+| `GEMMA_3_12B_4BIT` † | ✅ | ✗ | ✅ | oMLX, LM Studio ¶ |
+| `GEMMA_3_12B_8BIT` † | ✅ | ✗ | ✅ | oMLX, LM Studio ¶ |
+| `GEMMA_3_12B_BF16` † | ✅ | ✗ | ✅ | oMLX, LM Studio ¶ |
 | `GEMMA_4_E4B` | ✅ | ✅ | ✅ ※ | all |
+| `GEMMA_4_E4B_4BIT` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
+| `GEMMA_4_E4B_8BIT` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
+| `GEMMA_4_E4B_BF16` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
 | `GEMMA_4_12B` | ✅ | ✅ | ✅ ※ | all |
+| `GEMMA_4_12B_4BIT` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
+| `GEMMA_4_12B_8BIT` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
+| `GEMMA_4_12B_BF16` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
 | `GEMMA_4_26B` | ✅ | ✅ | ✅ ※ | all |
+| `GEMMA_4_26B_4BIT` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
+| `GEMMA_4_26B_8BIT` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
+| `GEMMA_4_26B_BF16` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
 | `GEMMA_4_31B` | ✅ | ✅ | ✅ ※ | all |
+| `GEMMA_4_31B_4BIT` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
+| `GEMMA_4_31B_8BIT` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
+| `GEMMA_4_31B_BF16` | ✅ | ✅ | ✅ | oMLX, LM Studio ¶ |
 | `NEMOTRON_CASCADE_2_30B` | ✅ | ✅ | ✗ | all |
+| `NEMOTRON_CASCADE_2_30B_4BIT` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `NEMOTRON_CASCADE_2_30B_8BIT` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `NEMOTRON_CASCADE_2_30B_BF16` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
 | `NEMOTRON_3_NANO_30B` | ✅ | ✅ | ✗ | all |
+| `NEMOTRON_3_NANO_30B_4BIT` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `NEMOTRON_3_NANO_30B_8BIT` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `NEMOTRON_3_NANO_30B_BF16` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
 | `GLM_4_7_FLASH_31B_Q4` | ✗ | ✅ | ✗ | all |
+| `GLM_4_7_FLASH_31B_Q4_4BIT` | ✗ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `GLM_4_7_FLASH_31B_Q4_8BIT` | ✗ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `GLM_4_7_FLASH_31B_Q4_BF16` | ✗ | ✅ | ✗ | oMLX, LM Studio ¶ |
 | `GPT_OSS_20B` | ✅ | ✅ | ✗ | all |
+| `GPT_OSS_20B_MXFP4_Q4` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `GPT_OSS_20B_MXFP4_Q8` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
 | `SMOLLM2_1_7B` | ✗ | ✗ | ✗ | all |
 | `MUSE_GLIMMER_30B` | ✅ | ✅ | ✅ | Ollama, vLLM, oMLX ‡ |
 | `MUSE_GLIMMER_30B_4BIT` | ✅ | ✅ | ✅ | oMLX ‡ ¶ |
 | `MUSE_GLIMMER_30B_8BIT` | ✅ | ✅ | ✅ | oMLX ‡ ¶ |
 | `MUSE_GLIMMER_30B_BF16` | ✅ | ✅ | ✅ | oMLX ‡ ¶ |
 
-¶ The MLX-served models (Qwen 3.6 35B-A3B, Qwen 3.8 27B, and Muse Glimmer 30B) carry **per-quantization** members alongside the bare name — each MLX quantization is a separate `mlx-community` repo, so each is a separate directory/key and therefore a separate id. A bare member (`QWEN_3_6_35B`, `QWEN_3_8_27B`, `MUSE_GLIMMER_30B`) is the quant-agnostic layout (one folder holding whichever quant was downloaded) and is the name shared with the Ollama catalogs; `_4BIT` / `_8BIT` / `_BF16` are for a machine holding several side by side. Every id within an enum must stay distinct: two members sharing a `ModelSpec.id` silently become an enum **alias**, dropping the second from iteration and discarding its flags (guarded by `tests/test_model_catalog_consistency.py::test_no_silent_enum_aliases`). LM Studio's bare `QWEN_3_6_35B`/`QWEN_3_8_27B` members are the *GGUF* build (grouped into the "all" GGUF-server set above, not this MLX footnote) and no bf16 (impractical at 35B). Ollama needs no per-quant members at all: 0.19+ picks its MLX backend automatically on Apple Silicon behind an unchanged tag.
+¶ Every MLX-served model carries **per-quantization** members — each MLX quantization is a separate `mlx-community` repo (or, occasionally, an official publisher repo; see below), so each is a separate directory/key and therefore a separate id. Three families (Qwen 3.6 35B-A3B, Qwen 3.8 27B, Muse Glimmer 30B) additionally carry a *bare* member (`QWEN_3_6_35B`, `QWEN_3_8_27B`, `MUSE_GLIMMER_30B`): the quant-agnostic layout (one folder holding whichever quant was downloaded), the name shared with the Ollama catalogs. Every other MLX-served model below has **no bare oMLX/LM-Studio-MLX member** — mlx-community publishes no quant-agnostic full-precision folder for them (checked directly: the bare, unsuffixed repo segment 401s), so only `_4BIT` / `_8BIT` / `_BF16` (or the precision-specific suffix a model actually ships under; see below) are catalogued, for a machine holding one or several quants. Every id within an enum must stay distinct: two members sharing a `ModelSpec.id` silently become an enum **alias**, dropping the second from iteration and discarding its flags (guarded by `tests/test_model_catalog_consistency.py::test_no_silent_enum_aliases`). LM Studio's bare `QWEN_3_6_35B`/`QWEN_3_8_27B` members are the *GGUF* build (grouped into the "all" GGUF-server set above, not this MLX footnote) and no bf16 (impractical at 35B). Ollama needs no per-quant members at all: 0.19+ picks its MLX backend automatically on Apple Silicon behind an unchanged tag.
+
+Several models ship under mlx-community naming that deviates from the plain `-4bit`/`-8bit`/`-bf16` convention, so their member suffixes follow the repo rather than the convention: `GPT_OSS_20B_MXFP4_Q4`/`_MXFP4_Q8` (gpt-oss ships natively quantized to mxfp4, so mlx-community's build is a Q4/Q8 requantization of that format, not a plain bit-width quantization; no bf16 exists), `PHI_4_MINI_3_8B_FP16` (the third precision is a distinctly-named `-mlx-fp16` build, not a plain bf16 repo), and `NEMOTRON_3_NANO_30B_4BIT`/`_8BIT`/`_BF16` (the confirmed matching trio carries an extra `-MLX-` infix and Titlecase quant token in the actual repo names, e.g. `NVIDIA-Nemotron-3-Nano-30B-A3B-MLX-4Bit`, though the member suffixes themselves stay the plain convention). Two models have fewer than three quantizations confirmed: `MAGISTRAL_SMALL_24B` ships only `_BF16` (a `4bit-DWQ` variant exists but DWQ is a distinct quantization method, out of scope for this plain-quant convention) and `MISTRAL_7B` ships only `_4BIT`/`_8BIT` (no bf16 build). `SMOLLM2_1_7B` has no MLX quant member at all: mlx-community publishes only its unquantized bare repo, no quantized build.
 
 ‡ `MUSE_GLIMMER_30B` emits channel-scoped reasoning and ATEM-style XML tool calls instead of `<think>` tags and JSON, so a server needs dedicated parsers to surface either. Ollama parses both; vLLM does with `--tool-call-parser muse_glimmer --reasoning-parser muse_glimmer` (enable them together); and **oMLX** does as of **0.5.8.dev3**, which added Muse Glimmer with channel-scoped output parsing for ATEM tool calls. On oMLX, use an `mlx-community` checkpoint: oMLX's own `Jundot/Muse-Glimmer-30B-oQ4e` was quantized before the embedding-normalization fix and silently breaks tool calling (the model emits `<|eot|>` right after the reasoning block and never produces an `<atem:function_calls>` block, [jundot/omlx#2589](https://github.com/jundot/omlx/issues/2589)) — a stale-quantization bug, not a parser one. Still absent from the remaining server enums: SGLang support is only on a PR branch, and LM Studio, llama-server, and llama-cpp all ship the model as GGUF only (no MLX build) with undocumented parsing for this format on that engine, so entries there would mean guessing `tools`/`thinking`.
 
-† `GEMMA_3_12B` is marked `tools=✗` on the Ollama-backed server (`OllamaOpenAIModel`) — the in-process HuggingFace and native-Ollama clients have no tool-call parse format for Gemma 3 — but `tools=✅` everywhere else (vLLM, SGLang, HF Serve, llama-server, and LM Studio), which parse Gemma 3 tool calls server-side. (`LLAMA_3_1_8B`/`LLAMA_3_2_3B` were formerly `tools=✗` on the Ollama/LM Studio builds; live testing confirmed reliable tool calling on current runtimes, so they are now `tools=✅` everywhere.)
+† `GEMMA_3_12B` is marked `tools=✗` on the Ollama-backed server (`OllamaOpenAIModel`) — the in-process HuggingFace and native-Ollama clients have no tool-call parse format for Gemma 3 — but `tools=✅` everywhere else (vLLM, SGLang, HF Serve, llama-server, LM Studio, and oMLX, including the MLX quant members of all three), which parse Gemma 3 tool calls server-side. (`LLAMA_3_1_8B`/`LLAMA_3_2_3B` were formerly `tools=✗` on the Ollama/LM Studio builds; live testing confirmed reliable tool calling on current runtimes, so they are now `tools=✅` everywhere.)
 
 ※ Vision ✗ on the three GGUF-serving catalogs — `LlamaServerOpenAIModel`, `LMStudioOpenAIModel`, and (in its own table above) `LlamaCppModel` — despite ✅ here: none of the three loads an mmproj projector by default, so each overrides `vision=False` with that rationale rather than advertise a capability that fails at request time. The ✅ reflects the servers that do carry vision for this member: Ollama, vLLM, HF Serve, and SGLang (plus oMLX where noted). See `Wire(..., why=..., vision=False)` on the affected members and `tests/test_model_catalog_facts.py::test_gguf_catalogs_do_not_advertise_vision`.
 

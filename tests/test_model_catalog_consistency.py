@@ -175,6 +175,17 @@ EXPECTED_OVERRIDES = {
     ("LlamaCppModel", "QWEN_3_6_27B", "vision"),
     ("LlamaCppModel", "QWEN_3_6_35B", "vision"),
     ("LlamaCppModel", "QWEN_3_8_27B", "vision"),
+    # Task 11: GEMMA_3_12B's MLX quantizations on both MLX-serving catalogs (oMLX and LM
+    # Studio's MLX entries) carry the same tools=True override as every other OpenAI-compat
+    # catalog's GEMMA_3_12B, for the same reason (server-side tool-call parsing). Unlike the
+    # GGUF-serving catalogs' bare GEMMA_3_12B, these do not also override vision: MLX serves
+    # vision directly, with no mmproj projector to load.
+    ("OMLXOpenAIModel", "GEMMA_3_12B_4BIT", "tools"),
+    ("OMLXOpenAIModel", "GEMMA_3_12B_8BIT", "tools"),
+    ("OMLXOpenAIModel", "GEMMA_3_12B_BF16", "tools"),
+    ("LMStudioOpenAIModel", "GEMMA_3_12B_4BIT", "tools"),
+    ("LMStudioOpenAIModel", "GEMMA_3_12B_8BIT", "tools"),
+    ("LMStudioOpenAIModel", "GEMMA_3_12B_BF16", "tools"),
 }
 
 

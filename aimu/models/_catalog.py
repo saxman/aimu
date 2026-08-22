@@ -231,6 +231,28 @@ MODEL_FACTS: dict[str, ModelFacts] = {
         generation_kwargs=_QWEN_THINKING_KWARGS,
         nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
     ),
+    # Quantization variants of QWEN_3_6_27B (MLX); intrinsic facts identical to the bare entry.
+    "QWEN_3_6_27B_4BIT": ModelFacts(
+        tools=True,
+        thinking=True,
+        vision=True,
+        generation_kwargs=_QWEN_THINKING_KWARGS,
+        nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
+    ),
+    "QWEN_3_6_27B_8BIT": ModelFacts(
+        tools=True,
+        thinking=True,
+        vision=True,
+        generation_kwargs=_QWEN_THINKING_KWARGS,
+        nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
+    ),
+    "QWEN_3_6_27B_BF16": ModelFacts(
+        tools=True,
+        thinking=True,
+        vision=True,
+        generation_kwargs=_QWEN_THINKING_KWARGS,
+        nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
+    ),
     "QWEN_3_6_27B_FP8": ModelFacts(
         tools=True,
         thinking=True,
@@ -245,7 +267,33 @@ MODEL_FACTS: dict[str, ModelFacts] = {
         generation_kwargs=_QWEN_3_5_THINKING_KWARGS,
         nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
     ),
+    # Quantization variants of QWEN_3_5_9B (MLX); intrinsic facts identical to the bare entry.
+    "QWEN_3_5_9B_4BIT": ModelFacts(
+        tools=True,
+        thinking=True,
+        vision=True,
+        generation_kwargs=_QWEN_3_5_THINKING_KWARGS,
+        nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
+    ),
+    "QWEN_3_5_9B_8BIT": ModelFacts(
+        tools=True,
+        thinking=True,
+        vision=True,
+        generation_kwargs=_QWEN_3_5_THINKING_KWARGS,
+        nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
+    ),
+    "QWEN_3_5_9B_BF16": ModelFacts(
+        tools=True,
+        thinking=True,
+        vision=True,
+        generation_kwargs=_QWEN_3_5_THINKING_KWARGS,
+        nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
+    ),
     "QWEN_3_32B": ModelFacts(tools=True, thinking=True),
+    # Quantization variants of QWEN_3_32B (MLX); intrinsic facts identical to the bare entry.
+    "QWEN_3_32B_4BIT": ModelFacts(tools=True, thinking=True),
+    "QWEN_3_32B_8BIT": ModelFacts(tools=True, thinking=True),
+    "QWEN_3_32B_BF16": ModelFacts(tools=True, thinking=True),
     # Plain "Qwen 3" (not the 3.5/3.6/3.8 vision-language family, hence vision=False). Only the
     # HuggingFace catalog ever declared a sampling profile for it; transcribed verbatim from
     # aimu/models/providers/hf/text.py.
@@ -254,36 +302,113 @@ MODEL_FACTS: dict[str, ModelFacts] = {
         thinking=True,
         generation_kwargs={"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0},
     ),
+    # Quantization variants of QWEN_3_8B (MLX); intrinsic facts identical to the bare entry.
+    "QWEN_3_8B_4BIT": ModelFacts(
+        tools=True,
+        thinking=True,
+        generation_kwargs={"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0},
+    ),
+    "QWEN_3_8B_8BIT": ModelFacts(
+        tools=True,
+        thinking=True,
+        generation_kwargs={"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0},
+    ),
+    "QWEN_3_8B_BF16": ModelFacts(
+        tools=True,
+        thinking=True,
+        generation_kwargs={"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0},
+    ),
     "QWEN_3_4B": ModelFacts(tools=True, thinking=True),
+    # Quantization variants of QWEN_3_4B (MLX); intrinsic facts identical to the bare entry.
+    "QWEN_3_4B_4BIT": ModelFacts(tools=True, thinking=True),
+    "QWEN_3_4B_8BIT": ModelFacts(tools=True, thinking=True),
+    "QWEN_3_4B_BF16": ModelFacts(tools=True, thinking=True),
     # Google
     "GEMMA_4_E4B": ModelFacts(tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS),
+    # Quantization variants of GEMMA_4_E4B (MLX); intrinsic facts identical to the bare entry.
+    "GEMMA_4_E4B_4BIT": ModelFacts(tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS),
+    "GEMMA_4_E4B_8BIT": ModelFacts(tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS),
+    "GEMMA_4_E4B_BF16": ModelFacts(tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS),
     # GEMMA_4_12B: LlamaCppModel declares vision=False (no default mmproj projector for this
     # size), disagreeing with every other catalog's vision=True. That is a serving-path
     # limitation, not an intrinsic fact, so the fact is vision=True and LlamaCppModel's entry
     # will carry a Wire(..., why="no mmproj projector", vision=False) override (Task 4).
     "GEMMA_4_12B": ModelFacts(tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS),
+    # Quantization variants of GEMMA_4_12B (MLX); intrinsic facts identical to the bare entry.
+    "GEMMA_4_12B_4BIT": ModelFacts(tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS),
+    "GEMMA_4_12B_8BIT": ModelFacts(tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS),
+    "GEMMA_4_12B_BF16": ModelFacts(tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS),
     "GEMMA_4_26B": ModelFacts(tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS),
+    # Quantization variants of GEMMA_4_26B (MLX); intrinsic facts identical to the bare entry.
+    "GEMMA_4_26B_4BIT": ModelFacts(tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS),
+    "GEMMA_4_26B_8BIT": ModelFacts(tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS),
+    "GEMMA_4_26B_BF16": ModelFacts(tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS),
     "GEMMA_4_31B": ModelFacts(tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS),
+    # Quantization variants of GEMMA_4_31B (MLX); intrinsic facts identical to the bare entry.
+    "GEMMA_4_31B_4BIT": ModelFacts(tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS),
+    "GEMMA_4_31B_8BIT": ModelFacts(tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS),
+    "GEMMA_4_31B_BF16": ModelFacts(tools=True, thinking=True, vision=True, generation_kwargs=_GEMMA_KWARGS),
     # GEMMA_3_12B: the OpenAI-compat local-server catalogs (HFOpenAI/LlamaServerOpenAI/SGLangOpenAI/
     # VLLMOpenAI) declare tools=True, disagreeing with the in-process HuggingFace/Ollama catalogs'
     # tools=False (neither in-process path has a tool-parse format for this model). The fact is
     # tools=False; the four OpenAI-compat catalogs will carry a Wire(..., why=..., tools=True)
     # override (Task 4).
     "GEMMA_3_12B": ModelFacts(tools=False, thinking=False, vision=True),
+    # Quantization variants of GEMMA_3_12B (MLX). Facts mirror the bare entry (tools=False
+    # intrinsically); the MLX-serving catalogs override tools=True on the Wire, same as their
+    # non-quantized OpenAI-compat siblings, since that override is a serving-path fact, not an
+    # intrinsic one.
+    "GEMMA_3_12B_4BIT": ModelFacts(tools=False, thinking=False, vision=True),
+    "GEMMA_3_12B_8BIT": ModelFacts(tools=False, thinking=False, vision=True),
+    "GEMMA_3_12B_BF16": ModelFacts(tools=False, thinking=False, vision=True),
     # Zhipu
     "GLM_4_7_FLASH_31B_Q4": ModelFacts(thinking=True),
+    # Quantization variants of GLM_4_7_FLASH_31B_Q4 (MLX); intrinsic facts identical to the
+    # bare entry.
+    "GLM_4_7_FLASH_31B_Q4_4BIT": ModelFacts(thinking=True),
+    "GLM_4_7_FLASH_31B_Q4_8BIT": ModelFacts(thinking=True),
+    "GLM_4_7_FLASH_31B_Q4_BF16": ModelFacts(thinking=True),
     # OpenAI (open-weight)
     "GPT_OSS_20B": ModelFacts(
         tools=True, thinking=True, generation_kwargs={"temperature": 1.0, "top_p": 1.0, "top_k": 0}
     ),
+    # gpt-oss ships natively quantized to mxfp4, so mlx-community re-packages it as Q4/Q8
+    # requantizations of that native format rather than plain 4bit/8bit/bf16 builds -- hence
+    # the MXFP4_Q4/MXFP4_Q8 member names (no bf16 build exists). Facts mirror the bare entry.
+    "GPT_OSS_20B_MXFP4_Q4": ModelFacts(
+        tools=True, thinking=True, generation_kwargs={"temperature": 1.0, "top_p": 1.0, "top_k": 0}
+    ),
+    "GPT_OSS_20B_MXFP4_Q8": ModelFacts(
+        tools=True, thinking=True, generation_kwargs={"temperature": 1.0, "top_p": 1.0, "top_k": 0}
+    ),
     # Meta
     "LLAMA_3_1_8B": ModelFacts(tools=True),
+    # Quantization variants of LLAMA_3_1_8B (MLX); intrinsic facts identical to the bare entry.
+    "LLAMA_3_1_8B_4BIT": ModelFacts(tools=True),
+    "LLAMA_3_1_8B_8BIT": ModelFacts(tools=True),
+    "LLAMA_3_1_8B_BF16": ModelFacts(tools=True),
     "LLAMA_3_2_3B": ModelFacts(tools=True),
+    # Quantization variants of LLAMA_3_2_3B (MLX); intrinsic facts identical to the bare entry.
+    "LLAMA_3_2_3B_4BIT": ModelFacts(tools=True),
+    "LLAMA_3_2_3B_8BIT": ModelFacts(tools=True),
+    "LLAMA_3_2_3B_BF16": ModelFacts(tools=True),
     # Mistral
     "MAGISTRAL_SMALL": ModelFacts(tools=True, generation_kwargs={"top_p": 0.95, "temperature": 0.7}),
     "MAGISTRAL_SMALL_24B": ModelFacts(tools=True, thinking=True),
+    # mlx-community publishes only a bf16 build under the plain naming convention (a 4bit-DWQ
+    # variant also exists, but DWQ is a distinct quantization method, not this catalog's plain
+    # 4bit/8bit convention, so it is not catalogued here). Facts mirror the bare entry.
+    "MAGISTRAL_SMALL_24B_BF16": ModelFacts(tools=True, thinking=True),
     "MINISTRAL_3_14B": ModelFacts(tools=True),
+    # Quantization variants of MINISTRAL_3_14B (MLX); intrinsic facts identical to the bare entry.
+    "MINISTRAL_3_14B_4BIT": ModelFacts(tools=True),
+    "MINISTRAL_3_14B_8BIT": ModelFacts(tools=True),
+    "MINISTRAL_3_14B_BF16": ModelFacts(tools=True),
     "MISTRAL_7B": ModelFacts(tools=True),
+    # mlx-community publishes only 4bit/8bit for this model (no bf16 build confirmed). Facts
+    # mirror the bare entry.
+    "MISTRAL_7B_4BIT": ModelFacts(tools=True),
+    "MISTRAL_7B_8BIT": ModelFacts(tools=True),
     "MISTRAL_NEMO_12B": ModelFacts(tools=True, generation_kwargs={"temperature": 0.3}),
     # Community MLX conversion. Quantization variants share the base model's intrinsic facts
     # and sampling profile.
@@ -293,7 +418,19 @@ MODEL_FACTS: dict[str, ModelFacts] = {
     "MUSE_GLIMMER_30B_BF16": ModelFacts(tools=True, thinking=True, vision=True, generation_kwargs=_MUSE_GLIMMER_KWARGS),
     # NVIDIA
     "NEMOTRON_3_NANO_30B": ModelFacts(tools=True, thinking=True),
+    # Quantization variants of NEMOTRON_3_NANO_30B (MLX). mlx-community's confirmed matching
+    # 4Bit/8Bit/BF16 trio for this model carries an extra "-MLX-" infix and Titlecase quant
+    # token in its own repo naming (see OMLXOpenAIModel); the member names here stay the plain
+    # _4BIT/_8BIT/_BF16 convention regardless. Facts mirror the bare entry.
+    "NEMOTRON_3_NANO_30B_4BIT": ModelFacts(tools=True, thinking=True),
+    "NEMOTRON_3_NANO_30B_8BIT": ModelFacts(tools=True, thinking=True),
+    "NEMOTRON_3_NANO_30B_BF16": ModelFacts(tools=True, thinking=True),
     "NEMOTRON_CASCADE_2_30B": ModelFacts(tools=True, thinking=True),
+    # Quantization variants of NEMOTRON_CASCADE_2_30B (MLX); intrinsic facts identical to the
+    # bare entry.
+    "NEMOTRON_CASCADE_2_30B_4BIT": ModelFacts(tools=True, thinking=True),
+    "NEMOTRON_CASCADE_2_30B_8BIT": ModelFacts(tools=True, thinking=True),
+    "NEMOTRON_CASCADE_2_30B_BF16": ModelFacts(tools=True, thinking=True),
     "NEMOTRON_H_8B": ModelFacts(tools=True),
     # Microsoft. PHI_4_MINI and PHI_4_MINI_3_8B were two catalog names for one model, collapsed
     # onto PHI_4_MINI_3_8B in Task 6. tools=True per microsoft/Phi-4-mini-instruct's chat
@@ -302,11 +439,31 @@ MODEL_FACTS: dict[str, ModelFacts] = {
     # registry page for phi4-mini, which carries the "tools" capability badge. Ollama's prior
     # tools=False here was a stale entry, not a serving-path limitation.
     "PHI_4_14B": ModelFacts(),
+    # Quantization variants of PHI_4_14B (MLX); intrinsic facts identical to the bare entry.
+    "PHI_4_14B_4BIT": ModelFacts(),
+    "PHI_4_14B_8BIT": ModelFacts(),
+    "PHI_4_14B_BF16": ModelFacts(),
     "PHI_4_MINI_3_8B": ModelFacts(tools=True),
+    # mlx-community publishes 4bit/8bit plus a distinctly-named "-mlx-fp16" build (no plain
+    # bf16 repo), hence the FP16 (not BF16) member suffix. Facts mirror the bare entry.
+    "PHI_4_MINI_3_8B_4BIT": ModelFacts(tools=True),
+    "PHI_4_MINI_3_8B_8BIT": ModelFacts(tools=True),
+    "PHI_4_MINI_3_8B_FP16": ModelFacts(tools=True),
     # HuggingFace
     "SMOLLM2_1_7B": ModelFacts(),
+    # No mlx-community *quantized* build exists for this model (only the unquantized
+    # mlx-community/SmolLM2-1.7B-Instruct repo, confirmed present but out of scope for Task
+    # 11's quant-suffixed fill), so no MLX quant member is catalogued for it.
     "SMOLLM3_3B": ModelFacts(tools=True, thinking=True, generation_kwargs={"temperature": 0.6, "top_p": 0.95}),
     # DeepSeek
     "DEEPSEEK_R1_7B": ModelFacts(thinking=True),
+    # Quantization variants of DEEPSEEK_R1_7B (MLX); intrinsic facts identical to the bare entry.
+    "DEEPSEEK_R1_7B_4BIT": ModelFacts(thinking=True),
+    "DEEPSEEK_R1_7B_8BIT": ModelFacts(thinking=True),
+    "DEEPSEEK_R1_7B_BF16": ModelFacts(thinking=True),
     "DEEPSEEK_R1_8B": ModelFacts(thinking=True, generation_kwargs={"temperature": 0.6}),
+    # Quantization variants of DEEPSEEK_R1_8B (MLX); intrinsic facts identical to the bare entry.
+    "DEEPSEEK_R1_8B_4BIT": ModelFacts(thinking=True, generation_kwargs={"temperature": 0.6}),
+    "DEEPSEEK_R1_8B_8BIT": ModelFacts(thinking=True, generation_kwargs={"temperature": 0.6}),
+    "DEEPSEEK_R1_8B_BF16": ModelFacts(thinking=True, generation_kwargs={"temperature": 0.6}),
 }

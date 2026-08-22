@@ -185,3 +185,19 @@ def test_gguf_catalogs_do_not_advertise_vision():
                 assert GGUF_VISION_RATIONALE in (wire.why or ""), (
                     f"{enum.__name__}.{member.name} overrides vision without naming the projector"
                 )
+
+
+def test_mlx_members_are_quant_suffixed_and_have_base_facts():
+    """A quant-suffixed member is the same weights at a different precision.
+
+    Its intrinsic facts must match the base model's, so a caller picking a quant does not
+    silently get different declared capabilities.
+    """
+    from aimu.models.providers.openai_compat import OMLXOpenAIModel
+
+    for member in OMLXOpenAIModel:
+        base, sep, quant = member.name.rpartition("_")
+        if sep and quant in {"4BIT", "8BIT", "BF16"} and base in MODEL_FACTS:
+            assert MODEL_FACTS[member.name] == MODEL_FACTS[base], (
+                f"{member.name} declares different facts from its base model {base}"
+            )

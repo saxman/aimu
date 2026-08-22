@@ -569,6 +569,24 @@ _NO_MMPROJ = (
     "pass images that fail at request time"
 )
 
+# Shared by GEMMA_3_12B's bare (GGUF) entry on both GGUF-serving catalogs below (LM Studio and
+# llama-server): combines the tools=True rationale (OpenAI-compat servers parse tool calls
+# server-side) with the vision=False rationale above (_NO_MMPROJ), since a GGUF Gemma 3 12B
+# member overrides both. Previously duplicated verbatim on each catalog; extracted here so the
+# two copies cannot drift.
+_GEMMA_3_12B_GGUF_WHY = (
+    "tools=True: OpenAI-compat servers parse tool calls server-side; the in-process HF and "
+    "native Ollama paths have no tool-parse format assigned for Gemma 3. vision=False: " + _NO_MMPROJ
+)
+
+# Shared by every MLX-served GEMMA_3_12B quantization (oMLX and LM Studio's MLX entries further
+# down): same tools rationale as above, but MLX serves vision directly (no mmproj limitation),
+# so only tools is overridden -- vision stays at MODEL_FACTS' intrinsic True.
+_GEMMA_3_12B_TOOLS_WHY = (
+    "OpenAI-compat servers parse tool calls server-side; the in-process HF and native Ollama "
+    "paths have no tool-parse format assigned for Gemma 3"
+)
+
 
 LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
 
@@ -637,21 +655,106 @@ class LMStudioOpenAIModel(Model):
     # and native Ollama paths have no tool-parse format assigned for Gemma 3 (same override as
     # HFOpenAIModel/LlamaServerOpenAIModel/SGLangOpenAIModel/VLLMOpenAIModel). vision=False for the
     # same mmproj reason as every other member above.
-    GEMMA_3_12B = Wire(
-        "gemma-3-12b-it",
-        why=(
-            "tools=True: OpenAI-compat servers parse tool calls server-side; the in-process HF and "
-            "native Ollama paths have no tool-parse format assigned for Gemma 3. vision=False: " + _NO_MMPROJ
-        ),
-        tools=True,
-        vision=False,
-    )
+    GEMMA_3_12B = Wire("gemma-3-12b-it", why=_GEMMA_3_12B_GGUF_WHY, tools=True, vision=False)
     # Gemma 4 E4B/12B support audio natively, but LM Studio has no audio-input path (image-only);
     # leave audio=False. All four also override vision=False: see _NO_MMPROJ above.
     GEMMA_4_E4B = Wire("gemma-4-e4b-it", why=_NO_MMPROJ, vision=False)
     GEMMA_4_12B = Wire("gemma-4-12b-it", why=_NO_MMPROJ, vision=False)
     GEMMA_4_26B = Wire("gemma-4-26b-a4b-it", why=_NO_MMPROJ, vision=False)
     GEMMA_4_31B = Wire("gemma-4-31b-it", why=_NO_MMPROJ, vision=False)
+
+    # Task 11: every other model with a confirmed mlx-community build, mirroring
+    # OMLXOpenAIModel's block of the same shape (see its comments for the per-model naming
+    # notes and the no-bare-quant-agnostic-form rationale). No bare (quant-free) member is added
+    # here either, per this catalog's own rule above: a quant-free LM Studio key would be the
+    # GGUF build, not an MLX path. Ids are the lowercase of the matching oMLX directory name --
+    # LM Studio derives its loaded-model key from the downloaded repo name, case-folded.
+    #
+    # Alibaba (Qwen)
+    QWEN_3_32B_4BIT = Wire("qwen3-32b-4bit")
+    QWEN_3_32B_8BIT = Wire("qwen3-32b-8bit")
+    QWEN_3_32B_BF16 = Wire("qwen3-32b-bf16")
+    QWEN_3_4B_4BIT = Wire("qwen3-4b-4bit")
+    QWEN_3_4B_8BIT = Wire("qwen3-4b-8bit")
+    QWEN_3_4B_BF16 = Wire("qwen3-4b-bf16")
+    QWEN_3_8B_4BIT = Wire("qwen3-8b-4bit")
+    QWEN_3_8B_8BIT = Wire("qwen3-8b-8bit")
+    QWEN_3_8B_BF16 = Wire("qwen3-8b-bf16")
+    QWEN_3_5_9B_4BIT = Wire("qwen3.5-9b-4bit")
+    QWEN_3_5_9B_8BIT = Wire("qwen3.5-9b-8bit")
+    QWEN_3_5_9B_BF16 = Wire("qwen3.5-9b-bf16")
+    QWEN_3_6_27B_4BIT = Wire("qwen3.6-27b-4bit")
+    QWEN_3_6_27B_8BIT = Wire("qwen3.6-27b-8bit")
+    QWEN_3_6_27B_BF16 = Wire("qwen3.6-27b-bf16")
+    # DeepSeek
+    DEEPSEEK_R1_7B_4BIT = Wire("deepseek-r1-distill-qwen-7b-4bit")
+    DEEPSEEK_R1_7B_8BIT = Wire("deepseek-r1-distill-qwen-7b-8bit")
+    DEEPSEEK_R1_7B_BF16 = Wire("deepseek-r1-distill-qwen-7b-bf16")
+    DEEPSEEK_R1_8B_4BIT = Wire("deepseek-r1-distill-llama-8b-4bit")
+    DEEPSEEK_R1_8B_8BIT = Wire("deepseek-r1-distill-llama-8b-8bit")
+    DEEPSEEK_R1_8B_BF16 = Wire("deepseek-r1-distill-llama-8b-bf16")
+    # Google. Vision stays True (no override) for these MLX quants: unlike the bare GGUF members
+    # above, LM Studio's MLX engine serves vision with no mmproj projector to load.
+    GEMMA_3_12B_4BIT = Wire("gemma-3-12b-it-4bit", why=_GEMMA_3_12B_TOOLS_WHY, tools=True)
+    GEMMA_3_12B_8BIT = Wire("gemma-3-12b-it-8bit", why=_GEMMA_3_12B_TOOLS_WHY, tools=True)
+    GEMMA_3_12B_BF16 = Wire("gemma-3-12b-it-bf16", why=_GEMMA_3_12B_TOOLS_WHY, tools=True)
+    GEMMA_4_E4B_4BIT = Wire("gemma-4-e4b-it-4bit")
+    GEMMA_4_E4B_8BIT = Wire("gemma-4-e4b-it-8bit")
+    GEMMA_4_E4B_BF16 = Wire("gemma-4-e4b-it-bf16")
+    GEMMA_4_12B_4BIT = Wire("gemma-4-12b-it-4bit")
+    GEMMA_4_12B_8BIT = Wire("gemma-4-12b-it-8bit")
+    GEMMA_4_12B_BF16 = Wire("gemma-4-12b-it-bf16")
+    GEMMA_4_26B_4BIT = Wire("gemma-4-26b-a4b-it-4bit")
+    GEMMA_4_26B_8BIT = Wire("gemma-4-26b-a4b-it-8bit")
+    GEMMA_4_26B_BF16 = Wire("gemma-4-26b-a4b-it-bf16")
+    GEMMA_4_31B_4BIT = Wire("gemma-4-31b-it-4bit")
+    GEMMA_4_31B_8BIT = Wire("gemma-4-31b-it-8bit")
+    GEMMA_4_31B_BF16 = Wire("gemma-4-31b-it-bf16")
+    # Zhipu
+    GLM_4_7_FLASH_31B_Q4_4BIT = Wire("glm-4.7-flash-4bit")
+    GLM_4_7_FLASH_31B_Q4_8BIT = Wire("glm-4.7-flash-8bit")
+    GLM_4_7_FLASH_31B_Q4_BF16 = Wire("glm-4.7-flash-bf16")
+    # OpenAI (open-weight). See OMLXOpenAIModel's comment: gpt-oss ships natively quantized to
+    # mxfp4, so mlx-community's build is a Q4/Q8 requantization of that format, not a plain
+    # 4bit/8bit build; no bf16 exists.
+    GPT_OSS_20B_MXFP4_Q4 = Wire("gpt-oss-20b-mxfp4-q4")
+    GPT_OSS_20B_MXFP4_Q8 = Wire("gpt-oss-20b-mxfp4-q8")
+    # Meta
+    LLAMA_3_2_3B_4BIT = Wire("llama-3.2-3b-instruct-4bit")
+    LLAMA_3_2_3B_8BIT = Wire("llama-3.2-3b-instruct-8bit")
+    LLAMA_3_2_3B_BF16 = Wire("llama-3.2-3b-instruct-bf16")
+    # See OMLXOpenAIModel's comment: the confirmed matching trio uses mlx-community's
+    # "Meta-Llama-3.1-..." naming, not "Llama-3.1-...".
+    LLAMA_3_1_8B_4BIT = Wire("meta-llama-3.1-8b-instruct-4bit")
+    LLAMA_3_1_8B_8BIT = Wire("meta-llama-3.1-8b-instruct-8bit")
+    LLAMA_3_1_8B_BF16 = Wire("meta-llama-3.1-8b-instruct-bf16")
+    # Mistral. Only bf16 confirmed for Magistral (see OMLXOpenAIModel's comment); only 4bit/8bit
+    # for Mistral 7B (no bf16 build).
+    MAGISTRAL_SMALL_24B_BF16 = Wire("magistral-small-2506-bf16")
+    MINISTRAL_3_14B_4BIT = Wire("ministral-3-14b-instruct-2512-4bit")
+    MINISTRAL_3_14B_8BIT = Wire("ministral-3-14b-instruct-2512-8bit")
+    MINISTRAL_3_14B_BF16 = Wire("ministral-3-14b-instruct-2512-bf16")
+    MISTRAL_7B_4BIT = Wire("mistral-7b-instruct-v0.3-4bit")
+    MISTRAL_7B_8BIT = Wire("mistral-7b-instruct-v0.3-8bit")
+    # NVIDIA
+    NEMOTRON_CASCADE_2_30B_4BIT = Wire("nemotron-cascade-2-30b-a3b-4bit")
+    NEMOTRON_CASCADE_2_30B_8BIT = Wire("nemotron-cascade-2-30b-a3b-8bit")
+    NEMOTRON_CASCADE_2_30B_BF16 = Wire("nemotron-cascade-2-30b-a3b-bf16")
+    # See OMLXOpenAIModel's comment: the confirmed matching trio carries an extra "-mlx-" infix.
+    NEMOTRON_3_NANO_30B_4BIT = Wire("nvidia-nemotron-3-nano-30b-a3b-mlx-4bit")
+    NEMOTRON_3_NANO_30B_8BIT = Wire("nvidia-nemotron-3-nano-30b-a3b-mlx-8bit")
+    NEMOTRON_3_NANO_30B_BF16 = Wire("nvidia-nemotron-3-nano-30b-a3b-mlx-bf16")
+    # Microsoft
+    PHI_4_14B_4BIT = Wire("phi-4-4bit")
+    PHI_4_14B_8BIT = Wire("phi-4-8bit")
+    PHI_4_14B_BF16 = Wire("phi-4-bf16")
+    # See OMLXOpenAIModel's comment: the third precision is a distinctly-named "-mlx-fp16"
+    # build, not a plain bf16 repo.
+    PHI_4_MINI_3_8B_4BIT = Wire("phi-4-mini-instruct-4bit")
+    PHI_4_MINI_3_8B_8BIT = Wire("phi-4-mini-instruct-8bit")
+    PHI_4_MINI_3_8B_FP16 = Wire("phi-4-mini-instruct-mlx-fp16")
+    # No SMOLLM2_1_7B here either: no quantized mlx-community build exists (see
+    # OMLXOpenAIModel's comment).
 
 
 class LMStudioOpenAIClient(OpenAICompatClient):
@@ -858,15 +961,7 @@ class LlamaServerOpenAIModel(Model):
     QWEN_3_8_27B = Wire("qwen3.8-27b.gguf", why=_NO_MMPROJ, vision=False)
     DEEPSEEK_R1_7B = Wire("deepseek-r1-distill-qwen-7b.gguf")
     DEEPSEEK_R1_8B = Wire("deepseek-r1-8b.gguf")
-    GEMMA_3_12B = Wire(
-        "gemma-3-12b-it.gguf",
-        why=(
-            "tools=True: OpenAI-compat servers parse tool calls server-side; the in-process HF and "
-            "native Ollama paths have no tool-parse format assigned for Gemma 3. vision=False: " + _NO_MMPROJ
-        ),
-        tools=True,
-        vision=False,
-    )
+    GEMMA_3_12B = Wire("gemma-3-12b-it.gguf", why=_GEMMA_3_12B_GGUF_WHY, tools=True, vision=False)
     # Gemma 4 E4B/12B support audio natively, but llama-server (GGUF) has no audio-input path;
     # leave audio=False. All four also override vision=False: see _NO_MMPROJ above.
     GEMMA_4_E4B = Wire("gemma-4-e4b-it.gguf", why=_NO_MMPROJ, vision=False)
@@ -1060,6 +1155,115 @@ class OMLXOpenAIModel(Model):
     MUSE_GLIMMER_30B_4BIT = Wire("Muse-Glimmer-30B-4bit")
     MUSE_GLIMMER_30B_8BIT = Wire("Muse-Glimmer-30B-8bit")
     MUSE_GLIMMER_30B_BF16 = Wire("Muse-Glimmer-30B-bf16")
+
+    # Task 11: every other model with a confirmed mlx-community build. Unlike the three families
+    # above, none of these has a genuine quant-agnostic full-precision mlx-community folder to
+    # serve as a bare member (checked directly: the bare, unsuffixed repo segment 401s for every
+    # one of them), so only quant-suffixed members are catalogued here -- no bare id is invented.
+    # Each id below is a directory name confirmed to exist as `mlx-community/<id>` (HTTP 200)
+    # before being added; see the Task 11 report for the full per-id verification table. Most
+    # follow the plain -4bit/-8bit/-bf16 convention; a few deviate because that is what
+    # mlx-community actually published, called out inline below.
+    #
+    # Alibaba (Qwen)
+    QWEN_3_32B_4BIT = Wire("Qwen3-32B-4bit")
+    QWEN_3_32B_8BIT = Wire("Qwen3-32B-8bit")
+    QWEN_3_32B_BF16 = Wire("Qwen3-32B-bf16")
+    QWEN_3_4B_4BIT = Wire("Qwen3-4B-4bit")
+    QWEN_3_4B_8BIT = Wire("Qwen3-4B-8bit")
+    QWEN_3_4B_BF16 = Wire("Qwen3-4B-bf16")
+    QWEN_3_8B_4BIT = Wire("Qwen3-8B-4bit")
+    QWEN_3_8B_8BIT = Wire("Qwen3-8B-8bit")
+    QWEN_3_8B_BF16 = Wire("Qwen3-8B-bf16")
+    QWEN_3_5_9B_4BIT = Wire("Qwen3.5-9B-4bit")
+    QWEN_3_5_9B_8BIT = Wire("Qwen3.5-9B-8bit")
+    QWEN_3_5_9B_BF16 = Wire("Qwen3.5-9B-bf16")
+    QWEN_3_6_27B_4BIT = Wire("Qwen3.6-27B-4bit")
+    QWEN_3_6_27B_8BIT = Wire("Qwen3.6-27B-8bit")
+    QWEN_3_6_27B_BF16 = Wire("Qwen3.6-27B-bf16")
+    # DeepSeek
+    DEEPSEEK_R1_7B_4BIT = Wire("DeepSeek-R1-Distill-Qwen-7B-4bit")
+    DEEPSEEK_R1_7B_8BIT = Wire("DeepSeek-R1-Distill-Qwen-7B-8bit")
+    DEEPSEEK_R1_7B_BF16 = Wire("DeepSeek-R1-Distill-Qwen-7B-bf16")
+    DEEPSEEK_R1_8B_4BIT = Wire("DeepSeek-R1-Distill-Llama-8B-4bit")
+    DEEPSEEK_R1_8B_8BIT = Wire("DeepSeek-R1-Distill-Llama-8B-8bit")
+    DEEPSEEK_R1_8B_BF16 = Wire("DeepSeek-R1-Distill-Llama-8B-bf16")
+    # Google. Vision stays at MODEL_FACTS' intrinsic True for all of these -- unlike the GGUF
+    # catalogs (LM Studio's bare members, llama-server, llama-cpp), MLX serves vision directly
+    # with no mmproj projector to load, so _NO_MMPROJ does not apply here.
+    GEMMA_3_12B_4BIT = Wire("gemma-3-12b-it-4bit", why=_GEMMA_3_12B_TOOLS_WHY, tools=True)
+    GEMMA_3_12B_8BIT = Wire("gemma-3-12b-it-8bit", why=_GEMMA_3_12B_TOOLS_WHY, tools=True)
+    GEMMA_3_12B_BF16 = Wire("gemma-3-12b-it-bf16", why=_GEMMA_3_12B_TOOLS_WHY, tools=True)
+    GEMMA_4_E4B_4BIT = Wire("gemma-4-e4b-it-4bit")
+    GEMMA_4_E4B_8BIT = Wire("gemma-4-e4b-it-8bit")
+    GEMMA_4_E4B_BF16 = Wire("gemma-4-e4b-it-bf16")
+    # mlx-community's actual repo casing for this one keeps "12B" capitalized, unlike the other
+    # three Gemma 4 sizes (which are fully lowercase) -- confirmed via the Hub API's redirect
+    # target, not guessed.
+    GEMMA_4_12B_4BIT = Wire("gemma-4-12B-it-4bit")
+    GEMMA_4_12B_8BIT = Wire("gemma-4-12B-it-8bit")
+    GEMMA_4_12B_BF16 = Wire("gemma-4-12B-it-bf16")
+    GEMMA_4_26B_4BIT = Wire("gemma-4-26b-a4b-it-4bit")
+    GEMMA_4_26B_8BIT = Wire("gemma-4-26b-a4b-it-8bit")
+    GEMMA_4_26B_BF16 = Wire("gemma-4-26b-a4b-it-bf16")
+    GEMMA_4_31B_4BIT = Wire("gemma-4-31b-it-4bit")
+    GEMMA_4_31B_8BIT = Wire("gemma-4-31b-it-8bit")
+    GEMMA_4_31B_BF16 = Wire("gemma-4-31b-it-bf16")
+    # Zhipu
+    GLM_4_7_FLASH_31B_Q4_4BIT = Wire("GLM-4.7-Flash-4bit")
+    GLM_4_7_FLASH_31B_Q4_8BIT = Wire("GLM-4.7-Flash-8bit")
+    GLM_4_7_FLASH_31B_Q4_BF16 = Wire("GLM-4.7-Flash-bf16")
+    # OpenAI (open-weight). gpt-oss ships natively quantized to mxfp4, so mlx-community
+    # re-packages it as Q4/Q8 requantizations of that native format (repo names
+    # gpt-oss-20b-MXFP4-Q4/-Q8) rather than plain 4bit/8bit builds -- hence the member names
+    # below, and no bf16 (no such build exists).
+    GPT_OSS_20B_MXFP4_Q4 = Wire("gpt-oss-20b-MXFP4-Q4")
+    GPT_OSS_20B_MXFP4_Q8 = Wire("gpt-oss-20b-MXFP4-Q8")
+    # Meta
+    LLAMA_3_2_3B_4BIT = Wire("Llama-3.2-3B-Instruct-4bit")
+    LLAMA_3_2_3B_8BIT = Wire("Llama-3.2-3B-Instruct-8bit")
+    LLAMA_3_2_3B_BF16 = Wire("Llama-3.2-3B-Instruct-bf16")
+    # mlx-community's confirmed matching 4bit/8bit/bf16 trio for this model carries Meta's older
+    # "Meta-Llama-3.1-..." repo naming rather than the canonical "Llama-3.1-..." (a
+    # "Llama-3.1-8B-Instruct-4bit" repo also exists but has no 8bit/bf16 siblings, so the
+    # Meta-prefixed family is used for all three quants).
+    LLAMA_3_1_8B_4BIT = Wire("Meta-Llama-3.1-8B-Instruct-4bit")
+    LLAMA_3_1_8B_8BIT = Wire("Meta-Llama-3.1-8B-Instruct-8bit")
+    LLAMA_3_1_8B_BF16 = Wire("Meta-Llama-3.1-8B-Instruct-bf16")
+    # Mistral. Only a bf16 build exists under the plain naming convention (a 4bit-DWQ variant
+    # also exists, but DWQ is a distinct quantization method, not this catalog's plain
+    # 4bit/8bit/bf16 vocabulary, so it is not catalogued here).
+    MAGISTRAL_SMALL_24B_BF16 = Wire("Magistral-Small-2506-bf16")
+    MINISTRAL_3_14B_4BIT = Wire("Ministral-3-14B-Instruct-2512-4bit")
+    MINISTRAL_3_14B_8BIT = Wire("Ministral-3-14B-Instruct-2512-8bit")
+    MINISTRAL_3_14B_BF16 = Wire("Ministral-3-14B-Instruct-2512-bf16")
+    # Only 4bit/8bit exist for this model (no bf16 build confirmed).
+    MISTRAL_7B_4BIT = Wire("Mistral-7B-Instruct-v0.3-4bit")
+    MISTRAL_7B_8BIT = Wire("Mistral-7B-Instruct-v0.3-8bit")
+    # NVIDIA
+    NEMOTRON_CASCADE_2_30B_4BIT = Wire("Nemotron-Cascade-2-30B-A3B-4bit")
+    NEMOTRON_CASCADE_2_30B_8BIT = Wire("Nemotron-Cascade-2-30B-A3B-8bit")
+    NEMOTRON_CASCADE_2_30B_BF16 = Wire("Nemotron-Cascade-2-30B-A3B-bf16")
+    # This model's confirmed matching 4bit/8bit/bf16 trio carries an extra "-MLX-" infix and
+    # Titlecase quant token in mlx-community's own repo naming (a differently-named, unmatched
+    # "-4bit" repo also exists but has no 8bit/bf16 siblings, so the "-MLX-"-infixed family is
+    # used for all three quants, matching the pattern used for LLAMA_3_1_8B above).
+    NEMOTRON_3_NANO_30B_4BIT = Wire("NVIDIA-Nemotron-3-Nano-30B-A3B-MLX-4Bit")
+    NEMOTRON_3_NANO_30B_8BIT = Wire("NVIDIA-Nemotron-3-Nano-30B-A3B-MLX-8Bit")
+    NEMOTRON_3_NANO_30B_BF16 = Wire("NVIDIA-Nemotron-3-Nano-30B-A3B-MLX-BF16")
+    # Microsoft
+    PHI_4_14B_4BIT = Wire("phi-4-4bit")
+    PHI_4_14B_8BIT = Wire("phi-4-8bit")
+    PHI_4_14B_BF16 = Wire("phi-4-bf16")
+    # mlx-community publishes 4bit/8bit plus a distinctly-named "-mlx-fp16" build (no plain bf16
+    # repo), hence the FP16 (not BF16) member suffix.
+    PHI_4_MINI_3_8B_4BIT = Wire("Phi-4-mini-instruct-4bit")
+    PHI_4_MINI_3_8B_8BIT = Wire("Phi-4-mini-instruct-8bit")
+    PHI_4_MINI_3_8B_FP16 = Wire("Phi-4-mini-instruct-mlx-fp16")
+    # No SMOLLM2_1_7B here: mlx-community publishes only the unquantized bare repo for this
+    # model (confirmed present) but no quantized -4bit/-8bit/-bf16 build, so there is nothing to
+    # catalogue under this task's quant-suffixed fill.
+
     # structured_output stays False across every OpenAI-compat local-server catalog (only the native
     # Ollama path grammar-enforces JSON), so `schema=` falls back to prompt-and-parse. audio stays
     # False: these weights are image-text-to-text, with no audio encoder.
