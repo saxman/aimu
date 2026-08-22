@@ -709,10 +709,14 @@ class HFOpenAIModel(Model):
     # Model values are HuggingFace repo paths (as used by `transformers serve <model-id>`).
     #
     # Unlike VLLMOpenAIModel/SGLangOpenAIModel above, transformers serve has no pluggable
-    # --tool-call-parser launch flag to gate tool_calls behind: its docs state tool calling
-    # "works with any model whose tokenizer declares tool call tokens" (detected from the
-    # chat template at request time), so a tools=True member here needs no launch-time
-    # opt-in to surface structured tool_calls.
+    # --tool-call-parser launch flag to gate tool_calls behind. Verified 2026-08-22 against
+    # https://huggingface.co/docs/transformers/en/serving ("Tool calling" section), which
+    # states verbatim: "Tool calling works with any model whose tokenizer declares tool call
+    # tokens. Qwen and Gemma 4 work out of the box." -- i.e. support is detected from the
+    # model's own chat template/tokenizer at request time, not opted into via a launch flag.
+    # So a tools=True member here needs no launch-time opt-in to surface structured
+    # tool_calls; if that ever stops being true, re-check the page above before trusting
+    # this comment.
     LLAMA_3_1_8B = Wire("meta-llama/Llama-3.1-8B-Instruct")
     LLAMA_3_2_3B = Wire("meta-llama/Llama-3.2-3B-Instruct")
     # Mistral
