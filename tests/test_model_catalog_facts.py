@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import pytest
 
+from aimu.models._base.text import Model, ModelSpec
 from aimu.models._catalog import MODEL_FACTS, ModelFacts, Wire, resolve_wire  # noqa: F401 (import parity w/ brief)
 
 
@@ -83,3 +84,30 @@ def test_generation_kwargs_are_copied_not_shared():
     b = resolve_wire("QWEN_3_8_27B", Wire("b"))
     a.generation_kwargs["temperature"] = 99.0
     assert b.generation_kwargs["temperature"] != 99.0
+
+
+def test_enum_member_accepts_a_wire():
+    class Cat(Model):
+        QWEN_3_8B = Wire("qwen3:8b", structured_output=True)
+
+    member = Cat.QWEN_3_8B
+    assert member.value == "qwen3:8b"
+    assert member.supports_tools is True
+    assert member.supports_thinking is True
+    assert member.supports_structured_output is True
+    assert isinstance(member.spec, ModelSpec)
+
+
+def test_enum_member_still_accepts_a_modelspec():
+    class Cloud(Model):
+        SOMETHING = ModelSpec("vendor-model-1", tools=True)
+
+    assert Cloud.SOMETHING.value == "vendor-model-1"
+    assert Cloud.SOMETHING.supports_tools is True
+
+
+def test_wire_member_with_unknown_name_fails_at_class_creation():
+    with pytest.raises(KeyError, match="NOT_A_REAL_MODEL"):
+
+        class Bad(Model):
+            NOT_A_REAL_MODEL = Wire("x")
