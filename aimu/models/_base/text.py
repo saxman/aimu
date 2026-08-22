@@ -91,7 +91,10 @@ class Model(Enum):
         from .._catalog import Wire, resolve_wire
 
         if isinstance(spec, Wire):
+            self._wire = spec
             spec = resolve_wire(self._name_, spec)
+        else:
+            self._wire = None
         self._value_ = spec.id
         self.spec = spec
         self.supports_tools = spec.tools
