@@ -121,7 +121,7 @@ See [how-to: add or update a provider](how-to/add-new-provider.md) for the full 
 
 ## Adding a new model to an existing provider
 
-Add a member to the provider's `Model` enum with a `ModelSpec(id, tools=..., thinking=..., vision=...)` value. The `TOOL_MODELS` / `THINKING_MODELS` / `VISION_MODELS` lists derive automatically. See [how-to: add a new model](how-to/add-new-model.md).
+For the three **cloud** catalogs (`AnthropicModel`, `OpenAIModel`, `GeminiModel`), add a member with a `ModelSpec(id, tools=..., thinking=..., vision=...)` value directly. For every other (**local-runtime**) catalog, add the model's intrinsic facts to the shared `MODEL_FACTS` table in `aimu/models/_catalog.py` once (skip this if another local-runtime catalog already carries the name), then add `MODEL_NAME = Wire(id)` to the provider's `Model` enum -- capability flags resolve from `MODEL_FACTS` automatically, and an override of an intrinsic flag needs a `why=`. The `TOOL_MODELS` / `THINKING_MODELS` / `VISION_MODELS` lists derive automatically either way. See [how-to: add a new model](how-to/add-new-model.md).
 
 ## Pull requests
 

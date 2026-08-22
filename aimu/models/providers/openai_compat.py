@@ -634,10 +634,11 @@ class LMStudioOpenAIModel(Model):
     # only the two practical quants are listed.
     QWEN_3_8_27B_4BIT = Wire("qwen3.8-27b-4bit")
     QWEN_3_8_27B_8BIT = Wire("qwen3.8-27b-8bit")
-    # No MUSE_GLIMMER_30B here, for two independent reasons: LM Studio distributes it as GGUF only
-    # (no MLX build, so it is not an MLX path at all), and whether its llama.cpp engine parses the
-    # model's channel-scoped reasoning and ATEM-style XML tool calls is still undocumented. Adding
-    # it would mean guessing tools/thinking. See OMLXOpenAIModel for the path that does parse them.
+    # No MUSE_GLIMMER_30B here: an mlx-community MLX build does exist (see OMLXOpenAIModel's
+    # MUSE_GLIMMER_30B members below), but LM Studio's *GGUF* engine (llama.cpp) is the path this
+    # member would represent, and whether that engine parses the model's channel-scoped reasoning
+    # and ATEM-style XML tool calls is still undocumented. Adding it here would mean guessing
+    # tools/thinking on the GGUF path. See OMLXOpenAIModel for the MLX path that does parse them.
     # (The same reasoning excludes it from LlamaServerOpenAIModel and LlamaCppModel: both run the
     # same llama.cpp-derived engine as LM Studio's GGUF path.)
     DEEPSEEK_R1_7B = Wire("deepseek-r1-distill-qwen-7b")

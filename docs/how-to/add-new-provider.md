@@ -15,12 +15,20 @@ There are two paths depending on the backend's API.
 
 ### Path A: OpenAI-compatible endpoint (easiest)
 
-If the backend speaks the OpenAI REST API, you don't reimplement chat/streaming/tools. Subclass `OpenAICompatClient` and supply a `base_url` + a `Model` enum. For a *local inference server*, add it alongside the others in [`providers/openai_compat.py`](https://github.com/saxman/aimu/blob/main/aimu/models/providers/openai_compat.py):
+If the backend speaks the OpenAI REST API, you don't reimplement chat/streaming/tools. Subclass `OpenAICompatClient` and supply a `base_url` + a `Model` enum. For a *local inference server*, add it alongside the others in [`providers/openai_compat.py`](https://github.com/saxman/aimu/blob/main/aimu/models/providers/openai_compat.py). A local-server catalog is a **local-runtime catalog** (see [Add a new model](add-new-model.md#local-runtime-catalogs)): each member is a `Wire(id)` that resolves against the shared `MODEL_FACTS` table, not a standalone `ModelSpec` -- the same weights are already catalogued under `OllamaModel`/`HuggingFaceModel`/the other `*OpenAIModel` catalogs, so your new server's members should share those facts rather than restate them:
 
 ```python
 # aimu/models/providers/openai_compat.py
+from ..._catalog import Wire
+
+
 class MyServerOpenAIModel(Model):
-    QWEN_3_8B = ModelSpec("qwen3-8b", tools=True, thinking=True)
+    # QWEN_3_8B already has a MODEL_FACTS entry (tools=True, thinking=True, plus its card's
+    # sampling profile) from the existing Ollama/HuggingFace/vLLM/... catalogs -- just wire
+    # the id your server accepts:
+    QWEN_3_8B = Wire("qwen3-8b")
+    # A model no other catalog has yet needs its facts added first, in
+    # aimu/models/_catalog.py: MODEL_FACTS["SOME_NEW_MODEL"] = ModelFacts(tools=..., ...).
 
 
 class MyServerOpenAIClient(OpenAICompatClient):
@@ -30,7 +38,9 @@ class MyServerOpenAIClient(OpenAICompatClient):
         super().__init__(model, base_url=base_url, **kwargs)
 ```
 
-A *cloud* provider with its own identity and ≥2 modalities gets a subpackage instead. See how `OpenAIClient` lives in `providers/openai/text.py` and subclasses `OpenAICompatClient` via `from ..openai_compat import OpenAICompatClient`.
+`tests/test_model_catalog_consistency.py::test_every_local_runtime_member_has_a_wire` fails the suite if a member here is left as a bare `ModelSpec` instead of a `Wire`, so this isn't just a style preference.
+
+A *cloud* provider with its own identity and ≥2 modalities gets a subpackage instead. See how `OpenAIClient` lives in `providers/openai/text.py` and subclasses `OpenAICompatClient` via `from ..openai_compat import OpenAICompatClient`. A cloud provider's catalog stays a plain `ModelSpec` per member (see [Add a new model](add-new-model.md#basic-case)) -- add its enum name to `CLOUD_CATALOG_NAMES` in `tests/test_model_catalog_consistency.py` when you do.
 
 ### Path B: native SDK
 
@@ -68,6 +78,8 @@ class MyProviderClient(BaseModelClient):
     def _generate(self, prompt, generate_kwargs=None, stream=False, images=None): ...
     def _chat(self, user_message, generate_kwargs=None, use_tools=True, stream=False, images=None): ...
 ```
+
+The example above (a new, single-provider model named `BIG`) uses a bare `ModelSpec`, which is correct only if `MyProviderClient` is genuinely the *only* place these weights are served -- register the enum's name in `CLOUD_CATALOG_NAMES` (`tests/test_model_catalog_consistency.py`) once you add it. If your new provider serves weights that already exist in another catalog (Ollama, HuggingFace, ...), it is a **local-runtime catalog** and its members should be `Wire(id)` against the shared `MODEL_FACTS` table instead -- see [Add a new model](add-new-model.md#local-runtime-catalogs).
 
 `chat()` / `generate()` (and the `include=` stream filter) are concrete on the base; you only implement `_chat` / `_generate`. Use `self._chat_setup(...)` to build the request; when the model returns tool calls, call `self._record_tool_calls(tool_calls, content)` to parse and store them on the assistant message. `_chat` only *records* tool calls — it never executes them. Tool execution and the call-model → run-tools → repeat loop belong to the agent's tool-loop engine (`aimu.agents._tool_loop`), not the provider. See [`providers/anthropic.py`](https://github.com/saxman/aimu/blob/main/aimu/models/providers/anthropic.py) for a full native example (including the OpenAI↔Anthropic format adapters).
 

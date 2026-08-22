@@ -1,36 +1,39 @@
 # Add a new model
 
-To make a new model usable with `ModelClient`, add a member to that provider's `Model` enum. The member's value is a `ModelSpec` with the model id and capability flags.
+To make a new model usable with `ModelClient`, add a member to that provider's `Model` enum. What the member's value looks like depends on which kind of catalog it is:
+
+- **Cloud catalogs** (`AnthropicModel`, `OpenAIModel`, `GeminiModel`): each hosted model ships under exactly one provider, so the member's value is a plain `ModelSpec` carrying the model id and every capability flag directly. See [Basic case](#basic-case) below.
+- **Local-runtime catalogs** (`OllamaModel`, `HuggingFaceModel`, `LlamaCppModel`, and the seven `*OpenAIModel` local-server catalogs): the same weights are often reachable through several of these, so a model's *intrinsic* capabilities (`tools`/`thinking`/`vision`, the thinking-control fields, and card sampling profiles) are declared exactly once, in a shared `MODEL_FACTS` table, keyed on the cross-provider enum-member name. Each catalog's member value is a `Wire(id)` -- just the wire id that runtime's server accepts -- which resolves against `MODEL_FACTS` at class-construction time. See [Local-runtime catalogs](#local-runtime-catalogs) below.
 
 !!! note "AIMU ships curated models only"
     Every modality requires the model to be a member of its provider enum (or a hand-built spec, see [Custom models](#custom-models)). Passing an arbitrary `"provider:some/unknown-repo"` string **raises** `ValueError`, rather than silently fabricating a spec with guessed capabilities. Capability flags (tools/thinking/vision, `pipeline_class`, `supports_negative_prompt`, voice/step defaults, and so on) can't be inferred reliably from a repo name, and a wrong guess causes hard-to-debug runtime failures. So the catalog is intentional: to use a new model, add it to the enum here.
 
 ## The same model under multiple providers
 
-One model is often reachable through several providers (Qwen3 8B runs on Ollama, vLLM, HuggingFace, llama.cpp, ...). AIMU keeps two things separate:
+One model is often reachable through several local-runtime providers (Qwen3 8B runs on Ollama, vLLM, HuggingFace, llama.cpp, ...). AIMU keeps two things separate:
 
-- **`ModelSpec.id`** is the *wire identifier* sent to that provider's server. It is legitimately different per provider and must match what the server accepts: `qwen3:8b` (Ollama), `Qwen/Qwen3-8B` (vLLM / HF-serve / SGLang), `qwen3-8b.gguf` (llama-server), `qwen3-8b` (LlamaCpp / LM Studio). Do **not** try to normalise these; a mismatched id just fails the request.
-- **The enum-member name** (`QWEN_3_8B`) is the *cross-provider identity*. It is the same across every provider enum, and it is what [`resolve_model_enum`](../reference/api/models.md) searches when a caller passes a bare name (e.g. `"QWEN_3_8B"`). Keep the name identical across providers for the same model so bare-name resolution finds every serving option.
+- **The wire id** (`Wire.id` on a local-runtime catalog, `ModelSpec.id` on a cloud catalog) is sent to that provider's server. It is legitimately different per provider and must match what the server accepts: `qwen3:8b` (Ollama), `Qwen/Qwen3-8B` (vLLM / HF-serve / SGLang), `qwen3-8b.gguf` (llama-server), `qwen3-8b` (LlamaCpp / LM Studio). Do **not** try to normalise these; a mismatched id just fails the request.
+- **The enum-member name** (`QWEN_3_8B`) is the *cross-provider identity*. It is the same across every provider enum, and it is what [`resolve_model_enum`](../reference/api/models.md) searches when a caller passes a bare name (e.g. `"QWEN_3_8B"`), and what a local-runtime catalog's `Wire` looks up in `MODEL_FACTS`. Keep the name identical across providers for the same model so bare-name resolution finds every serving option.
 
 ### Keep capability flags consistent across providers
 
-Because a bare name can resolve to any provider that offers it, a shared name must describe the **same model**. The *intrinsic* capability flags (`tools`, `thinking`, `vision`, `thinking_levels`, `thinking_optional`) describe the weights, not the server, so they should agree everywhere the name appears. `tests/test_model_catalog_consistency.py` enforces this: adding `QWEN_3_8B` to a new provider but forgetting `thinking=True` fails the suite.
+For local-runtime catalogs, this is now **structural** rather than something you have to remember: the *intrinsic* capability flags (`tools`, `thinking`, `vision`, `thinking_levels`, `thinking_optional`) live once in `MODEL_FACTS` (`aimu/models/_catalog.py`), keyed on the enum-member name, and every catalog's `Wire(id)` resolves against that same entry. Adding `QWEN_3_8B` to a new local-runtime catalog with `Wire("qwen3-8b")` picks up `thinking=True` automatically; there is no separate flag to restate or forget. `tests/test_model_catalog_consistency.py::test_every_local_runtime_member_has_a_wire` fails the suite if a local-runtime catalog member is left as a bare `ModelSpec` instead (which would silently exempt it from this guarantee).
 
-Two flags are excluded from that check because they genuinely describe the **serving path**, not the model, and so vary by provider:
+Two flags stay **outside** `MODEL_FACTS` and are declared per catalog, because they genuinely describe the **serving path**, not the model:
 
-- **`structured_output`**: Ollama grammar-enforces JSON for any model, so every `OllamaModel` member sets it; a raw vLLM/HF server does not.
-- **`audio`**: some models (e.g. Gemma 4) support audio natively, but only certain serving paths expose audio input (the in-process HuggingFace client does; the OpenAI-compat server catalogs leave it `False` by design).
+- **`structured_output`**: Ollama grammar-enforces JSON for any model, so every `OllamaModel` member sets it; a raw vLLM/HF server does not. Declare it directly on the `Wire`, e.g. `Wire("qwen3:8b", structured_output=True)` -- no `why=` needed, since a serving-path flag doesn't contradict a fact.
+- **`audio`**: some models (e.g. Gemma 4) support audio natively, but only certain serving paths expose audio input (the in-process HuggingFace client does; the OpenAI-compat server catalogs leave it `False` by design). Same syntax: `Wire(id, audio=True)`.
 
 An *intrinsic* flag may still legitimately differ when a specific serving path cannot expose the capability, even though the model has it. Two live examples:
 
 - `GEMMA_3_12B` has `tools=False` on the in-process HuggingFace and native-Ollama clients (they parse tool calls via a per-model format, and Gemma 3 has none assigned) but `tools=True` on the OpenAI-compat servers (they parse tool calls server-side).
 - `GEMMA_4_12B` has `vision=False` on LlamaCpp (the default GGUF path loads no `mmproj` projector; vision needs one passed via `chat_handler=`) but `vision=True` on every other provider.
 
-When you introduce a divergence like these, set the flag to what the serving path can actually deliver (advertising a capability the client can't fulfil violates "failures are apparent"), add a code comment stating why, and register it in the test's `_INTENTIONAL_DIVERGENCES` map with a rationale. If a divergence looks accidental, it belongs in `_SUSPECTED_OVERSIGHTS` (a frozen to-fix list) instead.
+When you introduce a divergence like these, override the flag on that catalog's `Wire` with a `why=` naming what the serving path can (or can't) deliver relative to the shared fact -- e.g. `GEMMA_3_12B`'s intrinsic fact is `tools=False` (no `ToolCallFormat` assigned for the in-process HF path), so the OpenAI-compat server catalogs override it: `Wire("google/gemma-3-12b-it", why="OpenAI-compat servers parse tool calls server-side", tools=True)`. `Wire` **enforces this at import time**: overriding an intrinsic flag without `why=` raises `ValueError` before the module even finishes loading, so a silent capability mismatch can't ship. `tests/test_model_catalog_consistency.py::test_overrides_are_explained` additionally pins the exact set of overrides in `EXPECTED_OVERRIDES`, so a new one is a reviewed, deliberate addition to that set rather than something that just starts passing.
 
 ## Basic case
 
-For most providers (`OllamaModel`, `AnthropicModel`, `OpenAIModel`, etc.) the enum value is a single `ModelSpec`:
+Cloud catalogs (`AnthropicModel`, `OpenAIModel`, `GeminiModel`) are single-provider, so each enum value is a plain `ModelSpec` carrying the id and every capability flag directly:
 
 ```python
 # aimu/models/providers/anthropic.py
@@ -46,16 +49,61 @@ That's it. The model id (`"claude-opus-5"`) is what gets sent to the provider; t
 
 A bare `ModelSpec` defaults the Anthropic reasoning request to `ThinkingStyle.ENABLED` (`budget_tokens`). New Claude reasoning models (Opus 4.7+ and Fable 5) require the adaptive request shape and **400 on the `enabled` form**, so define those with a `ThinkingStyle.ADAPTIVE` extra (see [Anthropic provider-specific extras](#anthropic-provider-specific-extras) below).
 
-## With custom generation kwargs
+## Local-runtime catalogs
 
-Some models work best with specific sampling parameters:
+`OllamaModel`, `HuggingFaceModel`, `LlamaCppModel`, and the seven `*OpenAIModel` local-server catalogs (`OllamaOpenAIModel`, `LMStudioOpenAIModel`, `VLLMOpenAIModel`, `SGLangOpenAIModel`, `HFOpenAIModel`, `LlamaServerOpenAIModel`, `OMLXOpenAIModel`) don't carry a `ModelSpec` directly. Instead, each member is a `Wire(id)` that resolves against the shared `MODEL_FACTS` table (`aimu/models/_catalog.py`), keyed on the cross-provider enum-member name. Adding a model to one of these catalogs is a two-step process:
+
+**1. Add the model's intrinsic facts to `MODEL_FACTS`, once** -- skip this step if another local-runtime catalog already carries the same enum-member name (the facts already exist):
 
 ```python
-QWEN_3_8B = ModelSpec(
-    "qwen3:8b",
+# aimu/models/_catalog.py
+MODEL_FACTS: dict[str, ModelFacts] = {
+    ...
+    "QWEN_3_8B": ModelFacts(
+        tools=True,
+        thinking=True,
+        generation_kwargs={"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0},
+    ),
+}
+```
+
+**2. Add a `Wire(id)` to the provider catalog** -- just the wire id that runtime's server accepts; the capability flags and sampling profile resolve from `MODEL_FACTS` automatically:
+
+```python
+# aimu/models/providers/ollama.py
+from ..._catalog import Wire
+
+class OllamaModel(Model):
+    QWEN_3_8B = Wire("qwen3:8b")
+```
+
+Only pass a keyword to `Wire` when this serving path can't deliver an intrinsic capability the facts declare (with `why=`, see [Keep capability flags consistent across providers](#keep-capability-flags-consistent-across-providers) above), or when declaring a serving-path-only flag (`structured_output`, `audio`; no `why=` needed).
+
+## With custom generation kwargs
+
+Some models work best with specific sampling parameters. `generation_kwargs` is an intrinsic property of the weights (the card's tuned sampling row), so on a **local-runtime catalog** it belongs in `MODEL_FACTS`, not on the individual `Wire`s -- every catalog serving that name picks it up automatically:
+
+```python
+# aimu/models/_catalog.py
+MODEL_FACTS: dict[str, ModelFacts] = {
+    ...
+    "QWEN_3_8B": ModelFacts(
+        tools=True,
+        thinking=True,
+        generation_kwargs={"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0},
+    ),
+}
+```
+
+On a **cloud catalog**, where there is no shared table, set it directly on the `ModelSpec`:
+
+```python
+# aimu/models/providers/anthropic.py
+CLAUDE_OPUS_5 = ModelSpec(
+    "claude-opus-5",
     tools=True,
     thinking=True,
-    generation_kwargs={"temperature": 0.6, "top_p": 0.95, "top_k": 20},
+    generation_kwargs={"temperature": 1.0},
 )
 ```
 
@@ -65,7 +113,7 @@ replacement. Four tiers apply, lowest precedence first, identically on every pro
 | Tier | Source | Set by |
 |------|--------|--------|
 | 1 | `Client.DEFAULT_GENERATE_KWARGS` | the library, for parameters nobody else sets (`max_tokens`) |
-| 2 | `ModelSpec.generation_kwargs` (or `nonthinking_generation_kwargs`) | **you, here** |
+| 2 | `ModelSpec.generation_kwargs` (or `nonthinking_generation_kwargs`) | **you, here** -- via `MODEL_FACTS` on a local-runtime catalog, or directly on a cloud catalog's `ModelSpec` |
 | 3 | `client.default_generate_kwargs` | the user, for every call on that client instance |
 | 4 | `chat(generate_kwargs={...})` | the user, for one call |
 
@@ -82,18 +130,25 @@ llama.cpp paths ignored the profile entirely.)
 
 Three optional fields describe how a reasoning model can be *steered*, and back the portable
 [`thinking=`](control-thinking.md) parameter. Leaving them at their defaults is always safe.
+They are intrinsic (properties of the weights), so on a local-runtime catalog they belong in
+`MODEL_FACTS` alongside `tools`/`thinking`/`vision`:
 
 ```python
-QWEN_3_8_27B = ModelSpec(
-    "qwen3.8:27b",
-    tools=True,
-    thinking=True,
-    vision=True,
-    thinking_levels=True,                                   # accepts low / medium / high
-    generation_kwargs=_QWEN_THINKING_KWARGS,                # sampling while reasoning
-    nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,     # sampling with reasoning off
-)
+# aimu/models/_catalog.py
+MODEL_FACTS: dict[str, ModelFacts] = {
+    ...
+    "QWEN_3_8_27B": ModelFacts(
+        tools=True,
+        thinking=True,
+        vision=True,
+        thinking_levels=True,                                   # accepts low / medium / high
+        generation_kwargs=_QWEN_THINKING_KWARGS,                # sampling while reasoning
+        nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,     # sampling with reasoning off
+    ),
+}
 ```
+
+(On a cloud catalog, set the same fields directly on the `ModelSpec`, as in [With custom generation kwargs](#with-custom-generation-kwargs) above.)
 
 - **`thinking_levels`** (default `False`): the model accepts an effort level. **Under-declare
   this.** A missing declaration degrades to a warning and a correct answer, because the
@@ -120,21 +175,25 @@ and [Add or update a provider](add-new-provider.md) for the reserved-key contrac
 
 ## HuggingFace provider-specific extras
 
-`HuggingFaceModel` carries extra positional values for the tool-call response format and a thinking-template flag:
+`HuggingFaceModel` is a local-runtime catalog, so its members are `Wire`s like any other -- but it also carries extra positional values for the tool-call response format and a thinking-template flag:
 
 ```python
 # aimu/models/providers/hf/text.py
+from ..._catalog import Wire
+
 class HuggingFaceModel(Model):
     QWEN_3_8B = (
-        ModelSpec("Qwen/Qwen3-8B", tools=True, thinking=True),
+        Wire("Qwen/Qwen3-8B"),
         ToolCallFormat.XML,                    # tool_call_format
     )
     QWEN_3_5_9B = (
-        ModelSpec("Qwen/Qwen3.5-9B", tools=True, thinking=True),
+        Wire("Qwen/Qwen3.5-9B"),
         ToolCallFormat.XML,
         True,                                  # think_opener_in_prompt
     )
 ```
+
+`tools=True`/`thinking=True` for both still come from their `MODEL_FACTS["QWEN_3_8B"]` / `MODEL_FACTS["QWEN_3_5_9B"]` entries, exactly as in any other local-runtime catalog; `Wire` here just happens to sit inside a 2- or 3-tuple instead of standing alone as the whole member value.
 
 Pick `ToolCallFormat.XML` / `JSON_OBJECT` / `JSON_ARRAY` / `BRACKETED` / `NA` based on how the base model emits tool calls. See existing entries in `aimu/models/providers/hf/text.py` for examples per model family.
 
