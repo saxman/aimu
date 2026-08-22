@@ -80,6 +80,15 @@ class Model(Enum):
     """
 
     def __init__(self, spec: ModelSpec):
+        # A catalog may assign a `Wire` (aimu/models/_catalog.py) instead of a bare `ModelSpec`,
+        # so its intrinsic flags come from the shared MODEL_FACTS table rather than being
+        # restated per provider. Resolve it into the ModelSpec it stands for before anything
+        # below reads spec.tools/.thinking/etc. Imported here, not at module level: `_catalog`
+        # imports `ModelSpec` from this module, so a top-level import would be circular.
+        from .._catalog import Wire, resolve_wire
+
+        if isinstance(spec, Wire):
+            spec = resolve_wire(self._name_, spec)
         self._value_ = spec.id
         self.spec = spec
         self.supports_tools = spec.tools
