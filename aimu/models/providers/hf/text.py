@@ -1,4 +1,5 @@
-from ...base import StreamingContentType, StreamChunk, Model, ModelSpec, BaseModelClient, classproperty
+from ...base import StreamingContentType, StreamChunk, Model, BaseModelClient, classproperty
+from ..._catalog import Wire
 from ..._internal.audio_input import _extract_audio_arrays, _replace_audio_with_placeholder
 from ..._internal.generate_kwargs import Unsupported
 from ..._internal.image_input import (
@@ -133,31 +134,6 @@ class ToolCallFormat(Enum):
         return ""
 
 
-# Qwen 3.6 and 3.8 share a thinking-mode profile; 3.5 differs only in presence_penalty.
-# Values are from each model card's thinking-mode row, verified 2026-08-17.
-# Note: HF_GENERATE_KWARGS declares presence_penalty unsupported on this path (Transformers'
-# generate() has no such concept), so only temperature/top_p/top_k/min_p/repetition_penalty actually
-# affect generation here. The corrected presence_penalty values are kept for catalog truthfulness.
-_QWEN_THINKING_KWARGS = {
-    "temperature": 1.0,
-    "top_p": 0.95,
-    "top_k": 20,
-    "min_p": 0.0,
-    "presence_penalty": 0.0,
-    "repetition_penalty": 1.0,
-}
-_QWEN_3_5_THINKING_KWARGS = {**_QWEN_THINKING_KWARGS, "presence_penalty": 1.5}
-# Every Qwen 3.5 / 3.6 / 3.8 card specifies the same instruct-mode row.
-_QWEN_INSTRUCT_KWARGS = {
-    "temperature": 0.7,
-    "top_p": 0.80,
-    "top_k": 20,
-    "min_p": 0.0,
-    "presence_penalty": 1.5,
-    "repetition_penalty": 1.0,
-}
-
-
 class HuggingFaceModel(Model):
     """HuggingFace Transformers model catalog.
 
@@ -184,32 +160,8 @@ class HuggingFaceModel(Model):
     # Qwen 3.5. FP8 is a separate member for the same hardware-gating reason as 3.6-FP8.
     # thinking_levels=True: Qwen/Qwen3.8-27B's chat_template.jinja reads a `reasoning_effort`
     # kwarg (default "xhigh", validated against {"xhigh", "medium", "low"}), verified 2026-08-17.
-    QWEN_3_8_27B = (
-        ModelSpec(
-            "Qwen/Qwen3.8-27B",
-            tools=True,
-            thinking=True,
-            vision=True,
-            generation_kwargs=_QWEN_THINKING_KWARGS,
-            nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
-            thinking_levels=True,
-        ),
-        ToolCallFormat.XML,
-        True,
-    )
-    QWEN_3_8_27B_FP8 = (
-        ModelSpec(
-            "Qwen/Qwen3.8-27B-FP8",
-            tools=True,
-            thinking=True,
-            vision=True,
-            generation_kwargs=_QWEN_THINKING_KWARGS,
-            nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
-            thinking_levels=True,
-        ),
-        ToolCallFormat.XML,
-        True,
-    )
+    QWEN_3_8_27B = (Wire("Qwen/Qwen3.8-27B"), ToolCallFormat.XML, True)
+    QWEN_3_8_27B_FP8 = (Wire("Qwen/Qwen3.8-27B-FP8"), ToolCallFormat.XML, True)
     # Qwen 3.5/3.6/3.8 are natively multimodal (unified vision-language foundation): one HF
     # repo holds both the language model and the vision tower, loaded together via
     # AutoModelForImageTextToText (see __init__ -- the FP8 checkpoint's quant skip-list
@@ -225,164 +177,49 @@ class HuggingFaceModel(Model):
     # ModelSpec.id silently alias (see tests/test_model_catalog_consistency.py).
     # Both carry think_opener_in_prompt=True: 3.6's chat template appends the bare `<think>` opener
     # exactly as 3.5's and 3.8's do (the tails are byte-identical in that respect).
-    QWEN_3_6_27B = (
-        ModelSpec(
-            "Qwen/Qwen3.6-27B",
-            tools=True,
-            thinking=True,
-            vision=True,
-            generation_kwargs=_QWEN_THINKING_KWARGS,
-            nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
-        ),
-        ToolCallFormat.XML,
-        True,
-    )
-    QWEN_3_6_27B_FP8 = (
-        ModelSpec(
-            "Qwen/Qwen3.6-27B-FP8",
-            tools=True,
-            thinking=True,
-            vision=True,
-            generation_kwargs=_QWEN_THINKING_KWARGS,
-            nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
-        ),
-        ToolCallFormat.XML,
-        True,
-    )
-    QWEN_3_5_9B = (
-        ModelSpec(
-            "Qwen/Qwen3.5-9B",
-            tools=True,
-            thinking=True,
-            vision=True,
-            generation_kwargs=_QWEN_3_5_THINKING_KWARGS,
-            nonthinking_generation_kwargs=_QWEN_INSTRUCT_KWARGS,
-        ),
-        ToolCallFormat.XML,
-        True,
-    )
-    QWEN_3_8B = (
-        ModelSpec(
-            "Qwen/Qwen3-8B",
-            tools=True,
-            thinking=True,
-            generation_kwargs={"temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0},
-        ),
-        ToolCallFormat.XML,
-    )
+    QWEN_3_6_27B = (Wire("Qwen/Qwen3.6-27B"), ToolCallFormat.XML, True)
+    QWEN_3_6_27B_FP8 = (Wire("Qwen/Qwen3.6-27B-FP8"), ToolCallFormat.XML, True)
+    QWEN_3_5_9B = (Wire("Qwen/Qwen3.5-9B"), ToolCallFormat.XML, True)
+    QWEN_3_8B = (Wire("Qwen/Qwen3-8B"), ToolCallFormat.XML)
 
     # Google: Gemma 4 is natively multimodal (vision + audio input) and a thinking model.
     # thinking=True matches every server catalog for these ids; the HF chat-template path
     # emits reasoning the same way as the other thinking models here (no think_opener needed).
-    GEMMA_4_E4B = (
-        ModelSpec(
-            "google/gemma-4-E4B-it",
-            tools=True,
-            thinking=True,
-            vision=True,
-            audio=True,
-            generation_kwargs={"temperature": 1.0, "top_p": 0.95, "top_k": 64},
-        ),
-        ToolCallFormat.NA,
-    )
-    GEMMA_4_12B = (
-        ModelSpec(
-            "google/gemma-4-12b-it",
-            tools=True,
-            thinking=True,
-            vision=True,
-            audio=True,
-            generation_kwargs={"temperature": 1.0, "top_p": 0.95, "top_k": 64},
-        ),
-        ToolCallFormat.NA,
-    )
+    GEMMA_4_E4B = (Wire("google/gemma-4-E4B-it", audio=True), ToolCallFormat.NA)
+    GEMMA_4_12B = (Wire("google/gemma-4-12b-it", audio=True), ToolCallFormat.NA)
     # tools=False here is deliberate, not an oversight: the in-process HF client parses
     # tool calls via a ToolCallFormat, and Gemma 3 has no format assigned (ToolCallFormat.NA),
     # so it cannot surface tool calls on this path. OpenAI-compat servers (vLLM/SGLang/etc.)
     # parse tool calls server-side, so they set tools=True for the same model. See
     # tests/test_model_catalog_consistency.py.
-    GEMMA_3_12B = ModelSpec("google/gemma-3-12b-it", vision=True)
+    GEMMA_3_12B = Wire("google/gemma-3-12b-it")
 
     # NVIDIA: Nemotron-H is the multimodal Hybrid series (Mamba + Transformer)
-    NEMOTRON_H_8B = (
-        ModelSpec(
-            "nvidia/Nemotron-H-8B-Instruct-HF",
-            tools=True,
-            audio=True,
-        ),
-        ToolCallFormat.XML,
-    )
+    NEMOTRON_H_8B = (Wire("nvidia/Nemotron-H-8B-Instruct-HF", audio=True), ToolCallFormat.XML)
 
     # OpenAI
-    GPT_OSS_20B = (
-        ModelSpec(
-            "openai/gpt-oss-20b",
-            tools=True,
-            thinking=True,
-            generation_kwargs={"temperature": 1.0, "top_p": 1.0, "top_k": 0},
-        ),
-        ToolCallFormat.XML,
-    )
+    GPT_OSS_20B = (Wire("openai/gpt-oss-20b"), ToolCallFormat.XML)
 
     # Mistral
-    MAGISTRAL_SMALL = (
-        ModelSpec(
-            "mistralai/Magistral-Small-2509",
-            tools=True,
-            generation_kwargs={"top_p": 0.95, "temperature": 0.7},
-        ),
-        ToolCallFormat.BRACKETED,
-    )
-    MISTRAL_NEMO_12B = (
-        ModelSpec(
-            "mistralai/Mistral-Nemo-Instruct-2407",
-            tools=True,
-            generation_kwargs={"temperature": 0.3},
-        ),
-        ToolCallFormat.JSON_ARRAY,
-    )
-    MISTRAL_7B = (
-        ModelSpec("mistralai/Mistral-7B-Instruct-v0.3", tools=True),
-        ToolCallFormat.JSON_ARRAY,
-    )
+    MAGISTRAL_SMALL = (Wire("mistralai/Magistral-Small-2509"), ToolCallFormat.BRACKETED)
+    MISTRAL_NEMO_12B = (Wire("mistralai/Mistral-Nemo-Instruct-2407"), ToolCallFormat.JSON_ARRAY)
+    MISTRAL_7B = (Wire("mistralai/Mistral-7B-Instruct-v0.3"), ToolCallFormat.JSON_ARRAY)
 
     # Microsoft
-    PHI_4_MINI_3_8B = ModelSpec("microsoft/Phi-4-mini-instruct")
-    PHI_4_14B = ModelSpec("microsoft/phi-4")
+    PHI_4_MINI_3_8B = Wire("microsoft/Phi-4-mini-instruct")
+    PHI_4_14B = Wire("microsoft/phi-4")
 
     # DeepSeek
     # R1's template appends "<|Assistant|><think>\n" to the generation prompt unconditionally,
     # so like the Qwen thinking models the response starts *inside* the thinking block.
-    DEEPSEEK_R1_8B = (
-        ModelSpec(
-            "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
-            thinking=True,
-            generation_kwargs={"temperature": 0.6},
-        ),
-        ToolCallFormat.XML,
-        True,
-    )
+    DEEPSEEK_R1_8B = (Wire("deepseek-ai/DeepSeek-R1-Distill-Llama-8B"), ToolCallFormat.XML, True)
 
     # HuggingFace
-    SMOLLM3_3B = (
-        ModelSpec(
-            "HuggingFaceTB/SmolLM3-3B",
-            tools=True,
-            thinking=True,
-            generation_kwargs={"temperature": 0.6, "top_p": 0.95},
-        ),
-        ToolCallFormat.XML,
-    )
+    SMOLLM3_3B = (Wire("HuggingFaceTB/SmolLM3-3B"), ToolCallFormat.XML)
 
     # Meta: Llama 3.2 uses unsloth's repo because the official one is gated
-    LLAMA_3_2_3B = (
-        ModelSpec("unsloth/Llama-3.2-3B-Instruct", tools=True),
-        ToolCallFormat.JSON_OBJECT,
-    )
-    LLAMA_3_1_8B = (
-        ModelSpec("meta-llama/Meta-Llama-3.1-8B-Instruct", tools=True),
-        ToolCallFormat.JSON_OBJECT,
-    )
+    LLAMA_3_2_3B = (Wire("unsloth/Llama-3.2-3B-Instruct"), ToolCallFormat.JSON_OBJECT)
+    LLAMA_3_1_8B = (Wire("meta-llama/Meta-Llama-3.1-8B-Instruct"), ToolCallFormat.JSON_OBJECT)
 
 
 # Transformers' generate() accepts min_p and repetition_penalty but has no presence_penalty concept
