@@ -22,11 +22,11 @@ from ..base import (
     BaseModelClient,
     Model,
     ModelConnectionError,
-    ModelSpec,
     StreamChunk,
     StreamingContentType,
     classproperty,
 )
+from .._catalog import Wire
 from .._internal.audio_input import _build_audio_content_blocks
 from .._internal.generate_kwargs import Unsupported
 from .._internal.image_input import _build_user_content_blocks
@@ -464,38 +464,38 @@ class OllamaOpenAIModel(Model):
     # Model values are Ollama model tags (as used by `ollama pull`).
     # Llama 3.1/3.2 tool calling verified reliable on current Ollama builds (same backend as
     # the native OllamaModel catalog).
-    LLAMA_3_1_8B = ModelSpec("llama3.1:8b", tools=True)
-    LLAMA_3_2_3B = ModelSpec("llama3.2:3b", tools=True)
-    MISTRAL_7B = ModelSpec("mistral:7b", tools=True)
-    PHI_4_MINI = ModelSpec("phi4-mini:3.8b", tools=True)
-    QWEN_3_4B = ModelSpec("qwen3:4b", tools=True, thinking=True)
-    QWEN_3_8B = ModelSpec("qwen3:8b", tools=True, thinking=True)
+    LLAMA_3_1_8B = Wire("llama3.1:8b")
+    LLAMA_3_2_3B = Wire("llama3.2:3b")
+    MISTRAL_7B = Wire("mistral:7b")
+    PHI_4_MINI = Wire("phi4-mini:3.8b")
+    QWEN_3_4B = Wire("qwen3:4b")
+    QWEN_3_8B = Wire("qwen3:8b")
     # Qwen 3.5 is a unified vision-language model (vision built into the base weights); the
     # Ollama tag serves image input over the OpenAI-compat endpoint. Qwen3 8B/4B above are the
     # older text-only generation.
-    QWEN_3_5_9B = ModelSpec("qwen3.5:9b", tools=True, thinking=True, vision=True)
+    QWEN_3_5_9B = Wire("qwen3.5:9b")
     # Qwen 3.6 serves over the OpenAI-compat endpoint exactly like 3.5 above. On Apple Silicon,
     # Ollama 0.19+ runs it on its MLX backend automatically; that's transparent to this client (the
     # tag is unchanged), so there is nothing MLX-specific to declare here.
-    QWEN_3_6_35B = ModelSpec("qwen3.6:35b", tools=True, thinking=True, vision=True)
+    QWEN_3_6_35B = Wire("qwen3.6:35b")
     # Qwen 3.8 27B is the same shape again: a unified vision-language dense model whose Ollama tag
     # carries the vision/tools/thinking capabilities. (QWEN_3_8_27B is Qwen 3.8 at 27B; QWEN_3_8B
     # above is Qwen 3 at 8B.) thinking_levels=True: Qwen 3.8's chat template accepts a
     # reasoning_effort kwarg (see aimu/models/providers/hf/text.py for the verification).
-    QWEN_3_8_27B = ModelSpec("qwen3.8:27b", tools=True, thinking=True, vision=True, thinking_levels=True)
-    DEEPSEEK_R1_8B = ModelSpec("deepseek-r1:8b", thinking=True)
-    GEMMA_3_12B = ModelSpec("gemma3:12b", vision=True)
+    QWEN_3_8_27B = Wire("qwen3.8:27b")
+    DEEPSEEK_R1_8B = Wire("deepseek-r1:8b")
+    GEMMA_3_12B = Wire("gemma3:12b")
     # Gemma 4 E4B/12B support audio natively, but the Ollama API doesn't expose audio input yet
     # (the native OllamaModel catalog omits audio for the same reason); leave audio=False.
-    GEMMA_4_E4B = ModelSpec("gemma4:e4b", tools=True, thinking=True, vision=True)
-    GEMMA_4_12B = ModelSpec("gemma4:12b", tools=True, thinking=True, vision=True)
-    GEMMA_4_26B = ModelSpec("gemma4:26b", tools=True, thinking=True, vision=True)
-    GEMMA_4_31B = ModelSpec("gemma4:31b", tools=True, thinking=True, vision=True)
+    GEMMA_4_E4B = Wire("gemma4:e4b")
+    GEMMA_4_12B = Wire("gemma4:12b")
+    GEMMA_4_26B = Wire("gemma4:26b")
+    GEMMA_4_31B = Wire("gemma4:31b")
     # Muse Glimmer is a vision-language model whose perception encoder ships in the same
     # weights. It emits channel-scoped reasoning and ATEM-style XML tool calls, which Ollama
     # parses server-side, so reasoning arrives here as reasoning_content and tool calls in the
     # standard OpenAI shape.
-    MUSE_GLIMMER_30B = ModelSpec("muse-glimmer:30b", tools=True, thinking=True, vision=True)
+    MUSE_GLIMMER_30B = Wire("muse-glimmer:30b")
 
 
 # Ollama's OpenAI shim maps a fixed OpenAI field set onto its native call and reads none of the three
@@ -536,14 +536,14 @@ class LMStudioOpenAIModel(Model):
     # Model values are the model "key" as shown in LM Studio's loaded model list.
     # tools=True consistent with the verified Ollama Llama tool calling and the llama.cpp-based
     # llama-server build (LM Studio runs the same GGUF/llama.cpp engine).
-    LLAMA_3_1_8B = ModelSpec("llama-3.1-8b-instruct", tools=True)
-    MISTRAL_7B = ModelSpec("mistral-7b-instruct-v0.3", tools=True)
-    PHI_4_MINI = ModelSpec("phi-4-mini-instruct", tools=True)
-    QWEN_3_4B = ModelSpec("qwen3-4b", tools=True, thinking=True)
-    QWEN_3_8B = ModelSpec("qwen3-8b", tools=True, thinking=True)
+    LLAMA_3_1_8B = Wire("llama-3.1-8b-instruct")
+    MISTRAL_7B = Wire("mistral-7b-instruct-v0.3")
+    PHI_4_MINI = Wire("phi-4-mini-instruct")
+    QWEN_3_4B = Wire("qwen3-4b")
+    QWEN_3_8B = Wire("qwen3-8b")
     # Qwen 3.5 is a unified vision-language model; load its multimodal GGUF in LM Studio for
     # image input (same convention as the Gemma 4 vision entries below). Qwen3 8B/4B are text-only.
-    QWEN_3_5_9B = ModelSpec("qwen3.5-9b", tools=True, thinking=True, vision=True)
+    QWEN_3_5_9B = Wire("qwen3.5-9b")
     # LM Studio ships an MLX engine alongside llama.cpp and picks it automatically for MLX weights
     # on Apple Silicon. The loaded-model key derives from the downloaded repo, so an mlx-community
     # download keeps its quant suffix -- unlike the GGUF entries above, whose keys are quant-free.
@@ -551,27 +551,27 @@ class LMStudioOpenAIModel(Model):
     # Qwen 3.6 35B-A3B is a unified vision-language MoE, hence vision=True (matching
     # OllamaModel.QWEN_3_6_35B). No bare QWEN_3_6_35B here: a quant-free LM Studio key would be the
     # GGUF build, which is not an MLX path. No bf16 either -- a 35B unquantized is impractical here.
-    QWEN_3_6_35B_4BIT = ModelSpec("qwen3.6-35b-a3b-4bit", tools=True, thinking=True, vision=True)
-    QWEN_3_6_35B_8BIT = ModelSpec("qwen3.6-35b-a3b-8bit", tools=True, thinking=True, vision=True)
+    QWEN_3_6_35B_4BIT = Wire("qwen3.6-35b-a3b-4bit")
+    QWEN_3_6_35B_8BIT = Wire("qwen3.6-35b-a3b-8bit")
     # Qwen 3.8 27B is dense rather than MoE, but the MLX story is identical: quant-suffixed keys
     # from an mlx-community download, no bare member (a quant-free key would be the GGUF build).
     # At 27B dense, bf16 is impractical here too, so only the two practical quants are listed.
     # thinking_levels=True on the Qwen 3.8 members: verified against the model's own
     # chat_template.jinja, which validates reasoning_effort against {xhigh, medium, low}.
     # See providers/hf/text.py for the full note.
-    QWEN_3_8_27B_4BIT = ModelSpec("qwen3.8-27b-4bit", tools=True, thinking=True, vision=True, thinking_levels=True)
-    QWEN_3_8_27B_8BIT = ModelSpec("qwen3.8-27b-8bit", tools=True, thinking=True, vision=True, thinking_levels=True)
+    QWEN_3_8_27B_4BIT = Wire("qwen3.8-27b-4bit")
+    QWEN_3_8_27B_8BIT = Wire("qwen3.8-27b-8bit")
     # No MUSE_GLIMMER_30B here, for two independent reasons: LM Studio distributes it as GGUF only
     # (no MLX build, so it is not an MLX path at all), and whether its llama.cpp engine parses the
     # model's channel-scoped reasoning and ATEM-style XML tool calls is still undocumented. Adding
     # it would mean guessing tools/thinking. See OMLXOpenAIModel for the path that does parse them.
-    DEEPSEEK_R1_7B = ModelSpec("deepseek-r1-distill-qwen-7b", thinking=True)
+    DEEPSEEK_R1_7B = Wire("deepseek-r1-distill-qwen-7b")
     # Gemma 4 E4B/12B support audio natively, but LM Studio has no audio-input path (image-only);
     # leave audio=False.
-    GEMMA_4_E4B = ModelSpec("gemma-4-e4b-it", tools=True, thinking=True, vision=True)
-    GEMMA_4_12B = ModelSpec("gemma-4-12b-it", tools=True, thinking=True, vision=True)
-    GEMMA_4_26B = ModelSpec("gemma-4-26b-a4b-it", tools=True, thinking=True, vision=True)
-    GEMMA_4_31B = ModelSpec("gemma-4-31b-it", tools=True, thinking=True, vision=True)
+    GEMMA_4_E4B = Wire("gemma-4-e4b-it")
+    GEMMA_4_12B = Wire("gemma-4-12b-it")
+    GEMMA_4_26B = Wire("gemma-4-26b-a4b-it")
+    GEMMA_4_31B = Wire("gemma-4-31b-it")
 
 
 class LMStudioOpenAIClient(OpenAICompatClient):
@@ -586,18 +586,23 @@ VLLM_BASE_URL = "http://localhost:8000/v1"
 
 class VLLMOpenAIModel(Model):
     # Model values are HuggingFace repo paths (as used by `vllm serve --model`).
-    LLAMA_3_1_8B = ModelSpec("meta-llama/Llama-3.1-8B-Instruct", tools=True)
-    LLAMA_3_2_3B = ModelSpec("meta-llama/Llama-3.2-3B-Instruct", tools=True)
-    MISTRAL_7B = ModelSpec("mistralai/Mistral-7B-Instruct-v0.3", tools=True)
-    PHI_4_MINI = ModelSpec("microsoft/Phi-4-mini-instruct", tools=True)
-    QWEN_3_4B = ModelSpec("Qwen/Qwen3-4B", tools=True, thinking=True)
-    QWEN_3_8B = ModelSpec("Qwen/Qwen3-8B", tools=True, thinking=True)
-    DEEPSEEK_R1_7B = ModelSpec("deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", thinking=True)
-    GEMMA_3_12B = ModelSpec("google/gemma-3-12b-it", tools=True, vision=True)
-    GEMMA_4_E4B = ModelSpec("google/gemma-4-E4B-it", tools=True, thinking=True, vision=True)
-    GEMMA_4_12B = ModelSpec("google/gemma-4-12b-it", tools=True, thinking=True, vision=True)
-    GEMMA_4_26B = ModelSpec("google/gemma-4-26B-A4B-it", tools=True, thinking=True, vision=True)
-    GEMMA_4_31B = ModelSpec("google/gemma-4-31B-it", tools=True, thinking=True, vision=True)
+    LLAMA_3_1_8B = Wire("meta-llama/Llama-3.1-8B-Instruct")
+    LLAMA_3_2_3B = Wire("meta-llama/Llama-3.2-3B-Instruct")
+    MISTRAL_7B = Wire("mistralai/Mistral-7B-Instruct-v0.3")
+    PHI_4_MINI = Wire("microsoft/Phi-4-mini-instruct")
+    QWEN_3_4B = Wire("Qwen/Qwen3-4B")
+    QWEN_3_8B = Wire("Qwen/Qwen3-8B")
+    DEEPSEEK_R1_7B = Wire("deepseek-ai/DeepSeek-R1-Distill-Qwen-7B")
+    GEMMA_3_12B = Wire(
+        "google/gemma-3-12b-it",
+        why="OpenAI-compat servers parse tool calls server-side; the in-process HF and native "
+        "Ollama paths have no tool-parse format assigned for Gemma 3",
+        tools=True,
+    )
+    GEMMA_4_E4B = Wire("google/gemma-4-E4B-it")
+    GEMMA_4_12B = Wire("google/gemma-4-12b-it")
+    GEMMA_4_26B = Wire("google/gemma-4-26B-A4B-it")
+    GEMMA_4_31B = Wire("google/gemma-4-31B-it")
     # Gemma 4 E4B/12B support audio natively; vLLM accepts input_audio blocks, but this path is
     # unverified against these weights, so leave audio=False until confirmed. (26B/31B: no native audio.)
     # Muse Glimmer emits channel-scoped reasoning and ATEM-style XML tool calls instead of
@@ -607,7 +612,7 @@ class VLLMOpenAIModel(Model):
     #     --enable-auto-tool-choice --tool-call-parser muse_glimmer --reasoning-parser muse_glimmer
     # With those set, reasoning arrives as reasoning_content and tool calls in the standard
     # OpenAI shape; without them both channels collapse into content and tools never surface.
-    MUSE_GLIMMER_30B = ModelSpec("meta-models/Muse-Glimmer-30B", tools=True, thinking=True, vision=True)
+    MUSE_GLIMMER_30B = Wire("meta-models/Muse-Glimmer-30B")
 
 
 class VLLMOpenAIClient(OpenAICompatClient):
@@ -622,18 +627,23 @@ HF_OPENAI_BASE_URL = "http://localhost:8000/v1"
 
 class HFOpenAIModel(Model):
     # Model values are HuggingFace repo paths (as used by `transformers serve <model-id>`).
-    LLAMA_3_1_8B = ModelSpec("meta-llama/Llama-3.1-8B-Instruct", tools=True)
-    LLAMA_3_2_3B = ModelSpec("meta-llama/Llama-3.2-3B-Instruct", tools=True)
-    MISTRAL_7B = ModelSpec("mistralai/Mistral-7B-Instruct-v0.3", tools=True)
-    PHI_4_MINI = ModelSpec("microsoft/Phi-4-mini-instruct", tools=True)
-    QWEN_3_4B = ModelSpec("Qwen/Qwen3-4B", tools=True, thinking=True)
-    QWEN_3_8B = ModelSpec("Qwen/Qwen3-8B", tools=True, thinking=True)
-    DEEPSEEK_R1_7B = ModelSpec("deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", thinking=True)
-    GEMMA_3_12B = ModelSpec("google/gemma-3-12b-it", tools=True, vision=True)
-    GEMMA_4_E4B = ModelSpec("google/gemma-4-E4B-it", tools=True, thinking=True, vision=True)
-    GEMMA_4_12B = ModelSpec("google/gemma-4-12b-it", tools=True, thinking=True, vision=True)
-    GEMMA_4_26B = ModelSpec("google/gemma-4-26B-A4B-it", tools=True, thinking=True, vision=True)
-    GEMMA_4_31B = ModelSpec("google/gemma-4-31B-it", tools=True, thinking=True, vision=True)
+    LLAMA_3_1_8B = Wire("meta-llama/Llama-3.1-8B-Instruct")
+    LLAMA_3_2_3B = Wire("meta-llama/Llama-3.2-3B-Instruct")
+    MISTRAL_7B = Wire("mistralai/Mistral-7B-Instruct-v0.3")
+    PHI_4_MINI = Wire("microsoft/Phi-4-mini-instruct")
+    QWEN_3_4B = Wire("Qwen/Qwen3-4B")
+    QWEN_3_8B = Wire("Qwen/Qwen3-8B")
+    DEEPSEEK_R1_7B = Wire("deepseek-ai/DeepSeek-R1-Distill-Qwen-7B")
+    GEMMA_3_12B = Wire(
+        "google/gemma-3-12b-it",
+        why="OpenAI-compat servers parse tool calls server-side; the in-process HF and native "
+        "Ollama paths have no tool-parse format assigned for Gemma 3",
+        tools=True,
+    )
+    GEMMA_4_E4B = Wire("google/gemma-4-E4B-it")
+    GEMMA_4_12B = Wire("google/gemma-4-12b-it")
+    GEMMA_4_26B = Wire("google/gemma-4-26B-A4B-it")
+    GEMMA_4_31B = Wire("google/gemma-4-31B-it")
     # Gemma 4 E4B/12B support audio natively, but audio input over transformers-serve's OpenAI-compat
     # endpoint is immature, so leave audio=False. (26B/31B: no native audio.)
 
@@ -652,20 +662,25 @@ class LlamaServerOpenAIModel(Model):
     # Model values are the GGUF file name (or alias) as loaded by llama-server.
     # llama-server ignores the model field in API requests and always uses the loaded model;
     # these names are used for capability lookup only.
-    LLAMA_3_1_8B = ModelSpec("llama-3.1-8b-instruct.gguf", tools=True)
-    LLAMA_3_2_3B = ModelSpec("llama-3.2-3b-instruct.gguf", tools=True)
-    MISTRAL_7B = ModelSpec("mistral-7b-instruct-v0.3.gguf", tools=True)
-    PHI_4_MINI = ModelSpec("phi-4-mini-instruct.gguf", tools=True)
-    QWEN_3_4B = ModelSpec("qwen3-4b.gguf", tools=True, thinking=True)
-    QWEN_3_8B = ModelSpec("qwen3-8b.gguf", tools=True, thinking=True)
-    DEEPSEEK_R1_7B = ModelSpec("deepseek-r1-distill-qwen-7b.gguf", thinking=True)
-    GEMMA_3_12B = ModelSpec("gemma-3-12b-it.gguf", tools=True, vision=True)
+    LLAMA_3_1_8B = Wire("llama-3.1-8b-instruct.gguf")
+    LLAMA_3_2_3B = Wire("llama-3.2-3b-instruct.gguf")
+    MISTRAL_7B = Wire("mistral-7b-instruct-v0.3.gguf")
+    PHI_4_MINI = Wire("phi-4-mini-instruct.gguf")
+    QWEN_3_4B = Wire("qwen3-4b.gguf")
+    QWEN_3_8B = Wire("qwen3-8b.gguf")
+    DEEPSEEK_R1_7B = Wire("deepseek-r1-distill-qwen-7b.gguf")
+    GEMMA_3_12B = Wire(
+        "gemma-3-12b-it.gguf",
+        why="OpenAI-compat servers parse tool calls server-side; the in-process HF and native "
+        "Ollama paths have no tool-parse format assigned for Gemma 3",
+        tools=True,
+    )
     # Gemma 4 E4B/12B support audio natively, but llama-server (GGUF) has no audio-input path;
     # leave audio=False.
-    GEMMA_4_E4B = ModelSpec("gemma-4-e4b-it.gguf", tools=True, thinking=True, vision=True)
-    GEMMA_4_12B = ModelSpec("gemma-4-12b-it.gguf", tools=True, thinking=True, vision=True)
-    GEMMA_4_26B = ModelSpec("gemma-4-26b-a4b-it.gguf", tools=True, thinking=True, vision=True)
-    GEMMA_4_31B = ModelSpec("gemma-4-31b-it.gguf", tools=True, thinking=True, vision=True)
+    GEMMA_4_E4B = Wire("gemma-4-e4b-it.gguf")
+    GEMMA_4_12B = Wire("gemma-4-12b-it.gguf")
+    GEMMA_4_26B = Wire("gemma-4-26b-a4b-it.gguf")
+    GEMMA_4_31B = Wire("gemma-4-31b-it.gguf")
 
 
 # llama-server accepts llama.cpp's own /completion sampling parameters on its OpenAI endpoint, where
@@ -697,18 +712,23 @@ SGLANG_BASE_URL = "http://localhost:30000/v1"
 
 class SGLangOpenAIModel(Model):
     # Model values are HuggingFace repo paths (as used by `python -m sglang.launch_server --model-path`).
-    LLAMA_3_1_8B = ModelSpec("meta-llama/Llama-3.1-8B-Instruct", tools=True)
-    LLAMA_3_2_3B = ModelSpec("meta-llama/Llama-3.2-3B-Instruct", tools=True)
-    MISTRAL_7B = ModelSpec("mistralai/Mistral-7B-Instruct-v0.3", tools=True)
-    PHI_4_MINI = ModelSpec("microsoft/Phi-4-mini-instruct", tools=True)
-    QWEN_3_4B = ModelSpec("Qwen/Qwen3-4B", tools=True, thinking=True)
-    QWEN_3_8B = ModelSpec("Qwen/Qwen3-8B", tools=True, thinking=True)
-    DEEPSEEK_R1_7B = ModelSpec("deepseek-ai/DeepSeek-R1-Distill-Qwen-7B", thinking=True)
-    GEMMA_3_12B = ModelSpec("google/gemma-3-12b-it", tools=True, vision=True)
-    GEMMA_4_E4B = ModelSpec("google/gemma-4-E4B-it", tools=True, thinking=True, vision=True)
-    GEMMA_4_12B = ModelSpec("google/gemma-4-12b-it", tools=True, thinking=True, vision=True)
-    GEMMA_4_26B = ModelSpec("google/gemma-4-26B-A4B-it", tools=True, thinking=True, vision=True)
-    GEMMA_4_31B = ModelSpec("google/gemma-4-31B-it", tools=True, thinking=True, vision=True)
+    LLAMA_3_1_8B = Wire("meta-llama/Llama-3.1-8B-Instruct")
+    LLAMA_3_2_3B = Wire("meta-llama/Llama-3.2-3B-Instruct")
+    MISTRAL_7B = Wire("mistralai/Mistral-7B-Instruct-v0.3")
+    PHI_4_MINI = Wire("microsoft/Phi-4-mini-instruct")
+    QWEN_3_4B = Wire("Qwen/Qwen3-4B")
+    QWEN_3_8B = Wire("Qwen/Qwen3-8B")
+    DEEPSEEK_R1_7B = Wire("deepseek-ai/DeepSeek-R1-Distill-Qwen-7B")
+    GEMMA_3_12B = Wire(
+        "google/gemma-3-12b-it",
+        why="OpenAI-compat servers parse tool calls server-side; the in-process HF and native "
+        "Ollama paths have no tool-parse format assigned for Gemma 3",
+        tools=True,
+    )
+    GEMMA_4_E4B = Wire("google/gemma-4-E4B-it")
+    GEMMA_4_12B = Wire("google/gemma-4-12b-it")
+    GEMMA_4_26B = Wire("google/gemma-4-26B-A4B-it")
+    GEMMA_4_31B = Wire("google/gemma-4-31B-it")
     # Gemma 4 E4B/12B support audio natively; SGLang accepts input_audio blocks, but this path is
     # unverified against these weights, so leave audio=False until confirmed. (26B/31B: no native audio.)
 
@@ -754,22 +774,22 @@ class OMLXOpenAIModel(Model):
     # a ModelSpec.id silently become an enum ALIAS (Model.__init__ assigns _value_ = spec.id before
     # enum's duplicate scan runs), which drops the second member from iteration and discards its
     # flags. tests/test_model_catalog_consistency.py::test_no_silent_enum_aliases guards this.
-    QWEN_3_6_35B = ModelSpec("Qwen3.6-35B-A3B", tools=True, thinking=True, vision=True)
-    QWEN_3_6_35B_4BIT = ModelSpec("Qwen3.6-35B-A3B-4bit", tools=True, thinking=True, vision=True)
-    QWEN_3_6_35B_8BIT = ModelSpec("Qwen3.6-35B-A3B-8bit", tools=True, thinking=True, vision=True)
-    QWEN_3_6_35B_BF16 = ModelSpec("Qwen3.6-35B-A3B-bf16", tools=True, thinking=True, vision=True)
+    QWEN_3_6_35B = Wire("Qwen3.6-35B-A3B")
+    QWEN_3_6_35B_4BIT = Wire("Qwen3.6-35B-A3B-4bit")
+    QWEN_3_6_35B_8BIT = Wire("Qwen3.6-35B-A3B-8bit")
+    QWEN_3_6_35B_BF16 = Wire("Qwen3.6-35B-A3B-bf16")
     # Qwen 3.8 27B is a dense unified vision-language model (Qwen3_5ForConditionalGeneration, with
     # an image_token_id and an image-text-to-text pipeline tag), so the same tools/thinking/vision
     # reasoning as 3.6 above applies. mlx-community publishes 4bit, 8bit, and bf16; at 27B dense the
     # bf16 checkpoint is large but still tractable on a high-memory Mac, so it is listed here (it is
     # omitted from the LM Studio catalog, which lists only the two practical quants).
-    QWEN_3_8_27B = ModelSpec("Qwen3.8-27B", tools=True, thinking=True, vision=True, thinking_levels=True)
+    QWEN_3_8_27B = Wire("Qwen3.8-27B")
     # thinking_levels=True on the Qwen 3.8 members: verified against the model's own
     # chat_template.jinja, which validates reasoning_effort against {xhigh, medium, low}.
     # See providers/hf/text.py for the full note.
-    QWEN_3_8_27B_4BIT = ModelSpec("Qwen3.8-27B-4bit", tools=True, thinking=True, vision=True, thinking_levels=True)
-    QWEN_3_8_27B_8BIT = ModelSpec("Qwen3.8-27B-8bit", tools=True, thinking=True, vision=True, thinking_levels=True)
-    QWEN_3_8_27B_BF16 = ModelSpec("Qwen3.8-27B-bf16", tools=True, thinking=True, vision=True, thinking_levels=True)
+    QWEN_3_8_27B_4BIT = Wire("Qwen3.8-27B-4bit")
+    QWEN_3_8_27B_8BIT = Wire("Qwen3.8-27B-8bit")
+    QWEN_3_8_27B_BF16 = Wire("Qwen3.8-27B-bf16")
     # Meta's Muse Glimmer emits channel-scoped reasoning and ATEM-style XML tool calls
     # (`<atem:function_calls>`) rather than `<think>` tags and JSON, so a serving path only exposes
     # those capabilities if it parses that framing. oMLX does: 0.5.8.dev3 added Muse Glimmer 30B
@@ -786,10 +806,10 @@ class OMLXOpenAIModel(Model):
     #
     # nvfp4/mxfp4 conversions also exist upstream but are omitted: those are NVIDIA / microscaling
     # formats, not the Apple Silicon path this provider serves.
-    MUSE_GLIMMER_30B = ModelSpec("Muse-Glimmer-30B", tools=True, thinking=True, vision=True)
-    MUSE_GLIMMER_30B_4BIT = ModelSpec("Muse-Glimmer-30B-4bit", tools=True, thinking=True, vision=True)
-    MUSE_GLIMMER_30B_8BIT = ModelSpec("Muse-Glimmer-30B-8bit", tools=True, thinking=True, vision=True)
-    MUSE_GLIMMER_30B_BF16 = ModelSpec("Muse-Glimmer-30B-bf16", tools=True, thinking=True, vision=True)
+    MUSE_GLIMMER_30B = Wire("Muse-Glimmer-30B")
+    MUSE_GLIMMER_30B_4BIT = Wire("Muse-Glimmer-30B-4bit")
+    MUSE_GLIMMER_30B_8BIT = Wire("Muse-Glimmer-30B-8bit")
+    MUSE_GLIMMER_30B_BF16 = Wire("Muse-Glimmer-30B-bf16")
     # structured_output stays False across every OpenAI-compat local-server catalog (only the native
     # Ollama path grammar-enforces JSON), so `schema=` falls back to prompt-and-parse. audio stays
     # False: these weights are image-text-to-text, with no audio encoder.

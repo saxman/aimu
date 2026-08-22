@@ -15,9 +15,16 @@ import aimu.models as models
 SNAPSHOT = Path(__file__).parent / "catalog_snapshot.json"
 
 FIELDS = (
-    "value", "supports_tools", "supports_thinking", "supports_vision", "supports_audio",
-    "supports_structured_output", "thinking_levels", "thinking_optional",
-    "generation_kwargs", "nonthinking_generation_kwargs",
+    "value",
+    "supports_tools",
+    "supports_thinking",
+    "supports_vision",
+    "supports_audio",
+    "supports_structured_output",
+    "thinking_levels",
+    "thinking_optional",
+    "generation_kwargs",
+    "nonthinking_generation_kwargs",
 )
 
 
