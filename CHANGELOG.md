@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.20.0 (2026-08-22): catalog parity across every local runtime, capabilities stated once, and a remote Ollama
 
 ### Models
 
