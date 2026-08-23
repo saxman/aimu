@@ -123,9 +123,11 @@ Three details of the execution environment shape how a script should be written:
   runs through `uv run --script` so those dependencies resolve into an isolated environment. That is how
   a skill carries its own requirements instead of adding them to your host's.
 - **stdin is closed**, so a script that prompts gets `EOFError` at once rather than blocking until the
-  timeout. Take input through flags, or through `build_skills_server(manager, env=...)` when the host
-  needs to pass context the script cannot discover for itself (where to write output, which account to
-  use).
+  timeout. Take input through flags, or through `SkillAgent(..., script_env={...})` when the host needs
+  to pass context the script cannot discover for itself (where to write output, which account to send
+  from). The agent merges that mapping over the inherited environment (so `PATH` survives) at both
+  places it builds the skills server, first run and `reload_skills()`. A host that builds that server
+  itself, rather than through an agent, passes the same mapping as `build_skills_server(manager, env=...)`.
 - **The 30-second budget is synchronous**, so a long job blocks the event loop on the async path.
 
 `make_skill_script_tool(agent, manager, skills_dir)` returns an async `add_skill_script` tool. After
@@ -140,7 +142,12 @@ from aimu import aio
 skills_dir = ".agents/skills"
 manager = SkillManager(skill_dirs=[skills_dir])
 client = aio.client("anthropic:claude-sonnet-4-6", system="You are a personal assistant.")
-agent = aio.SkillAgent(client, skill_manager=manager, name="assistant")
+agent = aio.SkillAgent(
+    client,
+    skill_manager=manager,
+    name="assistant",
+    script_env={"ASSISTANT_OUTPUT_DIR": "/tmp/assistant"},   # reaches every script this agent runs
+)
 agent.tools = [
     make_skill_authoring_tool(manager, skills_dir),     # author_skill(name, description, body)
     make_skill_script_tool(agent, manager, skills_dir), # add_skill_script(skill_name, filename, content)

@@ -206,8 +206,10 @@ Three things to know when writing one:
   metadata in a `# /// script` block runs through `uv run --script`, which resolves those dependencies
   into an isolated environment. Without a block it runs on the host interpreter.
 - **stdin is closed.** Agents run in non-interactive shells, so a script that prompts gets `EOFError`
-  immediately rather than blocking. Take input through flags, or through `env=` on
-  `build_skills_server`, which a host uses to pass context a script cannot discover for itself.
+  immediately rather than blocking. Take input through flags, or through `script_env=` on
+  `SkillAgent`, which a host uses to pass context a script cannot discover for itself. The agent merges
+  that mapping over the inherited environment every time it builds the skills server; build the server
+  yourself and it is `build_skills_server(manager, env=...)` instead.
 - **There is a 30-second budget**, and the call is synchronous, so a long job blocks the event loop on
   the async path. Keep script work short.
 
@@ -242,6 +244,57 @@ for tool in client3.list_tools():
 # Call the script tool directly
 result3 = client3.call_tool("unit_converter__now", {})
 print("unit_converter__now returned:", result3.content[0].text)
+```
+
+### Host context for scripts
+
+`now.py` needs nothing from its host. Most useful scripts do: where to write output, which account to
+send from. stdin is closed and flags come from the model, so that context reaches a script as
+environment variables the host sets. Leave them out and the failure is quiet, which is the point worth
+seeing: the variable is simply absent, the script reports itself unconfigured, and nothing raises.
+
+```{python}
+# A script that depends on host context rather than on model-supplied arguments
+(scripts_dir_path / "report_dir.py").write_text(
+    "import os\nprint(os.environ.get('REPORT_DIR', 'REPORT_DIR unset'))\n"
+)
+
+manager_env = SkillManager(skill_dirs=[str(skills_dir)])  # re-discover to pick up the new script
+client_bare = MCPClient(server=build_skills_server(manager_env))
+
+print("no env:  ", client_bare.call_tool("unit_converter__report_dir", {}).content[0].text.strip())
+```
+
+`build_skills_server(manager, env=...)` supplies it. The mapping is *merged over* the inherited
+environment rather than replacing it, so `PATH` (which the interpreter lookup itself needs) survives.
+
+```{python}
+client_env = MCPClient(
+    server=build_skills_server(manager_env, env={"REPORT_DIR": "/tmp/aimu-reports"})
+)
+
+print("with env:", client_env.call_tool("unit_converter__report_dir", {}).content[0].text.strip())
+```
+
+A `SkillAgent` builds that server itself, on the first `run()` and again in `reload_skills()`, so a
+host holding only the agent never sees the `env=` argument. `script_env` is the same context, passed
+at the agent instead, and it is applied at both of those build sites.
+
+```{python}
+model_client_env = OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)
+
+agent_env = SkillAgent(
+    model_client_env,
+    name="env-carrying-agent",
+    skill_manager=manager_env,
+    script_env={"REPORT_DIR": "/tmp/aimu-reports"},
+)
+
+# Normally implicit on the first run(); called here to reach the tools without a model turn.
+agent_env._setup_skills()
+
+script_tool = next(t for t in agent_env._effective_tools() if t.__name__ == "unit_converter__report_dir")
+print("via agent:", script_tool().strip())
 ```
 
 ## F - `SkillAgent.from_config`
@@ -281,7 +334,7 @@ import shutil
 
 shutil.rmtree(conv_dir / "scripts", ignore_errors=True)
 
-del model_client, model_client2, model_client4, agent, agent2, agent4
+del model_client, model_client2, model_client_env, model_client4, agent, agent2, agent_env, agent4
 print("Cleaned up.")
 ```
 

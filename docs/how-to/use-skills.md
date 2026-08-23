@@ -94,7 +94,7 @@ A script with no inline block runs on the same interpreter as AIMU, so a skill r
 
 ### Two constraints worth designing around
 
-**Scripts run non-interactively.** stdin is closed, so a script that prompts gets `EOFError` immediately rather than hanging. Take input through flags or environment variables, and make `--help` describe the interface: that output is how a model learns to call the script.
+**Scripts run non-interactively.** stdin is closed, so a script that prompts gets `EOFError` immediately rather than hanging. Take input through flags or environment variables, and make `--help` describe the interface: that output is how a model learns to call the script. The host supplies that environment with `SkillAgent(..., script_env={...})`, which is merged over the inherited environment for every script the agent runs (or `build_skills_server(manager, env=...)` when you build the server yourself).
 
 **Scripts have a 30-second budget** and run synchronously, so a long job blocks the event loop on the async path. Keep script work short, and put anything model-driven or long-running in a tool rather than a script.
 
