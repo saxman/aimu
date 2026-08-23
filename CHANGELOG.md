@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Agents
+
+- **Docs** **The skill-script input guidance names `SkillAgent(script_env=...)`**, the field v0.20.0 shipped without updating the prose around it. Two places routed a reader to `build_skills_server(manager, env=...)`, and one of them ([docs/how-to/build-personal-assistant.md](docs/how-to/build-personal-assistant.md)) did so in a section whose own example constructs an `aio.SkillAgent` -- which builds that server internally, so the argument named there was unreachable from the setup being described. Corrected there and in [notebooks/08-agent-skills.qmd](notebooks/08-agent-skills.qmd), with `build_skills_server(manager, env=...)` kept for a host that builds the server itself; [docs/how-to/use-skills.md](docs/how-to/use-skills.md) now names how the environment arrives rather than only that a script can read one. Notebook 08 gains a runnable subsection: a script reading `REPORT_DIR`, called through a bare skills server (`REPORT_DIR unset`, the quiet failure the field prevents), then through `env=`, then through an agent carrying `script_env=`.
+
 ## v0.20.0 (2026-08-22): catalog parity across every local runtime, capabilities stated once, and a remote Ollama
 
 ### Models
