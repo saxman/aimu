@@ -148,10 +148,7 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
                 logger.warning("Fallback: client %r failed on generate (%s); trying next.", _label(client), exc)
                 errors.append((client, exc))
                 continue
-            self.last_thinking = getattr(client, "last_thinking", "")
-            self.last_usage = getattr(client, "last_usage", None)
-            self.last_structured = getattr(client, "last_structured", None)
-            self.last_request = getattr(client, "last_request", None)
+            self._adopt_generate_state(client)
             return result
         raise self._exhausted(errors)
 
@@ -166,6 +163,11 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
     ) -> AsyncIterator[StreamChunk]:
         errors: list[tuple[Any, BaseException]] = []
         for client in self.clients:
+            client.last_thinking = ""
+            client.last_usage = None
+            client.last_structured = None
+            client.last_request = None
+            client.events = self.events
             stream = await client.generate(
                 prompt,
                 generate_kwargs,
@@ -179,6 +181,7 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
             try:
                 first = await iterator.__anext__()
             except StopAsyncIteration:
+                self._adopt_generate_state(client)  # empty but successful stream
                 return
             except self.retry_on as exc:
                 errors.append((client, exc))
@@ -186,6 +189,7 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
             yield first
             async for chunk in iterator:
                 yield chunk
+            self._adopt_generate_state(client)
             return
         raise self._exhausted(errors)
 

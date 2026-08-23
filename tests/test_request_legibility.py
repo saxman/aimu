@@ -142,6 +142,54 @@ def test_hf_generate_sync_records_the_rendered_prompt_and_kwargs():
     }
 
 
+def test_hf_generate_streaming_records_the_rendered_prompt_and_kwargs():
+    """The streaming twin of the test above: _generate_streaming is HuggingFaceClient's other
+    (and only other) _record_request call site, and _chat_streamed funnels through it too, so
+    covering it covers every HF streaming path as well."""
+    from aimu.models.base import BaseModelClient
+    from aimu.models.providers.hf.text import HuggingFaceClient, HuggingFaceModel
+
+    class _Inputs(dict):
+        input_ids = [[0, 1, 2]]
+
+        def to(self, device):
+            return self
+
+    class _Tokenizer:
+        def apply_chat_template(self, messages, **kw):
+            return "rendered prompt text"
+
+        def __call__(self, *a, **kw):
+            return _Inputs()
+
+    client = types.SimpleNamespace(
+        model=HuggingFaceModel.QWEN_3_8_27B,
+        MODELS=HuggingFaceModel,
+        _hf_processor=None,
+        _hf_tokenizer=_Tokenizer(),
+        _hf_model=types.SimpleNamespace(device="cpu", generate=lambda **kw: None),
+        last_thinking=None,
+        _pending_thinking_tokens=[],
+        events=None,
+    )
+    client._apply_chat_template = HuggingFaceClient._apply_chat_template.__get__(client, type(client))
+    client._record_request = BaseModelClient._record_request.__get__(client)
+
+    # Transformers' real TextIteratorStreamer yields an empty first part, then tokens; a plain
+    # iterator with that shape is enough since generate() is stubbed to not populate it itself.
+    streamer = iter(["", "answer"])
+    HuggingFaceClient._generate_streaming(
+        client, [{"role": "user", "content": "hi"}], {"max_new_tokens": 8}, None, streamer
+    )
+
+    assert client.last_request == {
+        "generate_kwargs": {"max_new_tokens": 8},
+        "prompt": "rendered prompt text",
+        "images": None,
+        "audio": None,
+    }
+
+
 def test_hf_apply_chat_template_records_an_image_count(monkeypatch):
     """The processor branch is the only one that can carry images; a caller comparing a local
     vision run against a cloud one needs to see that media was sent, so the count (not the
@@ -200,6 +248,79 @@ def test_llamacpp_chat_records_a_copy_of_messages_not_a_live_alias():
     # The live history grew (the assistant turn was appended); the recorded snapshot did not.
     assert len(fake.messages) == 2
     assert len(fake.last_request["messages"]) == 1
+
+
+def test_llamacpp_generate_records_kwargs_and_messages():
+    """llama.cpp's second of four _record_request call sites: _generate (stateless, single-turn)."""
+    from aimu.models.base import BaseModelClient
+    from aimu.models.providers.llamacpp import LlamaCppClient
+
+    response = {"choices": [{"message": {"content": "the answer", "reasoning_content": None}}]}
+    fake = types.SimpleNamespace(
+        model=types.SimpleNamespace(value="fake-model"),
+        _resolve_generate_kwargs=lambda gk: gk or {},
+        _llm=types.SimpleNamespace(create_chat_completion=lambda **kw: response),
+        is_thinking_model=False,
+        events=None,
+    )
+    fake._record_request = BaseModelClient._record_request.__get__(fake)
+
+    LlamaCppClient._generate(fake, "hi", {"max_tokens": 5})
+
+    assert fake.last_request == {"max_tokens": 5, "messages": [{"role": "user", "content": "hi"}]}
+
+
+def test_llamacpp_generate_streamed_records_kwargs_and_messages():
+    """llama.cpp's third of four _record_request call sites: _generate_streamed."""
+    from aimu.models.base import BaseModelClient
+    from aimu.models.providers.llamacpp import LlamaCppClient
+
+    deltas = [{"choices": [{"delta": {"content": "ok"}}]}]
+    fake = types.SimpleNamespace(
+        model=types.SimpleNamespace(value="fake-model"),
+        _llm=types.SimpleNamespace(create_chat_completion=lambda **kw: iter(deltas)),
+        is_thinking_model=False,
+        events=None,
+    )
+    fake._record_request = BaseModelClient._record_request.__get__(fake)
+    fake._iter_stream = lambda stream: LlamaCppClient._iter_stream(fake, stream)
+
+    list(LlamaCppClient._generate_streamed(fake, "hi", {"max_tokens": 5}))
+
+    assert fake.last_request == {
+        "max_tokens": 5,
+        "messages": [{"role": "user", "content": "hi"}],
+        "stream": True,
+    }
+
+
+def test_llamacpp_chat_streamed_records_a_copy_of_messages_not_a_live_alias():
+    """llama.cpp's fourth of four _record_request call sites: _chat_streamed. Also a streaming
+    twin of the aliasing regression above -- _chat_streamed copies self.messages the same way."""
+    from aimu.models._internal.chat_state import _ChatStateMixin
+    from aimu.models.base import BaseModelClient
+    from aimu.models.providers.llamacpp import LlamaCppClient
+
+    deltas = [{"choices": [{"delta": {"content": "ok"}}]}]
+    fake = types.SimpleNamespace(
+        model=types.SimpleNamespace(value="fake-model"),
+        _llm=types.SimpleNamespace(create_chat_completion=lambda **kw: iter(deltas)),
+        is_thinking_model=False,
+        messages=[{"role": "user", "content": "hi"}],
+        events=None,
+    )
+    fake._append_message = _ChatStateMixin._append_message.__get__(fake)
+    fake._record_request = BaseModelClient._record_request.__get__(fake)
+
+    list(LlamaCppClient._chat_streamed(fake, {"max_tokens": 5}, []))
+
+    assert fake.last_request["messages"] is not fake.messages
+    assert fake.last_request == {
+        "max_tokens": 5,
+        "messages": [{"role": "user", "content": "hi"}],
+        "stream": True,
+        "tools": None,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -441,17 +562,21 @@ async def _drive_async_openai_compat(client_cls, monkeypatch, method, stream):
 
 _IN_PROCESS_SKIP = {
     "HuggingFaceClient": (
-        "loads real model weights in __init__; its _record_request call sites are exercised "
-        "directly by test_hf_generate_sync_records_the_rendered_prompt_and_kwargs and "
-        "test_hf_apply_chat_template_records_an_image_count in this file (real "
-        "BaseModelClient._record_request bound, not a no-op), not by an end-to-end "
-        "chat()/generate() here."
+        "loads real model weights in __init__. Both of its _record_request call sites are "
+        "exercised directly instead, with the real BaseModelClient._record_request bound (not "
+        "a no-op): _generate_sync by test_hf_generate_sync_records_the_rendered_prompt_and_kwargs, "
+        "_generate_streaming (which _chat_streamed also funnels through) by "
+        "test_hf_generate_streaming_records_the_rendered_prompt_and_kwargs. "
+        "test_hf_apply_chat_template_records_an_image_count covers the images/audio marker but "
+        "does not itself touch _record_request."
     ),
     "LlamaCppClient": (
-        "loads a real GGUF file in __init__; its _record_request call sites are exercised "
-        "directly by test_llamacpp_chat_records_a_copy_of_messages_not_a_live_alias in this "
-        "file (real BaseModelClient._record_request bound, not a no-op), not by an "
-        "end-to-end chat()/generate() here."
+        "loads a real GGUF file in __init__. All four of its _record_request call sites are "
+        "exercised directly instead, with the real BaseModelClient._record_request bound (not "
+        "a no-op): _chat by test_llamacpp_chat_records_a_copy_of_messages_not_a_live_alias, "
+        "_generate by test_llamacpp_generate_records_kwargs_and_messages, _generate_streamed by "
+        "test_llamacpp_generate_streamed_records_kwargs_and_messages, and _chat_streamed by "
+        "test_llamacpp_chat_streamed_records_a_copy_of_messages_not_a_live_alias."
     ),
     "AsyncHuggingFaceClient": (
         "wraps a sync HuggingFaceClient via asyncio.to_thread and shares its _record_request "

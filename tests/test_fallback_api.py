@@ -98,6 +98,8 @@ class StubClient:
     def _generate_stream(self):
         if self._error is not None:
             raise self._error
+        self.last_usage = {"input_tokens": 1, "output_tokens": 1, "total_tokens": 2}
+        self.last_request = {"prompt": "stub"}
         for token in self._reply().split():
             yield token
 
@@ -220,6 +222,34 @@ def test_generate_all_fail_raises():
     fb = FallbackClient([StubClient(error=ConnectionError("a")), StubClient(error=ConnectionError("b"))])
     with pytest.raises(FallbackExhaustedError):
         fb.generate("prompt")
+
+
+def test_generate_streamed_adopts_state_from_winning_client():
+    """Regression: _generate_streamed must adopt last_usage/last_request the same way
+    _chat_streamed already does -- a successful generate(stream=True) through a fallback
+    chain previously left these stale (or unset) rather than reflecting the winning client."""
+    a = StubClient(error=ConnectionError("down"))
+    b = StubClient(replies=["hello world"])
+    fb = FallbackClient([a, b])
+
+    chunks = list(fb.generate("prompt", stream=True))
+
+    assert chunks == ["hello", "world"]
+    assert fb.last_usage == {"input_tokens": 1, "output_tokens": 1, "total_tokens": 2}
+    assert fb.last_request == {"prompt": "stub"}
+
+
+def test_generate_streamed_clears_last_request_on_exhaustion():
+    """FallbackExhaustedError must not leave a prior call's last_request looking current."""
+    a = StubClient(replies=["first"])
+    fb = FallbackClient([a])
+    list(fb.generate("prompt", stream=True))
+    assert fb.last_request == {"prompt": "stub"}
+
+    fb2 = FallbackClient([StubClient(error=ConnectionError("a")), StubClient(error=ConnectionError("b"))])
+    with pytest.raises(FallbackExhaustedError):
+        list(fb2.generate("prompt", stream=True))
+    assert fb2.last_request is None
 
 
 # ---------------------------------------------------------------------------

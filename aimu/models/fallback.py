@@ -93,6 +93,16 @@ class _FallbackStateMixin:
     def _adopt_state(self, client: BaseModelClient) -> None:
         """Adopt the winning client's resulting state as the canonical conversation."""
         self.messages = client.messages
+        self._adopt_generate_state(client)
+
+    def _adopt_generate_state(self, client) -> None:
+        """Adopt the winning client's last_* state after a stateless generate() call.
+
+        Deliberately omits ``messages``: ``generate()`` never touches conversation history,
+        so adopting ``client.messages`` here (as ``_adopt_state`` does for ``chat()``) would
+        clobber the FallbackClient's own canonical conversation with whatever that client
+        happened to be holding.
+        """
         self.last_thinking = getattr(client, "last_thinking", "")
         self.last_usage = getattr(client, "last_usage", None)
         self.last_structured = getattr(client, "last_structured", None)
@@ -257,10 +267,7 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
                 logger.warning("Fallback: client %r failed on generate (%s); trying next.", _label(client), exc)
                 errors.append((client, exc))
                 continue
-            self.last_thinking = getattr(client, "last_thinking", "")
-            self.last_usage = getattr(client, "last_usage", None)
-            self.last_structured = getattr(client, "last_structured", None)
-            self.last_request = getattr(client, "last_request", None)
+            self._adopt_generate_state(client)
             return result
         raise self._exhausted(errors)
 
@@ -275,6 +282,11 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
     ) -> Iterator[StreamChunk]:
         errors: list[tuple[BaseModelClient, BaseException]] = []
         for client in self.clients:
+            client.last_thinking = ""
+            client.last_usage = None
+            client.last_structured = None
+            client.last_request = None
+            client.events = self.events
             stream = client.generate(
                 prompt, generate_kwargs, stream=True, images=images, include=include, audio=audio, thinking=thinking
             )
@@ -282,12 +294,14 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
             try:
                 first = next(iterator)
             except StopIteration:
+                self._adopt_generate_state(client)  # empty but successful stream
                 return
             except self.retry_on as exc:
                 errors.append((client, exc))
                 continue
             yield first
             yield from iterator
+            self._adopt_generate_state(client)
             return
         raise self._exhausted(errors)
 

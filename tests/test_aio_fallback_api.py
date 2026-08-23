@@ -87,6 +87,8 @@ class AsyncStubClient:
     async def _generate_stream(self):
         if self._error is not None:
             raise self._error
+        self.last_usage = {"input_tokens": 1, "output_tokens": 1, "total_tokens": 2}
+        self.last_request = {"prompt": "stub"}
         for token in self._reply().split():
             yield token
 
@@ -138,6 +140,34 @@ async def test_async_generate_falls_back():
     b = AsyncStubClient(replies=["G"])
     fb = AsyncFallbackClient([a, b])
     assert await fb.generate("p") == "G"
+
+
+async def test_async_generate_streamed_adopts_state_from_winning_client():
+    """Regression: async _generate_streamed must adopt last_usage/last_request the same way
+    _chat_streamed already does; mirrors test_fallback_api.py's sync twin."""
+    a = AsyncStubClient(error=ConnectionError("down"))
+    b = AsyncStubClient(replies=["hello world"])
+    fb = AsyncFallbackClient([a, b])
+
+    chunks = [c async for c in await fb.generate("prompt", stream=True)]
+
+    assert chunks == ["hello", "world"]
+    assert fb.last_usage == {"input_tokens": 1, "output_tokens": 1, "total_tokens": 2}
+    assert fb.last_request == {"prompt": "stub"}
+
+
+async def test_async_generate_streamed_clears_last_request_on_exhaustion():
+    a = AsyncStubClient(replies=["first"])
+    fb = AsyncFallbackClient([a])
+    [c async for c in await fb.generate("prompt", stream=True)]
+    assert fb.last_request == {"prompt": "stub"}
+
+    fb2 = AsyncFallbackClient(
+        [AsyncStubClient(error=ConnectionError("a")), AsyncStubClient(error=ConnectionError("b"))]
+    )
+    with pytest.raises(FallbackExhaustedError):
+        [c async for c in await fb2.generate("prompt", stream=True)]
+    assert fb2.last_request is None
 
 
 async def test_async_streaming_falls_back_before_first_chunk():
