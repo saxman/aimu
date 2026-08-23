@@ -570,9 +570,11 @@ __all__ = [
     "BaseImageClient",
     "BaseModelClient",
     "BaseSpeechClient",
+    "ContextCompacted",
     "EmbeddingClient",
     "EmbeddingModel",
     "EmbeddingSpec",
+    "EventSink",
     "FallbackClient",
     "FallbackExhaustedError",
     "HAS_GEMINI_IMAGE",
@@ -601,9 +603,15 @@ __all__ = [
     "Model",
     "ModelClient",
     "ModelSpec",
+    "ModelTurnFinished",
+    "ModelTurnStarted",
     "OpenAISpeechClient",
     "OpenAISpeechModel",
     "OpenAISpeechSpec",
+    "RequestPrepared",
+    "RunEvent",
+    "RunFinished",
+    "RunStarted",
     "SpeechClient",
     "SpeechModel",
     "SpeechSpec",
@@ -616,7 +624,9 @@ __all__ = [
     "PROVENANCE_PROACTIVE",
     "strip_inert_keys",
     "ToolApproval",
+    "ToolCalled",
     "ToolContext",
+    "ToolDenied",
     "TranscriptionClient",
     "TranscriptionModel",
     "TranscriptionSpec",
@@ -630,6 +640,7 @@ __all__ = [
     "client",
     "embed",
     "embedding_client",
+    "emit",
     "extract_tool_calls",
     "generate_json",
     "parse_json_response",
@@ -637,6 +648,7 @@ __all__ = [
     "generate_image",
     "generate_speech",
     "image_client",
+    "log_events",
     "pretty_print",
     "available_audio_models",
     "available_embedding_models",
@@ -683,14 +695,33 @@ _LAZY_PROVIDER_SYMBOLS = frozenset(
 )
 
 
+_LAZY_EVENT_SYMBOLS = frozenset(
+    {
+        "ContextCompacted",
+        "EventSink",
+        "ModelTurnFinished",
+        "ModelTurnStarted",
+        "RequestPrepared",
+        "RunEvent",
+        "RunFinished",
+        "RunStarted",
+        "ToolCalled",
+        "ToolDenied",
+        "emit",
+        "log_events",
+    }
+)
+
+
 def __getattr__(name: str):
-    """Resolve ``Agent``, ``aio``, and provider re-exports on first access (PEP 562).
+    """Resolve ``Agent``, ``aio``, events, and provider re-exports on first access (PEP 562).
 
     ``Agent`` is imported under ``TYPE_CHECKING`` above (only for the ``agent()``
     return annotation), so it needs this real binding to back its ``__all__`` entry.
     ``aio`` pulls in the async provider surface (and ``fastmcp``); deferring it here
     keeps a bare ``import aimu`` cheap while ``aimu.aio`` and ``from aimu import aio``
-    both keep working unchanged.
+    both keep working unchanged. Events pull only stdlib, so they cost nothing but we
+    defer anyway for API consistency.
     """
     if name == "Agent":
         from .agents import Agent as _Agent
@@ -706,6 +737,10 @@ def __getattr__(name: str):
         _aio = importlib.import_module(".aio", __name__)
         globals()["aio"] = _aio  # cache, so later attribute access is a plain lookup
         return _aio
+    if name in _LAZY_EVENT_SYMBOLS:
+        from . import events as _events
+
+        return getattr(_events, name)
     if name in _LAZY_PROVIDER_SYMBOLS:
         from . import models as _models
 
