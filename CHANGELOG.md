@@ -59,6 +59,14 @@
   This affects `;<flags>` ad-hoc ids and every `@base_url` provider, not just the `ollama` endpoint support new in this release. Tests: `tests/test_aio_subagent_tools.py`.
   Still resolved-to-enum, deliberately unchanged: a spawn tool built from a *live client* rather than a string (`make_async_subagent_tool(some_client)`) normalizes to `client.model`, which drops the endpoint the same way. That path has no string to preserve.
 
+### Agents
+
+- **New** **`SkillAgent(script_env=...)` hands host context to the skill scripts that agent runs** (both the sync `aimu.agents.skill_agent.SkillAgent` and the async `aimu.aio.SkillAgent`). `build_skills_server(manager, env=...)` has carried a host environment since 0.14.1, but a `SkillAgent` builds that server itself, on first run and again in `reload_skills()`, so a host holding only the agent had no way to reach it. Anything a script cannot discover for itself (where to write output, which account to send from) therefore had to travel as a process-wide variable, which makes one agent's context every subprocess's context, or not travel at all: the script would run with the settings simply missing, report itself unconfigured, and raise nothing anywhere.
+  ```python
+  agent = aio.SkillAgent(client, skill_manager=manager, script_env={"REPORT_DIR": "/srv/reports"})
+  ```
+  Merged over the inherited environment by `run_script_file`, like the `build_skills_server` argument it mirrors, so `PATH` survives. Default `None` leaves the previous behavior exactly. Both build sites take it, since `reload_skills()` rebuilding the server was the second place the environment could be dropped. Tests: `tests/test_skills.py`, `tests/test_aio_skill_authoring.py`.
+
 ## v0.19.0 (2026-08-21): a fifth-of-a-second import, lighter installs, and a truthful sandbox claim
 
 ### Models

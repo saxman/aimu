@@ -923,3 +923,51 @@ def test_a_script_tool_receives_the_servers_environment(tmp_path):
         assert "/tmp/reports" in tool()
     finally:
         client.close()
+
+
+def test_skill_agents_script_tools_receive_its_environment(tmp_path):
+    """A SkillAgent builds its own skills server, so a host cannot pass ``env`` to it directly.
+
+    Without ``script_env`` the only route left is a process-wide variable, which hands one agent's
+    context to every subprocess in the process.
+    """
+    from unittest.mock import MagicMock
+
+    from aimu.agents.skill_agent import SkillAgent
+
+    md = make_skill_dir(tmp_path, "reporter", "Writes a report.")
+    _write_script(md, "where.py", "import os\nprint(os.environ['REPORT_DIR'])\n")
+
+    client = MagicMock()
+    client.system_message = ""
+    client.tools = []
+    agent = SkillAgent(
+        model_client=client,
+        skill_manager=SkillManager(skill_dirs=[str(tmp_path)]),
+        script_env={"REPORT_DIR": "/tmp/reports"},
+    )
+    agent._setup_skills()
+
+    tool = next(fn for fn in agent._effective_tools(None) if fn.__name__ == "reporter__where")
+    assert "/tmp/reports" in tool()
+
+
+def test_reload_skills_keeps_the_agents_environment(tmp_path):
+    """``reload_skills`` rebuilds the server, which is the second place the env can be dropped."""
+    from unittest.mock import MagicMock
+
+    from aimu.agents.skill_agent import SkillAgent
+
+    md = make_skill_dir(tmp_path, "reporter", "Writes a report.")
+    _write_script(md, "where.py", "import os\nprint(os.environ['REPORT_DIR'])\n")
+
+    client = MagicMock()
+    client.system_message = ""
+    client.tools = []
+    manager = SkillManager(skill_dirs=[str(tmp_path)])
+    agent = SkillAgent(model_client=client, skill_manager=manager, script_env={"REPORT_DIR": "/tmp/reports"})
+    agent._setup_skills()
+    agent.reload_skills()
+
+    tool = next(fn for fn in agent._effective_tools(None) if fn.__name__ == "reporter__where")
+    assert "/tmp/reports" in tool()

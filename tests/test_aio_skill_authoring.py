@@ -232,3 +232,60 @@ async def test_add_skill_script_writes_and_reloads(tmp_path):
     assert "auto__backup" in msg
     assert reloaded == [True]
     assert "auto__backup" in manager.skills["auto"].script_tool_names()
+
+
+# ---------------------------------------------------------------------------
+# Host-provided environment (async)
+#
+# A SkillAgent builds its own skills server, so a host cannot pass `env` to `build_skills_server`
+# for it. Without `script_env` the only route left is a process-wide variable, which hands one
+# agent's context to every subprocess in the process.
+# ---------------------------------------------------------------------------
+
+
+async def test_aio_skill_agent_script_tools_receive_its_environment(tmp_path):
+    from aimu import aio
+    from helpers_aio import MockAsyncModelClient
+
+    write_skill(
+        "reporter",
+        "Writes a report.",
+        "# Reporter",
+        skills_dir=tmp_path,
+        scripts={"where.py": "import os\nprint(os.environ['REPORT_DIR'])\n"},
+    )
+    client = MockAsyncModelClient([])
+    client.system_message = ""
+    agent = aio.SkillAgent(
+        client,
+        skill_manager=SkillManager(skill_dirs=[str(tmp_path)]),
+        script_env={"REPORT_DIR": "/tmp/reports"},
+        name="a",
+    )
+    await agent._setup_skills_async()
+
+    tool = next(fn for fn in agent._effective_tools(None) if fn.__name__ == "reporter__where")
+    assert "/tmp/reports" in await tool()
+
+
+async def test_aio_reload_skills_keeps_the_agents_environment(tmp_path):
+    """`reload_skills` rebuilds the server, which is the second place the env can be dropped."""
+    from aimu import aio
+    from helpers_aio import MockAsyncModelClient
+
+    write_skill(
+        "reporter",
+        "Writes a report.",
+        "# Reporter",
+        skills_dir=tmp_path,
+        scripts={"where.py": "import os\nprint(os.environ['REPORT_DIR'])\n"},
+    )
+    client = MockAsyncModelClient([])
+    client.system_message = ""
+    manager = SkillManager(skill_dirs=[str(tmp_path)])
+    agent = aio.SkillAgent(client, skill_manager=manager, script_env={"REPORT_DIR": "/tmp/reports"}, name="a")
+    await agent._setup_skills_async()
+    await agent.reload_skills()
+
+    tool = next(fn for fn in agent._effective_tools(None) if fn.__name__ == "reporter__where")
+    assert "/tmp/reports" in await tool()

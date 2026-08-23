@@ -32,9 +32,17 @@ class SkillAgent(Agent):
     With explicit skill dirs::
 
         agent = SkillAgent(client, skill_manager=SkillManager(skill_dirs=["./skills"]))
+
+    ``script_env`` is host context handed to every skill script this agent runs, merged over the
+    inherited environment by :func:`aimu.skills.mcp.run_script_file`. Without it the only way to tell a
+    script something it cannot discover (where to write output, which account to send from) is a
+    process-wide variable, which makes one agent's context every subprocess's context. It is a field
+    rather than a ``build_skills_server`` argument the caller passes because this class builds that
+    server itself, twice: on first run and again in :meth:`reload_skills`.
     """
 
     skill_manager: SkillManager = field(default_factory=SkillManager, repr=False)
+    script_env: Optional[dict[str, str]] = field(default=None, repr=False)
     _skills_setup_done: bool = field(default=False, init=False, repr=False)
     _skills_mcp_client: Optional[Any] = field(default=None, init=False, repr=False)
     _skills_tools: Optional[list] = field(default=None, init=False, repr=False)
@@ -88,7 +96,7 @@ class SkillAgent(Agent):
             from aimu.skills.mcp import build_skills_server
             from aimu.tools.client import MCPClient
 
-            self._skills_mcp_client = MCPClient(server=build_skills_server(self.skill_manager))
+            self._skills_mcp_client = MCPClient(server=build_skills_server(self.skill_manager, env=self.script_env))
             self._skills_tools = self._skills_mcp_client.as_tools()
 
         # Inject the skill catalog into the system prompt once per fresh conversation.
@@ -111,7 +119,7 @@ class SkillAgent(Agent):
         from aimu.skills.mcp import build_skills_server
         from aimu.tools.client import MCPClient
 
-        self._skills_mcp_client = MCPClient(server=build_skills_server(self.skill_manager))
+        self._skills_mcp_client = MCPClient(server=build_skills_server(self.skill_manager, env=self.script_env))
         self._skills_tools = self._skills_mcp_client.as_tools()
         self._reinject_catalog()
 
