@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Any, AsyncIterator, Optional
 
 from aimu.agents._tool_loop import (
@@ -18,6 +19,7 @@ from aimu.agents._tool_loop import (
     _BaseToolLoop,
     classify_terminal_turn,
 )
+from aimu.events import RunFinished, RunStarted, ToolCalled, emit
 from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER
 from aimu.models.base import StreamChunk, StreamingContentType
 
@@ -43,40 +45,58 @@ class _AsyncToolLoop(_BaseToolLoop):
         generate_kwargs: Optional[dict[str, Any]] = None,
         images: Optional[list] = None,
     ) -> str:
-        response = await self._client.chat(
-            user_message,
-            generate_kwargs=generate_kwargs,
-            images=images,
-            tools=self._current_tools(),
-            thinking=self._thinking,
-        )
-        rounds = 0
-        while rounds < self._max_rounds:
-            state = classify_terminal_turn(self._client.messages)
-            if state == TERMINAL_PENDING_TOOLS:
-                await self._dispatch()
+        emit(self._events, RunStarted(agent=self._agent_name, iteration=0, task=user_message or ""))
+        result: Optional[str] = None
+        error: Optional[BaseException] = None
+        last_iteration = 0
+        try:
+            with self._client._events_override(self._events):
                 response = await self._client.chat(
-                    generate_kwargs=generate_kwargs, tools=self._current_tools(), thinking=self._thinking
-                )
-            elif state == TERMINAL_EMPTY:
-                # A degenerate empty turn: nudge with tools still enabled so the model can resume
-                # a multi-step plan (not just answer from nothing). Unless the turn was empty because
-                # it was cut off, in which case there is nothing to resume and nudging only shrinks
-                # the next one.
-                self._raise_if_truncated()
-                injected_at = len(self._client.messages)
-                response = await self._client.chat(
-                    self._continuation_prompt,
+                    user_message,
                     generate_kwargs=generate_kwargs,
+                    images=images,
                     tools=self._current_tools(),
                     thinking=self._thinking,
                 )
-                self._tag_injected(injected_at, PROVENANCE_CONTINUATION)
-            else:  # TERMINAL_HEALTHY
-                return response
-            rounds += 1
+                rounds = 0
+                while rounds < self._max_rounds:
+                    last_iteration = rounds
+                    state = classify_terminal_turn(self._client.messages)
+                    if state == TERMINAL_PENDING_TOOLS:
+                        await self._dispatch(last_iteration)
+                        response = await self._client.chat(
+                            generate_kwargs=generate_kwargs, tools=self._current_tools(), thinking=self._thinking
+                        )
+                    elif state == TERMINAL_EMPTY:
+                        # A degenerate empty turn: nudge with tools still enabled so the model can
+                        # resume a multi-step plan (not just answer from nothing). Unless the turn
+                        # was empty because it was cut off, in which case there is nothing to resume
+                        # and nudging only shrinks the next one.
+                        self._raise_if_truncated()
+                        injected_at = len(self._client.messages)
+                        response = await self._client.chat(
+                            self._continuation_prompt,
+                            generate_kwargs=generate_kwargs,
+                            tools=self._current_tools(),
+                            thinking=self._thinking,
+                        )
+                        self._tag_injected(injected_at, PROVENANCE_CONTINUATION)
+                    else:  # TERMINAL_HEALTHY
+                        result = response
+                        return result
+                    rounds += 1
 
-        return await self._forced_wrap_up(response, generate_kwargs)
+                last_iteration = rounds
+                result = await self._forced_wrap_up(response, generate_kwargs)
+                return result
+        except BaseException as exc:
+            error = exc
+            raise
+        finally:
+            emit(
+                self._events,
+                RunFinished(agent=self._agent_name, iteration=last_iteration, result=result, error=error),
+            )
 
     async def run_streamed(
         self,
@@ -85,67 +105,76 @@ class _AsyncToolLoop(_BaseToolLoop):
         generate_kwargs: Optional[dict[str, Any]] = None,
         images: Optional[list] = None,
     ) -> AsyncIterator[StreamChunk]:
+        emit(self._events, RunStarted(agent=self._agent_name, iteration=0, task=user_message or ""))
+        error: Optional[BaseException] = None
         iteration = 0
-        stream = await self._client.chat(
-            user_message,
-            generate_kwargs=generate_kwargs,
-            stream=True,
-            images=images,
-            tools=self._current_tools(),
-            thinking=self._thinking,
-        )
-        async for chunk in stream:
-            yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
-        while iteration < self._max_rounds:
-            state = classify_terminal_turn(self._client.messages)
-            if state == TERMINAL_PENDING_TOOLS:
-                async for chunk in self._dispatch_streamed(iteration):
-                    yield chunk
-                iteration += 1
+        try:
+            with self._client._events_override(self._events):
                 stream = await self._client.chat(
+                    user_message,
                     generate_kwargs=generate_kwargs,
                     stream=True,
+                    images=images,
                     tools=self._current_tools(),
                     thinking=self._thinking,
                 )
                 async for chunk in stream:
                     yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
-            elif state == TERMINAL_EMPTY:
-                self._raise_if_truncated()  # cut off, not degenerate: a nudge cannot recover it
-                iteration += 1
-                injected_at = len(self._client.messages)
-                stream = await self._client.chat(
-                    self._continuation_prompt,
-                    generate_kwargs=generate_kwargs,
-                    stream=True,
-                    tools=self._current_tools(),
-                    thinking=self._thinking,
-                )
-                async for chunk in stream:
-                    yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
-                self._tag_injected(injected_at, PROVENANCE_CONTINUATION)
-            else:  # TERMINAL_HEALTHY
-                return
+                while iteration < self._max_rounds:
+                    state = classify_terminal_turn(self._client.messages)
+                    if state == TERMINAL_PENDING_TOOLS:
+                        async for chunk in self._dispatch_streamed(iteration):
+                            yield chunk
+                        iteration += 1
+                        stream = await self._client.chat(
+                            generate_kwargs=generate_kwargs,
+                            stream=True,
+                            tools=self._current_tools(),
+                            thinking=self._thinking,
+                        )
+                        async for chunk in stream:
+                            yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
+                    elif state == TERMINAL_EMPTY:
+                        self._raise_if_truncated()  # cut off, not degenerate: a nudge cannot recover it
+                        iteration += 1
+                        injected_at = len(self._client.messages)
+                        stream = await self._client.chat(
+                            self._continuation_prompt,
+                            generate_kwargs=generate_kwargs,
+                            stream=True,
+                            tools=self._current_tools(),
+                            thinking=self._thinking,
+                        )
+                        async for chunk in stream:
+                            yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
+                        self._tag_injected(injected_at, PROVENANCE_CONTINUATION)
+                    else:  # TERMINAL_HEALTHY
+                        return
 
-        if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
-            injected_at = len(self._client.messages)
-            iteration += 1
-            stream = await self._client.chat(
-                self._wrap_up_prompt(),
-                generate_kwargs=generate_kwargs,
-                stream=True,
-                use_tools=False,
-                tools=[],
-                thinking=self._thinking,
-            )
-            async for chunk in stream:
-                yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
-            self._tag_injected(injected_at, PROVENANCE_FINAL_ANSWER)
-            if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
-                self._raise_if_truncated()  # says which of the two failures this was
-                raise DegenerateTurnError(
-                    "The model produced no answer (empty or tools-only turn) even after a forced wrap-up."
-                )
+                if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
+                    injected_at = len(self._client.messages)
+                    iteration += 1
+                    stream = await self._client.chat(
+                        self._wrap_up_prompt(),
+                        generate_kwargs=generate_kwargs,
+                        stream=True,
+                        use_tools=False,
+                        tools=[],
+                        thinking=self._thinking,
+                    )
+                    async for chunk in stream:
+                        yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
+                    self._tag_injected(injected_at, PROVENANCE_FINAL_ANSWER)
+                    if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
+                        self._raise_if_truncated()  # says which of the two failures this was
+                        raise DegenerateTurnError(
+                            "The model produced no answer (empty or tools-only turn) even after a forced wrap-up."
+                        )
+        except BaseException as exc:
+            error = exc
+            raise
+        finally:
+            emit(self._events, RunFinished(agent=self._agent_name, iteration=iteration, result=None, error=error))
 
     async def _forced_wrap_up(self, response: str, generate_kwargs: Optional[dict[str, Any]]) -> str:
         """At the round cap with a degenerate terminal turn, force one tools-disabled answer.
@@ -176,14 +205,14 @@ class _AsyncToolLoop(_BaseToolLoop):
     # Dispatch                                                            #
     # ------------------------------------------------------------------ #
 
-    async def _dispatch(self) -> None:
+    async def _dispatch(self, iteration: int = 0) -> None:
         prepared = self._pending()
         if self._concurrent and len(prepared) > 1:
             async with asyncio.TaskGroup() as tg:
-                tasks = [tg.create_task(self._call_plain_tool(tc, tc_id)) for tc, tc_id in prepared]
+                tasks = [tg.create_task(self._call_plain_tool(tc, tc_id, iteration)) for tc, tc_id in prepared]
             results = [t.result() for t in tasks]
         else:
-            results = [await self._call_plain_tool(tc, tc_id) for tc, tc_id in prepared]
+            results = [await self._call_plain_tool(tc, tc_id, iteration) for tc, tc_id in prepared]
         for result_msg in results:
             self._client._append_message(result_msg)
 
@@ -203,7 +232,7 @@ class _AsyncToolLoop(_BaseToolLoop):
 
         if self._concurrent and len(prepared) > 1 and not has_streaming_tool:
             async with asyncio.TaskGroup() as tg:
-                tasks = [tg.create_task(self._call_plain_tool(tc, tc_id)) for tc, tc_id in prepared]
+                tasks = [tg.create_task(self._call_plain_tool(tc, tc_id, iteration)) for tc, tc_id in prepared]
             results = [t.result() for t in tasks]
             for (tc, _tc_id), result_msg in zip(prepared, results):
                 self._client._append_message(result_msg)
@@ -214,10 +243,12 @@ class _AsyncToolLoop(_BaseToolLoop):
             fn = by_name.get(tc["name"])
             if fn is not None and getattr(fn, "__tool_is_streaming__", False):
                 if not await self._tool_call_approved(tc["name"], tc["arguments"]):
-                    result_msg = self._not_approved(tc, tc_id)
+                    result_msg = self._not_approved(tc, tc_id, iteration)
                     self._client._append_message(result_msg)
                     yield _tool_chunk(tc, result_msg["content"])
                     continue
+                started = time.monotonic()
+                error_str: Optional[str] = None
                 try:
                     return_value: Any = None
                     last_content: Any = None
@@ -253,17 +284,31 @@ class _AsyncToolLoop(_BaseToolLoop):
                     content = str(response)
                 except ToolArgumentError as exc:
                     content = str(exc)
+                    error_str = content
                 except Exception as exc:
                     content = f"Tool '{tc['name']}' raised an error: {exc}"
+                    error_str = str(exc)
                     logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
+                emit(
+                    self._events,
+                    ToolCalled(
+                        agent=self._agent_name,
+                        iteration=iteration,
+                        name=tc["name"],
+                        arguments=tc["arguments"],
+                        result=content,
+                        error=error_str,
+                        duration_s=time.monotonic() - started,
+                    ),
+                )
                 result_msg = {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
             else:
-                result_msg = await self._call_plain_tool(tc, tc_id)
+                result_msg = await self._call_plain_tool(tc, tc_id, iteration)
 
             self._client._append_message(result_msg)
             yield _tool_chunk(tc, result_msg["content"])
 
-    async def _call_plain_tool(self, tc: dict, tc_id: str) -> dict:
+    async def _call_plain_tool(self, tc: dict, tc_id: str, iteration: int = 0) -> dict:
         from aimu.tools.decorator import ToolArgumentError
 
         fn = {f.__name__: f for f in self._current_tools()}.get(tc["name"])
@@ -280,7 +325,9 @@ class _AsyncToolLoop(_BaseToolLoop):
                 "to dispatch it, or convert the tool to a plain function."
             )
         if not await self._tool_call_approved(tc["name"], tc["arguments"]):
-            return self._not_approved(tc, tc_id)
+            return self._not_approved(tc, tc_id, iteration)
+        started = time.monotonic()
+        error_str: Optional[str] = None
         try:
             kwargs = self._tool_call_kwargs(fn, tc["arguments"])
             if getattr(fn, "__tool_is_async__", False):
@@ -290,9 +337,23 @@ class _AsyncToolLoop(_BaseToolLoop):
             content = str(response)
         except ToolArgumentError as exc:
             content = str(exc)
+            error_str = content
         except Exception as exc:
             content = f"Tool '{tc['name']}' raised an error: {exc}"
+            error_str = str(exc)
             logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
+        emit(
+            self._events,
+            ToolCalled(
+                agent=self._agent_name,
+                iteration=iteration,
+                name=tc["name"],
+                arguments=tc["arguments"],
+                result=content,
+                error=error_str,
+                duration_s=time.monotonic() - started,
+            ),
+        )
         return {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
 
     async def _tool_call_approved(self, name: str, arguments: dict) -> bool:

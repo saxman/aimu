@@ -226,6 +226,27 @@ class _ChatStateMixin:
         finally:
             self.tools = saved
 
+    @contextmanager
+    def _events_override(self, events: Optional[object]) -> Iterator[None]:
+        """Temporarily replace ``self.events`` for the span of a run.
+
+        Mirrors ``_tools_override``. ``events=None`` is a no-op: whatever ``self.events``
+        already holds (unset, or set directly by a caller) is left alone. An ``Agent``
+        uses this to make its per-run event sink reach the client's own turn events
+        (``ModelTurnStarted`` / ``ModelTurnFinished`` / ``RequestPrepared``) for the
+        duration of the run, restoring the prior value in a ``finally`` so a raising run
+        does not leave the sink attached.
+        """
+        if events is None:
+            yield
+            return
+        saved = self.events
+        self.events = events
+        try:
+            yield
+        finally:
+            self.events = saved
+
     def _collect_python_tool_specs(self) -> list[dict]:
         """Collect ``__tool_spec__`` dicts from every registered Python tool callable.
 

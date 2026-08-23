@@ -124,12 +124,29 @@ class MockModelClient(BaseModelClient):
         # The client does NOT execute the tool — the Agent's tool-loop engine does (it appends
         # the tool result). The call targets the first advertised tool (``self.tools`` was set by
         # the per-call ``tools=`` override), or a generic name when the agent registered none.
-        if response == "tool":
-            name = getattr(self.tools[0], "__name__", "mock_tool") if self.tools else "mock_tool"
+        # A dict response ``{"tool": name, "arguments": {...}}`` names the tool and its arguments
+        # explicitly, for tests that need to assert on what the model "passed". A dict response
+        # ``{"tools": [{"name": ..., "arguments": {...}}, ...]}`` requests several tools in the
+        # same turn, for tests that need to exercise concurrent dispatch.
+        if response == "tool" or (isinstance(response, dict) and ("tool" in response or "tools" in response)):
+            if isinstance(response, dict) and "tools" in response:
+                calls = response["tools"]
+            elif isinstance(response, dict):
+                calls = [{"name": response["tool"], "arguments": response.get("arguments", {})}]
+            else:
+                name = getattr(self.tools[0], "__name__", "mock_tool") if self.tools else "mock_tool"
+                calls = [{"name": name, "arguments": {}}]
             self.messages.append(
                 {
                     "role": "assistant",
-                    "tool_calls": [{"type": "function", "function": {"name": name, "arguments": {}}, "id": "x"}],
+                    "tool_calls": [
+                        {
+                            "type": "function",
+                            "function": {"name": c["name"], "arguments": c.get("arguments", {})},
+                            "id": f"id{i}",
+                        }
+                        for i, c in enumerate(calls)
+                    ],
                 }
             )
             return ""

@@ -7,6 +7,7 @@ from typing import Any, Callable, Iterator, Optional, Union
 from aimu.agents._loop import _AgentLoopMixin
 from aimu.agents._tool_loop import _ToolLoop
 from aimu.agents.base import MessageHistory, Runner
+from aimu.events import EventSink
 from aimu.models.base import BaseModelClient, StreamChunk
 
 logger = logging.getLogger(__name__)
@@ -79,6 +80,7 @@ class Agent(_AgentLoopMixin, Runner):
     deps: Optional[Any] = None
     tool_approval: Optional[Callable] = None
     thinking: Optional[Union[bool, str]] = None
+    events: Optional[EventSink] = None
     concurrent_tool_calls: bool = False
     _last_messages: list = field(default_factory=list, init=False, repr=False)
 
@@ -99,6 +101,7 @@ class Agent(_AgentLoopMixin, Runner):
         tool_approval: Optional[Callable] = None,
         schema: Optional[type] = None,
         thinking: Optional[Union[bool, str]] = None,
+        events: Optional[EventSink] = None,
     ) -> Union[str, Any, Iterator[StreamChunk]]:
         """Run the agentic loop. ``images`` attach only to the initial turn.
 
@@ -127,17 +130,27 @@ class Agent(_AgentLoopMixin, Runner):
         makes, including the continuation nudge and the forced wrap-up, so effort is uniform
         across the run. It is the public argument, so the model client validates it and warns
         once if its model cannot honour it; the agent itself makes no capability decisions.
+
+        ``events`` is a per-run override of the agent's ``self.events`` field: a callable taking
+        one :class:`~aimu.events.RunEvent` (see :mod:`aimu.events`). ``None`` (default) uses the
+        field. The resolved sink is attached to ``model_client.events`` for the duration of the
+        run (restored afterward, even if the run raises), so the client's own turn events reach
+        it alongside the loop's own :class:`~aimu.events.RunStarted` / :class:`RunFinished` /
+        :class:`ToolCalled` / :class:`ToolDenied`, every one stamped with this agent's name and
+        the current loop iteration.
         """
         thinking = thinking if thinking is not None else self.thinking
+        events = events if events is not None else self.events
         if schema is not None:
             if stream:
                 return self._run_structured_streamed(
-                    task, generate_kwargs, images, deps, tool_approval, schema, thinking
+                    task, generate_kwargs, images, deps, tool_approval, schema, thinking, events
                 )
             self._prepare_run(deps, tool_approval)
-            result = self.model_client.chat(
-                task, generate_kwargs=generate_kwargs, images=images, schema=schema, thinking=thinking
-            )
+            with self.model_client._events_override(events):
+                result = self.model_client.chat(
+                    task, generate_kwargs=generate_kwargs, images=images, schema=schema, thinking=thinking
+                )
             self._last_messages = list(self.model_client.messages)
             return result
         if stream:
@@ -149,9 +162,10 @@ class Agent(_AgentLoopMixin, Runner):
                 deps=deps,
                 tool_approval=tool_approval,
                 thinking=thinking,
+                events=events,
             )
         self._prepare_run(deps, tool_approval)
-        loop = self._make_tool_loop(tools, deps, tool_approval, thinking)
+        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events)
         try:
             return loop.run(task, generate_kwargs=generate_kwargs, images=images)
         finally:
@@ -168,6 +182,7 @@ class Agent(_AgentLoopMixin, Runner):
         deps: Optional[Any],
         tool_approval: Optional[Callable],
         thinking: Optional[Union[bool, str]] = None,
+        events: Optional[EventSink] = None,
     ) -> _ToolLoop:
         """Build the iterative tool-calling engine with this run's effective tools + policy."""
         from aimu.tools.approval import approve_all
@@ -182,6 +197,8 @@ class Agent(_AgentLoopMixin, Runner):
             final_answer_prompt=self.final_answer_prompt,
             continuation_prompt=self.continuation_prompt,
             thinking=thinking,
+            events=events if events is not None else self.events,
+            agent_name=self.name,
         )
 
     def _run_streamed(
@@ -193,9 +210,10 @@ class Agent(_AgentLoopMixin, Runner):
         deps: Optional[Any] = None,
         tool_approval: Optional[Callable] = None,
         thinking: Optional[Union[bool, str]] = None,
+        events: Optional[EventSink] = None,
     ) -> Iterator[StreamChunk]:
         self._prepare_run(deps, tool_approval)
-        loop = self._make_tool_loop(tools, deps, tool_approval, thinking)
+        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events)
         try:
             for chunk in loop.run_streamed(task, generate_kwargs=generate_kwargs, images=images):
                 yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=chunk.iteration)
@@ -211,16 +229,23 @@ class Agent(_AgentLoopMixin, Runner):
         tool_approval: Optional[Callable],
         schema: type,
         thinking: Optional[Union[bool, str]] = None,
+        events: Optional[EventSink] = None,
     ) -> Iterator[StreamChunk]:
         """Single structured-output turn, streamed: forward the client's chunks (thinking /
         generation / terminal DONE) tagged with this agent's name. Snapshots ``_last_messages``
         in a ``finally`` so a cancelled/partial run still records its turn."""
         self._prepare_run(deps, tool_approval)
         try:
-            for chunk in self.model_client.chat(
-                task, generate_kwargs=generate_kwargs, stream=True, images=images, schema=schema, thinking=thinking
-            ):
-                yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=0)
+            with self.model_client._events_override(events):
+                for chunk in self.model_client.chat(
+                    task,
+                    generate_kwargs=generate_kwargs,
+                    stream=True,
+                    images=images,
+                    schema=schema,
+                    thinking=thinking,
+                ):
+                    yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=0)
         finally:
             self._last_messages = list(self.model_client.messages)
 

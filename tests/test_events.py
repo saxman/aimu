@@ -265,6 +265,174 @@ def test_fallback_client_chat_emits_exactly_one_pair():
     assert primary.events is not None
 
 
+# ---------------------------------------------------------------------------
+# Agent-loop events: RunStarted / RunFinished / ToolCalled / ToolDenied.
+#
+# The client reports turns; only the agentic loop knows that a run started, which tools
+# were dispatched with what, and which a policy refused. `events=` is an Agent field with
+# a per-run `run(events=...)` override, following `deps` / `tool_approval` / `thinking`.
+# ---------------------------------------------------------------------------
+
+
+def test_agent_run_emits_run_and_tool_events():
+    from aimu.agents.agent import Agent
+    from aimu.tools import tool
+
+    seen = []
+
+    @tool
+    def add(a: int, b: int) -> int:
+        """Add two numbers."""
+        return a + b
+
+    client = MockModelClient([{"tool": "add", "arguments": {"a": 2, "b": 3}}, "5 is the answer"])
+    agent = Agent(client, tools=[add], events=seen.append)
+    agent.run("add 2 and 3")
+
+    kinds = [type(e).__name__ for e in seen]
+    assert kinds[0] == "RunStarted"
+    assert kinds[-1] == "RunFinished"
+    called = next(e for e in seen if isinstance(e, ToolCalled))
+    assert called.name == "add" and called.arguments == {"a": 2, "b": 3}
+    assert called.result == "5"
+
+
+def test_events_is_a_per_run_override():
+    """Mirrors deps / tool_approval / thinking: None uses the field."""
+    from aimu.agents.agent import Agent
+
+    field_seen = []
+    override_seen = []
+    client = MockModelClient(["answer"])
+    agent = Agent(client, events=field_seen.append)
+
+    agent.run("q", events=override_seen.append)
+    assert override_seen  # the override sink saw the run
+    assert not field_seen  # the field sink did not: the override replaced it
+
+    client2 = MockModelClient(["answer"])
+    agent2 = Agent(client2, events=field_seen.append)
+    agent2.run("q")  # no override -> None -> falls back to self.events
+    assert field_seen
+
+
+def test_tool_events_carry_the_agent_name_and_iteration():
+    """So a sink can attribute events inside a nested workflow."""
+    from aimu.agents.agent import Agent
+    from aimu.tools import tool
+
+    seen = []
+
+    @tool
+    def add(a: int, b: int) -> int:
+        """Add two numbers."""
+        return a + b
+
+    client = MockModelClient([{"tool": "add", "arguments": {"a": 2, "b": 3}}, "done"])
+    agent = Agent(client, tools=[add], name="alpha", events=seen.append)
+    agent.run("add 2 and 3")
+
+    called = next(e for e in seen if isinstance(e, ToolCalled))
+    assert called.agent == "alpha"
+    assert called.iteration == 0
+    started = next(e for e in seen if isinstance(e, RunStarted))
+    assert started.agent == "alpha"
+
+
+def test_a_denied_tool_emits_ToolDenied_not_ToolCalled():
+    """Gate a tool with a refusing approval policy and assert the event pair."""
+    from aimu.agents.agent import Agent
+    from aimu.tools import tool
+
+    ran = []
+
+    @tool
+    def danger() -> str:
+        """Risky."""
+        ran.append(1)
+        return "ran"
+
+    seen = []
+    client = MockModelClient(["tool", "done"])
+    agent = Agent(client, tools=[danger], tool_approval=lambda name, arguments: False, events=seen.append)
+
+    assert agent.run("go") == "done"
+
+    assert ran == []
+    assert not any(isinstance(e, ToolCalled) for e in seen)
+    denied = next(e for e in seen if isinstance(e, ToolDenied))
+    assert denied.name == "danger"
+
+
+def test_streaming_tool_emits_tool_called():
+    """A generator (streaming) @tool is dispatched by a different code path than a plain
+    tool (_dispatch_streamed's own branch, not _call_plain_tool); it must still emit
+    exactly one ToolCalled."""
+    from aimu.agents.agent import Agent
+    from aimu.models.base import StreamChunk, StreamingContentType
+    from aimu.tools import tool
+
+    @tool
+    def progress_tool(x: int) -> str:
+        """A streaming tool that reports progress before returning."""
+        yield StreamChunk(StreamingContentType.GENERATING, "working")
+        return str(x * 2)
+
+    seen = []
+    client = MockModelClient([{"tool": "progress_tool", "arguments": {"x": 3}}, "6 is the answer"])
+    agent = Agent(client, tools=[progress_tool], events=seen.append)
+    list(agent.run("double 3", stream=True))
+
+    kinds = [type(e).__name__ for e in seen]
+    assert kinds[0] == "RunStarted"
+    assert kinds[-1] == "RunFinished"
+    called = [e for e in seen if isinstance(e, ToolCalled)]
+    assert len(called) == 1
+    assert called[0].name == "progress_tool"
+    assert called[0].result == "6"
+
+
+def test_run_finished_carries_the_error_when_a_run_raises():
+    """A run that raises must still report -- emit from a finally."""
+    from aimu.agents.agent import Agent
+    from aimu.tools import tool
+
+    @tool
+    async def bad_tool(x: int) -> int:
+        """An async tool the sync Agent cannot dispatch."""
+        return x
+
+    seen = []
+    client = MockModelClient([{"tool": "bad_tool", "arguments": {"x": 1}}])
+    agent = Agent(client, tools=[bad_tool], events=seen.append)
+
+    with pytest.raises(ValueError):
+        agent.run("go")
+
+    kinds = [type(e).__name__ for e in seen]
+    assert kinds[0] == "RunStarted"
+    assert kinds[-1] == "RunFinished"
+    finished = next(e for e in seen if isinstance(e, RunFinished))
+    assert isinstance(finished.error, ValueError)
+
+
+def test_skill_agent_run_emits_run_and_tool_events(tmp_path):
+    """SkillAgent inherits Agent.run() / Agent._make_tool_loop() unmodified, so events=
+    threading requires no SkillAgent-specific code -- confirmed here rather than assumed."""
+    from aimu.agents.skill_agent import SkillAgent
+    from aimu.skills.manager import SkillManager
+
+    seen = []
+    client = MockModelClient(["answer"])
+    manager = SkillManager(skill_dirs=[str(tmp_path)])  # empty dir: no skills discovered
+    agent = SkillAgent(client, skill_manager=manager, events=seen.append)
+    agent.run("q")
+
+    kinds = [type(e).__name__ for e in seen]
+    assert kinds[0] == "RunStarted"
+    assert kinds[-1] == "RunFinished"
+
+
 def test_fallback_client_streamed_chat_emits_exactly_one_pair():
     from aimu.events import ModelTurnFinished, ModelTurnStarted
     from aimu.models.fallback import FallbackClient

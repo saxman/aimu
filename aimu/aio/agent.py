@@ -13,6 +13,7 @@ from typing import Any, AsyncIterator, Callable, Optional, Union
 
 from aimu.agents._loop import _AgentLoopMixin
 from aimu.agents.base import MessageHistory
+from aimu.events import EventSink
 from aimu.models.base import StreamChunk
 
 from ._base import AsyncBaseModelClient
@@ -96,6 +97,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
     deps: Optional[Any] = None
     tool_approval: Optional[Callable] = None
     thinking: Optional[Union[bool, str]] = None
+    events: Optional[EventSink] = None
     concurrent_tool_calls: bool = False
     _last_messages: list = field(default_factory=list, init=False, repr=False)
 
@@ -114,6 +116,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         tool_approval: Optional[Callable] = None,
         schema: Optional[type] = None,
         thinking: Optional[Union[bool, str]] = None,
+        events: Optional[EventSink] = None,
     ) -> Union[str, Any, AsyncIterator[StreamChunk]]:
         """Run the async agentic loop. ``images`` attach only to the initial turn.
 
@@ -124,23 +127,27 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         -> bool``, which may be a coroutine; deny appends a refusal tool message); ``schema`` makes
         the run a single structured-output turn returning a validated instance; ``thinking`` is a
         per-run override of ``self.thinking`` (the portable reasoning control), applied to every
-        model turn the run makes. See the sync :meth:`aimu.agents.Agent.run` for full semantics.
+        model turn the run makes; ``events`` is a per-run override of ``self.events`` (a callable
+        taking one :class:`~aimu.events.RunEvent`), attached to ``model_client.events`` for the
+        run's duration. See the sync :meth:`aimu.agents.Agent.run` for full semantics.
         """
         thinking = thinking if thinking is not None else self.thinking
+        events = events if events is not None else self.events
         if schema is not None:
             if stream:
                 return self._run_structured_streamed(
-                    task, generate_kwargs, images, deps, tool_approval, schema, thinking
+                    task, generate_kwargs, images, deps, tool_approval, schema, thinking, events
                 )
             self._prepare_run(deps, tool_approval)
             try:
-                return await self.model_client.chat(
-                    task, generate_kwargs=generate_kwargs, images=images, schema=schema, thinking=thinking
-                )
+                with self.model_client._events_override(events):
+                    return await self.model_client.chat(
+                        task, generate_kwargs=generate_kwargs, images=images, schema=schema, thinking=thinking
+                    )
             finally:
                 self._last_messages = list(self.model_client.messages)
         self._prepare_run(deps, tool_approval)
-        loop = self._make_tool_loop(tools, deps, tool_approval, thinking)
+        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events)
         if stream:
             return self._run_loop_streamed(loop, task, generate_kwargs, images)
         return await self._run_loop(loop, task, generate_kwargs, images)
@@ -156,6 +163,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         deps: Optional[Any],
         tool_approval: Optional[Callable],
         thinking: Optional[Union[bool, str]] = None,
+        events: Optional[EventSink] = None,
     ) -> _AsyncToolLoop:
         """Build the async iterative tool-calling engine with this run's effective tools + policy."""
         from aimu.tools.approval import approve_all
@@ -170,6 +178,8 @@ class Agent(_AgentLoopMixin, AsyncRunner):
             final_answer_prompt=self.final_answer_prompt,
             continuation_prompt=self.continuation_prompt,
             thinking=thinking,
+            events=events if events is not None else self.events,
+            agent_name=self.name,
         )
 
     async def _run_loop(
@@ -196,16 +206,23 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         tool_approval: Optional[Callable],
         schema: type,
         thinking: Optional[Union[bool, str]] = None,
+        events: Optional[EventSink] = None,
     ) -> AsyncIterator[StreamChunk]:
         """Single structured-output turn, streamed (async). Forwards the client's chunks tagged
         with this agent's name; snapshots ``_last_messages`` in a ``finally`` for cancel-safe resume."""
         self._prepare_run(deps, tool_approval)
         try:
-            stream = await self.model_client.chat(
-                task, generate_kwargs=generate_kwargs, stream=True, images=images, schema=schema, thinking=thinking
-            )
-            async for chunk in stream:
-                yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=0)
+            with self.model_client._events_override(events):
+                stream = await self.model_client.chat(
+                    task,
+                    generate_kwargs=generate_kwargs,
+                    stream=True,
+                    images=images,
+                    schema=schema,
+                    thinking=thinking,
+                )
+                async for chunk in stream:
+                    yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=0)
         finally:
             self._last_messages = list(self.model_client.messages)
 

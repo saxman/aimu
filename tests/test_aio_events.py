@@ -4,6 +4,8 @@ See tests/test_events.py for the sync surface; these tests exercise the same
 ModelTurnStarted / ModelTurnFinished emission points on aimu.aio.
 """
 
+import pytest
+
 from tests.helpers_aio import MockAsyncModelClient
 
 
@@ -173,6 +175,209 @@ async def test_async_fallback_client_chat_emits_exactly_one_pair():
     assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
     assert sum(isinstance(e, ModelTurnFinished) for e in seen) == 1
     assert primary.events is not None
+
+
+# ---------------------------------------------------------------------------
+# Agent-loop events: async mirror of the sync RunStarted / RunFinished /
+# ToolCalled / ToolDenied tests in tests/test_events.py.
+# ---------------------------------------------------------------------------
+
+
+async def test_async_agent_run_emits_run_and_tool_events():
+    from aimu.aio.agent import Agent
+    from aimu.events import RunFinished, RunStarted, ToolCalled
+    from aimu.tools import tool
+
+    seen = []
+
+    @tool
+    async def add(a: int, b: int) -> int:
+        """Add two numbers."""
+        return a + b
+
+    client = MockAsyncModelClient([{"tool": "add", "arguments": {"a": 2, "b": 3}}, "5 is the answer"])
+    agent = Agent(client, tools=[add], events=seen.append)
+    await agent.run("add 2 and 3")
+
+    kinds = [type(e).__name__ for e in seen]
+    assert kinds[0] == "RunStarted"
+    assert kinds[-1] == "RunFinished"
+    called = next(e for e in seen if isinstance(e, ToolCalled))
+    assert called.name == "add" and called.arguments == {"a": 2, "b": 3}
+    assert called.result == "5"
+    assert isinstance(seen[0], RunStarted)
+    assert isinstance(seen[-1], RunFinished)
+
+
+async def test_async_events_is_a_per_run_override():
+    """Mirrors deps / tool_approval / thinking: None uses the field."""
+    from aimu.aio.agent import Agent
+
+    field_seen = []
+    override_seen = []
+    client = MockAsyncModelClient(["answer"])
+    agent = Agent(client, events=field_seen.append)
+
+    await agent.run("q", events=override_seen.append)
+    assert override_seen
+    assert not field_seen
+
+    client2 = MockAsyncModelClient(["answer"])
+    agent2 = Agent(client2, events=field_seen.append)
+    await agent2.run("q")
+    assert field_seen
+
+
+async def test_async_tool_events_carry_the_agent_name_and_iteration():
+    from aimu.aio.agent import Agent
+    from aimu.events import ToolCalled
+    from aimu.tools import tool
+
+    seen = []
+
+    @tool
+    async def add(a: int, b: int) -> int:
+        """Add two numbers."""
+        return a + b
+
+    client = MockAsyncModelClient([{"tool": "add", "arguments": {"a": 2, "b": 3}}, "done"])
+    agent = Agent(client, tools=[add], name="alpha", events=seen.append)
+    await agent.run("add 2 and 3")
+
+    called = next(e for e in seen if isinstance(e, ToolCalled))
+    assert called.agent == "alpha"
+    assert called.iteration == 0
+
+
+async def test_async_a_denied_tool_emits_ToolDenied_not_ToolCalled():
+    from aimu.aio.agent import Agent
+    from aimu.events import ToolCalled, ToolDenied
+    from aimu.tools import tool
+
+    ran = []
+
+    @tool
+    async def danger() -> str:
+        """Risky."""
+        ran.append(1)
+        return "ran"
+
+    seen = []
+    client = MockAsyncModelClient(["tool", "done"])
+    agent = Agent(client, tools=[danger], tool_approval=lambda name, arguments: False, events=seen.append)
+
+    assert await agent.run("go") == "done"
+
+    assert ran == []
+    assert not any(isinstance(e, ToolCalled) for e in seen)
+    denied = next(e for e in seen if isinstance(e, ToolDenied))
+    assert denied.name == "danger"
+
+
+async def test_async_streaming_tool_emits_tool_called():
+    """A streaming (async generator) @tool is dispatched by a different branch of
+    _dispatch_streamed than a plain tool; it must still emit exactly one ToolCalled."""
+    from aimu.aio.agent import Agent
+    from aimu.events import ToolCalled
+    from aimu.models.base import StreamChunk, StreamingContentType
+    from aimu.tools import tool
+
+    @tool
+    async def progress_tool(x: int) -> str:
+        """A streaming tool that reports progress before returning."""
+        yield StreamChunk(StreamingContentType.GENERATING, "working")
+        # Async generators can't `return <value>` (SyntaxError); the final-chunk-result
+        # convention (StreamChunk.content == {"result": ...}) is how they report one.
+        yield StreamChunk(StreamingContentType.DONE, {"result": str(x * 2)})
+
+    seen = []
+    client = MockAsyncModelClient([{"tool": "progress_tool", "arguments": {"x": 3}}, "6 is the answer"])
+    agent = Agent(client, tools=[progress_tool], events=seen.append)
+    stream = await agent.run("double 3", stream=True)
+    _ = [c async for c in stream]
+
+    kinds = [type(e).__name__ for e in seen]
+    assert kinds[0] == "RunStarted"
+    assert kinds[-1] == "RunFinished"
+    called = [e for e in seen if isinstance(e, ToolCalled)]
+    assert len(called) == 1
+    assert called[0].name == "progress_tool"
+    assert called[0].result == "6"
+
+
+async def test_async_run_finished_carries_the_error_when_a_run_raises():
+    """A run that raises must still report -- emit from a finally."""
+    from aimu.aio import DegenerateTurnError
+    from aimu.aio.agent import Agent
+    from aimu.events import RunFinished
+
+    seen = []
+    client = MockAsyncModelClient([""] * 6)
+    agent = Agent(client, name="broken", max_iterations=3, events=seen.append)
+
+    with pytest.raises(DegenerateTurnError):
+        await agent.run("do something")
+
+    finished = next(e for e in seen if isinstance(e, RunFinished))
+    assert isinstance(finished.error, DegenerateTurnError)
+
+
+async def test_async_concurrent_tool_dispatch_emits_exactly_one_tool_called_each():
+    """The async engine dispatches concurrent tool calls under asyncio.TaskGroup; each must
+    emit exactly one ToolCalled -- asserting the count (not mere presence) catches a sink
+    firing twice for one dispatched call, which a presence check would miss."""
+    from aimu.aio.agent import Agent
+    from aimu.events import ToolCalled
+    from aimu.tools import tool
+
+    @tool
+    async def slow_add(a: int, b: int) -> int:
+        """Add two numbers slowly."""
+        import asyncio
+
+        await asyncio.sleep(0.01)
+        return a + b
+
+    seen = []
+    client = MockAsyncModelClient(
+        [
+            {
+                "tools": [
+                    {"name": "slow_add", "arguments": {"a": 1, "b": 2}},
+                    {"name": "slow_add", "arguments": {"a": 3, "b": 4}},
+                ]
+            },
+            "done",
+        ]
+    )
+    agent = Agent(client, tools=[slow_add], concurrent_tool_calls=True, events=seen.append)
+
+    assert await agent.run("add two pairs") == "done"
+
+    called = [e for e in seen if isinstance(e, ToolCalled)]
+    assert len(called) == 2
+    results = sorted(c.result for c in called)
+    assert results == ["3", "7"]
+
+
+async def test_async_skill_agent_run_emits_run_and_tool_events(tmp_path):
+    """aio.SkillAgent fully overrides run() (it needs async skill setup before the loop), so
+    its events= threading is verified directly rather than assumed to fall out of inheritance
+    (unlike the sync SkillAgent, which does inherit it). Uses the per-run override (field left
+    unset) so the assertion actually exercises run()'s own `events` parameter passing into
+    _make_tool_loop, not just the self.events fallback _make_tool_loop resolves on its own."""
+    from aimu.aio import SkillAgent
+    from aimu.skills.manager import SkillManager
+
+    seen = []
+    client = MockAsyncModelClient(["answer"])
+    manager = SkillManager(skill_dirs=[str(tmp_path)])  # empty dir: no skills discovered
+    agent = SkillAgent(client, skill_manager=manager)  # self.events left None
+    await agent.run("q", events=seen.append)
+
+    kinds = [type(e).__name__ for e in seen]
+    assert kinds[0] == "RunStarted"
+    assert kinds[-1] == "RunFinished"
 
 
 async def test_async_in_process_client_chat_emits_exactly_one_pair():
