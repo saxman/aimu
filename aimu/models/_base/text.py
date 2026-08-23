@@ -7,11 +7,13 @@ concrete clients implement ``_chat`` / ``_generate`` (and override
 """
 
 import logging
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Iterable, Iterator, Optional, Union
 
+from ...events import EventSink, ModelTurnFinished, ModelTurnStarted, emit
 from .._internal.chat_state import _ChatStateMixin
 from .._internal.generate_kwargs import _GenerateKwargsMixin
 from .._internal.streaming import filter_chunks as _filter_chunks_fn
@@ -152,9 +154,16 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
     last_usage: dict | None
     last_output_truncated: bool
     last_structured: Any | None
+    events: Optional[EventSink]
 
     @abstractmethod
-    def __init__(self, model: Model, model_kwargs: Optional[dict] = None, system_message: Optional[str] = None):
+    def __init__(
+        self,
+        model: Model,
+        model_kwargs: Optional[dict] = None,
+        system_message: Optional[str] = None,
+        events: Optional[EventSink] = None,
+    ):
         self.model = model
         self.model_kwargs = model_kwargs
         self._system_message = system_message
@@ -169,6 +178,7 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         self.last_usage = None
         self.last_output_truncated = False
         self.last_structured = None
+        self.events = events
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
@@ -279,7 +289,12 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
             if stream:
                 return self._generate_structured_streamed(prompt, generate_kwargs, images, audio, schema, include)
             return self._generate_structured(prompt, generate_kwargs, images, audio, schema)
+        started, model_id = self._emit_turn_started()
         result = self._generate(prompt, generate_kwargs, stream=stream, images=images, audio=audio)
+        if stream:
+            result = self._emit_when_drained(result, started, model_id)
+        else:
+            self._emit_turn_finished(model_id, started, result)
         if stream and include is not None:
             return self._filter_chunks(result, self._resolve_include(include))
         return result
@@ -358,9 +373,14 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
             return self._chat_structured(user_message, generate_kwargs, use_tools, images, audio, tools, schema)
 
         if tools is None:
+            started, model_id = self._emit_turn_started(user_message)
             result = self._chat(
                 user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images, audio=audio
             )
+            if stream:
+                result = self._emit_when_drained(result, started, model_id)
+            else:
+                self._emit_turn_finished(model_id, started, result)
             if stream and include is not None:
                 return self._filter_chunks(result, self._resolve_include(include))
             return result
@@ -370,9 +390,12 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                 user_message, generate_kwargs, use_tools, images, include, tools, audio=audio
             )
         with self._tools_override(tools):
-            return self._chat(
+            started, model_id = self._emit_turn_started(user_message)
+            result = self._chat(
                 user_message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio
             )
+            self._emit_turn_finished(model_id, started, result)
+            return result
 
     def _chat_structured(
         self,
@@ -504,9 +527,11 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         the swap wraps the ``yield from`` rather than just the ``_chat`` call.
         """
         with self._tools_override(tools):
+            started, model_id = self._emit_turn_started(user_message)
             result = self._chat(
                 user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images, audio=audio
             )
+            result = self._emit_when_drained(result, started, model_id)
             if include is not None:
                 result = self._filter_chunks(result, self._resolve_include(include))
             yield from result
@@ -525,6 +550,81 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
     ) -> Iterator[StreamChunk]:
         """Drop chunks whose phase isn't in the include set."""
         return _filter_chunks_fn(chunks, include)
+
+    def _emit_turn_started(self, pending_user_message: Optional[str] = None) -> tuple[float, str]:
+        """Emit :class:`~aimu.events.ModelTurnStarted` and return ``(started, model_id)``.
+
+        ``pending_user_message`` is the ``user_message`` about to be appended by ``_chat``
+        (``None`` for a continuation turn or a stateless ``generate()`` call, which appends
+        nothing): ``message_count`` counts it so it reflects what this turn actually sends,
+        not ``self.messages`` as it stood a moment before ``_chat`` appends the new turn.
+
+        ``started`` (``time.monotonic()``) and ``model_id`` are threaded through to the
+        matching :meth:`_emit_turn_finished` / :meth:`_emit_when_drained` call so the pair
+        reports a consistent model id and duration.
+        """
+        model_id = str(getattr(self.model, "value", self.model))
+        started = time.monotonic()
+        message_count = len(self.messages) + (1 if pending_user_message is not None else 0)
+        emit(
+            getattr(self, "events", None),
+            ModelTurnStarted(
+                model=model_id,
+                message_count=message_count,
+                tool_names=tuple(getattr(fn, "__name__", "?") for fn in (self.tools or [])),
+            ),
+        )
+        return started, model_id
+
+    def _emit_turn_finished(self, model_id: str, started: float, result: Union[str, Any]) -> None:
+        """Emit :class:`~aimu.events.ModelTurnFinished` for a completed non-streamed turn.
+
+        ``usage`` is read defensively (``getattr`` with a ``None`` default): views that don't
+        delegate ``last_usage`` to an inner client (e.g. ``Agent.as_model_client()``) still
+        have a turn to report, just with no usage figure attached.
+        """
+        emit(
+            getattr(self, "events", None),
+            ModelTurnFinished(
+                model=model_id,
+                text=result if isinstance(result, str) else None,
+                usage=getattr(self, "last_usage", None),
+                duration_s=time.monotonic() - started,
+            ),
+        )
+
+    def _emit_when_drained(self, chunks: Iterator[StreamChunk], started: float, model_id: str) -> Iterator[StreamChunk]:
+        """Emit :class:`~aimu.events.ModelTurnFinished` when a streamed turn actually finishes.
+
+        ``last_usage`` only populates once the stream is drained, so emitting eagerly would
+        report ``usage=None`` for every streamed turn -- and claim the turn ended before it
+        did. The ``finally`` means a consumer that abandons the stream part-way still gets
+        its turn reported, with whatever text arrived.
+
+        With no sink configured, ``chunks`` passes through untouched: no per-chunk
+        ``is_text()``/``phase`` inspection, so a client whose streaming contract this call
+        never actually needs to honour (no one is listening) can't be broken by it either.
+        """
+        sink = getattr(self, "events", None)
+        if sink is None:
+            yield from chunks
+            return
+        text_parts: list[str] = []
+        try:
+            for chunk in chunks:
+                if chunk.is_text() and chunk.phase == StreamingContentType.GENERATING:
+                    text_parts.append(chunk.content)
+                yield chunk
+        finally:
+            emit(
+                sink,
+                ModelTurnFinished(
+                    model=model_id,
+                    text="".join(text_parts) or None,
+                    usage=getattr(self, "last_usage", None),
+                    duration_s=time.monotonic() - started,
+                ),
+            )
 
     def _chat_setup(
         self,

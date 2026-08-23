@@ -23,6 +23,7 @@ from aimu.events import (
     emit,
     log_events,
 )
+from tests.helpers import MockModelClient
 
 
 def test_events_are_frozen():
@@ -79,3 +80,79 @@ def test_log_events_sink_writes_one_line_per_event(caplog):
         sink(ToolCalled(name="search", arguments={"q": "x"}, result="ok", error=None, duration_s=0.5))
     assert "RunStarted" in caplog.text
     assert "search" in caplog.text
+
+
+def test_client_emits_turn_events_with_no_agent():
+    """A bare chat() is observable: the person learning what a model does is exactly the
+    person who has not reached for an Agent yet."""
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+
+    seen = []
+    client = MockModelClient(["hello"])
+    client.events = seen.append
+    client.chat("hi")
+
+    kinds = [type(e).__name__ for e in seen]
+    assert "ModelTurnStarted" in kinds
+    assert "ModelTurnFinished" in kinds
+    started = next(e for e in seen if isinstance(e, ModelTurnStarted))
+    finished = next(e for e in seen if isinstance(e, ModelTurnFinished))
+    assert started.message_count >= 1
+    assert finished.text == "hello"
+    assert finished.duration_s >= 0.0
+
+
+def test_no_sink_means_no_behaviour_change():
+    """The default path must be byte-identical to before."""
+    client = MockModelClient(["hello"])
+    assert client.events is None
+    assert client.chat("hi") == "hello"
+
+
+def test_generate_emits_turn_events_too():
+    from aimu.events import ModelTurnFinished
+
+    seen = []
+    client = MockModelClient(["generated"])
+    client.events = seen.append
+    client.generate("prompt")
+    assert any(isinstance(e, ModelTurnFinished) for e in seen)
+
+
+def test_streamed_chat_emits_turn_finished_once_on_drain():
+    """ModelTurnFinished must not fire until the iterator is fully drained: usage only
+    populates then, and emitting eagerly would report a turn that hasn't run yet."""
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+
+    seen = []
+    client = MockModelClient(["streamed hello"])
+    client.events = seen.append
+
+    stream = client.chat("hi", stream=True)
+    # ModelTurnStarted fires as soon as chat() is called, before any chunk is produced.
+    assert any(isinstance(e, ModelTurnStarted) for e in seen)
+    assert not any(isinstance(e, ModelTurnFinished) for e in seen)
+
+    chunks = list(stream)
+    assert chunks  # sanity: the mock actually streamed something
+
+    finished = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert len(finished) == 1
+    assert finished[0].text == "streamed hello"
+
+
+def test_abandoned_stream_still_reports_partial_text():
+    """A consumer that stops consuming part-way (triggering generator close via GC or
+    explicit .close()) still gets its turn reported, via the generator's finally block."""
+    from aimu.events import ModelTurnFinished
+
+    seen = []
+    client = MockModelClient(["streamed hello"])
+    client.events = seen.append
+
+    stream = client.chat("hi", stream=True)
+    next(stream)  # consume the first (and only) chunk
+    stream.close()  # abandon explicitly; triggers the generator's finally block
+
+    finished = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert len(finished) == 1

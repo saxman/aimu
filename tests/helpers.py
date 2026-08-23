@@ -92,6 +92,7 @@ class MockModelClient(BaseModelClient):
         self.last_thinking = ""
         self.last_usage = None
         self.last_output_truncated = False
+        self.events = None
         self._streaming_content_type = StreamingContentType.DONE
         self._responses = list(responses)
         self._call_count = 0

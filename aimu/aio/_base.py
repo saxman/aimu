@@ -9,9 +9,11 @@ message-history append, image-block normalization) are inherited from the shared
 from __future__ import annotations
 
 import logging
+import time
 from abc import ABC, abstractmethod
 from typing import Any, AsyncIterator, Iterable, Optional, Union
 
+from aimu.events import EventSink, ModelTurnFinished, ModelTurnStarted, emit
 from aimu.models._internal.chat_state import _ChatStateMixin
 from aimu.models._internal.generate_kwargs import _GenerateKwargsMixin
 from aimu.models._internal.streaming import afilter_chunks, resolve_include
@@ -40,9 +42,16 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
     last_usage: dict | None
     last_output_truncated: bool
     last_structured: Any | None
+    events: Optional[EventSink]
 
     @abstractmethod
-    def __init__(self, model: Model, model_kwargs: Optional[dict] = None, system_message: Optional[str] = None):
+    def __init__(
+        self,
+        model: Model,
+        model_kwargs: Optional[dict] = None,
+        system_message: Optional[str] = None,
+        events: Optional[EventSink] = None,
+    ):
         self.model = model
         self.model_kwargs = model_kwargs
         self._system_message = system_message
@@ -56,6 +65,7 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         self.last_usage = None
         self.last_output_truncated = False
         self.last_structured = None
+        self.events = events
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
@@ -149,7 +159,12 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
             if stream:
                 return self._generate_structured_streamed(prompt, generate_kwargs, images, audio, schema, include)
             return await self._generate_structured(prompt, generate_kwargs, images, audio, schema)
+        started, model_id = self._emit_turn_started()
         result = await self._generate(prompt, generate_kwargs, stream=stream, images=images, audio=audio)
+        if stream:
+            result = self._emit_when_drained(result, started, model_id)
+        else:
+            self._emit_turn_finished(model_id, started, result)
         if stream and include is not None:
             return afilter_chunks(result, resolve_include(include))
         return result
@@ -199,9 +214,14 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
             return await self._chat_structured(user_message, generate_kwargs, use_tools, images, audio, tools, schema)
 
         if tools is None:
+            started, model_id = self._emit_turn_started(user_message)
             result = await self._chat(
                 user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images, audio=audio
             )
+            if stream:
+                result = self._emit_when_drained(result, started, model_id)
+            else:
+                self._emit_turn_finished(model_id, started, result)
             if stream and include is not None:
                 return afilter_chunks(result, resolve_include(include))
             return result
@@ -211,9 +231,12 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                 user_message, generate_kwargs, use_tools, images, include, tools, audio=audio
             )
         with self._tools_override(tools):
-            return await self._chat(
+            started, model_id = self._emit_turn_started(user_message)
+            result = await self._chat(
                 user_message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio
             )
+            self._emit_turn_finished(model_id, started, result)
+            return result
 
     async def _chat_structured(self, user_message, generate_kwargs, use_tools, images, audio, tools, schema):
         from aimu.models._internal.json import parse_json_response
@@ -317,13 +340,87 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         ``self.tools``), so the swap wraps the ``async for`` rather than just ``_chat``.
         """
         with self._tools_override(tools):
+            started, model_id = self._emit_turn_started(user_message)
             result = await self._chat(
                 user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images, audio=audio
             )
+            result = self._emit_when_drained(result, started, model_id)
             if include is not None:
                 result = afilter_chunks(result, resolve_include(include))
             async for chunk in result:
                 yield chunk
+
+    def _emit_turn_started(self, pending_user_message: Optional[str] = None) -> tuple[float, str]:
+        """Emit :class:`~aimu.events.ModelTurnStarted` and return ``(started, model_id)``.
+
+        Mirrors the sync :meth:`~aimu.models.base.BaseModelClient._emit_turn_started`,
+        including the ``pending_user_message`` accounting for the turn's user append.
+        """
+        model_id = str(getattr(self.model, "value", self.model))
+        started = time.monotonic()
+        message_count = len(self.messages) + (1 if pending_user_message is not None else 0)
+        emit(
+            getattr(self, "events", None),
+            ModelTurnStarted(
+                model=model_id,
+                message_count=message_count,
+                tool_names=tuple(getattr(fn, "__name__", "?") for fn in (self.tools or [])),
+            ),
+        )
+        return started, model_id
+
+    def _emit_turn_finished(self, model_id: str, started: float, result: Union[str, Any]) -> None:
+        """Emit :class:`~aimu.events.ModelTurnFinished` for a completed non-streamed turn.
+
+        ``usage`` is read defensively: views that don't delegate ``last_usage`` to an inner
+        client still have a turn to report, just with no usage figure attached.
+        """
+        emit(
+            getattr(self, "events", None),
+            ModelTurnFinished(
+                model=model_id,
+                text=result if isinstance(result, str) else None,
+                usage=getattr(self, "last_usage", None),
+                duration_s=time.monotonic() - started,
+            ),
+        )
+
+    async def _emit_when_drained(
+        self, chunks: AsyncIterator[StreamChunk], started: float, model_id: str
+    ) -> AsyncIterator[StreamChunk]:
+        """Emit :class:`~aimu.events.ModelTurnFinished` when a streamed turn actually finishes.
+
+        ``last_usage`` only populates once the stream is drained, so emitting eagerly would
+        report ``usage=None`` for every streamed turn -- and claim the turn ended before it
+        did. The ``finally`` means a consumer that abandons the stream part-way (or ``break``s
+        out of an ``async for``, triggering ``aclose()``) still gets its turn reported, with
+        whatever text arrived.
+
+        With no sink configured, ``chunks`` passes through untouched: no per-chunk
+        ``is_text()``/``phase`` inspection, so a client whose streaming contract this call
+        never actually needs to honour (no one is listening) can't be broken by it either.
+        """
+        sink = getattr(self, "events", None)
+        if sink is None:
+            async for chunk in chunks:
+                yield chunk
+            return
+        text_parts: list[str] = []
+        try:
+            async for chunk in chunks:
+                if chunk.is_text() and chunk.phase == StreamingContentType.GENERATING:
+                    text_parts.append(chunk.content)
+                yield chunk
+        finally:
+            emit(
+                sink,
+                ModelTurnFinished(
+                    model=model_id,
+                    text="".join(text_parts) or None,
+                    usage=getattr(self, "last_usage", None),
+                    duration_s=time.monotonic() - started,
+                ),
+            )
 
     async def _chat_setup(
         self,

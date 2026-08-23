@@ -37,6 +37,7 @@ except PackageNotFoundError:  # not installed (e.g. running from a source checko
 if TYPE_CHECKING:
     from . import aio
     from .agents import Agent
+    from .events import EventSink
 
 from .models import (
     HAS_GEMINI_IMAGE,
@@ -109,7 +110,13 @@ from .tools import ToolApproval, ToolContext, approve_all, tool
 from .display import pretty_print
 
 
-def client(model: Union[str, Model, None] = None, *, system: Optional[str] = None, **kwargs: Any) -> ModelClient:
+def client(
+    model: Union[str, Model, None] = None,
+    *,
+    system: Optional[str] = None,
+    events: Optional["EventSink"] = None,
+    **kwargs: Any,
+) -> ModelClient:
     """Construct a :class:`ModelClient` from a model string or enum member.
 
     ``model`` may be a ``"provider:model_id"`` string (``"anthropic:claude-sonnet-4-6"``,
@@ -124,6 +131,12 @@ def client(model: Union[str, Model, None] = None, *, system: Optional[str] = Non
 
     Use this as the one-line construction helper. For full control over the provider
     client constructor, use :class:`ModelClient` directly.
+
+    Args:
+        events: Optional event sink (see :mod:`aimu.events`). Attach it to see the
+            ``ModelTurnStarted`` / ``ModelTurnFinished`` events every ``chat()`` /
+            ``generate()`` call on the returned client emits. ``None`` (default) is a
+            no-op -- observation is opt-in and never changes default behaviour.
     """
     if model is None:
         from .models._internal.model_defaults import resolve_default_text_model
@@ -131,6 +144,7 @@ def client(model: Union[str, Model, None] = None, *, system: Optional[str] = Non
         model = resolve_default_text_model()
     if system is not None:
         kwargs["system_message"] = system
+    kwargs["events"] = events
     return ModelClient(model, **kwargs)
 
 
@@ -144,6 +158,7 @@ def chat(
     images: Optional[list] = None,
     include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
     thinking: Optional[Union[bool, str]] = None,
+    events: Optional["EventSink"] = None,
 ) -> Union[str, Iterator[StreamChunk]]:
     """One-shot chat: builds a fresh client, sends one message, returns the response.
 
@@ -170,8 +185,10 @@ def chat(
             effort; ``"low"``/``"medium"``/``"high"`` sets the effort level. A model that
             cannot honour the request logs a warning and continues, so models stay
             swappable; an unrecognised value raises ``ValueError``.
+        events: Optional event sink (see :mod:`aimu.events`); attach it to see the
+            ``ModelTurnStarted`` / ``ModelTurnFinished`` events this one-shot call emits.
     """
-    c = client(model, system=system)
+    c = client(model, system=system, events=events)
     return c.chat(
         user_message,
         generate_kwargs=generate_kwargs,

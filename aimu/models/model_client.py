@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Iterator, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterator, Optional, Union
 
 from .base import AdHocModel, BaseModelClient, Model, ModelSpec, StreamChunk
 from ._internal.factory import ProviderEntry, installed
 from ._internal.model_defaults import available_text_models, resolve_default_text_model_enum
 from ._internal.model_string import parse_model_string
+
+if TYPE_CHECKING:
+    from ..events import EventSink
 
 log = logging.getLogger(__name__)
 
@@ -310,12 +313,17 @@ class ModelClient(BaseModelClient):
     """
 
     def __init__(self, model: Union[Model, ModelSpec, str], **kwargs: Any) -> None:
+        # Popped rather than left in kwargs: the concrete provider constructors don't accept
+        # events= (it's set on the inner client afterward, like the other mutable-state
+        # properties below), so forwarding it verbatim would raise a TypeError.
+        events = kwargs.pop("events", None)
         if isinstance(model, str):
             resolved = resolve_model(model)
             kwargs.update(endpoint_kwargs(resolved.provider, resolved.base_url))
             if isinstance(resolved.model, AdHocModel):
                 client_cls = _sync_compat_client(resolved.provider)
                 self._client = client_cls(resolved.model, **kwargs)
+                self._client.events = events
                 self.model = self._client.model
                 self.model_kwargs = self._client.model_kwargs
                 return
@@ -343,6 +351,7 @@ class ModelClient(BaseModelClient):
             )
         _enum_cls, client_cls = entry.load()
         self._client: BaseModelClient = client_cls(model, **kwargs)
+        self._client.events = events
 
         # Mirror non-mutable attributes so callers can read them directly on this wrapper.
         # super().__init__() is intentionally not called; it would reset inner client state.
@@ -350,6 +359,14 @@ class ModelClient(BaseModelClient):
         self.model_kwargs = self._client.model_kwargs
 
     # --- Delegate mutable state to inner client so both stay in sync ---
+
+    @property
+    def events(self) -> Optional["EventSink"]:
+        return self._client.events
+
+    @events.setter
+    def events(self, value: Optional["EventSink"]) -> None:
+        self._client.events = value
 
     @property
     def default_generate_kwargs(self) -> dict:

@@ -59,6 +59,14 @@ class _AsyncInProcessClient(AsyncBaseModelClient):
     # --- Share state with the wrapped sync client ---
 
     @property
+    def events(self) -> Optional[Any]:
+        return self._sync.events
+
+    @events.setter
+    def events(self, value: Optional[Any]) -> None:
+        self._sync.events = value
+
+    @property
     def default_generate_kwargs(self) -> dict:
         return self._sync.default_generate_kwargs
 

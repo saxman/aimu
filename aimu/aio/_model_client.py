@@ -8,12 +8,15 @@ wrap (so model weights are loaded only once). See Decision 7 in the plan.
 from __future__ import annotations
 
 from importlib import import_module
-from typing import Any, AsyncIterator, Iterable, Optional, Union
+from typing import TYPE_CHECKING, Any, AsyncIterator, Iterable, Optional, Union
 
 from aimu.models.base import AdHocModel, Model, ModelSpec, StreamChunk, StreamingContentType
 from aimu.models.model_client import _GENERIC_COMPAT_PROVIDER, _TEXT_PROVIDERS, endpoint_kwargs, resolve_model
 
 from ._base import AsyncBaseModelClient
+
+if TYPE_CHECKING:
+    from aimu.events import EventSink
 
 # Provider prefix -> (async module, async client class name). Described, not imported:
 # nothing here loads until a specific row is requested. The enum side of dispatch is
@@ -86,6 +89,10 @@ class AsyncModelClient(AsyncBaseModelClient):
     """
 
     def __init__(self, model: Union[Model, ModelSpec, str, Any], **kwargs: Any) -> None:
+        # Popped rather than left in kwargs: the concrete provider constructors don't accept
+        # events= (it's set on the inner client afterward, like the other mutable-state
+        # properties below), so forwarding it verbatim would raise a TypeError.
+        events = kwargs.pop("events", None)
         # In-process wrapping path: passed an existing sync client.
         wrap_target = _wrap_target(model)
         if wrap_target is not None:
@@ -104,6 +111,7 @@ class AsyncModelClient(AsyncBaseModelClient):
                     )
                     client_cls = _load_async_client(*async_entry)
                     self._client = client_cls(resolved.model, **kwargs)
+                    self._client.events = events
                     self.model = self._client.model
                     self.model_kwargs = self._client.model_kwargs
                     return
@@ -142,11 +150,21 @@ class AsyncModelClient(AsyncBaseModelClient):
             client_cls = _load_async_client(*async_entry)
             self._client = client_cls(model, **kwargs)
 
+        self._client.events = events
+
         # Mirror attributes (super().__init__ would clobber inner client state).
         self.model = self._client.model
         self.model_kwargs = self._client.model_kwargs
 
     # --- Delegate mutable state to inner client ---
+
+    @property
+    def events(self) -> Optional["EventSink"]:
+        return self._client.events
+
+    @events.setter
+    def events(self, value: Optional["EventSink"]) -> None:
+        self._client.events = value
 
     @property
     def default_generate_kwargs(self) -> dict:
@@ -255,7 +273,11 @@ class AsyncModelClient(AsyncBaseModelClient):
 
 
 def client(
-    model: Union[str, Model, Any, None] = None, *, system: Optional[str] = None, **kwargs: Any
+    model: Union[str, Model, Any, None] = None,
+    *,
+    system: Optional[str] = None,
+    events: Optional["EventSink"] = None,
+    **kwargs: Any,
 ) -> AsyncModelClient:
     """Construct an :class:`AsyncModelClient` from a model string, enum, or existing sync client.
 
@@ -268,6 +290,11 @@ def client(
     When ``model`` is omitted, a default is resolved from ``AIMU_LANGUAGE_MODEL`` or an
     already-available local model. The async path probes only Ollama and local
     OpenAI-compatible servers (an ``hf:`` default would need an explicit sync-client wrap).
+
+    Args:
+        events: Optional event sink (see :mod:`aimu.events`). Attach it to see the
+            ``ModelTurnStarted`` / ``ModelTurnFinished`` events every ``chat()`` /
+            ``generate()`` call on the returned client emits.
     """
     if model is None:
         from aimu.models._internal.model_defaults import resolve_default_text_model
@@ -275,6 +302,7 @@ def client(
         model = resolve_default_text_model(include_hf_cache=False)
     if system is not None:
         kwargs["system_message"] = system
+    kwargs["events"] = events
     return AsyncModelClient(model, **kwargs)
 
 
@@ -288,6 +316,7 @@ async def chat(
     images: Optional[list] = None,
     include: Optional[Iterable[Union[str, StreamingContentType]]] = None,
     thinking: Optional[Union[bool, str]] = None,
+    events: Optional["EventSink"] = None,
 ) -> Union[str, AsyncIterator[StreamChunk]]:
     """One-shot async chat: builds a fresh client, sends one message, returns the response.
 
@@ -306,8 +335,10 @@ async def chat(
             effort; ``"low"``/``"medium"``/``"high"`` sets the effort level. A model that
             cannot honour the request logs a warning and continues, so models stay
             swappable; an unrecognised value raises ``ValueError``.
+        events: Optional event sink (see :mod:`aimu.events`); attach it to see the
+            ``ModelTurnStarted`` / ``ModelTurnFinished`` events this one-shot call emits.
     """
-    c = client(model, system=system)
+    c = client(model, system=system, events=events)
     return await c.chat(
         user_message,
         generate_kwargs=generate_kwargs,

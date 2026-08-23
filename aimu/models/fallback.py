@@ -19,9 +19,12 @@ from __future__ import annotations
 
 import copy
 import logging
-from typing import Any, Iterable, Iterator, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterable, Iterator, Optional, Union
 
 from .base import BaseModelClient, StreamChunk, StreamingContentType
+
+if TYPE_CHECKING:
+    from ..events import EventSink
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +76,7 @@ class _FallbackStateMixin:
         self.last_thinking = ""
         self.last_usage: Optional[dict] = None
         self.last_structured = None
+        self.events: Optional["EventSink"] = None
 
     def _load_state(self, client) -> None:
         """Load the shared conversation state into ``client`` before delegating to it."""
@@ -82,6 +86,7 @@ class _FallbackStateMixin:
         client.last_thinking = ""
         client.last_usage = None
         client.last_structured = None
+        client.events = self.events
 
     def _adopt_state(self, client: BaseModelClient) -> None:
         """Adopt the winning client's resulting state as the canonical conversation."""
@@ -227,6 +232,7 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
             client.last_thinking = ""
             client.last_usage = None
             client.last_structured = None
+            client.events = self.events
             try:
                 result = client.generate(
                     prompt,

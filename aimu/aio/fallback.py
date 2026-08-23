@@ -127,6 +127,7 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
             client.last_thinking = ""
             client.last_usage = None
             client.last_structured = None
+            client.events = self.events
             try:
                 result = await client.generate(
                     prompt,

@@ -9,7 +9,10 @@ the constructor's type-check message differ, so those stay on each concrete view
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from aimu.events import EventSink
 
 
 class _AgenticViewMixin:
@@ -28,6 +31,14 @@ class _AgenticViewMixin:
         self.model_kwargs = self._inner_client.model_kwargs
 
     # --- Delegate mutable state to inner_client so both stay in sync ---
+
+    @property
+    def events(self) -> Optional["EventSink"]:
+        return getattr(self._inner_client, "events", None)
+
+    @events.setter
+    def events(self, value: Optional["EventSink"]) -> None:
+        self._inner_client.events = value
 
     @property
     def default_generate_kwargs(self) -> dict:
