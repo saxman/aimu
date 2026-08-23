@@ -9,6 +9,7 @@ from typing import Any, Callable, Iterator, Optional, Union
 from aimu.agents.agent import Agent
 from aimu.agents.base import MessageHistory, Runner
 from aimu.agents.skill_agent import SkillAgent
+from aimu.events import EventSink
 from aimu.models.base import BaseModelClient, StreamChunk, StreamingContentType
 from aimu.prompts.tuners.scorers import LLMJudgeScorer, Scorer
 from aimu.skills.manager import SkillManager
@@ -253,6 +254,7 @@ class PlanExecuteEvaluator(Runner):
         pass_threshold: float = 0.7,
         pass_keyword: Optional[str] = None,
         name: str = "plan_execute_evaluator",
+        events: Optional[EventSink] = None,
     ) -> PlanExecuteEvaluator:
         """Build a PlanExecuteEvaluator from a single client and the common knobs.
 
@@ -264,6 +266,10 @@ class PlanExecuteEvaluator(Runner):
           (defaults to ``client`` if not provided; a stronger separate model is
           recommended). Its ``criteria`` is the workflow's ``criteria`` if
           supplied, otherwise a generic fallback.
+        - ``events`` is passed to both the planner and executor, so one sink sees
+          the whole plan → execute round attributed to whichever produced it. It
+          is **not** passed to the scorer: an :class:`LLMJudgeScorer` is not a
+          :class:`Runner` and has no ``events`` field to receive it.
 
         For full control (e.g. a custom :class:`Scorer`), construct the
         dataclass directly.
@@ -274,6 +280,7 @@ class PlanExecuteEvaluator(Runner):
             name="planner",
             skill_manager=skill_manager or SkillManager(),
             reset_messages_on_run=True,
+            events=events,
         )
         executor = Agent(
             client,
@@ -281,6 +288,7 @@ class PlanExecuteEvaluator(Runner):
             name="executor",
             tools=list(executor_tools) if executor_tools else [],
             reset_messages_on_run=True,
+            events=events,
         )
         scorer = LLMJudgeScorer(
             judge_client or client,

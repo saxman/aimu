@@ -15,6 +15,7 @@ from aimu.agents.workflows.plan_execute_evaluator import (
     _parse_planner_output,
     _truncate,
 )
+from aimu.events import EventSink
 from aimu.models.base import StreamChunk, StreamingContentType
 from aimu.prompts.tuners.scorers import LLMJudgeScorer, Scorer
 from aimu.skills.manager import SkillManager
@@ -171,11 +172,17 @@ class PlanExecuteEvaluator(AsyncRunner):
         pass_threshold: float = 0.7,
         pass_keyword: Optional[str] = None,
         name: str = "plan_execute_evaluator",
+        events: Optional[EventSink] = None,
     ) -> PlanExecuteEvaluator:
         """Build a PlanExecuteEvaluator from a single async client.
 
         The ``judge_client`` for the scorer may be sync or async (the scorer is
         sync; if it's an :class:`LLMJudgeScorer` it expects a sync client).
+
+        ``events`` is passed to both the planner and executor, so one sink sees the whole
+        plan -> execute round attributed to whichever produced it. It is **not** passed to
+        the scorer: an :class:`LLMJudgeScorer` is not a :class:`Runner` and has no
+        ``events`` field to receive it.
         """
         planner = SkillAgent(
             client,
@@ -183,6 +190,7 @@ class PlanExecuteEvaluator(AsyncRunner):
             name="planner",
             skill_manager=skill_manager or SkillManager(),
             reset_messages_on_run=True,
+            events=events,
         )
         executor = Agent(
             client,
@@ -190,6 +198,7 @@ class PlanExecuteEvaluator(AsyncRunner):
             name="executor",
             tools=list(executor_tools) if executor_tools else [],
             reset_messages_on_run=True,
+            events=events,
         )
         scorer = LLMJudgeScorer(
             judge_client or client,

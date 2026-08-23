@@ -6,6 +6,7 @@ from typing import Any, Iterator, Optional, Union
 
 from aimu.agents.agent import Agent
 from aimu.agents.base import MessageHistory, Runner
+from aimu.events import EventSink
 from aimu.models.base import BaseModelClient, StreamChunk, StreamingContentType
 
 logger = logging.getLogger(__name__)
@@ -50,13 +51,20 @@ class Router(Runner):
         *,
         fallback: Optional[Runner] = None,
         name: str = "router",
+        events: Optional[EventSink] = None,
     ) -> Router:
-        """Build a Router using ``client`` as the classifier with the given prompt."""
+        """Build a Router using ``client`` as the classifier with the given prompt.
+
+        ``events`` is passed to the classifier :class:`Agent` this factory constructs. The
+        ``handlers``/``fallback`` runners are supplied by the caller already built, so wire
+        the same sink into them yourself if you want the whole dispatch attributed.
+        """
         routing_agent = Agent(
             client,
             system_message=classifier_prompt,
             name="router-classifier",
             reset_messages_on_run=True,
+            events=events,
         )
         return cls(routing_agent=routing_agent, handlers=handlers, fallback=fallback, name=name)
 

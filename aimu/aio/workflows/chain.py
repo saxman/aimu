@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, AsyncIterator, Optional, Union
 
 from aimu.agents.base import MessageHistory
+from aimu.events import EventSink
 from aimu.models.base import StreamChunk, StreamingContentType
 
 from .._base import AsyncBaseModelClient
@@ -27,12 +28,23 @@ class Chain(AsyncRunner):
     name: str = "chain"
 
     @classmethod
-    def from_client(cls, client: AsyncBaseModelClient, prompts: list[str], *, name: str = "chain") -> Chain:
-        """Build a Chain from a single client and a list of step system_messages."""
+    def from_client(
+        cls,
+        client: AsyncBaseModelClient,
+        prompts: list[str],
+        *,
+        name: str = "chain",
+        events: Optional[EventSink] = None,
+    ) -> Chain:
+        """Build a Chain from a single client and a list of step system_messages.
+
+        ``events`` is passed to every step's :class:`aimu.aio.Agent`, so one sink sees
+        the whole pipeline with each event attributed to the step (agent) that produced it.
+        """
         from ..agent import Agent
 
         agents = [
-            Agent(client, system_message=prompt, name=f"step-{i}", reset_messages_on_run=True)
+            Agent(client, system_message=prompt, name=f"step-{i}", reset_messages_on_run=True, events=events)
             for i, prompt in enumerate(prompts)
         ]
         return cls(agents=agents, name=name)

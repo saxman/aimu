@@ -530,3 +530,85 @@ def test_fallback_client_streamed_chat_emits_exactly_one_pair():
 
     assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
     assert sum(isinstance(e, ModelTurnFinished) for e in seen) == 1
+
+
+# ---------------------------------------------------------------------------
+# Workflow factory forwarding: `events=` on a `from_client()` factory reaches every
+# Agent/SkillAgent it constructs, so one sink can see a whole pipeline attributed by step.
+#
+# `EvaluatorOptimizer` has no `from_client()` factory (its generator/evaluator are always
+# supplied pre-built by the caller), so there is nothing for this workflow to forward: the
+# caller already holds the Agent instances and can pass `events=` to them directly.
+#
+# `Parallel.from_client()` is deliberately not exercised here for reliable concurrent
+# delivery: it builds every worker over one shared client, and `Parallel.run()` executes
+# them concurrently, which drops and misorders events per the documented gap (see
+# `Parallel.from_client`'s docstring and
+# `test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events` in
+# tests/test_workflow_parallel.py). The test below only checks that the sink is wired onto
+# each worker/aggregator Agent at construction time, not that delivery survives a real
+# concurrent run.
+# ---------------------------------------------------------------------------
+
+
+def test_chain_forwards_the_sink_to_every_step():
+    """One sink sees the whole pipeline, with each event attributed to its step."""
+    from aimu.agents import Chain
+
+    seen = []
+    chain = Chain.from_client(
+        MockModelClient(["step one output", "step two output"]), ["step one", "step two"], events=seen.append
+    )
+    chain.run("go")
+    agents = {e.agent for e in seen if e.agent}
+    assert len(agents) == 2, f"expected both steps to be attributed, got {agents}"
+
+
+def test_router_from_client_forwards_events_to_the_classifier():
+    """`Router.from_client()` only constructs the classifier Agent itself; handlers are
+    supplied by the caller already built, so only the classifier is asserted here."""
+    from aimu.agents import Agent, Router
+
+    seen = []
+    sink = seen.append
+    client = MockModelClient(["classified-as-a"])
+    router = Router.from_client(
+        client,
+        classifier_prompt="classify",
+        handlers={"classified-as-a": Agent(MockModelClient(["handler output"]), name="handler")},
+        events=sink,
+    )
+    assert router.routing_agent.events is sink
+
+
+def test_parallel_from_client_wires_events_onto_every_worker_and_the_aggregator():
+    """Construction-time forwarding only -- see the module-level note above on why a real
+    concurrent run is not exercised here."""
+    from aimu.agents import Parallel
+
+    seen = []
+    sink = seen.append
+    client = MockModelClient([])
+    parallel = Parallel.from_client(
+        client,
+        worker_prompts=["A.", "B."],
+        aggregator_prompt="Synthesize.",
+        events=sink,
+    )
+    assert all(worker.events is sink for worker in parallel.workers)
+    assert parallel.aggregator.events is sink
+
+
+def test_plan_execute_evaluator_from_client_forwards_events_to_planner_and_executor():
+    """The planner and executor run sequentially (no shared-client concurrency hazard), so
+    this exercises a real run, not just construction-time wiring."""
+    from aimu.agents import PlanExecuteEvaluator
+
+    seen = []
+    # planner round 1, executor round 1, judge round 1 ("8" -> LLMJudgeScorer parses 0.8 -> pass).
+    client = MockModelClient(["plan it", "did it", "8"])
+    wf = PlanExecuteEvaluator.from_client(client, criteria="answer the task", events=seen.append)
+    wf.run("hi")
+
+    agents = {e.agent for e in seen if e.agent}
+    assert agents == {"planner", "executor"}

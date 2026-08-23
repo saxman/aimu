@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Iterator, Optional, Union
 
 from aimu.agents.base import MessageHistory, Runner
+from aimu.events import EventSink
 from aimu.models.base import BaseModelClient, StreamChunk, StreamingContentType
 
 logger = logging.getLogger(__name__)
@@ -50,12 +51,22 @@ class Parallel(Runner):
         aggregator_prompt: Optional[str] = None,
         separator: str = "\n\n---\n\n",
         name: str = "parallel",
+        events: Optional[EventSink] = None,
     ) -> Parallel:
-        """Build a Parallel using ``client`` for all workers (and aggregator)."""
+        """Build a Parallel using ``client`` for all workers (and aggregator).
+
+        ``events`` is passed to every worker (and the aggregator, if any) this factory
+        constructs. **Known gap**: every worker here shares one ``client``, and workers run
+        concurrently -- an event sink is delivered by scoped-swapping ``client.events`` for
+        the duration of each call, so concurrent delivery from multiple workers will drop
+        and misorder events (see the caveat on ``Agent.events`` / ``BaseModelClient.events``
+        and ``test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events``). Give
+        each worker its own client if you need reliable per-worker events.
+        """
         from aimu.agents.agent import Agent
 
         workers: list[Runner] = [
-            Agent(client, system_message=p, name=f"worker-{i}", reset_messages_on_run=True)
+            Agent(client, system_message=p, name=f"worker-{i}", reset_messages_on_run=True, events=events)
             for i, p in enumerate(worker_prompts)
         ]
         aggregator: Optional[Runner] = None
@@ -65,6 +76,7 @@ class Parallel(Runner):
                 system_message=aggregator_prompt,
                 name="aggregator",
                 reset_messages_on_run=True,
+                events=events,
             )
         return cls(workers=workers, aggregator=aggregator, separator=separator, name=name)
 

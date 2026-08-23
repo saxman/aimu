@@ -448,3 +448,78 @@ async def test_async_in_process_client_chat_emits_exactly_one_pair():
 
     assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
     assert sum(isinstance(e, ModelTurnFinished) for e in seen) == 1
+
+
+# ---------------------------------------------------------------------------
+# Workflow factory forwarding (async mirror of the corresponding block in
+# tests/test_events.py). See that file for why EvaluatorOptimizer is out of scope (no
+# from_client()) and why Parallel is only exercised at construction time, not under a real
+# concurrent run.
+# ---------------------------------------------------------------------------
+
+
+async def test_async_chain_forwards_the_sink_to_every_step():
+    """One sink sees the whole pipeline, with each event attributed to its step."""
+    from aimu.aio import Chain
+
+    seen = []
+    chain = Chain.from_client(
+        MockAsyncModelClient(["step one output", "step two output"]), ["step one", "step two"], events=seen.append
+    )
+    await chain.run("go")
+    agents = {e.agent for e in seen if e.agent}
+    assert len(agents) == 2, f"expected both steps to be attributed, got {agents}"
+
+
+async def test_async_router_from_client_forwards_events_to_the_classifier():
+    """`Router.from_client()` only constructs the classifier Agent itself; handlers are
+    supplied by the caller already built, so only the classifier is asserted here."""
+    from aimu.aio import Agent, Router
+
+    seen = []
+    sink = seen.append
+    client = MockAsyncModelClient(["classified-as-a"])
+    router = Router.from_client(
+        client,
+        classifier_prompt="classify",
+        handlers={"classified-as-a": Agent(MockAsyncModelClient(["handler output"]), name="handler")},
+        events=sink,
+    )
+    assert router.routing_agent.events is sink
+
+
+async def test_async_parallel_from_client_wires_events_onto_every_worker_and_the_aggregator():
+    """Construction-time forwarding only -- see the sync module's note on why a real
+    concurrent run is not exercised here (asyncio.TaskGroup has the identical shared-client
+    sink-delivery hazard as the sync ThreadPoolExecutor path)."""
+    from aimu.aio import Parallel
+
+    seen = []
+    sink = seen.append
+    client = MockAsyncModelClient([])
+    parallel = Parallel.from_client(
+        client,
+        worker_prompts=["A.", "B."],
+        aggregator_prompt="Synthesize.",
+        events=sink,
+    )
+    assert all(worker.events is sink for worker in parallel.workers)
+    assert parallel.aggregator.events is sink
+
+
+async def test_async_plan_execute_evaluator_from_client_forwards_events_to_planner_and_executor():
+    """The planner and executor run sequentially (no shared-client concurrency hazard), so
+    this exercises a real run, not just construction-time wiring. The scorer's judge_client
+    is a sync MockModelClient (LLMJudgeScorer is sync; the factory docstring notes the judge
+    client may be sync or async), so it never receives ``events`` -- it isn't a Runner."""
+    from aimu.aio import PlanExecuteEvaluator
+    from tests.helpers import MockModelClient
+
+    seen = []
+    client = MockAsyncModelClient(["plan it", "did it"])
+    judge = MockModelClient(["8"])  # LLMJudgeScorer parses "8" -> 0.8 -> pass
+    wf = PlanExecuteEvaluator.from_client(client, judge_client=judge, criteria="answer the task", events=seen.append)
+    await wf.run("hi")
+
+    agents = {e.agent for e in seen if e.agent}
+    assert agents == {"planner", "executor"}

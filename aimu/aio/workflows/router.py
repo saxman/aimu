@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, AsyncIterator, Optional, Union
 
 from aimu.agents.base import MessageHistory
+from aimu.events import EventSink
 from aimu.models.base import StreamChunk, StreamingContentType
 
 from .._base import AsyncBaseModelClient
@@ -33,12 +34,21 @@ class Router(AsyncRunner):
         *,
         fallback: Optional[AsyncRunner] = None,
         name: str = "router",
+        events: Optional[EventSink] = None,
     ) -> Router:
+        """Build a Router using ``client`` as the classifier with the given prompt.
+
+        ``events`` is passed to the classifier :class:`aimu.aio.Agent` this factory
+        constructs. The ``handlers``/``fallback`` runners are supplied by the caller already
+        built, so wire the same sink into them yourself if you want the whole dispatch
+        attributed.
+        """
         routing_agent = Agent(
             client,
             system_message=classifier_prompt,
             name="router-classifier",
             reset_messages_on_run=True,
+            events=events,
         )
         return cls(routing_agent=routing_agent, handlers=handlers, fallback=fallback, name=name)
 

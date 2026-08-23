@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any, AsyncIterator, Optional, Union
 
 from aimu.agents.base import MessageHistory
+from aimu.events import EventSink
 from aimu.models.base import StreamChunk, StreamingContentType
 
 from .._base import AsyncBaseModelClient
@@ -46,11 +47,24 @@ class Parallel(AsyncRunner):
         aggregator_prompt: Optional[str] = None,
         separator: str = "\n\n---\n\n",
         name: str = "parallel",
+        events: Optional[EventSink] = None,
     ) -> Parallel:
+        """Build a Parallel using ``client`` for all workers (and aggregator).
+
+        ``events`` is passed to every worker (and the aggregator, if any) this factory
+        constructs. **Known gap**: every worker here shares one ``client``, and workers run
+        concurrently under ``asyncio.TaskGroup`` -- an event sink is delivered by
+        scoped-swapping ``client.events`` for the duration of each call, so concurrent
+        delivery from multiple workers will drop and misorder events (see the caveat on
+        ``Agent.events`` / ``AsyncBaseModelClient.events`` and the sync
+        ``test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events``, whose
+        reasoning applies identically here). Give each worker its own client if you need
+        reliable per-worker events.
+        """
         from ..agent import Agent
 
         workers: list = [
-            Agent(client, system_message=p, name=f"worker-{i}", reset_messages_on_run=True)
+            Agent(client, system_message=p, name=f"worker-{i}", reset_messages_on_run=True, events=events)
             for i, p in enumerate(worker_prompts)
         ]
         aggregator: Optional[AsyncRunner] = None
@@ -60,6 +74,7 @@ class Parallel(AsyncRunner):
                 system_message=aggregator_prompt,
                 name="aggregator",
                 reset_messages_on_run=True,
+                events=events,
             )
         return cls(workers=workers, aggregator=aggregator, separator=separator, name=name)
 
