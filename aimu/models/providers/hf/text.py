@@ -280,7 +280,13 @@ class HuggingFaceClient(BaseModelClient):
         self._hf_processor = None
         # Set by _apply_chat_template on every call; read by _generate_sync / _generate_streaming
         # to record the in-process equivalent of a wire payload (see _record_request there).
+        # _last_rendered_images / _last_rendered_audio are counts (None when absent), not the
+        # arrays themselves: a caller comparing a local vision/audio run against a cloud one
+        # needs to see that media was sent, not the pixels, and the arrays are already discarded
+        # by the time the processor call returns.
         self._last_rendered_prompt: Optional[str] = None
+        self._last_rendered_images: Optional[int] = None
+        self._last_rendered_audio: Optional[int] = None
         self._parsed_tool_calls = None
         self._parsed_content = ""  # prose emitted alongside a tool call (processor path)
         # Gemma 4 emits structured-token output (channels, tool calls) that requires
@@ -399,6 +405,11 @@ class HuggingFaceClient(BaseModelClient):
         if thinking is not None and thinking.level is not None and self.model.thinking_levels:
             template_extra["reasoning_effort"] = QWEN_REASONING_EFFORT[thinking.level]
 
+        # Reset per-call; only the processor branch below ever populates these (the
+        # plain-tokenizer branches serve models with no vision/audio input path).
+        self._last_rendered_images = None
+        self._last_rendered_audio = None
+
         if self._hf_processor is not None:
             pil_images = _extract_pil_images(messages) if self.model.supports_vision else []
             audio_arrays = _extract_audio_arrays(messages) if self.model.supports_audio else []
@@ -421,6 +432,10 @@ class HuggingFaceClient(BaseModelClient):
                 processor_kwargs["audio"] = audio_arrays
                 processor_kwargs["sampling_rate"] = 16000
             self._last_rendered_prompt = text
+            # A count, not the arrays: a caller comparing a local vision/audio run against a
+            # cloud one needs to see that media was sent, not the pixels/samples themselves.
+            self._last_rendered_images = len(pil_images) or None
+            self._last_rendered_audio = len(audio_arrays) or None
             return self._hf_processor(**processor_kwargs).to(self._hf_model.device)
         if self.model == self.MODELS.MAGISTRAL_SMALL:
             # ValueError: Kwargs ['add_generation_prompt', 'enable_thinking', 'xml_tools'] are not supported by `MistralCommonTokenizer.apply_chat_template`.
@@ -470,7 +485,14 @@ class HuggingFaceClient(BaseModelClient):
         model_inputs = self._apply_chat_template(messages, tools, thinking=thinking)
         # No wire payload for an in-process model: the closest equivalent is the resolved
         # generation kwargs plus the rendered prompt actually fed to the tokenizer/processor.
-        self._record_request({"generate_kwargs": generate_kwargs, "prompt": self._last_rendered_prompt})
+        self._record_request(
+            {
+                "generate_kwargs": generate_kwargs,
+                "prompt": self._last_rendered_prompt,
+                "images": self._last_rendered_images,
+                "audio": self._last_rendered_audio,
+            }
+        )
         generated_ids = self._hf_model.generate(**model_inputs, **generate_kwargs)
 
         output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :]
@@ -546,7 +568,14 @@ class HuggingFaceClient(BaseModelClient):
         model_inputs = self._apply_chat_template(messages, tools, thinking=thinking)
         # No wire payload for an in-process model: the closest equivalent is the resolved
         # generation kwargs plus the rendered prompt actually fed to the tokenizer/processor.
-        self._record_request({"generate_kwargs": generate_kwargs, "prompt": self._last_rendered_prompt})
+        self._record_request(
+            {
+                "generate_kwargs": generate_kwargs,
+                "prompt": self._last_rendered_prompt,
+                "images": self._last_rendered_images,
+                "audio": self._last_rendered_audio,
+            }
+        )
         self._hf_model.generate(**model_inputs, **generate_kwargs, streamer=streamer)
 
         # first part is always empty

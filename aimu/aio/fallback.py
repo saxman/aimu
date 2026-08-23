@@ -39,6 +39,9 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
         schema: Optional[type] = None,
         thinking: Optional[Union[bool, str]] = None,
     ) -> Union[str, Any, AsyncIterator[StreamChunk]]:
+        # Cleared unconditionally (stream or not) so FallbackExhaustedError never leaves a
+        # prior call's payload looking current; mirrors the sync FallbackClient.chat().
+        self.last_request = None
         if stream:
             return self._chat_streamed(
                 user_message, generate_kwargs, use_tools, images, include, tools, audio, thinking
@@ -120,6 +123,7 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
         schema: Optional[type] = None,
         thinking: Optional[Union[bool, str]] = None,
     ) -> Union[str, Any, AsyncIterator[StreamChunk]]:
+        self.last_request = None
         if stream:
             return self._generate_streamed(prompt, generate_kwargs, images, include, audio, thinking)
         errors: list[tuple[Any, BaseException]] = []

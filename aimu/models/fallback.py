@@ -147,6 +147,10 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
         schema: Optional[type] = None,
         thinking: Optional[Union[bool, str]] = None,
     ) -> Union[str, Any, Iterator[StreamChunk]]:
+        # Cleared unconditionally (stream or not) so FallbackExhaustedError never leaves a
+        # prior call's payload looking current, and so this stays consistent with every
+        # BaseModelClient.chat()'s own clear-at-the-top rule.
+        self.last_request = None
         if stream:
             return self._chat_streamed(
                 user_message, generate_kwargs, use_tools, images, include, tools, audio, thinking
@@ -228,6 +232,7 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
         schema: Optional[type] = None,
         thinking: Optional[Union[bool, str]] = None,
     ) -> Union[str, Any, Iterator[StreamChunk]]:
+        self.last_request = None
         if stream:
             return self._generate_streamed(prompt, generate_kwargs, images, include, audio, thinking)
         errors: list[tuple[BaseModelClient, BaseException]] = []

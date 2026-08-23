@@ -203,9 +203,10 @@ class LlamaCppClient(BaseModelClient):
             return self._generate_streamed(prompt, generate_kwargs, images=images, audio=audio)
 
         content_in = _build_user_content_blocks(prompt, images) if images else prompt
-        payload = {"messages": [{"role": "user", "content": content_in}], **generate_kwargs}
         # llama.cpp runs in-process (no wire); the literal call kwargs to create_chat_completion
         # are the closest equivalent AIMU has to a wire payload for a local GGUF model.
+        # generate_kwargs is splatted first so it cannot silently override "messages".
+        payload = {**generate_kwargs, "messages": [{"role": "user", "content": content_in}]}
         self._record_request(payload)
         response = self._llm.create_chat_completion(**payload)
         logger.debug("LLM raw response: %s", response)
@@ -229,7 +230,9 @@ class LlamaCppClient(BaseModelClient):
         audio: Optional[list] = None,
     ) -> Iterator[StreamChunk]:
         content_in = _build_user_content_blocks(prompt, images) if images else prompt
-        payload = {"messages": [{"role": "user", "content": content_in}], "stream": True, **generate_kwargs}
+        # generate_kwargs splatted first: see _chat_streamed for why (stream=True must not be
+        # silently overridable).
+        payload = {**generate_kwargs, "messages": [{"role": "user", "content": content_in}], "stream": True}
         self._record_request(payload)
         stream = self._llm.create_chat_completion(**payload)
         yield from self._iter_stream(stream)
@@ -248,7 +251,12 @@ class LlamaCppClient(BaseModelClient):
         if stream:
             return self._chat_streamed(generate_kwargs, tools)
 
-        payload = {"messages": self.messages, "tools": tools if tools else None, **generate_kwargs}
+        # list(...) makes a shallow copy: self.messages is live history that _append_message
+        # / _record_tool_calls mutate later in this method, so recording the bare attribute would
+        # let the recorded request grow the model's own answer after the fact. generate_kwargs is
+        # splatted first so an accidental "messages"/"tools" key in it cannot silently override
+        # the real ones.
+        payload = {**generate_kwargs, "messages": list(self.messages), "tools": tools if tools else None}
         self._record_request(payload)
         response = self._llm.create_chat_completion(**payload)
         logger.debug("LLM raw response: %s", response)
@@ -288,7 +296,15 @@ class LlamaCppClient(BaseModelClient):
         return content
 
     def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> Iterator[StreamChunk]:
-        payload = {"messages": self.messages, "stream": True, "tools": tools if tools else None, **generate_kwargs}
+        # See _chat: copy the live messages list, and splat generate_kwargs first so it cannot
+        # silently override stream=True (a caller-supplied generate_kwargs={"stream": False} would
+        # otherwise quietly disable streaming instead of raising).
+        payload = {
+            **generate_kwargs,
+            "messages": list(self.messages),
+            "stream": True,
+            "tools": tools if tools else None,
+        }
         self._record_request(payload)
         stream = self._llm.create_chat_completion(**payload)
 

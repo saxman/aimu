@@ -98,12 +98,12 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         name = re.sub(r"[^a-zA-Z0-9_-]", "_", str(response_format.get("title", "Response")))[:64] or "Response"
         tool = {"name": name, "description": f"Emit the answer as a {name} object.", "input_schema": response_format}
         payload = {
+            **generate_kwargs,
             "model": self.model.value,
             "system": system_str,
             "messages": ant_messages,
             "tools": [tool],
             "tool_choice": {"type": "tool", "name": name},
-            **generate_kwargs,
         }
         self._record_request(payload)
         response = await self._client.messages.create(**payload)
@@ -134,12 +134,12 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         name = re.sub(r"[^a-zA-Z0-9_-]", "_", str(response_format.get("title", "Response")))[:64] or "Response"
         tool = {"name": name, "description": f"Emit the answer as a {name} object.", "input_schema": response_format}
         payload = {
+            **generate_kwargs,
             "model": self.model.value,
             "system": system_str,
             "messages": ant_messages,
             "tools": [tool],
             "tool_choice": {"type": "tool", "name": name},
-            **generate_kwargs,
         }
         self._record_request(payload)
         async with self._client.messages.stream(**payload) as stream:
@@ -188,11 +188,11 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
             return self._generate_streamed(prompt, generate_kwargs, images=images, audio=audio)
 
         payload = {
+            **generate_kwargs,
             "model": self.model.value,
             "messages": [
                 {"role": "user", "content": _SyncAnthropicClient._generate_content(prompt, images, audio=audio)}
             ],
-            **generate_kwargs,
         }
         self._record_request(payload)
         response = await self._client.messages.create(**payload)
@@ -218,11 +218,11 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         self.last_usage = None
 
         payload = {
+            **generate_kwargs,
             "model": self.model.value,
             "messages": [
                 {"role": "user", "content": _SyncAnthropicClient._generate_content(prompt, images, audio=audio)}
             ],
-            **generate_kwargs,
         }
         self._record_request(payload)
         async with self._client.messages.stream(**payload) as stream:
@@ -277,11 +277,11 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         ant_tools = self._openai_tools_to_anthropic(tools) if tools else anthropic.NOT_GIVEN
 
         payload = {
+            **generate_kwargs,
             "model": self.model.value,
             "system": system_str if system_str else anthropic.NOT_GIVEN,
             "messages": ant_messages,
             "tools": ant_tools,
-            **generate_kwargs,
         }
         self._record_request(payload)
         response = await self._client.messages.create(**payload)
@@ -325,11 +325,11 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         self.last_usage = None
 
         payload = {
+            **generate_kwargs,
             "model": self.model.value,
             "system": system_str if system_str else anthropic.NOT_GIVEN,
             "messages": ant_messages,
             "tools": ant_tools,
-            **generate_kwargs,
         }
         self._record_request(payload)
         async with self._client.messages.stream(**payload) as stream:
