@@ -270,19 +270,26 @@ async def test_async_turn_events_are_attributed_to_the_named_agent():
 
 
 async def test_async_run_finished_iteration_matches_the_forced_wrap_up_turn():
-    """Async mirror: RunFinished.iteration must land on the forced wrap-up turn's round,
-    not one behind it."""
+    """Async mirror of the sync forced-wrap-up test -- but the two engines count rounds
+    differently (sync's ``chats`` starts at 1, async's ``rounds`` starts at 0, both loop
+    ``< max_rounds``), so the *same* ``max_iterations=2`` that forces sync into a genuine
+    extra wrap-up call lets async's while loop consume all three scripted turns and reach
+    ``TERMINAL_HEALTHY`` *inside* the loop -- ``_forced_wrap_up`` then takes its
+    already-healthy early-return path, never issuing the extra call this bug is about, and
+    the test would pass whether or not the fix is present. ``max_iterations=1`` with two
+    pending-tool turns forces the loop to exit while still unhealthy, so the wrap-up must
+    make a genuine third call (see aimu/aio/_tool_loop.py's ``_forced_wrap_up``)."""
     from aimu.aio.agent import Agent
     from aimu.events import ModelTurnFinished, RunFinished
 
     seen = []
     client = MockAsyncModelClient(["tool", "tool", "final answer"])
-    agent = Agent(client, max_iterations=2, events=seen.append)
+    agent = Agent(client, max_iterations=1, events=seen.append)
     result = await agent.run("go")
 
     assert result == "final answer"
     turn_finished = [e for e in seen if isinstance(e, ModelTurnFinished)]
-    assert len(turn_finished) == 3
+    assert len(turn_finished) == 3  # the initial tool turn, the second tool turn, the forced wrap-up turn
     finished = next(e for e in seen if isinstance(e, RunFinished))
     assert finished.iteration == turn_finished[-1].iteration == 2
 
