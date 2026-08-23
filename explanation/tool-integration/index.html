@@ -3384,7 +3384,7 @@
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="p">})</span>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">model_client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="n">mcp</span><span class="o">.</span><span class="n">as_tools</span><span class="p">())</span>        <span class="c1"># or: builtin.web + mcp.as_tools()</span>
 </span></code></pre></div>
-<p>Each callable returned by <code>as_tools()</code> closes over the client, invokes <code>call_tool()</code> cross-process, and returns the result's text, but to the agent it looks like any other <code>@tool</code>. Arguments and results cross the process boundary as JSON via the <a href="https://modelcontextprotocol.io/">Model Context Protocol</a>. Best when the tool is written in another language, ships as a binary, is shared across agents or users, has conflicting dependencies, or needs sandboxing.</p>
+<p>Each callable returned by <code>as_tools()</code> closes over the client, invokes <code>call_tool()</code> cross-process, and returns the result's text, but to the agent it looks like any other <code>@tool</code>. Arguments and results cross the process boundary as JSON via the <a href="https://modelcontextprotocol.io/">Model Context Protocol</a>. Best when the tool is written in another language, ships as a binary, is shared across agents or users, has conflicting dependencies, or needs process isolation. Note that process isolation is not sandboxing: an MCP server still runs as the same OS user with the same filesystem and network access unless you separately containerize it.</p>
 <p>Keep a reference to the <code>MCPClient</code> (the <code>as_tools()</code> callables hold one, so the connection stays alive) for its lifetime, and to call <code>.ping()</code> or refresh the tool list. The list <code>as_tools()</code> returns is a snapshot; call it again to pick up server-side changes.</p>
 <h2 id="how-they-coexist">How they coexist<a class="headerlink" href="#how-they-coexist" title="Permanent link">&para;</a></h2>
 <p>The agent holds one flat tool list. Both routes produce plain callables that live there: <code>@tool</code> functions directly, MCP tools via <code>as_tools()</code>. On each turn the agent passes that list to <code>chat(..., tools=...)</code>, and the model client assembles the request <code>tools</code> list in <code>_chat_setup()</code> from what it was handed:</p>
@@ -3446,7 +3446,7 @@
 <td><strong><code>MCPClient</code></strong> to a shared server</td>
 </tr>
 <tr>
-<td>You want sandboxing or process isolation</td>
+<td>You want process isolation (not sandboxing -- see below)</td>
 <td><strong><code>MCPClient</code></strong></td>
 </tr>
 <tr>
@@ -3455,6 +3455,7 @@
 </tr>
 </tbody>
 </table>
+<p><strong>Process isolation is not sandboxing.</strong> An MCP server is a separate OS process, but it still runs as the same user with the same filesystem and network access as everything else -- it is not a security boundary. If you need to run untrusted code safely, containerize the server (or the code it runs) yourself; <code>MCPClient</code> alone does not provide that.</p>
 <p>If you can't decide, start with <code>@tool</code>. Switching to <code>MCPClient</code> later is a small change: lift the function to a separate file, run it as an MCP server, and swap <code>tools=[fn]</code> for <code>tools=mcp.as_tools()</code>.</p>
 <h2 id="failure-modes-that-are-now-loud">Failure modes that are now loud<a class="headerlink" href="#failure-modes-that-are-now-loud" title="Permanent link">&para;</a></h2>
 <ul>

@@ -3355,13 +3355,19 @@
 <h3 id="text-aimu_language_model">Text: <code>AIMU_LANGUAGE_MODEL</code><a class="headerlink" href="#text-aimu_language_model" title="Permanent link">&para;</a></h3>
 <p>Resolution order is env var → local discovery → error:</p>
 <ol>
-<li><code>AIMU_LANGUAGE_MODEL</code>, if set. It is validated immediately with <code>resolve_model_string()</code>, so a typo'd id raises at resolution time rather than at the first request.</li>
+<li><code>AIMU_LANGUAGE_MODEL</code>, if set. It is validated immediately with <code>resolve_model()</code>, so a typo'd id raises at resolution time rather than at the first request.</li>
 <li>Otherwise the first <em>already-available</em> local model: a running Ollama server → the local HuggingFace cache → a reachable local OpenAI-compatible server, preferring a tool-capable one. The pick is logged at <code>WARNING</code>, so an implicit default is never silent.</li>
 <li>Otherwise <code>ValueError</code>, naming the installed text providers.</li>
 </ol>
 <p>A cloud provider is never auto-selected and weights are never downloaded, so the fallback can only pick something already on the machine. Set the variable to make the choice deterministic:</p>
 <div class="language-ini highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="na">AIMU_LANGUAGE_MODEL</span><span class="o">=</span><span class="s">ollama:qwen3.5:9b</span>
 </span></code></pre></div>
+<p>The value is the <strong>full model string</strong>, so the <code>@endpoint</code> and ad-hoc <code>;flags</code> forms work here exactly as they do in an explicit <code>model=</code> argument:</p>
+<div class="language-ini highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="na">AIMU_LANGUAGE_MODEL</span><span class="o">=</span><span class="s">ollama:qwen3.5:9b@http://gpu-box:11434</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="na">AIMU_LANGUAGE_MODEL</span><span class="o">=</span><span class="s">lmstudio:some-local-build@http://box:1234</span><span class="c1">;tools,vision</span>
+</span></code></pre></div>
+<p>Note this pins only the <em>client</em>. Local discovery stays endpoint-blind (see <a href="../../how-to/switch-providers/">switch-providers.md</a>), so export <code>OLLAMA_HOST</code> as well when a remote server should also be considered by <code>available_text_models()</code>.</p>
+<p><code>resolve_default_text_model_enum()</code> is the exception, and it says so: it returns a <code>Model</code> enum member, which can carry neither an endpoint nor ad-hoc flags, so it rejects both by name rather than reporting a valid id as unknown. Use the string resolver for those.</p>
 <p>The async surface skips the HuggingFace-cache probe (an <code>hf:</code> default would mean wrapping a sync in-process client), so it resolves from Ollama and local OpenAI-compatible servers only.</p>
 <h3 id="the-other-modalities">The other modalities<a class="headerlink" href="#the-other-modalities" title="Permanent link">&para;</a></h3>
 <p>Image, audio, speech, transcription, and embedding have <strong>no fallback</strong>: unset and no <code>model=</code> means the helper raises. That is deliberate, not an omission -- a wrong silent pick is expensive here (an image-style swing, or a persisted vector store corrupted by a mismatched embedder), and AIMU never downloads weights implicitly. The error lists any locally available models for that modality, so making the choice explicit is easy.</p>
@@ -3403,30 +3409,30 @@
 </table>
 <p>When unset, MCP servers run with ephemeral state: fine for tests, not for production.</p>
 <h2 id="env-file-example"><code>.env</code> file example<a class="headerlink" href="#env-file-example" title="Permanent link">&para;</a></h2>
-<div class="language-ini highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Cloud API keys</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="na">ANTHROPIC_API_KEY</span><span class="o">=</span><span class="s">sk-ant-...</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="na">OPENAI_API_KEY</span><span class="o">=</span><span class="s">sk-...</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="na">GOOGLE_API_KEY</span><span class="o">=</span><span class="s">...</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1"># Default text model. Pins what aimu.chat() / aimu.client() / aimu.agent() use when</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># model= is omitted; without it AIMU picks whatever local model is already available.</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="na">AIMU_LANGUAGE_MODEL</span><span class="o">=</span><span class="s">ollama:qwen3.5:9b</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="c1"># Local search (SearXNG)</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="na">SEARXNG_BASE_URL</span><span class="o">=</span><span class="s">http://localhost:8080</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="c1"># The other modality defaults. No fallback: unset means the helper (and the matching</span>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a><span class="c1"># built-in tool) raises rather than guessing.</span>
-</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="na">AIMU_IMAGE_MODEL</span><span class="o">=</span><span class="s">gemini:nano-banana</span>
-</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="na">AIMU_AUDIO_MODEL</span><span class="o">=</span><span class="s">hf:facebook/musicgen-small</span>
-</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a><span class="na">AIMU_SPEECH_MODEL</span><span class="o">=</span><span class="s">hf:microsoft/speecht5_tts</span>
-</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a><span class="na">AIMU_TRANSCRIPTION_MODEL</span><span class="o">=</span><span class="s">openai:whisper-1</span>
-</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="na">AIMU_EMBEDDING_MODEL</span><span class="o">=</span><span class="s">openai:text-embedding-3-small</span>
-</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>
-</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="c1"># MCP server storage</span>
-</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="na">MEMORY_STORE_PATH</span><span class="o">=</span><span class="s">./.aimu/memory</span>
-</span><span id="__span-1-23"><a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="na">DOCUMENT_STORE_PATH</span><span class="o">=</span><span class="s">./.aimu/docs</span>
-</span><span id="__span-1-24"><a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="na">PROMPT_CATALOG_PATH</span><span class="o">=</span><span class="s">./.aimu/prompts.db</span>
+<div class="language-ini highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Cloud API keys</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="na">ANTHROPIC_API_KEY</span><span class="o">=</span><span class="s">sk-ant-...</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="na">OPENAI_API_KEY</span><span class="o">=</span><span class="s">sk-...</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="na">GOOGLE_API_KEY</span><span class="o">=</span><span class="s">...</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># Default text model. Pins what aimu.chat() / aimu.client() / aimu.agent() use when</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># model= is omitted; without it AIMU picks whatever local model is already available.</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="na">AIMU_LANGUAGE_MODEL</span><span class="o">=</span><span class="s">ollama:qwen3.5:9b</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="c1"># Local search (SearXNG)</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="na">SEARXNG_BASE_URL</span><span class="o">=</span><span class="s">http://localhost:8080</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="c1"># The other modality defaults. No fallback: unset means the helper (and the matching</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="c1"># built-in tool) raises rather than guessing.</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="na">AIMU_IMAGE_MODEL</span><span class="o">=</span><span class="s">gemini:nano-banana</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="na">AIMU_AUDIO_MODEL</span><span class="o">=</span><span class="s">hf:facebook/musicgen-small</span>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a><span class="na">AIMU_SPEECH_MODEL</span><span class="o">=</span><span class="s">hf:microsoft/speecht5_tts</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="na">AIMU_TRANSCRIPTION_MODEL</span><span class="o">=</span><span class="s">openai:whisper-1</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="na">AIMU_EMBEDDING_MODEL</span><span class="o">=</span><span class="s">openai:text-embedding-3-small</span>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="c1"># MCP server storage</span>
+</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="na">MEMORY_STORE_PATH</span><span class="o">=</span><span class="s">./.aimu/memory</span>
+</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="na">DOCUMENT_STORE_PATH</span><span class="o">=</span><span class="s">./.aimu/docs</span>
+</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="na">PROMPT_CATALOG_PATH</span><span class="o">=</span><span class="s">./.aimu/prompts.db</span>
 </span></code></pre></div>
 <p>Place it in your project root. Don't commit it; add <code>.env</code> to <code>.gitignore</code>.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>

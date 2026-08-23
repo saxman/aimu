@@ -3248,8 +3248,8 @@
 <td><code>OllamaClient</code></td>
 <td><code>aimu[ollama]</code></td>
 <td>none</td>
-<td>local</td>
-<td><code>model_keep_alive_seconds=60</code></td>
+<td><code>OLLAMA_HOST</code>, else localhost:11434</td>
+<td><code>host=</code>, <code>model_keep_alive_seconds=60</code></td>
 <td>native (<code>ollama.AsyncClient</code>)</td>
 </tr>
 <tr>
@@ -3432,11 +3432,14 @@
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Ollama: keep model warm</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3.5:9b"</span><span class="p">,</span> <span class="n">model_keep_alive_seconds</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># llama-cpp: required model_path</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"llamacpp:qwen3-8b"</span><span class="p">,</span> <span class="n">model_path</span><span class="o">=</span><span class="s2">"/path/to/qwen3-8b.gguf"</span><span class="p">)</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># Ollama on another machine (or `"ollama:qwen3.5:9b@http://gpu-box:11434"`)</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3.5:9b"</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="s2">"http://gpu-box:11434"</span><span class="p">)</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># LM Studio: non-default port</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"lmstudio:qwen3.5-9b"</span><span class="p">,</span> <span class="n">base_url</span><span class="o">=</span><span class="s2">"http://myserver:1234/v1"</span><span class="p">)</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># llama-cpp: required model_path</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"llamacpp:qwen3-8b"</span><span class="p">,</span> <span class="n">model_path</span><span class="o">=</span><span class="s2">"/path/to/qwen3-8b.gguf"</span><span class="p">)</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="c1"># LM Studio: non-default port</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"lmstudio:qwen3.5-9b"</span><span class="p">,</span> <span class="n">base_url</span><span class="o">=</span><span class="s2">"http://myserver:1234/v1"</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="generation-parameters">Generation parameters<a class="headerlink" href="#generation-parameters" title="Permanent link">&para;</a></h2>
 <p>Sampling parameters come from four places. They are merged <strong>per parameter</strong> on every call, in
@@ -3720,6 +3723,7 @@ needs its own effort vocabulary.</p>
 <ul>
 <li><strong><code>GeminiClient</code></strong> uses Google's OpenAI-compatible endpoint. Gemini 2.5 thinking models emit <code>&lt;think&gt;</code> tags on this endpoint, so the shared <code>_ThinkingParser</code> works as-is.</li>
 <li><strong><code>OllamaClient</code></strong> (native API) supports vision via the message-level <code>images=</code> field; only inline base64 / data URLs work, http(s) URLs raise <code>ValueError</code>.</li>
+<li><strong><code>OllamaClient</code>, <code>AsyncOllamaClient</code>, and <code>OllamaEmbeddingClient</code></strong> take <code>host=</code> for a remote server, forwarded to the ollama SDK verbatim (bare host, <code>host:port</code>, or <code>scheme://host:port</code> all work). Pass the <strong>server root</strong>, not the <code>/v1</code> OpenAI-compatible path: the native API is served from the root, so a <code>/v1</code> suffix raises <code>ValueError</code> pointing at the <code>ollama-openai</code> provider. <code>OllamaClient</code> pulls the model eagerly in its constructor, so with <code>host=</code> set the pull runs on the remote machine. Give the embedding client the same <code>host=</code> as the text client -- embedding a corpus on one server and querying on another silently mixes vectors from two models.</li>
 <li><strong><code>LlamaCppClient</code></strong> loads GGUF files in-process. Vision needs an <code>mmproj</code> projector via the <code>chat_handler=</code> kwarg (e.g. <code>Llava15ChatHandler(clip_model_path=...)</code>).</li>
 <li><strong><code>HuggingFaceClient</code></strong> uses <code>AutoProcessor</code> for vision when available (Gemma 3/4, Qwen 3.5/3.6 VL). The model's <code>tool_call_format</code> enum value (<code>XML</code> / <code>JSON_OBJECT</code> / <code>JSON_ARRAY</code> / <code>BRACKETED</code>) tells the client how to parse tool calls.</li>
 <li><strong>MLX on Apple Silicon.</strong> Three providers execute MLX-optimized weights: <code>omlx</code> (a dedicated MLX server), <code>lmstudio</code> (LM Studio's MLX engine, selected automatically for MLX weights), and <code>ollama</code> (0.19+ runs an MLX backend on Apple Silicon for its own model library, transparently — the tags are unchanged, and it wants &gt;32 GB of unified memory). <strong><code>hf</code> and <code>llamacpp</code> are not MLX paths</strong>: <code>HuggingFaceClient</code> is torch/<code>transformers</code> and <code>LlamaCppClient</code> is GGML/GGUF, and neither can load MLX's quantized safetensors layout. mlx-community models are <em>hosted</em> on the HuggingFace Hub but only mlx-lm/mlx-vlm can run them, so there is no in-process MLX client.</li>

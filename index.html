@@ -3279,8 +3279,8 @@ path to seeing what a model can actually do.</p>
 <li><strong>Agents and workflows</strong>: <code>Agent</code> for autonomous tool-using loops; <code>Chain</code> / <code>Router</code> / <code>Parallel</code> / <code>EvaluatorOptimizer</code> for code-controlled patterns from Anthropic's <em>Building Effective Agents</em>.</li>
 <li><strong>Tools</strong>: <code>@tool</code> decorator for plain Python functions, plus a synchronous <code>MCPClient</code> wrapper for cross-process tools.</li>
 <li><strong>Skills</strong>: filesystem-discovered <code>SKILL.md</code> files that auto-inject capabilities into a <code>SkillAgent</code>.</li>
-<li><strong>Memory</strong>: semantic facts (ChromaDB), path-based documents (Anthropic Memory API), and conversation history (TinyDB).</li>
-<li><strong>Prompt management</strong>: versioned SQLite catalog plus a hill-climbing tuner with classification, multi-class, extraction, and judged variants.</li>
+<li><strong>Memory</strong>: semantic facts (ChromaDB, <code>aimu[memory]</code>), path-based documents (Anthropic Memory API, no extra needed), and conversation history (TinyDB).</li>
+<li><strong>Prompt management</strong>: versioned SQLite catalog (<code>aimu[prompts]</code>) plus a hill-climbing tuner (<code>aimu[tuning]</code>) with classification, multi-class, extraction, and judged variants.</li>
 <li><strong>Evaluation</strong>: DeepEval integration and a multi-model benchmark harness with CSV / JSON / catalog export.</li>
 <li><strong>Optional async surface</strong>: <code>aimu.aio</code> mirrors the whole sync API (same class names, one-import-away). <code>Parallel</code> and <code>concurrent_tool_calls</code> use <code>asyncio.TaskGroup</code> for structured concurrency. See <a href="explanation/async-design/">async design</a>.</li>
 </ul>

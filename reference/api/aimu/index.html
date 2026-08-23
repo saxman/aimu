@@ -3403,6 +3403,12 @@ priority (Ollama → HuggingFace cache → local servers), then enum-definition 
 within each provider.</p>
 <p><code>include_hf_cache=False</code> skips the HuggingFace cache probe (the async surface cannot
 wrap an <code>hf:</code> in-process client directly).</p>
+<p><strong>The Ollama probe is env-driven, not client-driven.</strong> It reads <code>OLLAMA_HOST</code> (else
+<code>127.0.0.1:11434</code>); a remote server reached with a per-client <code>OllamaClient(host=...)</code>
+does not appear here, and neither do the models on it. Export <code>OLLAMA_HOST</code> when you want
+discovery, default-model resolution, and ambiguous-name tiebreaking to consider a remote
+server. The same applies to the local OpenAI-compatible probes, which try each provider's
+default <code>base_url</code> rather than any <code>base_url=</code> a caller passed a client.</p>
 <p>See :func:<code>resolve_default_text_model_enum</code> for the single auto-pick, and
 :func:<code>aimu.resolve_model_enum</code> to resolve a <em>named</em> model to an enum member.</p>
 
@@ -3524,9 +3530,14 @@ client constructor, use :class:<code>ModelClient</code> directly.</p>
     <div class="doc doc-contents ">
 
         <p>Like :func:<code>resolve_default_text_model</code>, but return the <code>Model</code> enum member.</p>
-<p>Order: <code>AIMU_LANGUAGE_MODEL</code> (parsed via :func:<code>resolve_model_string</code>) → the first
-locally available model (tool-capable preferred; see :func:<code>available_text_models</code>) →
+<p>Order: <code>AIMU_LANGUAGE_MODEL</code> (parsed via :func:<code>resolve_model</code>) → the first locally
+available model (tool-capable preferred; see :func:<code>available_text_models</code>) →
 <code>ValueError</code>. Never selects a cloud provider and never downloads weights.</p>
+<p>A <code>Model</code> member names a catalogued id and carries nothing else, so the two extended
+forms have no representation here and are refused by name: an <code>@endpoint</code> and an ad-hoc
+<code>id;flags</code>. Both are valid in the env var (see :func:<code>resolve_default_text_model</code>, which
+returns the string), which is exactly why the refusal has to say so rather than report a
+valid id as unknown. Callers wanting the extended forms want the string resolver.</p>
 
 
     </div>
@@ -3580,10 +3591,16 @@ Parallel to :func:<code>aimu.resolve_model_enum</code> for the text modality.</p
 <p>Accepts, in order:</p>
 <ul>
 <li>a <code>Model</code> enum member (returned unchanged);</li>
-<li>a <code>"provider:model_id"</code> string (delegates to :func:<code>resolve_model_string</code>);</li>
+<li>a <code>"provider:model_id"</code> string (parsed by :func:<code>resolve_model</code>);</li>
 <li>a bare enum-member <em>name</em> (e.g. <code>"QWEN_3_8B"</code>), looked up across every installed
   provider's <code>Model</code> enum.</li>
 </ul>
+<p>A <code>Model</code> member names a catalogued id and carries nothing else, so the two extended
+string forms have no representation here and are refused <strong>by name</strong>: an <code>@endpoint</code> and
+an ad-hoc <code>id;flags</code>. Both are accepted by :class:<code>ModelClient</code> itself, which is why the
+refusal has to say which part it cannot represent; reporting a catalogued id as unknown
+(what validating the unsplit string did) points the reader at a typo that is not there.
+Callers wanting either form want the string, not this function.</p>
 <p>A bare name that ships under more than one provider's enum (common for text, where the same
 id is offered by many providers) is <strong>ambiguous</strong>. Rather than blindly picking the
 highest-priority provider, ambiguity is resolved the way the omitted-<code>model</code> default is:

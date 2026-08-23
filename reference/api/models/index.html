@@ -4873,7 +4873,7 @@ enum value even when <code>generation_kwargs</code> is a dict.</p>
 
 
 <a href="#aimu.models.Model" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Model</span><span class="p">(</span><span class="n">spec</span><span class="p">:</span> <span class="n">ModelSpec</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Model</span><span class="p">(</span><span class="n">spec</span><span class="p">:</span> <span class="n">ModelSpec</span> <span class="o">|</span> <span class="n">Wire</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -5404,7 +5404,7 @@ Mirrors :class:<code>aimu.tools.client.MCPConnectionError</code>.</p>
 
 
 <a href="#aimu.models.OllamaClient" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">OllamaClient</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">OllamaModel</span><span class="p">,</span> <span class="n">system_message</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">model_keep_alive_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">60</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_retries</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">OllamaClient</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">OllamaModel</span><span class="p">,</span> <span class="n">system_message</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">model_keep_alive_seconds</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">60</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_retries</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">host</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -6111,9 +6111,7 @@ Anthropic API format happens at call time.</p>
         <p>Public factory for text-embedding provider clients.</p>
 <p>Parallel to :class:<code>aimu.models.TranscriptionClient</code>. Accepts a provider's
 :class:<code>EmbeddingModel</code> enum member, an :class:<code>EmbeddingSpec</code>, or a
-<code>"provider:model_id"</code> string (<code>"openai:..."</code>, <code>"ollama:..."</code> or <code>"hf:..."</code>).
-Provider-specific construction kwargs are passed directly, e.g.
-<code>EmbeddingClient(model, device="cpu")</code>.</p>
+<code>"provider:model_id"</code> string (<code>"openai:..."</code>, <code>"ollama:..."</code> or <code>"hf:..."</code>).</p>
 <p>Examples::</p>
 <div class="language-text highlight"><pre><span></span><code>from aimu.models import EmbeddingClient, OpenAIEmbeddingModel
 
@@ -6121,8 +6119,11 @@ client = EmbeddingClient(OpenAIEmbeddingModel.TEXT_EMBEDDING_3_SMALL)
 client = EmbeddingClient("openai:text-embedding-3-small")
 client = EmbeddingClient("ollama:nomic-embed-text")
 </code></pre></div>
-<p>Provider-specific construction kwargs are passed directly::</p>
-<div class="language-text highlight"><pre><span></span><code>EmbeddingClient(HuggingFaceEmbeddingModel.BGE_SMALL_EN_V1_5, device="cpu")
+<p>Provider-specific construction kwargs are forwarded. A param the concrete client declares
+itself reaches it directly (<code>ProviderEntry.direct_kwargs</code>); anything else is bundled into
+<code>model_kwargs</code>, which is where a weight-loading client wants it::</p>
+<div class="language-text highlight"><pre><span></span><code>EmbeddingClient("ollama:nomic-embed-text", host="gpu-box")                  # -&gt; host=
+EmbeddingClient(HuggingFaceEmbeddingModel.BGE_SMALL_EN_V1_5, device="cpu")  # -&gt; model_kwargs=
 </code></pre></div>
 
 
@@ -6357,7 +6358,7 @@ overrides; otherwise <code>OPENAI_API_KEY</code> is read from the environment.</
 
 
 <a href="#aimu.models.OllamaEmbeddingClient" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">OllamaEmbeddingClient</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">OllamaEmbeddingModel</span> <span class="o">|</span> <span class="n">OllamaEmbeddingSpec</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span> <span class="n">model_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">OllamaEmbeddingClient</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">OllamaEmbeddingModel</span> <span class="o">|</span> <span class="n">OllamaEmbeddingSpec</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span> <span class="n">model_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">host</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -6370,6 +6371,9 @@ overrides; otherwise <code>OPENAI_API_KEY</code> is read from the environment.</
 <p>Pass an :class:<code>OllamaEmbeddingModel</code> member, an :class:<code>OllamaEmbeddingSpec</code>, or an
 <code>"ollama:&lt;model_id&gt;"</code> string. The model is pulled on construction (same as
 :class:<code>OllamaClient</code>).</p>
+<p><code>host</code> targets a remote Ollama server; pass the same value used for the text client, since
+embedding a corpus against one server and querying against another silently produces vectors
+from two different models.</p>
 
 
 

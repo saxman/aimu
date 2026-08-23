@@ -4092,7 +4092,7 @@ the connection.</p>
 </tr>
 <tr>
 <td><code>builtin.ALL_TOOLS</code></td>
-<td>All of the above <strong>except</strong> <code>execute_python</code> (sandboxed REPL; opt in via <code>builtin.compute</code>)</td>
+<td>All of the above <strong>except</strong> <code>execute_python</code> (not a sandbox; opt in via <code>builtin.compute</code>)</td>
 </tr>
 </tbody>
 </table>
@@ -4345,11 +4345,15 @@ is used and from_timezone is ignored.</p>
 
     <div class="doc doc-contents first">
 
-        <p>Execute Python code in a sandboxed environment and return the output.</p>
-<p>Captures stdout and the value of the last expression. Imports are limited
-to: math, statistics, json, re, itertools, functools, datetime, zoneinfo,
-and numpy/pandas/scipy/matplotlib when installed. File system and subprocess
-access are not available.</p>
+        <p>Execute Python code in this process and return its output.</p>
+<p>NOT A SECURITY BOUNDARY. Code runs in the calling process with restricted builtins
+and an import allowlist, which stops accidents, not attempts: a one-line expression
+reaches <code>subprocess.Popen</code> through the type hierarchy, and the filesystem through an
+allowlisted module's transitive attributes. Treat any code reaching this tool as code
+you have chosen to run. Gate it with <code>tool_approval</code> when the caller is untrusted.</p>
+<p>Captures stdout and the value of the last expression. Pre-imports math, statistics,
+json, re, itertools, functools, datetime, zoneinfo, and numpy/pandas/scipy/matplotlib
+when installed.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>

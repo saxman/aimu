@@ -3340,9 +3340,11 @@ procedure as code</strong> and run it as a tool, the self-improving pattern Herm
   runs through <code>uv run --script</code> so those dependencies resolve into an isolated environment. That is how
   a skill carries its own requirements instead of adding them to your host's.</li>
 <li><strong>stdin is closed</strong>, so a script that prompts gets <code>EOFError</code> at once rather than blocking until the
-  timeout. Take input through flags, or through <code>build_skills_server(manager, env=...)</code> when the host
-  needs to pass context the script cannot discover for itself (where to write output, which account to
-  use).</li>
+  timeout. Take input through flags, or through <code>SkillAgent(..., script_env={...})</code> when the host needs
+  to pass context the script cannot discover for itself (where to write output, which account to send
+  from). The agent merges that mapping over the inherited environment (so <code>PATH</code> survives) at both
+  places it builds the skills server, first run and <code>reload_skills()</code>. A host that builds that server
+  itself, rather than through an agent, passes the same mapping as <code>build_skills_server(manager, env=...)</code>.</li>
 <li><strong>The 30-second budget is synchronous</strong>, so a long job blocks the event loop on the async path.</li>
 </ul>
 <p><code>make_skill_script_tool(agent, manager, skills_dir)</code> returns an async <code>add_skill_script</code> tool. After
@@ -3355,11 +3357,16 @@ within the same turn:</p>
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">skills_dir</span> <span class="o">=</span> <span class="s2">".agents/skills"</span>
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">manager</span> <span class="o">=</span> <span class="n">SkillManager</span><span class="p">(</span><span class="n">skill_dirs</span><span class="o">=</span><span class="p">[</span><span class="n">skills_dir</span><span class="p">])</span>
 </span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"anthropic:claude-sonnet-4-6"</span><span class="p">,</span> <span class="n">system</span><span class="o">=</span><span class="s2">"You are a personal assistant."</span><span class="p">)</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">SkillAgent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">skill_manager</span><span class="o">=</span><span class="n">manager</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"assistant"</span><span class="p">)</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">agent</span><span class="o">.</span><span class="n">tools</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="n">make_skill_authoring_tool</span><span class="p">(</span><span class="n">manager</span><span class="p">,</span> <span class="n">skills_dir</span><span class="p">),</span>     <span class="c1"># author_skill(name, description, body)</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="n">make_skill_script_tool</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">manager</span><span class="p">,</span> <span class="n">skills_dir</span><span class="p">),</span> <span class="c1"># add_skill_script(skill_name, filename, content)</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="p">]</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">SkillAgent</span><span class="p">(</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="n">client</span><span class="p">,</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="n">skill_manager</span><span class="o">=</span><span class="n">manager</span><span class="p">,</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="n">name</span><span class="o">=</span><span class="s2">"assistant"</span><span class="p">,</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="n">script_env</span><span class="o">=</span><span class="p">{</span><span class="s2">"ASSISTANT_OUTPUT_DIR"</span><span class="p">:</span> <span class="s2">"/tmp/assistant"</span><span class="p">},</span>   <span class="c1"># reaches every script this agent runs</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="p">)</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="n">agent</span><span class="o">.</span><span class="n">tools</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    <span class="n">make_skill_authoring_tool</span><span class="p">(</span><span class="n">manager</span><span class="p">,</span> <span class="n">skills_dir</span><span class="p">),</span>     <span class="c1"># author_skill(name, description, body)</span>
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>    <span class="n">make_skill_script_tool</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="n">manager</span><span class="p">,</span> <span class="n">skills_dir</span><span class="p">),</span> <span class="c1"># add_skill_script(skill_name, filename, content)</span>
+</span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="p">]</span>
 </span></code></pre></div>
 <p>You can also attach scripts non-interactively with <code>write_skill(..., scripts={...})</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.skills</span><span class="w"> </span><span class="kn">import</span> <span class="n">write_skill</span>
@@ -3373,8 +3380,11 @@ within the same turn:</p>
 <p class="admonition-title">Scripts run with full access (no sandbox)</p>
 <p>Skill scripts execute as real subprocesses with your user privileges, exactly like OpenClaw and
 Hermes Agent. There is no sandbox. Only run an assistant that can author/run scripts with a model
-and inputs you trust. (<code>builtin.execute_python</code> is the sandboxed alternative for untrusted code:
-no filesystem or subprocess access.) The subprocess also blocks the event loop for up to its
+and inputs you trust. AIMU ships no containment boundary for untrusted code -- <code>builtin.execute_python</code>
+is not one either; it stops accidents, not attempts, from code you've already chosen to run. For
+untrusted input, gate the authoring/execution tools with a <a href="../gate-tool-calls/"><code>tool_approval</code></a>
+hook, or run generated code in an external sandbox (a container, a VM, a locked-down user account)
+that this library does not provide. The subprocess also blocks the event loop for up to its
 30-second timeout.</p>
 </div>
 <p>Because of that, the example gates the full-access <code>add_skill_script</code> tool with a
