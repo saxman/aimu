@@ -97,6 +97,10 @@ class Agent(_AgentLoopMixin, AsyncRunner):
     deps: Optional[Any] = None
     tool_approval: Optional[Callable] = None
     thinking: Optional[Union[bool, str]] = None
+    # Delivered by mutating model_client.events for the run's duration (see AsyncBaseModelClient.
+    # events); not safe if this agent's model_client is shared with another concurrently running
+    # agent (e.g. every worker Agent in a Parallel built via Parallel.from_client) -- events will
+    # drop and misorder. Give each concurrently-running agent its own model_client if that matters.
     events: Optional[EventSink] = None
     concurrent_tool_calls: bool = False
     _last_messages: list = field(default_factory=list, init=False, repr=False)
@@ -129,7 +133,12 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         per-run override of ``self.thinking`` (the portable reasoning control), applied to every
         model turn the run makes; ``events`` is a per-run override of ``self.events`` (a callable
         taking one :class:`~aimu.events.RunEvent`), attached to ``model_client.events`` for the
-        run's duration. See the sync :meth:`aimu.agents.Agent.run` for full semantics.
+        run's duration. **Not safe across agents that share a ``model_client`` and run
+        concurrently** (e.g. every worker ``Agent`` in a :class:`~aimu.agents.Parallel` built via
+        ``Parallel.from_client``): attaching a sink mutates shared state rather than passing a
+        per-call argument, so concurrent runs will drop and misorder events. Give each
+        concurrently-running agent its own ``model_client`` if you need reliable delivery. See the
+        sync :meth:`aimu.agents.Agent.run` for full semantics.
         """
         thinking = thinking if thinking is not None else self.thinking
         events = events if events is not None else self.events
@@ -140,6 +149,11 @@ class Agent(_AgentLoopMixin, AsyncRunner):
                 )
             self._prepare_run(deps, tool_approval)
             try:
+                # Raw events (unwrapped by _attributing_sink, unlike the tool-loop call
+                # sites): this path emits no turn events today (schema= does not currently
+                # call _emit_turn_started/_emit_turn_finished), so there is nothing for the
+                # wrapper to attribute yet. Swap in self._attributing_sink() here too if that
+                # ever changes.
                 with self.model_client._events_override(events):
                     return await self.model_client.chat(
                         task, generate_kwargs=generate_kwargs, images=images, schema=schema, thinking=thinking
@@ -212,6 +226,10 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         with this agent's name; snapshots ``_last_messages`` in a ``finally`` for cancel-safe resume."""
         self._prepare_run(deps, tool_approval)
         try:
+            # Raw events (unwrapped by _attributing_sink, unlike the tool-loop call sites):
+            # this path emits no turn events today (schema= does not currently call
+            # _emit_turn_started/_emit_turn_finished), so there is nothing for the wrapper to
+            # attribute yet. Swap in self._attributing_sink() here too if that ever changes.
             with self.model_client._events_override(events):
                 stream = await self.model_client.chat(
                     task,

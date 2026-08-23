@@ -89,17 +89,18 @@ class _AsyncToolLoop(_BaseToolLoop):
                         return result
                     rounds += 1
 
-                last_iteration = rounds
-                self._current_iteration = rounds + 1
                 result = await self._forced_wrap_up(response, generate_kwargs)
                 return result
         except BaseException as exc:
             error = exc
             raise
         finally:
+            # self._current_iteration (not last_iteration) so the forced-wrap-up turn -- one
+            # more real model call, made after the while loop above stops updating either
+            # variable -- is reported at the round it actually happened in.
             emit(
                 self._events,
-                RunFinished(agent=self._agent_name, iteration=last_iteration, result=result, error=error),
+                RunFinished(agent=self._agent_name, iteration=self._current_iteration, result=result, error=error),
             )
 
     async def run_streamed(
@@ -194,6 +195,10 @@ class _AsyncToolLoop(_BaseToolLoop):
         if classify_terminal_turn(self._client.messages) == TERMINAL_HEALTHY:
             return response
         injected_at = len(self._client.messages)
+        # Only advance past the last real turn's iteration when a real call is about to be
+        # made (this branch): the healthy check above already returned without one, so
+        # self._current_iteration must stay put and keep pointing at that last real turn.
+        self._current_iteration += 1
         response = await self._client.chat(
             self._wrap_up_prompt(),
             generate_kwargs=generate_kwargs,

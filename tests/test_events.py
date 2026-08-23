@@ -364,6 +364,64 @@ def test_turn_events_are_attributed_to_the_named_agent():
     assert iterations == [0, 0, 1, 1]
 
 
+def test_run_finished_iteration_matches_the_forced_wrap_up_turn():
+    """RunFinished.iteration must land on the round the forced wrap-up actually ran in, not
+    one behind it. The wrap-up is one more real model call issued after the round-cap while
+    loop exits, so a naive iteration bookkeeping variable that only updates inside that loop
+    is stale by exactly one turn once the wrap-up fires -- this pins the fix."""
+    from aimu.agents.agent import Agent
+    from aimu.events import ModelTurnFinished, RunFinished
+
+    seen = []
+    client = MockModelClient(["tool", "tool", "final answer"])
+    agent = Agent(client, max_iterations=2, events=seen.append)
+    result = agent.run("go")
+
+    assert result == "final answer"
+    turn_finished = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert len(turn_finished) == 3  # initial tool turn, second tool turn, forced wrap-up turn
+    finished = next(e for e in seen if isinstance(e, RunFinished))
+    assert finished.iteration == turn_finished[-1].iteration == 2
+
+
+def test_concurrent_tool_dispatch_emits_exactly_one_tool_called_each():
+    """Sync mirror of the async ThreadPoolExecutor concurrency test: the sync engine
+    dispatches concurrent tool calls under ThreadPoolExecutor too, and each must emit
+    exactly one ToolCalled -- asserting the count (not mere presence) catches a sink
+    firing twice for one dispatched call, which a presence check would miss."""
+    from aimu.agents.agent import Agent
+    from aimu.tools import tool
+
+    @tool
+    def slow_add(a: int, b: int) -> int:
+        """Add two numbers slowly."""
+        import time
+
+        time.sleep(0.01)
+        return a + b
+
+    seen = []
+    client = MockModelClient(
+        [
+            {
+                "tools": [
+                    {"name": "slow_add", "arguments": {"a": 1, "b": 2}},
+                    {"name": "slow_add", "arguments": {"a": 3, "b": 4}},
+                ]
+            },
+            "done",
+        ]
+    )
+    agent = Agent(client, tools=[slow_add], concurrent_tool_calls=True, events=seen.append)
+
+    assert agent.run("add two pairs") == "done"
+
+    called = [e for e in seen if isinstance(e, ToolCalled)]
+    assert len(called) == 2
+    results = sorted(c.result for c in called)
+    assert results == ["3", "7"]
+
+
 def test_a_denied_tool_emits_ToolDenied_not_ToolCalled():
     """Gate a tool with a refusing approval policy and assert the event pair."""
     from aimu.agents.agent import Agent

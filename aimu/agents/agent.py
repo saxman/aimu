@@ -80,6 +80,10 @@ class Agent(_AgentLoopMixin, Runner):
     deps: Optional[Any] = None
     tool_approval: Optional[Callable] = None
     thinking: Optional[Union[bool, str]] = None
+    # Delivered by mutating model_client.events for the run's duration (see BaseModelClient.events);
+    # not safe if this agent's model_client is shared with another concurrently running agent (e.g.
+    # every worker Agent in a Parallel built via Parallel.from_client) -- events will drop and
+    # misorder. Give each concurrently-running agent its own model_client if that matters.
     events: Optional[EventSink] = None
     concurrent_tool_calls: bool = False
     _last_messages: list = field(default_factory=list, init=False, repr=False)
@@ -137,7 +141,11 @@ class Agent(_AgentLoopMixin, Runner):
         run (restored afterward, even if the run raises), so the client's own turn events reach
         it alongside the loop's own :class:`~aimu.events.RunStarted` / :class:`RunFinished` /
         :class:`ToolCalled` / :class:`ToolDenied`, every one stamped with this agent's name and
-        the current loop iteration.
+        the current loop iteration. **Not safe across agents that share a ``model_client`` and
+        run concurrently** (e.g. every worker ``Agent`` in a :class:`~aimu.agents.Parallel` built
+        via ``Parallel.from_client``): attaching a sink is a mutation of shared state, not a
+        per-call argument, so concurrent runs will drop and misorder events. Give each
+        concurrently-running agent its own ``model_client`` if you need reliable delivery.
         """
         thinking = thinking if thinking is not None else self.thinking
         events = events if events is not None else self.events
@@ -147,6 +155,11 @@ class Agent(_AgentLoopMixin, Runner):
                     task, generate_kwargs, images, deps, tool_approval, schema, thinking, events
                 )
             self._prepare_run(deps, tool_approval)
+            # Raw events (unwrapped by _attributing_sink, unlike the tool-loop call sites):
+            # this path emits no turn events today (the schema= structured-output path does
+            # not currently call _emit_turn_started/_emit_turn_finished), so there is nothing
+            # for the wrapper to attribute yet. If that ever changes, swap in
+            # self._attributing_sink() here too, the same as the tool-loop call sites.
             with self.model_client._events_override(events):
                 result = self.model_client.chat(
                     task, generate_kwargs=generate_kwargs, images=images, schema=schema, thinking=thinking
@@ -236,6 +249,11 @@ class Agent(_AgentLoopMixin, Runner):
         in a ``finally`` so a cancelled/partial run still records its turn."""
         self._prepare_run(deps, tool_approval)
         try:
+            # Raw events (unwrapped by _attributing_sink, unlike the tool-loop call sites):
+            # this path emits no turn events today (the schema= structured-output path does
+            # not currently call _emit_turn_started/_emit_turn_finished), so there is nothing
+            # for the wrapper to attribute yet. If that ever changes, swap in
+            # self._attributing_sink() here too, the same as the tool-loop call sites.
             with self.model_client._events_override(events):
                 for chunk in self.model_client.chat(
                     task,

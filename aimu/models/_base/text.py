@@ -180,6 +180,12 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         self.last_output_truncated = False
         self.last_structured = None
         self.last_request = None
+        # Delivered the same way ``tools=`` is (a plain attribute mutation, not a per-call
+        # argument): a client shared by concurrently running callers (e.g. every worker Agent
+        # in a Parallel built via ``Parallel.from_client``) will drop and misorder events under
+        # concurrent access, the same hazard ``_tools_override`` already documents for ``tools``.
+        # Give each concurrently-running agent its own model_client if you need reliable
+        # per-agent event delivery.
         self.events = events
 
     def _record_request(self, payload: Any) -> None:

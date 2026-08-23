@@ -269,6 +269,24 @@ async def test_async_turn_events_are_attributed_to_the_named_agent():
     assert iterations == [0, 0, 1, 1]
 
 
+async def test_async_run_finished_iteration_matches_the_forced_wrap_up_turn():
+    """Async mirror: RunFinished.iteration must land on the forced wrap-up turn's round,
+    not one behind it."""
+    from aimu.aio.agent import Agent
+    from aimu.events import ModelTurnFinished, RunFinished
+
+    seen = []
+    client = MockAsyncModelClient(["tool", "tool", "final answer"])
+    agent = Agent(client, max_iterations=2, events=seen.append)
+    result = await agent.run("go")
+
+    assert result == "final answer"
+    turn_finished = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert len(turn_finished) == 3
+    finished = next(e for e in seen if isinstance(e, RunFinished))
+    assert finished.iteration == turn_finished[-1].iteration == 2
+
+
 async def test_async_a_denied_tool_emits_ToolDenied_not_ToolCalled():
     from aimu.aio.agent import Agent
     from aimu.events import ToolCalled, ToolDenied

@@ -146,3 +146,61 @@ def test_parallel_from_client_with_aggregator_prompt():
     assert parallel.aggregator is not None
     result = parallel.run("topic")
     assert result == "synthesized"
+
+
+def test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events():
+    """PINS A KNOWN GAP -- documents current (broken) behaviour, not a desired contract.
+    See the concurrency caveat on ``Agent.events`` / ``BaseModelClient.events``.
+
+    ``Parallel.from_client`` builds every worker ``Agent`` over one shared ``model_client``
+    (see ``from_client`` above) and, in real use, ``Parallel.run()`` executes them
+    concurrently via a ``ThreadPoolExecutor``. ``_events_override`` delivers a sink by
+    mutating ``client.events`` -- the identical shared-mutable-state idiom
+    ``_tools_override`` already carries for ``tools=`` and already documents as "not safe
+    across concurrent chat() calls on a shared client". Two workers whose runs overlap on
+    that one client can clobber each other's sink, so a caller who attaches ``events=`` to
+    each worker Agent still loses and misorders events.
+
+    Reproduced deterministically here by manually interleaving two ``_events_override``
+    scopes on one client in the exact order concurrent workers can land in -- not via real
+    threads, so this is not a timing-dependent/flaky test, just a pin of the mechanism.
+    Delete this test (don't "fix" it in place) the day sink delivery stops being a mutation
+    of shared client state -- see the coordinator's design note on why that fix is deferred.
+    """
+    from aimu.events import RunFinished, emit
+
+    client = MockModelClient([])
+    seen_a: list = []
+    seen_b: list = []
+    sink_a = seen_a.append
+    sink_b = seen_b.append
+
+    # worker-a's Agent.run() enters its _events_override scope first...
+    scope_a = client._events_override(sink_a)
+    scope_b = client._events_override(sink_b)
+    scope_a.__enter__()
+    assert client.events is sink_a
+
+    # ...but before worker-a's run finishes, worker-b's Agent.run() (a different thread, same
+    # shared client) enters its own scope and clobbers the live sink.
+    scope_b.__enter__()
+    assert client.events is sink_b
+
+    emit(client.events, RunFinished(result="worker-b's own turn"))
+    assert seen_b == [RunFinished(result="worker-b's own turn")]
+
+    # worker-a finishes first and restores *its own* saved value (None, what it saw on
+    # entry) -- not worker-b's, because _events_override has no idea another scope is
+    # still open on the same client.
+    scope_a.__exit__(None, None, None)
+    assert client.events is None  # <- the gap: worker-b's scope is still open, sink is gone
+
+    # Any event worker-b's still-running turn tries to report now silently drops (this is
+    # the coordinator's reproduction: 11 of an expected 12 events observed).
+    emit(client.events, RunFinished(result="dropped"))
+    assert seen_b == [RunFinished(result="worker-b's own turn")]  # the second event never arrived
+
+    # worker-b finishes and restores *its* saved value -- worker-a's sink, not the true
+    # original -- leaving the client's events attribute wrong even after both runs "finished".
+    scope_b.__exit__(None, None, None)
+    assert client.events is sink_a  # <- also wrong: not the pre-run None

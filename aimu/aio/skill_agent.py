@@ -147,6 +147,11 @@ class SkillAgent(Agent):
                 # Skill setup is already done above; forward the client's structured stream.
                 return self._structured_stream_after_setup(task, generate_kwargs, images, schema, thinking, events)
             try:
+                # Raw events (unwrapped by _attributing_sink, unlike the tool-loop call
+                # sites): this path emits no turn events today (schema= does not currently
+                # call _emit_turn_started/_emit_turn_finished), so there is nothing for the
+                # wrapper to attribute yet. Swap in self._attributing_sink() here too if that
+                # ever changes.
                 with self.model_client._events_override(events):
                     return await self.model_client.chat(
                         task, generate_kwargs=generate_kwargs, images=images, schema=schema, thinking=thinking
@@ -166,6 +171,10 @@ class SkillAgent(Agent):
         Mirrors :meth:`aimu.aio.Agent._run_structured_streamed` but does not re-prepare (which
         would reset ``model_client.tools`` and wipe the injected skills)."""
         try:
+            # Raw events (unwrapped by _attributing_sink, unlike the tool-loop call sites):
+            # this path emits no turn events today (schema= does not currently call
+            # _emit_turn_started/_emit_turn_finished), so there is nothing for the wrapper to
+            # attribute yet. Swap in self._attributing_sink() here too if that ever changes.
             with self.model_client._events_override(events):
                 stream = await self.model_client.chat(
                     task,
