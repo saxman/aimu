@@ -39,6 +39,8 @@ use ``asyncio.TaskGroup``: if one worker raises, siblings are cancelled and an
 ``ExceptionGroup`` surfaces with all failures.
 """
 
+from typing import TYPE_CHECKING
+
 from ._model_client import AsyncModelClient, client, chat
 from aimu.models import ContextOverflowError, ModelConnectionError
 from .fallback import AsyncFallbackClient
@@ -81,6 +83,16 @@ _LAZY_ASYNC_SYMBOLS: dict[str, tuple[str, str]] = {
 # aimu.tools.__init__ already uses for the sync MCPClient, deferring fastmcp's real cost
 # until a caller actually touches MCP.
 _LAZY_REQUIRED_SYMBOLS = frozenset({"MCPClient"})
+
+if TYPE_CHECKING:  # pragma: no cover
+    # A static-analysis-only binding for the name __getattr__ resolves at runtime.
+    # PEP 562 lookup is invisible to anything that reads the source without importing
+    # it, so griffe (behind mkdocstrings) could not collect `aimu.aio.MCPClient` and
+    # the docs build aborted -- listing it in __all__ is not enough, since there is no
+    # assignment for a static reader to follow. This import never executes, so the
+    # lazy resolution below still owns the runtime behaviour and fastmcp's import cost
+    # stays off `import aimu.aio`. Type checkers get the same benefit.
+    from ._mcp_client import MCPClient
 
 
 def __getattr__(name: str):

@@ -1,4 +1,6 @@
 # Always available
+from typing import TYPE_CHECKING
+
 from ._internal.json import extract_tool_calls, generate_json, parse_json_response
 from .audio_client import AudioClient, resolve_audio_model_string
 from .base import (
@@ -69,6 +71,35 @@ from ._internal.factory import installed as _installed
 
 # symbol name -> (module, third-party dependency probed for availability)
 _LAZY_PROVIDER_SYMBOLS: dict[str, tuple[str, str]] = {}
+
+if TYPE_CHECKING:  # pragma: no cover
+    # Static-analysis-only bindings for names __getattr__ resolves at runtime.
+    # PEP 562 lookup is invisible to anything reading the source without importing
+    # it, so griffe (behind mkdocstrings) cannot collect these and the docs build
+    # aborts on the first one -- being listed in __all__ is not enough, since there
+    # is no assignment for a static reader to follow. These imports never execute,
+    # so the lazy resolution below still owns runtime behaviour and the optional
+    # dependencies stay uninstalled-safe. Type checkers get the same benefit.
+    # `X as X` is the redundant-alias re-export convention (PEP 484): it tells ruff and
+    # type checkers these are deliberate re-exports, which a plain import cannot convey
+    # here because this module builds __all__ dynamically inside the HAS_* guards below.
+    from .providers.anthropic import AnthropicClient as AnthropicClient
+    from .providers.gemini.text import GeminiClient as GeminiClient
+    from .providers.hf.embedding import HuggingFaceEmbeddingClient as HuggingFaceEmbeddingClient
+    from .providers.hf.text import HuggingFaceClient as HuggingFaceClient
+    from .providers.llamacpp import LlamaCppClient as LlamaCppClient
+    from .providers.ollama import OllamaClient as OllamaClient
+    from .providers.ollama import OllamaEmbeddingClient as OllamaEmbeddingClient
+    from .providers.openai.embedding import OpenAIEmbeddingClient as OpenAIEmbeddingClient
+    from .providers.openai.text import OpenAIClient as OpenAIClient
+    from .providers.openai_compat import HFOpenAIClient as HFOpenAIClient
+    from .providers.openai_compat import LlamaServerOpenAIClient as LlamaServerOpenAIClient
+    from .providers.openai_compat import LMStudioOpenAIClient as LMStudioOpenAIClient
+    from .providers.openai_compat import OllamaOpenAIClient as OllamaOpenAIClient
+    from .providers.openai_compat import OMLXOpenAIClient as OMLXOpenAIClient
+    from .providers.openai_compat import OpenAICompatClient as OpenAICompatClient
+    from .providers.openai_compat import SGLangOpenAIClient as SGLangOpenAIClient
+    from .providers.openai_compat import VLLMOpenAIClient as VLLMOpenAIClient
 
 
 def _register(module: str, requires: str, *symbols: str) -> None:

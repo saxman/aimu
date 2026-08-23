@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 from importlib import import_module as _import_module
 
 from aimu.skills.authoring import make_skill_authoring_tool, make_skill_script_tool, write_skill
@@ -12,6 +14,16 @@ from aimu.skills.validate import SkillSpecError, validate_frontmatter
 # on every `import aimu.skills` (and everything that imports SkillManager alongside it, e.g.
 # aimu.agents.skill_agent / aimu.aio.skill_agent).
 _LAZY_MCP_SYMBOLS = frozenset({"build_skills_server"})
+
+if TYPE_CHECKING:  # pragma: no cover
+    # Static-analysis-only bindings for names __getattr__ resolves at runtime.
+    # PEP 562 lookup is invisible to anything reading the source without importing
+    # it, so griffe (behind mkdocstrings) cannot collect these and the docs build
+    # aborts on the first one -- being listed in __all__ is not enough, since there
+    # is no assignment for a static reader to follow. These imports never execute,
+    # so the lazy resolution below still owns runtime behaviour and the optional
+    # dependencies stay uninstalled-safe. Type checkers get the same benefit.
+    from .mcp import build_skills_server
 
 
 def __getattr__(name: str):
