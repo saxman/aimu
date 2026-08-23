@@ -156,3 +156,126 @@ def test_abandoned_stream_still_reports_partial_text():
 
     finished = [e for e in seen if isinstance(e, ModelTurnFinished)]
     assert len(finished) == 1
+
+
+# ---------------------------------------------------------------------------
+# Wrapper double-emit regression tests.
+#
+# A ModelTurnStarted/ModelTurnFinished pair must mean exactly one real request to a
+# provider. A wrapper client (one whose chat()/generate() delegates to some other
+# client rather than issuing a request itself) must never emit a phantom pair of its
+# own on top of the real one(s) the delegate reports. Each test below asserts an exact
+# count, not mere presence, since a duplicate-emission bug still passes a presence check.
+# ---------------------------------------------------------------------------
+
+
+def test_agentic_view_single_turn_chat_emits_exactly_one_pair():
+    """Agent.as_model_client().chat() for a plain (no-tool-call) turn is one real request:
+    the view itself must not add a second, phantom pair on top of the inner client's."""
+    from aimu.agents.agent import Agent
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+
+    client = MockModelClient(["final answer"])
+    client.model.supports_tools = False
+    view = Agent(client).as_model_client()
+    seen = []
+    view.events = seen.append
+
+    assert view.chat("question") == "final answer"
+
+    assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
+    assert sum(isinstance(e, ModelTurnFinished) for e in seen) == 1
+
+
+def test_agentic_view_tool_loop_chat_emits_one_pair_per_real_turn():
+    """A tool-calling loop makes two real model requests (the tool-call turn and the
+    follow-up); the view must report exactly two pairs, not four (two real + two phantom)."""
+    from aimu.agents.agent import Agent
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+
+    client = MockModelClient(["tool", "after tool"])
+    view = Agent(client, max_iterations=5).as_model_client()
+    seen = []
+    view.events = seen.append
+
+    assert view.chat("do something with tools") == "after tool"
+    assert client._call_count == 2  # sanity: two real requests did happen
+
+    assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 2
+    assert sum(isinstance(e, ModelTurnFinished) for e in seen) == 2
+
+
+def test_agentic_view_generate_emits_exactly_one_pair():
+    """generate() bypasses the agent loop and delegates straight to the inner client's
+    real generate() -- one real request, so exactly one pair, not zero and not two."""
+    from aimu.agents.agent import Agent
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+
+    client = MockModelClient(["generated"])
+    client.model.supports_tools = False
+    view = Agent(client).as_model_client()
+    seen = []
+    view.events = seen.append
+
+    assert view.generate("prompt") == "generated"
+    assert client._call_count == 1
+
+    assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
+    assert sum(isinstance(e, ModelTurnFinished) for e in seen) == 1
+
+
+def test_agentic_view_streamed_chat_emits_exactly_one_pair():
+    """The streaming path must not double-wrap either: the view's own _emit_when_drained
+    is a no-op pass-through, so only the inner client's real streamed turn reports."""
+    from aimu.agents.agent import Agent
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+
+    client = MockModelClient(["stream result"])
+    client.model.supports_tools = False
+    view = Agent(client).as_model_client()
+    seen = []
+    view.events = seen.append
+
+    chunks = list(view.chat("task", stream=True))
+    assert chunks  # sanity: the mock actually streamed something
+
+    assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
+    assert sum(isinstance(e, ModelTurnFinished) for e in seen) == 1
+
+
+def test_fallback_client_chat_emits_exactly_one_pair():
+    """FallbackClient fully overrides chat()/generate() (it never calls the inherited
+    _chat()/_generate() turn-tracking on itself) and delegates to the winning inner
+    client's own public chat(), so it never had the wrapper double-emit shape -- confirmed
+    here so a future refactor that reintroduces delegation via _chat()/_generate() trips
+    this test rather than silently regressing."""
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+    from aimu.models.fallback import FallbackClient
+
+    primary = MockModelClient(["ok"])
+    fc = FallbackClient([primary])
+    seen = []
+    fc.events = seen.append
+
+    assert fc.chat("hi") == "ok"
+
+    assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
+    assert sum(isinstance(e, ModelTurnFinished) for e in seen) == 1
+    # events is pushed down by _load_state so the winning attempt is the one that emits.
+    assert primary.events is not None
+
+
+def test_fallback_client_streamed_chat_emits_exactly_one_pair():
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+    from aimu.models.fallback import FallbackClient
+
+    primary = MockModelClient(["streamed"])
+    fc = FallbackClient([primary])
+    seen = []
+    fc.events = seen.append
+
+    chunks = list(fc.chat("hi", stream=True))
+    assert chunks
+
+    assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
+    assert sum(isinstance(e, ModelTurnFinished) for e in seen) == 1

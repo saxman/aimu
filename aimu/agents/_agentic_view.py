@@ -30,6 +30,25 @@ class _AgenticViewMixin:
         self.model = self._inner_client.model
         self.model_kwargs = self._inner_client.model_kwargs
 
+    # --- Turn-event suppression: the view is never itself one real model request ---
+    #
+    # A ModelTurnStarted/ModelTurnFinished pair means one real request to a provider. This
+    # view's chat() drives a whole Agent loop -- each real request inside that loop already
+    # emits via the inner client's own chat() calls -- and its generate() delegates straight
+    # to the inner client's real generate() (see _generate on each concrete view), which
+    # emits for that one real request on its own. Either way, this view calling the
+    # inherited chat()/generate() turn-tracking would be a phantom event with no
+    # corresponding request, so it is unconditionally a no-op here. `events` (below) still
+    # delegates to the inner client so the real requests keep reaching the sink.
+    def _emit_turn_started(self, pending_user_message: Optional[str] = None) -> tuple[None, str]:
+        return None, ""
+
+    def _emit_turn_finished(self, model_id: str, started: Optional[float], result: Any) -> None:
+        return None
+
+    def _emit_when_drained(self, chunks: Any, started: Optional[float], model_id: str) -> Any:
+        return chunks
+
     # --- Delegate mutable state to inner_client so both stay in sync ---
 
     @property

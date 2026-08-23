@@ -46,5 +46,8 @@ class _AgenticView(_AgenticViewMixin, BaseModelClient):
         images: Optional[list] = None,
         audio: Optional[list] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
-        # generate() bypasses the agent loop (no message history, no tools).
-        return self._inner_client._generate(prompt, generate_kwargs, stream=stream, images=images, audio=audio)
+        # generate() bypasses the agent loop (no message history, no tools). Delegating to
+        # the inner client's public generate() -- not its private _generate() -- means the
+        # inner client's own turn-tracking reports this one real request; this view's own
+        # tracking is suppressed (see _AgenticViewMixin), so exactly one pair fires, not zero.
+        return self._inner_client.generate(prompt, generate_kwargs, stream=stream, images=images, audio=audio)

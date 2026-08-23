@@ -81,3 +81,120 @@ async def test_async_abandoned_stream_still_reports_partial_text():
 
     finished = [e for e in seen if isinstance(e, ModelTurnFinished)]
     assert len(finished) == 1
+
+
+# ---------------------------------------------------------------------------
+# Wrapper double-emit regression tests (async mirror of tests/test_events.py).
+# ---------------------------------------------------------------------------
+
+
+async def test_async_agentic_view_single_turn_chat_emits_exactly_one_pair():
+    from aimu.aio.agent import Agent
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+
+    client = MockAsyncModelClient(["final answer"])
+    client.model.supports_tools = False
+    view = Agent(client).as_model_client()
+    seen = []
+    view.events = seen.append
+
+    assert await view.chat("question") == "final answer"
+
+    assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
+    assert sum(isinstance(e, ModelTurnFinished) for e in seen) == 1
+
+
+async def test_async_agentic_view_tool_loop_chat_emits_one_pair_per_real_turn():
+    from aimu.aio.agent import Agent
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+
+    client = MockAsyncModelClient(["tool", "after tool"])
+    view = Agent(client, max_iterations=5).as_model_client()
+    seen = []
+    view.events = seen.append
+
+    assert await view.chat("do something with tools") == "after tool"
+    assert client._call_count == 2  # sanity: two real requests did happen
+
+    assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 2
+    assert sum(isinstance(e, ModelTurnFinished) for e in seen) == 2
+
+
+async def test_async_agentic_view_generate_emits_exactly_one_pair():
+    from aimu.aio.agent import Agent
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+
+    client = MockAsyncModelClient(["generated"])
+    client.model.supports_tools = False
+    view = Agent(client).as_model_client()
+    seen = []
+    view.events = seen.append
+
+    assert await view.generate("prompt") == "generated"
+    assert client._call_count == 1
+
+    assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
+    assert sum(isinstance(e, ModelTurnFinished) for e in seen) == 1
+
+
+async def test_async_agentic_view_streamed_chat_emits_exactly_one_pair():
+    from aimu.aio.agent import Agent
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+
+    client = MockAsyncModelClient(["stream result"])
+    client.model.supports_tools = False
+    view = Agent(client).as_model_client()
+    seen = []
+    view.events = seen.append
+
+    stream = await view.chat("task", stream=True)
+    chunks = [c async for c in stream]
+    assert chunks
+
+    assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
+    assert sum(isinstance(e, ModelTurnFinished) for e in seen) == 1
+
+
+async def test_async_fallback_client_chat_emits_exactly_one_pair():
+    """AsyncFallbackClient shares the same shape as the sync FallbackClient: it fully
+    overrides chat()/generate() and delegates to the winning inner client's own public
+    chat(), so it never had the wrapper double-emit defect. Confirmed here so a future
+    refactor can't silently reintroduce it."""
+    from aimu.aio.fallback import AsyncFallbackClient
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+
+    primary = MockAsyncModelClient(["ok"])
+    fc = AsyncFallbackClient([primary])
+    seen = []
+    fc.events = seen.append
+
+    assert await fc.chat("hi") == "ok"
+
+    assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
+    assert sum(isinstance(e, ModelTurnFinished) for e in seen) == 1
+    assert primary.events is not None
+
+
+async def test_async_in_process_client_chat_emits_exactly_one_pair():
+    """_AsyncInProcessClient (AsyncHuggingFaceClient/AsyncLlamaCppClient's shared base)
+    wraps a sync client but calls its private _chat()/_generate() directly (via
+    asyncio.to_thread), never the sync client's own public chat()/generate() -- so only
+    the async wrapper's inherited turn-tracking fires, exactly once per real request. No
+    fix was needed here; this test documents and locks in that it was already correct."""
+    from aimu.aio.providers._inprocess import _AsyncInProcessClient
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+    from tests.helpers import MockModelClient
+
+    class _Wrapper(_AsyncInProcessClient):
+        _SYNC_CLASS = MockModelClient
+
+    sync_client = MockModelClient(["hi back"])
+    sync_client.model.supports_tools = False
+    wrapper = _Wrapper(sync_client)
+    seen = []
+    wrapper.events = seen.append
+
+    assert await wrapper.chat("hello") == "hi back"
+
+    assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
+    assert sum(isinstance(e, ModelTurnFinished) for e in seen) == 1
