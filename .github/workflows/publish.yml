@@ -16,28 +16,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v5
         with:
-          # 3.11 is the floor pyproject promises, so it is the version most
-          # likely to catch a syntax or stdlib assumption newer runtimes forgive.
-          python-version: '3.11'
-          cache: pip
+          enable-cache: true
       - name: Install dependencies
-        # The full [all] extra is required, not merely thorough: several test
-        # modules import provider catalogs at module scope (test_docs_model_matrix
-        # imports LlamaCppModel), so a missing extra fails collection rather than
-        # skipping, which would silently gut the catalog guards.
+        # `uv sync` installs the committed uv.lock, so CI gets byte-for-byte what a
+        # developer running the documented `uv sync --all-extras` has. Resolving fresh
+        # here instead (`pip install -e '.[all,dev]'`) is what broke the first run of
+        # this workflow: pip backtracked past a transitive conflict and landed on
+        # deepeval 2.6.6, which imports langchain without declaring it -- and since
+        # deepeval registers a pytest11 plugin, that import failure took down the whole
+        # suite at startup, on a tree no developer had ever run.
         #
-        # llama-cpp-python publishes an sdist only and compiles from source, so a
-        # cold run costs ~10-15 min here. `cache: pip` above caches the built
-        # wheel, and later runs reuse it.
-        run: pip install -e '.[all,dev]'
+        # --all-extras is required, not merely thorough: several test modules import
+        # provider catalogs at module scope (test_docs_model_matrix imports
+        # LlamaCppModel), so a missing extra fails collection rather than skipping,
+        # which would silently gut the catalog guards.
+        #
+        # 3.11 is the floor pyproject promises, so it is the version most likely to
+        # catch a syntax or stdlib assumption newer runtimes forgive. llama-cpp-python
+        # publishes an sdist only and compiles from source, so a cold run is slow;
+        # enable-cache above makes later runs reuse the built wheel.
+        run: uv sync --all-extras --python 3.11
       - name: Lint
         run: |
-          ruff check .
-          ruff format --check .
+          uv run ruff check .
+          uv run ruff format --check .
       - name: Test
-        run: pytest -q
+        run: uv run pytest -q
 
   publish:
     name: Publish
@@ -49,10 +55,9 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v5
         with:
-          python-version: '3.11'
-          cache: pip
+          enable-cache: true
 
       - name: Check the tag matches the packaged version
         # A forgotten `0.21.0.dev0` -> `0.21.0` bump is otherwise invisible until
@@ -60,7 +65,7 @@ jobs:
         # version number cannot be reused once published.
         run: |
           tag="${GITHUB_REF_NAME#v}"
-          packaged=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          packaged=$(uv run --no-project python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
           if [ "$tag" != "$packaged" ]; then
             echo "::error::tag $GITHUB_REF_NAME implies version '$tag' but pyproject.toml says '$packaged'"
             exit 1
@@ -68,14 +73,10 @@ jobs:
           echo "tag and pyproject agree on $packaged"
 
       - name: Build sdist and wheel
-        run: |
-          pip install build
-          python -m build
+        run: uv build
 
       - name: Verify the artifacts
-        run: |
-          pip install twine
-          twine check dist/*
+        run: uvx twine check dist/*
 
       - name: Publish to PyPI
         # Trusted publishing: no token is stored anywhere. Requires a one-time
