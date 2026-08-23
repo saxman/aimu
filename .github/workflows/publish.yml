@@ -20,11 +20,15 @@ jobs:
         with:
           enable-cache: true
       # `uvx ruff` needs no project install, so this gate costs seconds rather than the
-      # several minutes a full `uv sync --all-extras` takes.
+      # several minutes a full `uv sync --all-extras` takes. The version is pinned to the
+      # lockfile's: a bare `uvx ruff` fetches the latest release instead, which reported
+      # 1598 findings against a tree the pinned ruff calls clean. Same class of drift as
+      # resolving dependencies fresh -- keep this in step with the `[dev]` bound in
+      # pyproject (currently ruff>=0.15,<0.16).
       - name: Lint
         run: |
-          uvx ruff check .
-          uvx ruff format --check .
+          uvx ruff@0.15.22 check .
+          uvx ruff@0.15.22 format --check .
 
   publish:
     name: Publish
