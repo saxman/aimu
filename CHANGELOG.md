@@ -1,10 +1,22 @@
 # Changelog
 
-## Unreleased
+## v0.20.1 (2026-08-23): a docs build that completes, and releases that publish themselves
 
 ### Agents
 
 - **Docs** **The skill-script input guidance names `SkillAgent(script_env=...)`**, the field v0.20.0 shipped without updating the prose around it. Two places routed a reader to `build_skills_server(manager, env=...)`, and one of them ([docs/how-to/build-personal-assistant.md](docs/how-to/build-personal-assistant.md)) did so in a section whose own example constructs an `aio.SkillAgent` -- which builds that server internally, so the argument named there was unreachable from the setup being described. Corrected there and in [notebooks/08-agent-skills.qmd](notebooks/08-agent-skills.qmd), with `build_skills_server(manager, env=...)` kept for a host that builds the server itself; [docs/how-to/use-skills.md](docs/how-to/use-skills.md) now names how the environment arrives rather than only that a script can read one. Notebook 08 gains a runnable subsection: a script reading `REPORT_DIR`, called through a bare skills server (`REPORT_DIR unset`, the quiet failure the field prevents), then through `env=`, then through an agent carrying `script_env=`.
+
+### Documentation
+
+- **Fix** **The docs build no longer aborts on a lazily-exported symbol.** Every deploy since v0.19.0 failed with `mkdocstrings: aimu.aio.MCPClient could not be found` / `Aborted with a BuildError!`, so the published site had been three releases stale. Five packages resolve public names through a module-level `__getattr__` (PEP 562) to keep an optional dependency's import cost off `import aimu.*`; griffe, which mkdocstrings uses, reads the source without importing it, so a name that only exists at runtime is invisible to it. Being listed in `__all__` is not enough -- there is no assignment for a static reader to follow. Each package gains an `if TYPE_CHECKING:` block importing the names it lazily exports.
+  This is the mirror image of the `aimu.Agent` bug v0.19.0 fixed, and safe for the opposite reason: there the name was importable *only* under `TYPE_CHECKING`, so it raised `AttributeError` at runtime; here the runtime path is the `__getattr__` that was always there, and the block that never executes exists purely so a static reader can see the name too. Verified rather than assumed: no heavy module (`torch`, `transformers`, `diffusers`, `fastmcp`, `llama_cpp`, `pandas`) appears in `sys.modules` after an import, and `import aimu.models` / `from aimu import aio` stay at 0.26s / 0.82s.
+  `mkdocs` aborts on the first bad reference, so CI only ever named one symbol. There were 24: `aimu.models` (17), `aimu.prompts` (4), `aimu.tools` (2), `aimu.skills` (1). All are fixed together rather than one red deploy at a time. `aimu.models` uses the `X as X` redundant-alias re-export form, since it builds `__all__` dynamically inside its `HAS_*` guards -- invisible to ruff for the same reason the names were invisible to griffe.
+
+### Packaging
+
+- **New** **Releases publish from CI on a version tag** (`.github/workflows/publish.yml`). Pushing `vX.Y.Z` now builds, tests, and uploads; previously a release meant building locally and running `twine upload` against a token in `~/.pypirc`, so shipping depended on one machine's credential. Two jobs: `test` installs `[all,dev]` and runs ruff plus the full suite, and `publish` needs it, so a red suite blocks the upload. Authentication is PyPI trusted publishing over OIDC -- no token is stored in the repository, and only the `publish` job holds `id-token: write` (the workflow's top-level default is no permissions at all). The tag is also asserted against `pyproject`'s version, which catches a forgotten `dev` suffix before it becomes a version number that cannot be reused.
+  Two notes for whoever edits it. The full `[all]` extra is required rather than merely thorough: several test modules import provider catalogs at module scope, so a missing extra fails collection instead of skipping, which would silently gut the catalog guards rather than reporting them red. And `llama-cpp-python` publishes an sdist only, so a cold run compiles it (~10-15 min); `cache: pip` caches the built wheel for later runs.
+  This is currently the only workflow that runs the tests, and only at release. A `tests.yml` on push and PR is the natural follow-up.
 
 ## v0.20.0 (2026-08-22): catalog parity across every local runtime, capabilities stated once, and a remote Ollama
 
