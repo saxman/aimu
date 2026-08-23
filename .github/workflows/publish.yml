@@ -58,9 +58,33 @@ jobs:
           uv run ruff check .
           uv run ruff format --check .
       - name: Test
+        # Sampled rather than asserted: two runs died here at exactly the same test with
+        # a bare "The operation was canceled" -- no failure, no exit code, no OOM line.
+        # Disk was the first guess and the df readings disproved it (145 GB, 28% used),
+        # so this captures memory the same way rather than guessing a third time.
         run: |
-          df -h / | tail -1
+          free -m | head -2
+          ( while sleep 5; do
+              free -m | awk -v t="$(date +%T)" '/^Mem:/{print t, "used="$3"MB", "avail="$7"MB"}' >> /tmp/mem.log
+            done ) &
+          sampler=$!
+          set +e
           uv run pytest -q
+          rc=$?
+          kill $sampler 2>/dev/null
+          exit $rc
+
+      - name: Diagnostics
+        # always() covers the cancelled case, which is the one that keeps happening.
+        if: always()
+        run: |
+          echo "--- highest memory samples ---"
+          sort -t= -k2 -rn /tmp/mem.log 2>/dev/null | head -5 || echo "no samples"
+          echo "--- final samples ---"
+          tail -8 /tmp/mem.log 2>/dev/null || echo "no samples"
+          echo "--- kernel OOM killer ---"
+          sudo dmesg 2>/dev/null | grep -iE "out of memory|oom-kill|killed process" | tail -5 || echo "nothing in dmesg"
+          echo "--- disk ---"
           df -h / | tail -1
 
   publish:
