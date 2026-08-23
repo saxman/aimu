@@ -1,0 +1,83 @@
+name: Publish to PyPI
+
+# Publishing is triggered by the release tag itself, so pushing `vX.Y.Z` is the
+# single act that ships -- matching how releases were cut by hand before this
+# existed. There is deliberately no workflow_dispatch: a publish needs to be
+# anchored to a tag, and a failed run can be re-run from the Actions UI.
+on:
+  push:
+    tags: ['v*']
+
+permissions: {}
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          # 3.11 is the floor pyproject promises, so it is the version most
+          # likely to catch a syntax or stdlib assumption newer runtimes forgive.
+          python-version: '3.11'
+          cache: pip
+      - name: Install dependencies
+        # The full [all] extra is required, not merely thorough: several test
+        # modules import provider catalogs at module scope (test_docs_model_matrix
+        # imports LlamaCppModel), so a missing extra fails collection rather than
+        # skipping, which would silently gut the catalog guards.
+        #
+        # llama-cpp-python publishes an sdist only and compiles from source, so a
+        # cold run costs ~10-15 min here. `cache: pip` above caches the built
+        # wheel, and later runs reuse it.
+        run: pip install -e '.[all,dev]'
+      - name: Lint
+        run: |
+          ruff check .
+          ruff format --check .
+      - name: Test
+        run: pytest -q
+
+  publish:
+    name: Publish
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      # The OIDC token PyPI trusted publishing exchanges for an upload token.
+      # Scoped to this job alone; the test job above needs no permissions at all.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Check the tag matches the packaged version
+        # A forgotten `0.21.0.dev0` -> `0.21.0` bump is otherwise invisible until
+        # the wrong version is on PyPI under a tag claiming otherwise, and a
+        # version number cannot be reused once published.
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          packaged=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          if [ "$tag" != "$packaged" ]; then
+            echo "::error::tag $GITHUB_REF_NAME implies version '$tag' but pyproject.toml says '$packaged'"
+            exit 1
+          fi
+          echo "tag and pyproject agree on $packaged"
+
+      - name: Build sdist and wheel
+        run: |
+          pip install build
+          python -m build
+
+      - name: Verify the artifacts
+        run: |
+          pip install twine
+          twine check dist/*
+
+      - name: Publish to PyPI
+        # Trusted publishing: no token is stored anywhere. Requires a one-time
+        # trusted-publisher entry on PyPI naming this repo and this workflow file.
+        uses: pypa/gh-action-pypi-publish@release/v1
