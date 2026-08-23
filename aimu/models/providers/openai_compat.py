@@ -39,10 +39,17 @@ from ._thinking import _ThinkingParser, _split_thinking
 logger = logging.getLogger(__name__)
 
 
-def _guarded_create(sdk_client, **kwargs):
+def _guarded_create(client, sdk_client, **kwargs):
     """Call the chat-completions endpoint, translating a server-unreachable failure into
     ``ModelConnectionError``. The SDK's ``APIConnectionError`` message is generic ("Connection
-    error."); the specific cause (e.g. "Connection refused") is preserved on ``__cause__``."""
+    error."); the specific cause (e.g. "Connection refused") is preserved on ``__cause__``.
+
+    Records ``kwargs`` as ``client.last_request`` immediately before the call: this is the one
+    seam every OpenAI-compatible client (local servers, OpenAI, Gemini) routes through, so the
+    payload is captured post-adaptation (merged generate_kwargs, extra_body routing,
+    strip_inert_keys) without a line per call site.
+    """
+    client._record_request(kwargs)
     try:
         return sdk_client.chat.completions.create(**kwargs)
     except openai.APIConnectionError as exc:
@@ -279,6 +286,7 @@ class OpenAICompatClient(BaseModelClient):
         else:
             content_in = prompt
         response = _guarded_create(
+            self,
             self._client,
             model=self.model.value,
             messages=[{"role": "user", "content": content_in}],
@@ -312,6 +320,7 @@ class OpenAICompatClient(BaseModelClient):
         else:
             content_in = prompt
         stream = _guarded_create(
+            self,
             self._client,
             model=self.model.value,
             messages=[{"role": "user", "content": content_in}],
@@ -338,6 +347,7 @@ class OpenAICompatClient(BaseModelClient):
             return self._chat_streamed(generate_kwargs, tools)
 
         response = _guarded_create(
+            self,
             self._client,
             model=self.model.value,
             messages=strip_inert_keys(self.messages),
@@ -384,6 +394,7 @@ class OpenAICompatClient(BaseModelClient):
     def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> Iterator[StreamChunk]:
         stream = _guard_stream(
             _guarded_create(
+                self,
                 self._client,
                 model=self.model.value,
                 messages=strip_inert_keys(self.messages),

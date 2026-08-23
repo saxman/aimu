@@ -31,6 +31,7 @@ class _ChatStateMixin:
       - ``last_thinking``: ``str | None``
       - ``last_usage``: ``dict | None``
       - ``last_structured``: ``Any | None`` (validated object from the most recent ``schema=`` call)
+      - ``last_request``: ``Any | None`` (the payload of the most recent request, post-adaptation)
       - ``tools``: list of ``@tool``-decorated callables
 
     Generation-kwarg resolution is a separate concern (it serves ``generate()`` as much as
@@ -75,6 +76,7 @@ class _ChatStateMixin:
         self.last_thinking = ""
         self.last_usage = None
         self.last_structured = None
+        self.last_request = None
 
     def __deepcopy__(self, memo):
         # Stateful conversation history and non-copyable backend resources.

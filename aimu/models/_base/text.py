@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Iterable, Iterator, Optional, Union
 
-from ...events import EventSink, ModelTurnFinished, ModelTurnStarted, emit
+from ...events import EventSink, ModelTurnFinished, ModelTurnStarted, RequestPrepared, emit
 from .._internal.chat_state import _ChatStateMixin
 from .._internal.generate_kwargs import _GenerateKwargsMixin
 from .._internal.streaming import filter_chunks as _filter_chunks_fn
@@ -154,6 +154,7 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
     last_usage: dict | None
     last_output_truncated: bool
     last_structured: Any | None
+    last_request: Optional[Any]
     events: Optional[EventSink]
 
     @abstractmethod
@@ -178,7 +179,29 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         self.last_usage = None
         self.last_output_truncated = False
         self.last_structured = None
+        self.last_request = None
         self.events = events
+
+    def _record_request(self, payload: Any) -> None:
+        """Record the payload as sent, and emit :class:`~aimu.events.RequestPrepared`.
+
+        Providers call this once per request, immediately before handing the payload to
+        their SDK (or, for the two in-process providers with no wire payload, the nearest
+        equivalent -- see ``HuggingFaceClient``/``LlamaCppClient``). It is a seam rather than
+        a line each provider writes for itself because this codebase has already lost a
+        cross-cutting rule that way: when the generate_kwargs tier merge was per-provider,
+        three of five providers dropped a tier. ``test_every_client_records_its_request``
+        fails if a shipped client's request path records nothing.
+        """
+        self.last_request = payload
+        emit(
+            getattr(self, "events", None),
+            RequestPrepared(
+                provider=type(self).__name__,
+                model=str(getattr(self.model, "value", self.model)),
+                payload=payload,
+            ),
+        )
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
@@ -278,6 +301,7 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                 cannot honour the request logs a warning and continues, so models stay
                 swappable; an unrecognised value raises ``ValueError``.
         """
+        self.last_request = None
         generate_kwargs = self._apply_thinking(generate_kwargs, thinking)
         if images and audio:
             raise ValueError("images= and audio= are mutually exclusive. Pass one or the other, not both.")
@@ -364,6 +388,7 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                 cannot honour the request logs a warning and continues, so models stay
                 swappable; an unrecognised value raises ``ValueError``.
         """
+        self.last_request = None
         generate_kwargs = self._apply_thinking(generate_kwargs, thinking)
         if schema is not None:
             if stream:

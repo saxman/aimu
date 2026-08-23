@@ -203,10 +203,11 @@ class LlamaCppClient(BaseModelClient):
             return self._generate_streamed(prompt, generate_kwargs, images=images, audio=audio)
 
         content_in = _build_user_content_blocks(prompt, images) if images else prompt
-        response = self._llm.create_chat_completion(
-            messages=[{"role": "user", "content": content_in}],
-            **generate_kwargs,
-        )
+        payload = {"messages": [{"role": "user", "content": content_in}], **generate_kwargs}
+        # llama.cpp runs in-process (no wire); the literal call kwargs to create_chat_completion
+        # are the closest equivalent AIMU has to a wire payload for a local GGUF model.
+        self._record_request(payload)
+        response = self._llm.create_chat_completion(**payload)
         logger.debug("LLM raw response: %s", response)
         msg = response["choices"][0]["message"]
         content = msg["content"] or ""
@@ -228,11 +229,9 @@ class LlamaCppClient(BaseModelClient):
         audio: Optional[list] = None,
     ) -> Iterator[StreamChunk]:
         content_in = _build_user_content_blocks(prompt, images) if images else prompt
-        stream = self._llm.create_chat_completion(
-            messages=[{"role": "user", "content": content_in}],
-            stream=True,
-            **generate_kwargs,
-        )
+        payload = {"messages": [{"role": "user", "content": content_in}], "stream": True, **generate_kwargs}
+        self._record_request(payload)
+        stream = self._llm.create_chat_completion(**payload)
         yield from self._iter_stream(stream)
 
     def _chat(
@@ -249,11 +248,9 @@ class LlamaCppClient(BaseModelClient):
         if stream:
             return self._chat_streamed(generate_kwargs, tools)
 
-        response = self._llm.create_chat_completion(
-            messages=self.messages,
-            tools=tools if tools else None,
-            **generate_kwargs,
-        )
+        payload = {"messages": self.messages, "tools": tools if tools else None, **generate_kwargs}
+        self._record_request(payload)
+        response = self._llm.create_chat_completion(**payload)
         logger.debug("LLM raw response: %s", response)
         msg = response["choices"][0]["message"]
 
@@ -291,12 +288,9 @@ class LlamaCppClient(BaseModelClient):
         return content
 
     def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> Iterator[StreamChunk]:
-        stream = self._llm.create_chat_completion(
-            messages=self.messages,
-            stream=True,
-            tools=tools if tools else None,
-            **generate_kwargs,
-        )
+        payload = {"messages": self.messages, "stream": True, "tools": tools if tools else None, **generate_kwargs}
+        self._record_request(payload)
+        stream = self._llm.create_chat_completion(**payload)
 
         # Yield content/thinking chunks as they arrive (incremental streaming) while accumulating
         # any tool-call deltas separately; content and tool_call deltas don't require buffering.

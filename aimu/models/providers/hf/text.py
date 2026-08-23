@@ -278,6 +278,9 @@ class HuggingFaceClient(BaseModelClient):
         super().__init__(model, model_kwargs, system_message)
 
         self._hf_processor = None
+        # Set by _apply_chat_template on every call; read by _generate_sync / _generate_streaming
+        # to record the in-process equivalent of a wire payload (see _record_request there).
+        self._last_rendered_prompt: Optional[str] = None
         self._parsed_tool_calls = None
         self._parsed_content = ""  # prose emitted alongside a tool call (processor path)
         # Gemma 4 emits structured-token output (channels, tool calls) that requires
@@ -417,6 +420,7 @@ class HuggingFaceClient(BaseModelClient):
             if audio_arrays:
                 processor_kwargs["audio"] = audio_arrays
                 processor_kwargs["sampling_rate"] = 16000
+            self._last_rendered_prompt = text
             return self._hf_processor(**processor_kwargs).to(self._hf_model.device)
         if self.model == self.MODELS.MAGISTRAL_SMALL:
             # ValueError: Kwargs ['add_generation_prompt', 'enable_thinking', 'xml_tools'] are not supported by `MistralCommonTokenizer.apply_chat_template`.
@@ -447,6 +451,7 @@ class HuggingFaceClient(BaseModelClient):
                 xml_tools=tools,
                 **template_extra,
             )
+        self._last_rendered_prompt = text
         return self._hf_tokenizer([text], return_tensors="pt").to(self._hf_model.device)
 
     def _generate_sync(
@@ -463,6 +468,9 @@ class HuggingFaceClient(BaseModelClient):
         # rejects unknown keyword arguments.
         thinking = pop_thinking(generate_kwargs)
         model_inputs = self._apply_chat_template(messages, tools, thinking=thinking)
+        # No wire payload for an in-process model: the closest equivalent is the resolved
+        # generation kwargs plus the rendered prompt actually fed to the tokenizer/processor.
+        self._record_request({"generate_kwargs": generate_kwargs, "prompt": self._last_rendered_prompt})
         generated_ids = self._hf_model.generate(**model_inputs, **generate_kwargs)
 
         output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :]
@@ -536,6 +544,9 @@ class HuggingFaceClient(BaseModelClient):
         # rejects unknown keyword arguments.
         thinking = pop_thinking(generate_kwargs)
         model_inputs = self._apply_chat_template(messages, tools, thinking=thinking)
+        # No wire payload for an in-process model: the closest equivalent is the resolved
+        # generation kwargs plus the rendered prompt actually fed to the tokenizer/processor.
+        self._record_request({"generate_kwargs": generate_kwargs, "prompt": self._last_rendered_prompt})
         self._hf_model.generate(**model_inputs, **generate_kwargs, streamer=streamer)
 
         # first part is always empty

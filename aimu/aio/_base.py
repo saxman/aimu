@@ -13,7 +13,7 @@ import time
 from abc import ABC, abstractmethod
 from typing import Any, AsyncIterator, Iterable, Optional, Union
 
-from aimu.events import EventSink, ModelTurnFinished, ModelTurnStarted, emit
+from aimu.events import EventSink, ModelTurnFinished, ModelTurnStarted, RequestPrepared, emit
 from aimu.models._internal.chat_state import _ChatStateMixin
 from aimu.models._internal.generate_kwargs import _GenerateKwargsMixin
 from aimu.models._internal.streaming import afilter_chunks, resolve_include
@@ -42,6 +42,7 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
     last_usage: dict | None
     last_output_truncated: bool
     last_structured: Any | None
+    last_request: Optional[Any]
     events: Optional[EventSink]
 
     @abstractmethod
@@ -65,7 +66,25 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         self.last_usage = None
         self.last_output_truncated = False
         self.last_structured = None
+        self.last_request = None
         self.events = events
+
+    def _record_request(self, payload: Any) -> None:
+        """Record the payload as sent, and emit :class:`~aimu.events.RequestPrepared`.
+
+        Mirrors the sync :meth:`~aimu.models.base.BaseModelClient._record_request`. Providers
+        call this once per request, immediately before handing the payload to their SDK (or,
+        for the in-process providers, the nearest equivalent).
+        """
+        self.last_request = payload
+        emit(
+            getattr(self, "events", None),
+            RequestPrepared(
+                provider=type(self).__name__,
+                model=str(getattr(self.model, "value", self.model)),
+                payload=payload,
+            ),
+        )
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
@@ -148,6 +167,7 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                 cannot honour the request logs a warning and continues, so models stay
                 swappable; an unrecognised value raises ``ValueError``.
         """
+        self.last_request = None
         generate_kwargs = self._apply_thinking(generate_kwargs, thinking)
         if images and audio:
             raise ValueError("Pass either images= or audio= per call, not both.")
@@ -205,6 +225,7 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                 cannot honour the request logs a warning and continues, so models stay
                 swappable; an unrecognised value raises ``ValueError``.
         """
+        self.last_request = None
         generate_kwargs = self._apply_thinking(generate_kwargs, thinking)
         if schema is not None:
             if stream:

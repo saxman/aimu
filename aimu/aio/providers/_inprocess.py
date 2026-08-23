@@ -107,6 +107,14 @@ class _AsyncInProcessClient(AsyncBaseModelClient):
         self._sync.last_thinking = value
 
     @property
+    def last_request(self) -> Optional[Any]:
+        return self._sync.last_request
+
+    @last_request.setter
+    def last_request(self, value: Optional[Any]) -> None:
+        self._sync.last_request = value
+
+    @property
     def concurrent_tool_calls(self) -> bool:
         return self._sync.concurrent_tool_calls
 

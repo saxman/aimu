@@ -192,14 +192,16 @@ class AnthropicClient(BaseModelClient):
         generate_kwargs = self._strip_thinking_for_structured(generate_kwargs)
         name = re.sub(r"[^a-zA-Z0-9_-]", "_", str(response_format.get("title", "Response")))[:64] or "Response"
         tool = {"name": name, "description": f"Emit the answer as a {name} object.", "input_schema": response_format}
-        response = self._client.messages.create(
-            model=self.model.value,
-            system=system_str,
-            messages=ant_messages,
-            tools=[tool],
-            tool_choice={"type": "tool", "name": name},
+        payload = {
+            "model": self.model.value,
+            "system": system_str,
+            "messages": ant_messages,
+            "tools": [tool],
+            "tool_choice": {"type": "tool", "name": name},
             **generate_kwargs,
-        )
+        }
+        self._record_request(payload)
+        response = self._client.messages.create(**payload)
         logger.debug("Anthropic raw response (structured): %s", response)
         self.last_usage = usage_from_anthropic(response)
         for block in response.content:
@@ -229,14 +231,16 @@ class AnthropicClient(BaseModelClient):
         generate_kwargs = self._strip_thinking_for_structured(generate_kwargs)
         name = re.sub(r"[^a-zA-Z0-9_-]", "_", str(response_format.get("title", "Response")))[:64] or "Response"
         tool = {"name": name, "description": f"Emit the answer as a {name} object.", "input_schema": response_format}
-        with self._client.messages.stream(
-            model=self.model.value,
-            system=system_str,
-            messages=ant_messages,
-            tools=[tool],
-            tool_choice={"type": "tool", "name": name},
+        payload = {
+            "model": self.model.value,
+            "system": system_str,
+            "messages": ant_messages,
+            "tools": [tool],
+            "tool_choice": {"type": "tool", "name": name},
             **generate_kwargs,
-        ) as stream:
+        }
+        self._record_request(payload)
+        with self._client.messages.stream(**payload) as stream:
             for event in stream:
                 if event.type == "content_block_delta" and event.delta.type == "input_json_delta":
                     yield StreamChunk(StreamingContentType.GENERATING, event.delta.partial_json)
@@ -465,11 +469,13 @@ class AnthropicClient(BaseModelClient):
         if stream:
             return self._generate_streamed(prompt, generate_kwargs, images=images, audio=audio)
 
-        response = self._client.messages.create(
-            model=self.model.value,
-            messages=[{"role": "user", "content": self._generate_content(prompt, images, audio)}],
+        payload = {
+            "model": self.model.value,
+            "messages": [{"role": "user", "content": self._generate_content(prompt, images, audio)}],
             **generate_kwargs,
-        )
+        }
+        self._record_request(payload)
+        response = self._client.messages.create(**payload)
         logger.debug("Anthropic raw response: %s", response)
         self.last_usage = usage_from_anthropic(response)
 
@@ -508,11 +514,13 @@ class AnthropicClient(BaseModelClient):
         self.last_thinking = ""
         self.last_usage = None
 
-        with self._client.messages.stream(
-            model=self.model.value,
-            messages=[{"role": "user", "content": self._generate_content(prompt, images, audio)}],
+        payload = {
+            "model": self.model.value,
+            "messages": [{"role": "user", "content": self._generate_content(prompt, images, audio)}],
             **generate_kwargs,
-        ) as stream:
+        }
+        self._record_request(payload)
+        with self._client.messages.stream(**payload) as stream:
             for event in stream:
                 if event.type == "content_block_delta":
                     delta = event.delta
@@ -561,13 +569,15 @@ class AnthropicClient(BaseModelClient):
         system_str, ant_messages = self._openai_messages_to_anthropic(self.messages)
         ant_tools = self._openai_tools_to_anthropic(tools) if tools else anthropic.NOT_GIVEN
 
-        response = self._client.messages.create(
-            model=self.model.value,
-            system=system_str if system_str else anthropic.NOT_GIVEN,
-            messages=ant_messages,
-            tools=ant_tools,
+        payload = {
+            "model": self.model.value,
+            "system": system_str if system_str else anthropic.NOT_GIVEN,
+            "messages": ant_messages,
+            "tools": ant_tools,
             **generate_kwargs,
-        )
+        }
+        self._record_request(payload)
+        response = self._client.messages.create(**payload)
         logger.debug("Anthropic raw response: %s", response)
 
         self.last_thinking = ""
@@ -609,13 +619,15 @@ class AnthropicClient(BaseModelClient):
         self.last_thinking = ""
         self.last_usage = None
 
-        with self._client.messages.stream(
-            model=self.model.value,
-            system=system_str if system_str else anthropic.NOT_GIVEN,
-            messages=ant_messages,
-            tools=ant_tools,
+        payload = {
+            "model": self.model.value,
+            "system": system_str if system_str else anthropic.NOT_GIVEN,
+            "messages": ant_messages,
+            "tools": ant_tools,
             **generate_kwargs,
-        ) as stream:
+        }
+        self._record_request(payload)
+        with self._client.messages.stream(**payload) as stream:
             for event in stream:
                 if event.type == "content_block_start":
                     block = event.content_block

@@ -224,15 +224,17 @@ class OllamaClient(BaseModelClient):
             return self._generate_streamed(prompt, generate_kwargs, images=gen_images, response_format=response_format)
 
         think = self._pop_think(generate_kwargs)
-        response = self._client.generate(
-            model=self.model.value,
-            prompt=prompt,
-            images=gen_images,
-            options=generate_kwargs,
-            think=think,
-            keep_alive=self.model_keep_alive_seconds,
-            format=response_format,
-        )
+        payload = {
+            "model": self.model.value,
+            "prompt": prompt,
+            "images": gen_images,
+            "options": generate_kwargs,
+            "think": think,
+            "keep_alive": self.model_keep_alive_seconds,
+            "format": response_format,
+        }
+        self._record_request(payload)
+        response = self._client.generate(**payload)
 
         logger.debug("LLM raw response: %s", response)
         self.last_usage = usage_from_ollama(response)
@@ -266,16 +268,18 @@ class OllamaClient(BaseModelClient):
         response_format: Optional[dict] = None,
     ) -> Iterator[StreamChunk]:
         think = self._pop_think(generate_kwargs)
-        response = self._client.generate(
-            model=self.model.value,
-            prompt=prompt,
-            images=images,
-            options=generate_kwargs,
-            stream=True,
-            think=think,
-            keep_alive=self.model_keep_alive_seconds,
-            format=response_format,
-        )
+        payload = {
+            "model": self.model.value,
+            "prompt": prompt,
+            "images": images,
+            "options": generate_kwargs,
+            "stream": True,
+            "think": think,
+            "keep_alive": self.model_keep_alive_seconds,
+            "format": response_format,
+        }
+        self._record_request(payload)
+        response = self._client.generate(**payload)
 
         self.last_thinking = ""
         self.last_usage = None
@@ -313,16 +317,18 @@ class OllamaClient(BaseModelClient):
 
         think = self._pop_think(generate_kwargs)
         messages = _adapt_messages_for_ollama(self.messages)
+        payload = {
+            "model": self.model.value,
+            "messages": messages,
+            "options": generate_kwargs,
+            "tools": tools,
+            "think": think,
+            "keep_alive": self.model_keep_alive_seconds,
+            "format": response_format,
+        }
+        self._record_request(payload)
         try:
-            response = self._client.chat(
-                model=self.model.value,
-                messages=messages,
-                options=generate_kwargs,
-                tools=tools,
-                think=think,
-                keep_alive=self.model_keep_alive_seconds,
-                format=response_format,
-            )
+            response = self._client.chat(**payload)
         except ollama.ResponseError as exc:
             _raise_if_context_overflowed(exc, messages)
             raise
@@ -362,18 +368,20 @@ class OllamaClient(BaseModelClient):
         think = self._pop_think(generate_kwargs)
         turn: dict = {}
         messages = _adapt_messages_for_ollama(self.messages)
+        payload = {
+            "model": self.model.value,
+            "messages": messages,
+            "options": generate_kwargs,
+            "tools": tools,
+            "stream": True,
+            "think": think,
+            "keep_alive": self.model_keep_alive_seconds,
+            "format": response_format,
+        }
+        self._record_request(payload)
         try:
             yield from self._consume_turn(
-                self._client.chat(
-                    model=self.model.value,
-                    messages=messages,
-                    options=generate_kwargs,
-                    tools=tools,
-                    stream=True,
-                    think=think,
-                    keep_alive=self.model_keep_alive_seconds,
-                    format=response_format,
-                ),
+                self._client.chat(**payload),
                 turn,
             )
         except ollama.ResponseError as exc:

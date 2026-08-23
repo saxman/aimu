@@ -1095,6 +1095,7 @@ def test_hf_never_passes_the_reserved_key_to_transformers_generate():
     )
     # bind the real template method so the pop-then-splat ordering is the code under test
     client._apply_chat_template = HuggingFaceClient._apply_chat_template.__get__(client, type(client))
+    client._record_request = lambda *a, **k: None
     kwargs = {"max_new_tokens": 16, THINKING_KWARG: ResolvedThinking(enabled=True, level="high")}
 
     HuggingFaceClient._generate_sync(client, [{"role": "user", "content": "hi"}], kwargs, None)

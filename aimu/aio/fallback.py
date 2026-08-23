@@ -127,6 +127,7 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
             client.last_thinking = ""
             client.last_usage = None
             client.last_structured = None
+            client.last_request = None
             client.events = self.events
             try:
                 result = await client.generate(
@@ -146,6 +147,7 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
             self.last_thinking = getattr(client, "last_thinking", "")
             self.last_usage = getattr(client, "last_usage", None)
             self.last_structured = getattr(client, "last_structured", None)
+            self.last_request = getattr(client, "last_request", None)
             return result
         raise self._exhausted(errors)
 

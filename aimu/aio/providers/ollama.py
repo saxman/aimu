@@ -107,15 +107,17 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             return self._generate_streamed(prompt, generate_kwargs, images=gen_images, response_format=response_format)
 
         think = self._pop_think(generate_kwargs)
-        response = await self._client.generate(
-            model=self.model.value,
-            prompt=prompt,
-            images=gen_images,
-            options=generate_kwargs,
-            think=think,
-            keep_alive=self.model_keep_alive_seconds,
-            format=response_format,
-        )
+        payload = {
+            "model": self.model.value,
+            "prompt": prompt,
+            "images": gen_images,
+            "options": generate_kwargs,
+            "think": think,
+            "keep_alive": self.model_keep_alive_seconds,
+            "format": response_format,
+        }
+        self._record_request(payload)
+        response = await self._client.generate(**payload)
         self.last_usage = usage_from_ollama(response)
         self.last_output_truncated = truncated_from_ollama(response)
 
@@ -133,16 +135,18 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         response_format: Optional[dict] = None,
     ) -> AsyncIterator[StreamChunk]:
         think = self._pop_think(generate_kwargs)
-        response = await self._client.generate(
-            model=self.model.value,
-            prompt=prompt,
-            images=images,
-            options=generate_kwargs,
-            stream=True,
-            think=think,
-            keep_alive=self.model_keep_alive_seconds,
-            format=response_format,
-        )
+        payload = {
+            "model": self.model.value,
+            "prompt": prompt,
+            "images": images,
+            "options": generate_kwargs,
+            "stream": True,
+            "think": think,
+            "keep_alive": self.model_keep_alive_seconds,
+            "format": response_format,
+        }
+        self._record_request(payload)
+        response = await self._client.generate(**payload)
 
         self.last_thinking = ""
         self.last_usage = None
@@ -178,16 +182,18 @@ class AsyncOllamaClient(AsyncBaseModelClient):
 
         think = self._pop_think(generate_kwargs)
         messages = _adapt_messages_for_ollama(self.messages)
+        payload = {
+            "model": self.model.value,
+            "messages": messages,
+            "options": generate_kwargs,
+            "tools": tools,
+            "think": think,
+            "keep_alive": self.model_keep_alive_seconds,
+            "format": response_format,
+        }
+        self._record_request(payload)
         try:
-            response = await self._client.chat(
-                model=self.model.value,
-                messages=messages,
-                options=generate_kwargs,
-                tools=tools,
-                think=think,
-                keep_alive=self.model_keep_alive_seconds,
-                format=response_format,
-            )
+            response = await self._client.chat(**payload)
         except ollama.ResponseError as exc:
             _raise_if_context_overflowed(exc, messages)
             raise
@@ -219,18 +225,20 @@ class AsyncOllamaClient(AsyncBaseModelClient):
 
         think = self._pop_think(generate_kwargs)
         messages = _adapt_messages_for_ollama(self.messages)
+        payload = {
+            "model": self.model.value,
+            "messages": messages,
+            "options": generate_kwargs,
+            "tools": tools,
+            "stream": True,
+            "think": think,
+            "keep_alive": self.model_keep_alive_seconds,
+            "format": response_format,
+        }
+        self._record_request(payload)
 
         async def _open():
-            return await self._client.chat(
-                model=self.model.value,
-                messages=messages,
-                options=generate_kwargs,
-                tools=tools,
-                stream=True,
-                think=think,
-                keep_alive=self.model_keep_alive_seconds,
-                format=response_format,
-            )
+            return await self._client.chat(**payload)
 
         # Single turn. Consume the whole stream, collecting tool calls from ANY part (Ollama can
         # emit an empty transitional part before the one carrying tool_calls) and streaming only

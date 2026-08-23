@@ -14,8 +14,11 @@ from helpers_aio import MockAsyncModelClient
 
 
 def _bind_append(fake):
-    """Give a hand-rolled ``_chat`` fake the real append-with-timestamp seam and return it."""
+    """Give a hand-rolled ``_chat`` fake the real append-with-timestamp seam, plus a no-op
+    ``_record_request`` (these fakes predate ``last_request``; every provider's ``_chat``/
+    ``_generate`` now calls it once per request), and return it."""
     fake._append_message = _ChatStateMixin._append_message.__get__(fake)
+    fake._record_request = lambda *a, **k: None
     return fake
 
 
@@ -354,6 +357,7 @@ async def test_aio_openai_compat_tool_call_turn_thinking_preserved():
         fake.messages.append(msg)
 
     fake._record_tool_calls = _record
+    fake._record_request = lambda *a, **k: None
 
     # Single turn: the model called a tool and chat() returns (no follow-up; the engine dispatches).
     # The tool-call turn's reasoning is attached to the assistant(tool_calls) message.
@@ -396,6 +400,7 @@ async def test_aio_openai_compat_preserves_content_alongside_tool_call():
         fake.messages.append(msg)
 
     fake._record_tool_calls = _record
+    fake._record_request = lambda *a, **k: None
 
     result = await AsyncOpenAICompatClient._chat(fake, "hi")
 
@@ -443,6 +448,7 @@ async def test_aio_openai_compat_streamed_tool_call_turn_thinking_preserved():
         fake.messages.append(msg)
 
     fake._record_tool_calls = _record
+    fake._record_request = lambda *a, **k: None
 
     # Single turn: store the tool-call turn and stop (no second stream; the engine dispatches).
     # Thinking from the tool-call turn is attached to the assistant(tool_calls) message.

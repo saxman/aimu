@@ -27,10 +27,13 @@ from helpers import MockModelClient
 
 
 def _bind_append(fake):
-    """Give a hand-rolled ``_chat`` fake the real append-with-timestamp seam and return it."""
+    """Give a hand-rolled ``_chat`` fake the real append-with-timestamp seam, plus a no-op
+    ``_record_request`` (these fakes predate ``last_request`` and don't assert on it; every
+    provider's ``_chat``/``_generate`` now calls it once per request), and return it."""
     from aimu.models._internal.chat_state import _ChatStateMixin
 
     fake._append_message = _ChatStateMixin._append_message.__get__(fake)
+    fake._record_request = lambda *a, **k: None
     return fake
 
 
@@ -1307,6 +1310,7 @@ def test_llamacpp_tool_call_turn_thinking_preserved():
         messages=[],
     )
     fake._record_tool_calls = _stub_record_tool_calls(fake)
+    fake._record_request = lambda *a, **k: None
 
     # Single turn: the tool executes and chat() returns (no follow-up). Reasoning from the
     # tool-call turn is attached to the assistant(tool_calls) message; the answer comes next turn.
@@ -1338,6 +1342,7 @@ def test_openai_compat_tool_call_turn_thinking_preserved():
         messages=[],
     )
     fake._record_tool_calls = _stub_record_tool_calls(fake)
+    fake._record_request = lambda *a, **k: None
 
     # Single turn: the tool executes and chat() returns (no follow-up answer).
     result = OpenAICompatClient._chat(fake, "hi")
@@ -1370,6 +1375,7 @@ def test_openai_compat_preserves_content_alongside_tool_call():
         messages=[],
     )
     fake._record_tool_calls = _stub_record_tool_calls(fake)
+    fake._record_request = lambda *a, **k: None
 
     result = OpenAICompatClient._chat(fake, "hi")
 
@@ -1399,6 +1405,7 @@ def test_llamacpp_streamed_tool_call_turn_thinking_preserved():
     )
     fake._record_tool_calls = _stub_record_tool_calls(fake)
     fake._iter_stream = lambda stream: LlamaCppClient._iter_stream(fake, stream)
+    fake._record_request = lambda *a, **k: None
 
     # Single turn: dispatch the tools and stop (no second stream); answer comes next turn.
     list(LlamaCppClient._chat_streamed(fake, {}, []))
@@ -1432,6 +1439,7 @@ def test_openai_compat_streamed_tool_call_turn_thinking_preserved():
     )
     fake._record_tool_calls = _stub_record_tool_calls(fake)
     fake._iter_stream = lambda stream: OpenAICompatClient._iter_stream(fake, stream)
+    fake._record_request = lambda *a, **k: None
 
     # Single turn: dispatch the tools and stop (no second stream); answer comes next turn.
     list(OpenAICompatClient._chat_streamed(fake, {}, []))

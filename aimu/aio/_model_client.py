@@ -234,6 +234,16 @@ class AsyncModelClient(AsyncBaseModelClient):
     def last_structured(self, value) -> None:
         self._client.last_structured = value
 
+    @property
+    def last_request(self) -> Optional[Any]:
+        """The payload of the most recent request, post-adaptation, or ``None``. See the sync
+        :attr:`~aimu.models.model_client.ModelClient.last_request` for the shape-by-provider note."""
+        return self._client.last_request
+
+    @last_request.setter
+    def last_request(self, value: Optional[Any]) -> None:
+        self._client.last_request = value
+
     def reset(self, system_message: Optional[str] = "__keep__") -> None:
         self._client.reset(system_message)
 

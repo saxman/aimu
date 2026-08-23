@@ -41,10 +41,15 @@ from .._base import AsyncBaseModelClient
 logger = logging.getLogger(__name__)
 
 
-async def _guarded_create(sdk_client, **kwargs):
+async def _guarded_create(client, sdk_client, **kwargs):
     """Call the chat-completions endpoint, translating a server-unreachable failure into
     ``ModelConnectionError``. The SDK's ``APIConnectionError`` message is generic ("Connection
-    error."); the specific cause (e.g. "Connection refused") is preserved on ``__cause__``."""
+    error."); the specific cause (e.g. "Connection refused") is preserved on ``__cause__``.
+
+    Records ``kwargs`` as ``client.last_request`` immediately before the call, mirroring the
+    sync ``_guarded_create``.
+    """
+    client._record_request(kwargs)
     try:
         return await sdk_client.chat.completions.create(**kwargs)
     except openai.APIConnectionError as exc:
@@ -165,6 +170,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         else:
             content_in = prompt
         response = await _guarded_create(
+            self,
             self._client,
             model=self.model.value,
             messages=[{"role": "user", "content": content_in}],
@@ -197,6 +203,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         else:
             content_in = prompt
         stream = await _guarded_create(
+            self,
             self._client,
             model=self.model.value,
             messages=[{"role": "user", "content": content_in}],
@@ -226,6 +233,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
             return self._chat_streamed(generate_kwargs, tools)
 
         response = await _guarded_create(
+            self,
             self._client,
             model=self.model.value,
             messages=strip_inert_keys(self.messages),
@@ -270,6 +278,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
 
     async def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> AsyncIterator[StreamChunk]:
         stream = await _guarded_create(
+            self,
             self._client,
             model=self.model.value,
             messages=strip_inert_keys(self.messages),

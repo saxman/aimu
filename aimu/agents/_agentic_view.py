@@ -107,6 +107,14 @@ class _AgenticViewMixin:
     def last_structured(self, value) -> None:
         self._inner_client.last_structured = value
 
+    @property
+    def last_request(self) -> Optional[Any]:
+        return getattr(self._inner_client, "last_request", None)
+
+    @last_request.setter
+    def last_request(self, value: Optional[Any]) -> None:
+        self._inner_client.last_request = value
+
     def reset(self, system_message: Optional[str] = "__keep__") -> None:
         self._inner_client.reset(system_message)
 

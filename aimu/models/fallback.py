@@ -76,6 +76,7 @@ class _FallbackStateMixin:
         self.last_thinking = ""
         self.last_usage: Optional[dict] = None
         self.last_structured = None
+        self.last_request: Optional[Any] = None
         self.events: Optional["EventSink"] = None
 
     def _load_state(self, client) -> None:
@@ -86,6 +87,7 @@ class _FallbackStateMixin:
         client.last_thinking = ""
         client.last_usage = None
         client.last_structured = None
+        client.last_request = None
         client.events = self.events
 
     def _adopt_state(self, client: BaseModelClient) -> None:
@@ -94,6 +96,7 @@ class _FallbackStateMixin:
         self.last_thinking = getattr(client, "last_thinking", "")
         self.last_usage = getattr(client, "last_usage", None)
         self.last_structured = getattr(client, "last_structured", None)
+        self.last_request = getattr(client, "last_request", None)
 
     def _exhausted(self, errors: list[tuple[Any, BaseException]]) -> "FallbackExhaustedError":
         last = errors[-1][1] if errors else None
@@ -232,6 +235,7 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
             client.last_thinking = ""
             client.last_usage = None
             client.last_structured = None
+            client.last_request = None
             client.events = self.events
             try:
                 result = client.generate(
@@ -251,6 +255,7 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
             self.last_thinking = getattr(client, "last_thinking", "")
             self.last_usage = getattr(client, "last_usage", None)
             self.last_structured = getattr(client, "last_structured", None)
+            self.last_request = getattr(client, "last_request", None)
             return result
         raise self._exhausted(errors)
 
