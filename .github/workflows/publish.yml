@@ -16,6 +16,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Free disk space
+        # A hosted runner ships ~14 GB free, and `uv sync --all-extras` on Linux pulls
+        # torch's full CUDA stack -- 15 nvidia-* wheels plus triton, several GB -- on a
+        # machine with no GPU. The first run of this job died mid-suite with a bare
+        # "The operation was canceled" at 45%, the signature of the runner being killed
+        # rather than a test failing. Reclaiming the preinstalled toolchains nothing
+        # here uses buys ~20 GB. `df` on either side so a future failure is diagnosable
+        # from the log instead of inferred.
+        run: |
+          df -h / | tail -1
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc \
+                      /usr/local/share/boost /usr/local/.ghcup "$AGENT_TOOLSDIRECTORY" || true
+          df -h / | tail -1
+
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -43,7 +58,10 @@ jobs:
           uv run ruff check .
           uv run ruff format --check .
       - name: Test
-        run: uv run pytest -q
+        run: |
+          df -h / | tail -1
+          uv run pytest -q
+          df -h / | tail -1
 
   publish:
     name: Publish
