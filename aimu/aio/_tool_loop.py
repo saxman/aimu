@@ -49,8 +49,9 @@ class _AsyncToolLoop(_BaseToolLoop):
         result: Optional[str] = None
         error: Optional[BaseException] = None
         last_iteration = 0
+        self._current_iteration = 0
         try:
-            with self._client._events_override(self._events):
+            with self._client._events_override(self._attributing_sink()):
                 response = await self._client.chat(
                     user_message,
                     generate_kwargs=generate_kwargs,
@@ -64,6 +65,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                     state = classify_terminal_turn(self._client.messages)
                     if state == TERMINAL_PENDING_TOOLS:
                         await self._dispatch(last_iteration)
+                        self._current_iteration = rounds + 1
                         response = await self._client.chat(
                             generate_kwargs=generate_kwargs, tools=self._current_tools(), thinking=self._thinking
                         )
@@ -74,6 +76,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                         # and nudging only shrinks the next one.
                         self._raise_if_truncated()
                         injected_at = len(self._client.messages)
+                        self._current_iteration = rounds + 1
                         response = await self._client.chat(
                             self._continuation_prompt,
                             generate_kwargs=generate_kwargs,
@@ -87,6 +90,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                     rounds += 1
 
                 last_iteration = rounds
+                self._current_iteration = rounds + 1
                 result = await self._forced_wrap_up(response, generate_kwargs)
                 return result
         except BaseException as exc:
@@ -108,8 +112,9 @@ class _AsyncToolLoop(_BaseToolLoop):
         emit(self._events, RunStarted(agent=self._agent_name, iteration=0, task=user_message or ""))
         error: Optional[BaseException] = None
         iteration = 0
+        self._current_iteration = 0
         try:
-            with self._client._events_override(self._events):
+            with self._client._events_override(self._attributing_sink()):
                 stream = await self._client.chat(
                     user_message,
                     generate_kwargs=generate_kwargs,
@@ -126,6 +131,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                         async for chunk in self._dispatch_streamed(iteration):
                             yield chunk
                         iteration += 1
+                        self._current_iteration = iteration
                         stream = await self._client.chat(
                             generate_kwargs=generate_kwargs,
                             stream=True,
@@ -137,6 +143,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                     elif state == TERMINAL_EMPTY:
                         self._raise_if_truncated()  # cut off, not degenerate: a nudge cannot recover it
                         iteration += 1
+                        self._current_iteration = iteration
                         injected_at = len(self._client.messages)
                         stream = await self._client.chat(
                             self._continuation_prompt,
@@ -154,6 +161,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                 if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
                     injected_at = len(self._client.messages)
                     iteration += 1
+                    self._current_iteration = iteration
                     stream = await self._client.chat(
                         self._wrap_up_prompt(),
                         generate_kwargs=generate_kwargs,

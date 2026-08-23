@@ -249,6 +249,26 @@ async def test_async_tool_events_carry_the_agent_name_and_iteration():
     assert called.iteration == 0
 
 
+async def test_async_turn_events_are_attributed_to_the_named_agent():
+    """Async mirror of the sync attribution test: the client's own turn events must be
+    stamped with the agent's name and the current round, not left at agent=None/iteration=0."""
+    from aimu.aio.agent import Agent
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+
+    seen = []
+    client = MockAsyncModelClient(["tool", "after tool"])
+    agent = Agent(client, name="my-agent", events=seen.append)
+    await agent.run("go")
+
+    assert len(seen) >= 4
+    assert all(e.agent == "my-agent" for e in seen)
+
+    turn_events = [e for e in seen if isinstance(e, (ModelTurnStarted, ModelTurnFinished))]
+    assert len(turn_events) == 4
+    iterations = [e.iteration for e in turn_events]
+    assert iterations == [0, 0, 1, 1]
+
+
 async def test_async_a_denied_tool_emits_ToolDenied_not_ToolCalled():
     from aimu.aio.agent import Agent
     from aimu.events import ToolCalled, ToolDenied

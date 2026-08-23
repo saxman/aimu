@@ -339,6 +339,31 @@ def test_tool_events_carry_the_agent_name_and_iteration():
     assert started.agent == "alpha"
 
 
+def test_turn_events_are_attributed_to_the_named_agent():
+    """The client emits its own turn events (ModelTurnStarted/ModelTurnFinished/
+    RequestPrepared) with no idea which agent or which round it is serving. The loop
+    must stamp both onto those events on the way through, not just onto the ones it
+    emits itself -- otherwise a sink watching a nested workflow (e.g. three Parallel
+    workers) cannot tell whose turn cost what."""
+    from aimu.agents.agent import Agent
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+
+    seen = []
+    client = MockModelClient(["tool", "after tool"])
+    agent = Agent(client, name="my-agent", events=seen.append)
+    agent.run("go")
+
+    assert len(seen) >= 4  # RunStarted, 2x(ModelTurnStarted+ModelTurnFinished), RunFinished
+    assert all(e.agent == "my-agent" for e in seen)
+
+    turn_events = [e for e in seen if isinstance(e, (ModelTurnStarted, ModelTurnFinished))]
+    assert len(turn_events) == 4  # two full model turns in this tool-calling run
+    iterations = [e.iteration for e in turn_events]
+    # The first turn's pair is round 0, the follow-up turn's pair is round 1: iteration
+    # must advance across the run, not stay pinned at the client's own default of 0.
+    assert iterations == [0, 0, 1, 1]
+
+
 def test_a_denied_tool_emits_ToolDenied_not_ToolCalled():
     """Gate a tool with a refusing approval policy and assert the event pair."""
     from aimu.agents.agent import Agent

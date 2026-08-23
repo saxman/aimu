@@ -17,13 +17,45 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import replace
 from typing import Any, Callable, Iterator, Optional, Union
 
-from aimu.events import EventSink, RunFinished, RunStarted, ToolCalled, ToolDenied, emit
+from aimu.events import EventSink, RunEvent, RunFinished, RunStarted, ToolCalled, ToolDenied, emit
 from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER, PROVENANCE_KEY
 from aimu.models.base import StreamChunk, StreamingContentType
 
 logger = logging.getLogger(__name__)
+
+
+def _attributing(sink, agent_name, iteration_getter):
+    """Wrap ``sink`` so events the client emits carry the loop's attribution.
+
+    The client emits turn events (``ModelTurnStarted`` / ``ModelTurnFinished`` /
+    ``RequestPrepared``) and has no idea which agent, or which loop iteration, it is
+    serving -- that would mean every provider threading an agent name and a round
+    counter it should not have to know about. The loop knows both, so this stamps
+    them on the way past instead.
+
+    Only fills in what is missing (``agent is None`` / the still-default
+    ``iteration == 0``): an event the loop already stamped itself (``RunStarted``,
+    ``ToolCalled``, ...) never passes through this wrapper in the first place, but a
+    client-emitted event that ever does carry its own attribution is left alone.
+    ``iteration_getter`` is a callable, not a snapshot, so successive turns within one
+    run report the round they actually happened in.
+    """
+    if sink is None:
+        return None
+
+    def wrapped(event: RunEvent) -> None:
+        updates = {}
+        if event.agent is None and agent_name is not None:
+            updates["agent"] = agent_name
+        if event.iteration == 0:
+            updates["iteration"] = iteration_getter()
+        sink(replace(event, **updates) if updates else event)
+
+    return wrapped
+
 
 # Forced wrap-up prompt used when the loop hits the round cap with tools still pending and the
 # agent configured no ``final_answer_prompt``. Tools are disabled for this turn, so it asks the
@@ -133,6 +165,15 @@ class _BaseToolLoop:
         # ToolCalled/ToolDenied directly, stamped with the agent's name and the current round.
         self._events = events
         self._agent_name = agent_name
+        # Updated by run()/run_streamed() right before every client call, so the attributing
+        # sink (see _attributing_sink) can report which round a client-emitted event happened
+        # in without the client itself ever knowing about rounds.
+        self._current_iteration = 0
+
+    def _attributing_sink(self) -> Optional[EventSink]:
+        """The sink installed on the client for the run's duration: ``self._events``, wrapped
+        to fill in the agent name and current iteration the client cannot know on its own."""
+        return _attributing(self._events, self._agent_name, lambda: self._current_iteration)
 
     def _current_tools(self) -> list[Callable]:
         return list(self._tools() if callable(self._tools) else self._tools)
@@ -226,8 +267,9 @@ class _ToolLoop(_BaseToolLoop):
         result: Optional[str] = None
         error: Optional[BaseException] = None
         last_iteration = 0
+        self._current_iteration = 0
         try:
-            with self._client._events_override(self._events):
+            with self._client._events_override(self._attributing_sink()):
                 response = self._client.chat(
                     user_message,
                     generate_kwargs=generate_kwargs,
@@ -241,6 +283,7 @@ class _ToolLoop(_BaseToolLoop):
                     state = classify_terminal_turn(self._client.messages)
                     if state == TERMINAL_PENDING_TOOLS:
                         self._dispatch(last_iteration)
+                        self._current_iteration = chats
                         response = self._client.chat(
                             generate_kwargs=generate_kwargs, tools=self._current_tools(), thinking=self._thinking
                         )
@@ -251,6 +294,7 @@ class _ToolLoop(_BaseToolLoop):
                         # and nudging only shrinks the next one.
                         self._raise_if_truncated()
                         injected_at = len(self._client.messages)
+                        self._current_iteration = chats
                         response = self._client.chat(
                             self._continuation_prompt,
                             generate_kwargs=generate_kwargs,
@@ -264,6 +308,7 @@ class _ToolLoop(_BaseToolLoop):
                     chats += 1
 
                 last_iteration = chats - 1
+                self._current_iteration = chats
                 result = self._forced_wrap_up(response, generate_kwargs)
                 return result
         except BaseException as exc:
@@ -285,8 +330,9 @@ class _ToolLoop(_BaseToolLoop):
         emit(self._events, RunStarted(agent=self._agent_name, iteration=0, task=user_message or ""))
         error: Optional[BaseException] = None
         iteration = 0
+        self._current_iteration = 0
         try:
-            with self._client._events_override(self._events):
+            with self._client._events_override(self._attributing_sink()):
                 yield from self._retag(
                     self._client.chat(
                         user_message,
@@ -303,6 +349,7 @@ class _ToolLoop(_BaseToolLoop):
                     if state == TERMINAL_PENDING_TOOLS:
                         yield from self._dispatch_streamed(iteration)
                         iteration += 1
+                        self._current_iteration = iteration
                         yield from self._retag(
                             self._client.chat(
                                 generate_kwargs=generate_kwargs,
@@ -315,6 +362,7 @@ class _ToolLoop(_BaseToolLoop):
                     elif state == TERMINAL_EMPTY:
                         self._raise_if_truncated()  # cut off, not degenerate: a nudge cannot recover it
                         iteration += 1
+                        self._current_iteration = iteration
                         injected_at = len(self._client.messages)
                         yield from self._retag(
                             self._client.chat(
@@ -333,6 +381,7 @@ class _ToolLoop(_BaseToolLoop):
                 if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
                     injected_at = len(self._client.messages)
                     iteration += 1
+                    self._current_iteration = iteration
                     yield from self._retag(
                         self._client.chat(
                             self._wrap_up_prompt(),
