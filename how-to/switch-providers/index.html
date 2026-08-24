@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://saxman.github.io/aimu/how-to/switch-providers/">
       
       
-        <link rel="prev" href="../compare-models/">
+        <link rel="prev" href="../observe-a-run/">
       
       
         <link rel="next" href="../add-custom-tool/">
@@ -803,6 +803,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -875,6 +879,34 @@
     
   
     Compare models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../observe-a-run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observe a run
   
 
     
@@ -1468,6 +1500,34 @@
     
   
     Set the context length
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../manage-context/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manage context
   
 
     
@@ -2272,6 +2332,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -2556,6 +2620,62 @@
     
   
     aimu.rag
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.events
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/context/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.context
   
 
     
@@ -3522,7 +3642,8 @@
 <p>That pins the client only. Discovery stays endpoint-blind, so export <code>OLLAMA_HOST=http://gpu-box:11434</code> alongside it when <code>available_text_models()</code> should see the remote server's models as well.</p>
 <p>To inspect or choose among what's available instead of taking the auto-pick:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">aimu</span><span class="o">.</span><span class="n">available_text_models</span><span class="p">()</span>            <span class="c1"># list[Model]: locally loadable models, provider-priority order</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">aimu</span><span class="o">.</span><span class="n">resolve_default_text_model_enum</span><span class="p">()</span>  <span class="c1"># the single auto-pick, as an enum member</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">aimu</span><span class="o">.</span><span class="n">resolve_default_text_model</span><span class="p">()</span>       <span class="c1"># the single auto-pick, as the full string (endpoint included)</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="n">aimu</span><span class="o">.</span><span class="n">resolve_default_text_model_enum</span><span class="p">()</span>  <span class="c1"># the same pick as an enum member (no endpoint, no flags)</span>
 </span></code></pre></div>
 <h2 id="provider-keys">Provider keys<a class="headerlink" href="#provider-keys" title="Permanent link">&para;</a></h2>
 <table>

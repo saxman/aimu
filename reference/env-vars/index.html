@@ -801,6 +801,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -870,6 +874,34 @@
     
   
     Compare models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/observe-a-run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observe a run
   
 
     
@@ -1234,6 +1266,34 @@
     
   
     Set the context length
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/manage-context/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manage context
   
 
     
@@ -2043,6 +2103,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -2330,6 +2394,62 @@
     
   
     aimu.rag
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.events
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/context/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.context
   
 
     
@@ -3367,7 +3487,7 @@
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="na">AIMU_LANGUAGE_MODEL</span><span class="o">=</span><span class="s">lmstudio:some-local-build@http://box:1234</span><span class="c1">;tools,vision</span>
 </span></code></pre></div>
 <p>Note this pins only the <em>client</em>. Local discovery stays endpoint-blind (see <a href="../../how-to/switch-providers/">switch-providers.md</a>), so export <code>OLLAMA_HOST</code> as well when a remote server should also be considered by <code>available_text_models()</code>.</p>
-<p><code>resolve_default_text_model_enum()</code> is the exception, and it says so: it returns a <code>Model</code> enum member, which can carry neither an endpoint nor ad-hoc flags, so it rejects both by name rather than reporting a valid id as unknown. Use the string resolver for those.</p>
+<p><code>resolve_default_text_model_enum()</code> is the exception, and it says so: it returns a <code>Model</code> enum member, which can carry neither an endpoint nor ad-hoc flags, so it rejects both by name rather than reporting a valid id as unknown. Use <code>resolve_default_text_model()</code> for those: it is the same resolution, returned as the string, so what comes back still carries the endpoint the env var set. That is the one to reach for when a host has to build a <em>second</em> client on the same default the first one got, since a resolved enum no longer knows which endpoint it came from.</p>
 <p>The async surface skips the HuggingFace-cache probe (an <code>hf:</code> default would mean wrapping a sync in-process client), so it resolves from Ollama and local OpenAI-compatible servers only.</p>
 <h3 id="the-other-modalities">The other modalities<a class="headerlink" href="#the-other-modalities" title="Permanent link">&para;</a></h3>
 <p>Image, audio, speech, transcription, and embedding have <strong>no fallback</strong>: unset and no <code>model=</code> means the helper raises. That is deliberate, not an omission -- a wrong silent pick is expensive here (an image-style swing, or a persisted vector store corrupted by a mismatched embedder), and AIMU never downloads weights implicitly. The error lists any locally available models for that modality, so making the choice explicit is easy.</p>

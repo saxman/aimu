@@ -803,6 +803,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -875,6 +879,34 @@
     
   
     Compare models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="observe-a-run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observe a run
   
 
     
@@ -1239,6 +1271,34 @@
     
   
     Set the context length
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="manage-context/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manage context
   
 
     
@@ -2043,6 +2103,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -2327,6 +2391,62 @@
     
   
     aimu.rag
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/api/events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.events
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/api/context/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.context
   
 
     
@@ -3084,6 +3204,7 @@
 <h2 id="working-with-models">Working with models<a class="headerlink" href="#working-with-models" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="compare-models/">Compare models</a>: find out what a model can do: capability flags, the same task across providers, token cost, what a run actually did, then <code>Benchmark</code> at scale</li>
+<li><a href="observe-a-run/">Observe a run</a>: attach <code>events=</code> to see turn-by-turn telemetry, <code>last_request</code> for the exact payload sent, and a worked OpenTelemetry-shaped sink</li>
 <li><a href="switch-providers/">Switch providers</a>: change backends without changing call sites</li>
 <li><a href="add-new-model/">Add a new model</a>: register a model enum member</li>
 <li><a href="add-new-provider/">Add or update a provider</a>: write a provider client and wire it into the factory</li>
@@ -3091,6 +3212,7 @@
 <li><a href="use-structured-output/">Get structured output</a>: <code>schema=</code> on <code>chat()</code> / <code>generate()</code> returns a typed dataclass/Pydantic object; native enforcement with a parse fallback</li>
 <li><a href="control-thinking/">Control thinking effort</a>: <code>thinking=</code> to turn reasoning off or set an effort level, portably across providers</li>
 <li><a href="set-context-length/">Set the context length</a>: <code>context_length</code> in <code>generate_kwargs</code>, as a client default or per request</li>
+<li><a href="manage-context/">Manage context</a>: trim or summarize a conversation by hand, or automatically via <code>Agent(compaction=...)</code></li>
 <li><a href="use-async/">Use async (<code>aio</code>)</a>: embed AIMU in async apps; <code>asyncio.TaskGroup</code>-backed <code>Parallel</code></li>
 <li><a href="handle-vision/">Handle vision input</a>: pass images via <code>images=</code></li>
 <li><a href="generate-images/">Generate images</a>: <code>aimu.image_client()</code> / <code>generate_image()</code> with HuggingFace <code>diffusers</code> + Google Nano Banana</li>

@@ -1,5 +1,104 @@
 [
   {
+    "objectID": "28-managing-context.html",
+    "href": "28-managing-context.html",
+    "title": "Managing Context",
+    "section": "",
+    "text": "A conversation is self.messages — a plain list[dict], OpenAI format (see notebook 02) — and it only grows. Left alone, a long-running agent (notebook 07) eventually produces a request that no longer fits the model’s context window. aimu.context is three plain functions over that list — count_tokens, trim_messages, summarize_messages — plus a compaction= field on Agent that runs one of them automatically before every model turn. Nothing here is a hidden policy applied inside a client: it’s the same “plain data, plain functions” shape as aimu.rag (notebook 13), so what gets dropped and why is always something you can print.\nWhat this notebook covers: - count_tokens, and its honesty caveat: an estimate, not a measurement - trim_messages, and the invariant that justifies it existing (never orphan a tool message from the assistant turn carrying its tool_calls) - keep_last counts messages, not exchanges - summarize_messages: replace old turns with a generated summary instead of dropping them - Agent(compaction=): automate either one, and how an applied compaction announces itself (an event, and a warning) - ContextOverflowError: the portable catch-compact-retry signal for when it’s already too late",
+    "crumbs": [
+      "Notebooks",
+      "Managing Context"
+    ]
+  },
+  {
+    "objectID": "28-managing-context.html#setup",
+    "href": "28-managing-context.html#setup",
+    "title": "Managing Context",
+    "section": "Setup",
+    "text": "Setup\n\nimport aimu\n\nMODEL = \"ollama:qwen3:8b\"",
+    "crumbs": [
+      "Notebooks",
+      "Managing Context"
+    ]
+  },
+  {
+    "objectID": "28-managing-context.html#a---count-tokens-an-honest-estimate",
+    "href": "28-managing-context.html#a---count-tokens-an-honest-estimate",
+    "title": "Managing Context",
+    "section": "A - Count tokens: an honest estimate",
+    "text": "A - Count tokens: an honest estimate\ncount_tokens estimates a message list’s size. The default counter is len(text) // 4 over each message JSON-serialized, with AIMU’s own inert bookkeeping keys (timestamp, thinking, provenance) stripped first — a provider never sees those, but the structural overhead of role/tool_calls/JSON punctuation does ride along in the real request:\n\nmessages = [{\"role\": \"user\", \"content\": \"hello there\"}]\nprint(aimu.count_tokens(messages))\n\n10\nThis is an estimate, not a measurement — typically wrong by 20-30% for any specific model’s real tokenizer. The only exact count AIMU can report is after the fact, via client.last_usage following a real call (see notebook 27, section E). Pass counter= with a real tokenizer when accuracy matters more than a zero-dependency default:\naimu.count_tokens(messages, counter=lambda text: len(enc.encode(text)))  # enc: any tiktoken-like encoder",
+    "crumbs": [
+      "Notebooks",
+      "Managing Context"
+    ]
+  },
+  {
+    "objectID": "28-managing-context.html#b---trim-to-a-budget-trim_messages",
+    "href": "28-managing-context.html#b---trim-to-a-budget-trim_messages",
+    "title": "Managing Context",
+    "section": "B - Trim to a budget: trim_messages",
+    "text": "B - Trim to a budget: trim_messages\ntrim_messages drops the oldest messages until the conversation fits max_tokens (per count_tokens), and returns a new list — the input is never mutated:\n\nbudget_messages = [{\"role\": \"system\", \"content\": \"You are a assistant.\"}]\nfor i in range(6):\n    budget_messages.append({\"role\": \"user\", \"content\": f\"This is user message number {i}, with some extra padding.\"})\n    budget_messages.append({\"role\": \"assistant\", \"content\": f\"This is assistant reply number {i}, also padded out.\"})\n\nprint(aimu.count_tokens(budget_messages))\ntrimmed = aimu.trim_messages(budget_messages, max_tokens=80, keep_last=2)\nprint(aimu.count_tokens(trimmed))\nprint([m[\"role\"] for m in trimmed])\n\n274\n78\n['system', 'assistant', 'user', 'assistant']\nFour messages kept, not the two keep_last=2 might suggest — see section C for why.\nThe invariant that justifies this over a hand-written messages[-n:] slice: trimming never orphans a tool message from the assistant message carrying the tool_calls it’s answering. Every provider rejects that shape, and it’s exactly what a naive slice produces. trim_messages treats an assistant-with-tool_calls message and every tool message answering it as one indivisible unit — dropped together, kept together, never split. On a real two-turn tool-using conversation (built the same way notebook 07 does — note the system prompt lives on the client, not the agent, so both run() calls accumulate onto one history rather than resetting; see notebook 25’s gotcha for why):\n\nfrom aimu.agents import Agent\nfrom aimu.tools import tool\n\n\n@tool\ndef add(a: int, b: int) -&gt; int:\n    \"\"\"Add two integers.\"\"\"\n    return a + b\n\n\ntool_client = aimu.client(MODEL, system=\"You are a helpful assistant. Use the add tool for arithmetic.\")\ntool_agent = Agent(tool_client, tools=[add])\ntool_agent.run(\"What is 12 + 30? Use the add tool.\")\ntool_agent.run(\"What is 100 + 1? Use the add tool.\")\n\nprint([m[\"role\"] for m in tool_client.messages])\n\ntool_trimmed = aimu.trim_messages(tool_client.messages, max_tokens=150, keep_last=1)\nprint([m[\"role\"] for m in tool_trimmed])\n\n['system', 'user', 'assistant', 'tool', 'assistant', 'user', 'assistant', 'tool', 'assistant']\n['system', 'assistant', 'user', 'assistant', 'tool', 'assistant']\nReading the trimmed list against the original: the first exchange’s user question and the assistant-with-tool_calls/tool pair answering it were dropped together (the whole group, never split), while the first exchange’s own final assistant reply (no tool_calls, so nothing to orphan) survived on its own, right after system. The second exchange’s assistant-with-tool_calls/tool pair was kept intact even though only its trailing assistant message was technically inside the protected keep_last=1 tail — the boundary was pushed outward to the group’s edge rather than splitting it. (Which messages are big enough to need dropping depends on how much the model reasoned before each reply — a thinking model’s reasoning text inflates some assistant messages far more than others — so a re-run can drop a different combination of groups than shown here; what never changes is that a tool message is never separated from the assistant message carrying the tool_calls it answers.)",
+    "crumbs": [
+      "Notebooks",
+      "Managing Context"
+    ]
+  },
+  {
+    "objectID": "28-managing-context.html#c---keep_last-counts-messages-not-exchanges",
+    "href": "28-managing-context.html#c---keep_last-counts-messages-not-exchanges",
+    "title": "Managing Context",
+    "section": "C - keep_last counts messages, not exchanges",
+    "text": "C - keep_last counts messages, not exchanges\nA “turn” is ambiguous: a plain back-and-forth is 2 messages (user + assistant), but an agentic turn can be 5+ (user, assistant-with-tool_calls, one or more tool results, final assistant answer). keep_last=2 on section B’s tool-using conversation protects only the last 2 messages — here, tool and the final assistant — not the whole last exchange:\n\nprint([m[\"role\"] for m in aimu.trim_messages(tool_client.messages, max_tokens=10_000, keep_last=2)])\n\n['system', 'user', 'assistant', 'tool', 'assistant', 'user', 'assistant', 'tool', 'assistant']\nNothing dropped here — the whole conversation already fits comfortably under 10,000 tokens, so trim_messages returns everything unchanged (a copy). Pass a larger keep_last if you want whole exchanges protected on a tool-using conversation; system messages (keep_system=True, the default) are always kept regardless of budget or keep_last.",
+    "crumbs": [
+      "Notebooks",
+      "Managing Context"
+    ]
+  },
+  {
+    "objectID": "28-managing-context.html#d---summarize-instead-of-dropping-summarize_messages",
+    "href": "28-managing-context.html#d---summarize-instead-of-dropping-summarize_messages",
+    "title": "Managing Context",
+    "section": "D - Summarize instead of dropping: summarize_messages",
+    "text": "D - Summarize instead of dropping: summarize_messages\ntrim_messages discards the oldest turns outright. summarize_messages replaces them with one LLM-generated summary instead, so the conversation keeps some memory of what came before rather than none:\n\nsummary_client = aimu.client(MODEL)\nplain_messages = [\n    {\"role\": \"user\", \"content\": \"My favorite color is blue.\"},\n    {\"role\": \"assistant\", \"content\": \"Got it, blue is a great color.\"},\n    {\"role\": \"user\", \"content\": \"What is 2+2?\"},\n    {\"role\": \"assistant\", \"content\": \"4\"},\n]\nsummarized = aimu.summarize_messages(summary_client, plain_messages, keep_last=2)\nfor m in summarized:\n    print(m[\"role\"], \":\", m[\"content\"])\n\nsystem : Summary of earlier conversation:\n&lt;generated summary text -- varies by run and model&gt;\nuser : What is 2+2?\nassistant : 4\nThe \"Summary of earlier conversation:\\n\" prefix is a fixed template; the tail (user/assistant here) is the original messages kept verbatim — only the summary sentence is generated text, and it will read differently on your machine. client is anything with a generate(prompt: str) -&gt; str method (a plain BaseModelClient, or agent.as_model_client()), passed in rather than constructed internally so this function stays free of any provider dependency. It applies the same group-protection invariant as trim_messages when carving out the tail. When the whole conversation already fits in keep_last, no summarization call is made and the input is returned unchanged (a copy).",
+    "crumbs": [
+      "Notebooks",
+      "Managing Context"
+    ]
+  },
+  {
+    "objectID": "28-managing-context.html#e---automate-it-agentcompaction",
+    "href": "28-managing-context.html#e---automate-it-agentcompaction",
+    "title": "Managing Context",
+    "section": "E - Automate it: Agent(compaction=)",
+    "text": "E - Automate it: Agent(compaction=)\nBoth functions above are things you call by hand. Agent(compaction=...) (and the per-run agent.run(compaction=...) override) runs a callable of your choice — list[dict] -&gt; list[dict] — right before every model turn in the loop:\n\nimport logging\n\nlogging.basicConfig(level=logging.WARNING, format=\"%(levelname)s %(message)s\")\n\nfrom aimu.events import ContextCompacted\n\ncompaction_seen: list = []\ncompaction_client = aimu.client(MODEL, system=\"You are terse. Reply in one short sentence.\")\ncompaction_agent = Agent(\n    compaction_client,\n    events=compaction_seen.append,\n    compaction=lambda msgs: aimu.trim_messages(msgs, max_tokens=60, keep_last=2),\n)\ncompaction_agent.run(\"Tell me a fact about the moon.\")\ncompaction_agent.run(\"Now tell me a fact about the sun.\")\ncompaction_agent.run(\"Now tell me a fact about Mars.\")\n\ncompacted = [e for e in compaction_seen if isinstance(e, ContextCompacted)]\nprint(\"ContextCompacted events:\", len(compacted))\nfor e in compacted:\n    print(\"dropped roles:\", [m[\"role\"] for m in e.dropped], \"| before:\", e.before_tokens, \"| after:\", e.after_tokens)\n\nWARNING Compacted conversation for agent 'agent-775fd0': dropped 2 message(s) (~106 -&gt; ~62 tokens, AIMU's own estimate).\nContextCompacted events: 1\ndropped roles: ['user', 'assistant'] | before: 106 | after: 62\nAn applied compaction is never silent. “Applied” means it actually dropped something (judged by content, not identity — the callable may rebuild kept messages into new dict objects). When that happens, two things fire together: a ContextCompacted event for a sink attached via events= (see notebook 27), and an unconditional WARNING log — so a caller with no sink still learns their conversation was rewritten. The agent id and the two token counts vary by run (they depend on how much the model reasoned in the turns leading up to compaction); “dropped 2 message(s)” is stable here, since keep_last=2 with one exchange (user + assistant) accumulating past the 60-token budget each time drops exactly one full exchange on schedule.\nA compaction call that returns the conversation unchanged (the common case early on, before the budget is actually exceeded) is a no-op and announces nothing. ContextCompacted’s before_tokens/after_tokens are AIMU’s own default estimate — not a measurement of whatever the callable itself counted to decide what to drop.\nIf the compaction callable raises, the run raises — the same “failures are apparent” rule as everywhere else in AIMU; a compaction that can’t be trusted to run should stop the turn, not be silently skipped while the caller believes their context is being managed.",
+    "crumbs": [
+      "Notebooks",
+      "Managing Context"
+    ]
+  },
+  {
+    "objectID": "28-managing-context.html#f---when-its-already-too-late-contextoverflowerror",
+    "href": "28-managing-context.html#f---when-its-already-too-late-contextoverflowerror",
+    "title": "Managing Context",
+    "section": "F - When it’s already too late: ContextOverflowError",
+    "text": "F - When it’s already too late: ContextOverflowError\nCompaction is preventive. ContextOverflowError (from aimu.models import ContextOverflowError) is what a request that already doesn’t fit raises — the input-side counterpart of TruncatedTurnError (aimu.agents), which reports an output that ran out of room instead. Coverage differs by backend, because the failure itself looks different per backend:\n\n\n\n\n\n\n\nProvider\nHow it’s detected\n\n\n\n\nollama\nnative API rejects the request after trimming past the required user turn\n\n\nanthropic\na 400 whose message names the prompt as too long, or a 413\n\n\nopenai, gemini, local OpenAI-compat servers that set it\n400 with code=context_length_exceeded\n\n\nhf, llamacpp\nin-process pre-flight token count against the model’s own known window, before the call is even attempted\n\n\n\nThe recovery recipe — catch, trim, retry:\nfrom aimu.models import ContextOverflowError\n\ntry:\n    agent.run(task)\nexcept ContextOverflowError:\n    agent.model_client.messages = aimu.trim_messages(agent.model_client.messages, max_tokens=8000)\n    agent.run(task)\nThis cell is deliberately not executed for pasted output: triggering the real error live needs a request that overflows a specific, small context window in the exact way each backend’s own overflow detection expects (Ollama’s native path only raises when its server-side trim reaches past the required user turn), which is backend- and timing-dependent rather than something a short demo prompt reliably reproduces. Raising the model’s own context window (generate_kwargs={\"context_length\": N} on Ollama; see docs/how-to/set-context-length.md) is the other lever, when the model actually supports a larger one.",
+    "crumbs": [
+      "Notebooks",
+      "Managing Context"
+    ]
+  },
+  {
+    "objectID": "28-managing-context.html#clean-up",
+    "href": "28-managing-context.html#clean-up",
+    "title": "Managing Context",
+    "section": "Clean up",
+    "text": "Clean up\n\ndel tool_client, tool_agent, summary_client, compaction_client, compaction_agent\nprint(\"Cleaned up.\")",
+    "crumbs": [
+      "Notebooks",
+      "Managing Context"
+    ]
+  },
+  {
     "objectID": "26-remote-mcp-servers.html",
     "href": "26-remote-mcp-servers.html",
     "title": "Remote MCP Servers",
@@ -1422,7 +1521,7 @@
     "href": "index.html#notebooks",
     "title": "AIMU Notebooks",
     "section": "Notebooks",
-    "text": "Notebooks\n\nModel Client\nConversations\nStructured Output\nVision Input\nAudio Input\nTools\nAgents\nAgent Skills\nWorkflows\nPrebuilt Agents\nEmbeddings\nMemory\nRetrieval-Augmented Generation (RAG)\nPrompt Management\nPrompt Tuning\nEvaluations\nBenchmarking\nImage Generation\nAudio Generation\nSpeech\nTranscription\nAsync (aimu.aio)\nComposing Agents (A2A)\nPersonal Assistants\nSessions (multi-user)\nRemote MCP Servers",
+    "text": "Notebooks\n\nModel Client\nConversations\nStructured Output\nVision Input\nAudio Input\nTools\nAgents\nAgent Skills\nWorkflows\nPrebuilt Agents\nEmbeddings\nMemory\nRetrieval-Augmented Generation (RAG)\nPrompt Management\nPrompt Tuning\nEvaluations\nBenchmarking\nImage Generation\nAudio Generation\nSpeech\nTranscription\nAsync (aimu.aio)\nComposing Agents (A2A)\nPersonal Assistants\nSessions (multi-user)\nRemote MCP Servers\nObserving Runs\nManaging Context",
     "crumbs": [
       "Overview"
     ]
@@ -1894,7 +1993,7 @@
     "href": "07-agents.html#f---execute_python-tool",
     "title": "Agents",
     "section": "F - execute_python Tool",
-    "text": "F - execute_python Tool\nThe execute_python built-in runs Python code in-process inside an agent – useful for data analysis and computation. It is not a security boundary (restricted builtins and an import allowlist stop accidents, not attempts), so it is in builtin.compute but not ALL_TOOLS; opt in explicitly.\n\nfrom aimu.tools import builtin\nfrom aimu.agents import Agent\nfrom aimu.models import OllamaClient, OllamaModel\n\ncompute_client = OllamaClient(OllamaModel.QWEN_3_8B)\ncompute_agent = Agent(\n    compute_client,\n    system_message=\"You are a data analysis assistant. Use execute_python for calculations.\",\n    name=\"compute-agent\",\n    tools=builtin.compute,  # includes calculate and execute_python\n)\n\nresult = compute_agent.run(\"Compute the mean and standard deviation of [4, 8, 15, 16, 23, 42].\")\nprint(result)",
+    "text": "F - execute_python Tool\nThe execute_python built-in runs Python code in a fresh subprocess for an agent – useful for data analysis and computation. The subprocess buys a hard timeout, crash isolation, and no access to this process’s environment variables, but it is not a security boundary (restricted builtins and an import allowlist stop accidents, not attempts, and the filesystem/network are not confined), so it is in builtin.compute but not ALL_TOOLS; opt in explicitly. execute_python_in_process is the faster, weaker-isolation alternative that shares this process’s memory and environment.\n\nfrom aimu.tools import builtin\nfrom aimu.agents import Agent\nfrom aimu.models import OllamaClient, OllamaModel\n\ncompute_client = OllamaClient(OllamaModel.QWEN_3_8B)\ncompute_agent = Agent(\n    compute_client,\n    system_message=\"You are a data analysis assistant. Use execute_python for calculations.\",\n    name=\"compute-agent\",\n    tools=builtin.compute,  # includes calculate and execute_python\n)\n\nresult = compute_agent.run(\"Compute the mean and standard deviation of [4, 8, 15, 16, 23, 42].\")\nprint(result)",
     "crumbs": [
       "Notebooks",
       "Agents"
@@ -2833,6 +2932,138 @@
     "crumbs": [
       "Notebooks",
       "Sessions (multi-user)"
+    ]
+  },
+  {
+    "objectID": "27-observing-runs.html",
+    "href": "27-observing-runs.html",
+    "title": "Observing Runs",
+    "section": "",
+    "text": "A chat() call and an Agent.run() both do more than the string they return: a generate_kwargs merge, a thinking-effort resolution, zero-or-more tool calls, maybe a compaction pass, one or more requests to a provider. None of that is visible in the return value. aimu.events is the telemetry channel that makes it visible: a sink is one callable that takes one event, and you attach it to a client, an agent, an orchestrator, or a workflow to see what actually happened.\nThis is a different channel from StreamChunk (stream=True, see notebook 07), which is content — what the model produced, for display. Events are what the library did with it. Both can be active on the same run and neither replaces the other. For the compaction= field this notebook’s section G only introduces, see notebook 28.\nWhat this notebook covers: - log_events(logger): the shortest path to the payoff - The event vocabulary: RunStarted, ModelTurnStarted, RequestPrepared, ModelTurnFinished, ToolCalled, ToolDenied, ContextCompacted, RunFinished - Client-level emission — aimu.chat(events=...) is observable with no agent at all - client.last_request: did the library do this, or the model? - Wiring events through Agent, Chain.from_client, and OrchestratorAgent.assemble - A custom sink (a token tally) and an OpenTelemetry-shaped sink (a worked example, not a dependency) - ToolDenied, from a tool_approval policy that says no - Two honest limitations: a shared client under concurrent workers, and the schema= path",
+    "crumbs": [
+      "Notebooks",
+      "Observing Runs"
+    ]
+  },
+  {
+    "objectID": "27-observing-runs.html#setup",
+    "href": "27-observing-runs.html#setup",
+    "title": "Observing Runs",
+    "section": "Setup",
+    "text": "Setup\n\nimport logging\n\nlogging.basicConfig(level=logging.INFO, format=\"%(message)s\")\nlogging.getLogger(\"httpx\").setLevel(logging.WARNING)  # quiet the HTTP transport noise\n\nMODEL = \"ollama:qwen3:8b\"",
+    "crumbs": [
+      "Notebooks",
+      "Observing Runs"
+    ]
+  },
+  {
+    "objectID": "27-observing-runs.html#a---log_events-attach-and-watch",
+    "href": "27-observing-runs.html#a---log_events-attach-and-watch",
+    "title": "Observing Runs",
+    "section": "A - log_events: attach and watch",
+    "text": "A - log_events: attach and watch\naimu.events.log_events(logger) is a sink that writes one line per event. Attach it to a bare aimu.chat() call — no agent, no tool loop — and it is already observable:\n\nimport aimu\nfrom aimu.events import log_events\n\nreply = aimu.chat(\n    \"Say OK and nothing else.\",\n    model=MODEL,\n    events=log_events(logging.getLogger(\"aimu.demo\")),\n)\nprint(\"reply:\", reply)\n\nModelTurnStarted ModelTurnStarted(agent=None, iteration=0, model='qwen3:8b', message_count=1, tool_names=())\nRequestPrepared RequestPrepared(agent=None, iteration=0, provider='OllamaClient', model='qwen3:8b', payload={'model': 'qwen3:8b', 'messages': [...], 'options': {'temperature': 0.6, 'top_p': 0.95, 'top_k': 20}, 'tools': [], 'think': True, 'keep_alive': 60, 'format': None})\nModelTurnFinished ModelTurnFinished(agent=None, iteration=0, model='qwen3:8b', text='OK', usage={'input_tokens': 16, ...}, duration_s=...)\nreply: OK\n(output_tokens/total_tokens/duration_s depend on how much the model reasoned before answering; input_tokens for this exact one-message prompt does not.) events= is accepted the same way by aimu.client(events=...), and by client.events = ... at any point afterward.\nchat()/generate() emit exactly two turn events per model request: ModelTurnStarted before the provider call, ModelTurnFinished after — even when the turn raises (error is then set and text/usage are None, so a sink pairing the two can close a span unconditionally).",
+    "crumbs": [
+      "Notebooks",
+      "Observing Runs"
+    ]
+  },
+  {
+    "objectID": "27-observing-runs.html#b---the-event-vocabulary-on-an-agents-tool-loop",
+    "href": "27-observing-runs.html#b---the-event-vocabulary-on-an-agents-tool-loop",
+    "title": "Observing Runs",
+    "section": "B - The event vocabulary, on an agent’s tool loop",
+    "text": "B - The event vocabulary, on an agent’s tool loop\nPoint the same sink at an Agent and the tool loop reports itself too. Every event carries agent and iteration — the same two fields StreamChunk carries — so one sink attached to a nested workflow can still tell events apart by who emitted them.\n\nfrom aimu.agents import Agent\nfrom aimu.tools import tool\n\n\n@tool\ndef add(a: int, b: int) -&gt; int:\n    \"\"\"Add two integers.\"\"\"\n    return a + b\n\n\nclient = aimu.client(MODEL)\nagent = Agent(\n    client,\n    \"You are a helpful assistant. Use tools when needed.\",\n    tools=[add],\n    events=log_events(logging.getLogger(\"aimu.demo\")),\n)\nresult = agent.run(\"What is 12 + 30? Use the add tool.\")\nprint(\"result:\", result)\n\nRunStarted RunStarted(agent='agent-471fd0', iteration=0, task='What is 12 + 30? Use the add tool.')\nModelTurnStarted ModelTurnStarted(agent='agent-471fd0', iteration=0, model='qwen3:8b', message_count=2, tool_names=('add',))\nRequestPrepared RequestPrepared(agent='agent-471fd0', iteration=0, ...)\nModelTurnFinished ModelTurnFinished(agent='agent-471fd0', iteration=0, model='qwen3:8b', text='', usage={'input_tokens': 160, ...}, duration_s=...)\nToolCalled ToolCalled(agent='agent-471fd0', iteration=0, name='add', arguments={'a': 12, 'b': 30}, result='42', error=None, duration_s=...)\nModelTurnStarted ModelTurnStarted(agent='agent-471fd0', iteration=1, model='qwen3:8b', message_count=4, tool_names=('add',))\nRequestPrepared RequestPrepared(agent='agent-471fd0', iteration=1, ...)\nModelTurnFinished ModelTurnFinished(agent='agent-471fd0', iteration=1, model='qwen3:8b', text=..., usage={'input_tokens': 199, ...}, duration_s=...)\nRunFinished RunFinished(agent='agent-471fd0', iteration=1, result=..., error=None)\nresult: ...\n(The agent id is a random hex assigned at construction and differs every run; input_tokens, the tool arguments={'a': 12, 'b': 30}, and result='42' on ToolCalled are the parts of this trace that are actually fixed — the final answer text and every duration_s/output_tokens/total_tokens are sampled.) The full event vocabulary, all dataclasses in aimu.events: RunStarted, ModelTurnStarted, RequestPrepared, ModelTurnFinished, ToolCalled, ToolDenied (section F), ContextCompacted (see notebook 28), RunFinished.\n\nA sink must be thread-safe. With concurrent_tool_calls=True a turn’s tool calls are dispatched from a ThreadPoolExecutor (sync) or an asyncio.TaskGroup (async), so ToolCalled/ToolDenied arrive concurrently and in nondeterministic order. Turn and run events are emitted from the calling thread and stay ordered.",
+    "crumbs": [
+      "Notebooks",
+      "Observing Runs"
+    ]
+  },
+  {
+    "objectID": "27-observing-runs.html#c---last_request-did-the-library-do-this-or-the-model",
+    "href": "27-observing-runs.html#c---last_request-did-the-library-do-this-or-the-model",
+    "title": "Observing Runs",
+    "section": "C - last_request: did the library do this, or the model?",
+    "text": "C - last_request: did the library do this, or the model?\nRequestPrepared carries the same payload the client stores on client.last_request — the request exactly as sent, after AIMU’s own generate_kwargs merge (four tiers), the GENERATE_KWARG_SUPPORT renames and drops, thinking-effort resolution, strip_inert_keys (AIMU’s own timestamp/thinking/provenance bookkeeping never reaches a provider), and provider format adaptation. It is the answer to a question that otherwise takes source-reading: when a model’s behavior looks surprising, is the surprise something the model did, or something AIMU changed on the way out?\n\nplain_client = aimu.client(MODEL)\nplain_client.chat(\"Hello\")\nprint(plain_client.last_request)\n\n{'model': 'qwen3:8b', 'messages': [{'role': 'user', 'content': 'Hello'}], 'options': {'temperature': 0.6, 'top_p': 0.95, 'top_k': 20}, 'tools': [], 'think': True, 'keep_alive': 60, 'format': None}\nNo sink required — last_request is set on every request regardless of whether events= is attached. The payload is unredacted: it contains whatever you put in the conversation, including tool arguments and any images/audio. A sink that ships events off the machine is the right place to filter, not this attribute.",
+    "crumbs": [
+      "Notebooks",
+      "Observing Runs"
+    ]
+  },
+  {
+    "objectID": "27-observing-runs.html#d---agent-and-workflow-wiring",
+    "href": "27-observing-runs.html#d---agent-and-workflow-wiring",
+    "title": "Observing Runs",
+    "section": "D - Agent and workflow wiring",
+    "text": "D - Agent and workflow wiring\nAgent(events=) is a field, with a matching agent.run(events=...) per-run override (None uses the field). Chain.from_client(...), Router.from_client(...), Parallel.from_client(...), and PlanExecuteEvaluator.from_client(...) all take events= and forward it to every step/handler/worker they build, tagging each with its own agent name so one sink still tells them apart:\n\nfrom aimu.agents import Chain\nfrom aimu.events import RunEvent\n\nchain_client = aimu.client(MODEL)\nseen: list = []\n\n\ndef tally_sink(event: RunEvent) -&gt; None:\n    seen.append((event.agent, type(event).__name__))\n\n\nchain = Chain.from_client(\n    chain_client,\n    [\"Rephrase the input as a question.\", \"Answer the question in one short sentence.\"],\n    events=tally_sink,\n)\nresult = chain.run(\"The sky is blue.\")\nprint(\"result:\", result)\nfor agent_name, kind in seen:\n    print(agent_name, kind)\n\nresult: ...\nstep-0 RunStarted\nstep-0 ModelTurnStarted\nstep-0 RequestPrepared\nstep-0 ModelTurnFinished\nstep-0 RunFinished\nstep-1 RunStarted\nstep-1 ModelTurnStarted\nstep-1 RequestPrepared\nstep-1 ModelTurnFinished\nstep-1 RunFinished\nOrchestratorAgent.assemble(events=...) forwards the sink to the inner orchestrating Agent — the only way to reach it, since that agent is private. It covers the orchestrator’s own turns and its worker-dispatch tool calls; a worker’s internal turns reach the sink only if that worker Agent was given its own events= too (the same “each layer opts in independently” rule as everywhere else in AIMU):\n\nfrom aimu.agents import OrchestratorAgent\n\norch_client = aimu.client(MODEL)\norch_seen: list = []\n\nsummarizer = Agent(orch_client, \"Summarize the input in five words or fewer.\", name=\"summarizer\")\norch = OrchestratorAgent.assemble(\n    orch_client,\n    \"Call the summarizer tool exactly once on the user's text, then relay its result \"\n    \"verbatim as your final answer. Never call any tool more than once.\",\n    workers=[summarizer],\n    events=orch_seen.append,\n)\nresult = orch.run(\"Summarize: The quick brown fox jumps over the lazy dog.\")\nprint(\"result:\", result)\nprint(\"event count:\", len(orch_seen))\nprint(\"event types:\", {type(e).__name__ for e in orch_seen})\nprint(\"agent names seen:\", {e.agent for e in orch_seen})\n\nresult: ...\nevent count: 22\nevent types: {'RunStarted', 'ModelTurnStarted', 'RequestPrepared', 'ModelTurnFinished', 'ToolCalled', 'RunFinished'}\nagent names seen: {'orchestrator'}\n(event count and how many times the summarizer tool was actually called are sampled — this weak-model demo called it twice across two of these runs despite the instruction not to; the event types and the fact every one of them is tagged 'orchestrator', not 'summarizer', are stable, and are exactly the point: summarizer never got its own events=, so its internal turns are invisible.)",
+    "crumbs": [
+      "Notebooks",
+      "Observing Runs"
+    ]
+  },
+  {
+    "objectID": "27-observing-runs.html#e---a-custom-sink-tally-tokens-across-a-run",
+    "href": "27-observing-runs.html#e---a-custom-sink-tally-tokens-across-a-run",
+    "title": "Observing Runs",
+    "section": "E - A custom sink: tally tokens across a run",
+    "text": "E - A custom sink: tally tokens across a run\nA sink is a plain callable — nothing says it has to log. This one accumulates token usage from every ModelTurnFinished in a run:\n\nfrom aimu.events import ModelTurnFinished\n\n\nclass TokenTally:\n    def __init__(self):\n        self.input_tokens = 0\n        self.output_tokens = 0\n\n    def __call__(self, event):\n        if isinstance(event, ModelTurnFinished) and event.usage:\n            self.input_tokens += event.usage.get(\"input_tokens\", 0)\n            self.output_tokens += event.usage.get(\"output_tokens\", 0)\n\n\ntally = TokenTally()\ntally_client = aimu.client(MODEL)\ntally_agent = Agent(tally_client, \"You are terse.\", events=tally)\ntally_agent.run(\"Say hi in three words.\")\nprint(f\"input_tokens={tally.input_tokens} output_tokens={tally.output_tokens}\")\n\ninput_tokens=25 output_tokens=...\n(Both numbers are real counts from client.last_usage, not estimates. input_tokens depends only on this fixed one-turn prompt + system message, so it reproduces exactly (25 across every run this notebook was tested with); output_tokens depends on how much the model reasoned, which is sampled — it ranged from 180 to 432 across the runs used to write this notebook.)",
+    "crumbs": [
+      "Notebooks",
+      "Observing Runs"
+    ]
+  },
+  {
+    "objectID": "27-observing-runs.html#f---gated-tools-tooldenied",
+    "href": "27-observing-runs.html#f---gated-tools-tooldenied",
+    "title": "Observing Runs",
+    "section": "F - Gated tools: ToolDenied",
+    "text": "F - Gated tools: ToolDenied\nA tool_approval policy that refuses a call emits ToolDenied (name + the model’s raw arguments) instead of ToolCalled, so a sink can distinguish “the model tried this and it ran” from “the model tried this and a policy said no”:\n\n@aimu.tool\ndef delete_everything() -&gt; str:\n    \"\"\"Delete everything.\"\"\"\n    return \"done\"\n\n\ndenied_client = aimu.client(MODEL)\ndenied_agent = Agent(\n    denied_client,\n    \"Always use the delete_everything tool when asked.\",\n    tools=[delete_everything],\n    tool_approval=lambda name, args: False,\n    events=log_events(logging.getLogger(\"aimu.demo\")),\n)\ndenied_agent.run(\"Please delete everything now.\")\n\nRunStarted RunStarted(agent='agent-975fd0', iteration=0, task='Please delete everything now.')\nModelTurnStarted ModelTurnStarted(agent='agent-975fd0', iteration=0, model='qwen3:8b', message_count=2, tool_names=('delete_everything',))\nRequestPrepared RequestPrepared(agent='agent-975fd0', iteration=0, ...)\nModelTurnFinished ModelTurnFinished(agent='agent-975fd0', iteration=0, model='qwen3:8b', text='', usage={'input_tokens': 135, ...}, duration_s=...)\nToolDenied ToolDenied(agent='agent-975fd0', iteration=0, name='delete_everything', arguments={})\nModelTurnStarted ModelTurnStarted(agent='agent-975fd0', iteration=1, ...)\nRequestPrepared RequestPrepared(agent='agent-975fd0', iteration=1, ...)\nModelTurnFinished ModelTurnFinished(agent='agent-975fd0', iteration=1, model='qwen3:8b', text=..., ...)\nRunFinished RunFinished(agent='agent-975fd0', iteration=1, result=..., error=None)\nToolDenied’s shape is stable: name='delete_everything' and arguments={} are exactly what the model passed. The tool message the model itself sees is the same text gate tool calls documents: \"Tool 'delete_everything' was not approved.\"; the event is the same fact, structured for a sink instead of the transcript.",
+    "crumbs": [
+      "Notebooks",
+      "Observing Runs"
+    ]
+  },
+  {
+    "objectID": "27-observing-runs.html#g---a-worked-example-an-opentelemetry-shaped-sink",
+    "href": "27-observing-runs.html#g---a-worked-example-an-opentelemetry-shaped-sink",
+    "title": "Observing Runs",
+    "section": "G - A worked example: an OpenTelemetry-shaped sink",
+    "text": "G - A worked example: an OpenTelemetry-shaped sink\nEvents are plain data, so mapping them onto spans in an observability system is a dispatch function. This is a worked example, not a dependency — AIMU does not import opentelemetry. The stand-in tracer below is what makes the cell runnable without one installed; swap it for opentelemetry.trace.get_tracer(__name__) and the mapping is unchanged:\n\nfrom aimu.events import ModelTurnFinished, ModelTurnStarted, RunFinished, RunStarted, ToolCalled\n\n\nclass FakeSpan:\n    def __init__(self, name, attributes):\n        self.name, self.attributes = name, attributes\n\n\nclass FakeTracer:\n    \"\"\"Stand-in for trace.get_tracer(__name__); records spans instead of exporting them.\"\"\"\n\n    def __init__(self):\n        self.spans = []\n\n    def start_span(self, name, attributes):\n        span = FakeSpan(name, attributes)\n        self.spans.append(span)\n        return span\n\n\ndef make_otel_sink(tracer):\n    def sink(event: RunEvent) -&gt; None:\n        if isinstance(event, RunStarted):\n            tracer.start_span(\"agent.run\", {\"agent\": event.agent, \"task\": event.task})\n        elif isinstance(event, ModelTurnStarted):\n            tracer.start_span(\"model.turn\", {\"agent\": event.agent, \"model\": event.model})\n        elif isinstance(event, ToolCalled):\n            tracer.start_span(\"tool.call\", {\"agent\": event.agent, \"name\": event.name})\n        elif isinstance(event, ModelTurnFinished):\n            tracer.start_span(\"model.turn.finished\", {\"agent\": event.agent, \"usage\": event.usage})\n        elif isinstance(event, RunFinished):\n            tracer.start_span(\"agent.run.finished\", {\"agent\": event.agent, \"result\": event.result})\n\n    return sink\n\n\ntracer = FakeTracer()\notel_client = aimu.client(MODEL)\notel_agent = Agent(otel_client, \"You are terse.\", events=make_otel_sink(tracer))\notel_agent.run(\"Say hi in three words.\")\nfor span in tracer.spans:\n    print(span.name, span.attributes)\n\nagent.run {'agent': 'agent-d80160', 'task': 'Say hi in three words.'}\nmodel.turn {'agent': 'agent-d80160', 'model': 'qwen3:8b'}\nmodel.turn.finished {'agent': 'agent-d80160', 'usage': {'input_tokens': 25, ...}}\nagent.run.finished {'agent': 'agent-d80160', 'result': ...}\n(usage['output_tokens']/['total_tokens'] and the reply text vary by run — how much the model reasons and what it says are both sampled; input_tokens for this fixed prompt is not.) A real adapter would keep a stack of open spans (so agent.run.finished closes the span agent.run opened, rather than opening a new one) and forward event.iteration as a span attribute for a multi-round tool loop. It would also read event.error on both *Finished events: both fire on a failure too, which is what makes the pairing safe to rely on unconditionally.\n\nIf your sink goes quiet, check the log before you assume no events fired. emit() catches an exception a sink raises, logs it at WARNING, and keeps the run going — observation must never break the thing it’s observing. The cost is that a broken sink fails silently to you: no traceback at the call site, just fewer spans/lines than expected. This example’s first draft did exactly that — make_otel_sink referenced ModelTurnStarted without importing it, so every event except RunStarted raised NameError inside the sink, and the only visible symptom was tracer.spans ending up with one entry instead of four. There was no traceback to follow; the fix was reading the WARNING-level log AIMU had been emitting the whole time.",
+    "crumbs": [
+      "Notebooks",
+      "Observing Runs"
+    ]
+  },
+  {
+    "objectID": "27-observing-runs.html#h---known-limitation-a-shared-client-under-concurrent-workers",
+    "href": "27-observing-runs.html#h---known-limitation-a-shared-client-under-concurrent-workers",
+    "title": "Observing Runs",
+    "section": "H - Known limitation: a shared client under concurrent workers",
+    "text": "H - Known limitation: a shared client under concurrent workers\nevents= is delivered by mutating model_client.events for the span of a call — the same scoped-swap idiom tools= already uses, and already documented as “not safe across concurrent chat() calls on a shared client.” Parallel.from_client(...) builds every worker Agent over one shared model_client, and Parallel.run() executes those workers concurrently. Two workers whose runs overlap on that one client can clobber each other’s sink — events get dropped and misattributed, even though each worker Agent was given its own events=.\nThis is reproduced deterministically below by manually interleaving two scopes on one client, in the order two concurrent workers can land in (not real threads, so this isn’t timing-dependent — it pins the mechanism, the same way tests/test_workflow_parallel.py::test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events does):\n\nfrom aimu.events import emit\n\ngap_client = aimu.client(MODEL)\nseen_a: list = []\nseen_b: list = []\nsink_a, sink_b = seen_a.append, seen_b.append\n\n# worker-a's Agent.run() enters its events scope first...\nscope_a = gap_client._events_override(sink_a)\nscope_a.__enter__()\nprint(\"client.events is sink_a:\", gap_client.events is sink_a)\n\n# ...but before worker-a's run finishes, worker-b's Agent.run() (a different thread, same\n# shared client) enters its own scope and clobbers the live sink.\nscope_b = gap_client._events_override(sink_b)\nscope_b.__enter__()\nprint(\"client.events is sink_b:\", gap_client.events is sink_b)\n\nemit(gap_client.events, RunFinished(result=\"worker-b's own turn\"))\nprint(\"seen_a:\", seen_a)\nprint(\"seen_b:\", seen_b)\n\nclient.events is sink_a: True\nclient.events is sink_b: True\nseen_a: []\nseen_b: [RunFinished(agent=None, iteration=0, result=\"worker-b's own turn\", error=None)]\nworker-a’s sink never sees the event at all — it was silently displaced. This is pinned as a known gap, not a bug waiting to be fixed on this pass. If you need reliable per-worker events out of a Parallel, build each worker over its own model_client (skip Parallel.from_client and construct Parallel(workers=[...]) directly) rather than sharing one.",
+    "crumbs": [
+      "Notebooks",
+      "Observing Runs"
+    ]
+  },
+  {
+    "objectID": "27-observing-runs.html#i---known-limitation-schema-only-emits-requestprepared",
+    "href": "27-observing-runs.html#i---known-limitation-schema-only-emits-requestprepared",
+    "title": "Observing Runs",
+    "section": "I - Known limitation: schema= only emits RequestPrepared",
+    "text": "I - Known limitation: schema= only emits RequestPrepared\nclient.chat(schema=...) (and generate(schema=...)) makes exactly one call and returns before ModelTurnStarted fires, so the structured-output path never emits ModelTurnStarted/ModelTurnFinished — only RequestPrepared:\n\nimport dataclasses\n\n\n@dataclasses.dataclass\nclass Answer:\n    value: int\n\n\nschema_client = aimu.client(MODEL)\nschema_seen: list = []\nschema_client.events = schema_seen.append\n\nresult = schema_client.chat(\"What is 2+2? Reply with just the number.\", schema=Answer)\nprint(\"result:\", result)\nprint(\"events:\", [type(e).__name__ for e in schema_seen])\n\nresult: Answer(value=4)\nevents: ['RequestPrepared']\nInside an Agent.run(schema=...), the run is still bracketed by RunStarted/RunFinished (section D’s RunFinished.result is None here too, since the result is a typed object, not a string — it’s the return value, and also lands on client.last_structured); it is only the inner model-turn pair that is missing on this path.",
+    "crumbs": [
+      "Notebooks",
+      "Observing Runs"
+    ]
+  },
+  {
+    "objectID": "27-observing-runs.html#clean-up",
+    "href": "27-observing-runs.html#clean-up",
+    "title": "Observing Runs",
+    "section": "Clean up",
+    "text": "Clean up\n\ndel client, agent, chain_client, tally_client, denied_client, otel_client, gap_client, schema_client\nprint(\"Cleaned up.\")",
+    "crumbs": [
+      "Notebooks",
+      "Observing Runs"
     ]
   }
 ]

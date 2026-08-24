@@ -801,6 +801,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -870,6 +874,34 @@
     
   
     Compare models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/observe-a-run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observe a run
   
 
     
@@ -1234,6 +1266,34 @@
     
   
     Set the context length
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/manage-context/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manage context
   
 
     
@@ -2045,6 +2105,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -2271,6 +2335,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#aimu.models.ModelClient.last_request" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        last_request
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2480,6 +2555,17 @@
     <span class="md-ellipsis">
       
         ModelConnectionError
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.models.ContextOverflowError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ContextOverflowError
       
     </span>
   </a>
@@ -2937,6 +3023,62 @@
     
   
     aimu.rag
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.events
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../context/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.context
   
 
     
@@ -3669,6 +3811,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#aimu.models.ModelClient.last_request" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        last_request
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3878,6 +4031,17 @@
     <span class="md-ellipsis">
       
         ModelConnectionError
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.models.ContextOverflowError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ContextOverflowError
       
     </span>
   </a>
@@ -4331,6 +4495,34 @@ fully consumed (mirrors :attr:<code>last_usage</code>).</p>
 
 </div>
 
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="aimu.models.ModelClient.last_request" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">last_request</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+      <small class="doc doc-label doc-label-writable"><code>writable</code></small>
+  </span>
+
+<a href="#aimu.models.ModelClient.last_request" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">last_request</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The payload of the most recent request, post-adaptation, or <code>None</code>.</p>
+<p>Shape varies by provider: an OpenAI-compatible / Anthropic / Ollama client records the
+real kwargs dict handed to its SDK; the in-process providers (HuggingFace, llama.cpp)
+record the nearest equivalent (see each client for its shape).</p>
+
+    </div>
+
+</div>
+
 
 
 
@@ -4351,7 +4543,7 @@ fully consumed (mirrors :attr:<code>last_usage</code>).</p>
 
 
 <a href="#aimu.models.BaseModelClient" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">BaseModelClient</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span> <span class="n">model_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">system_message</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">BaseModelClient</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">Model</span><span class="p">,</span> <span class="n">model_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">system_message</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">events</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EventSink</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -5381,6 +5573,43 @@ silently replaying from another client.</p>
 <code>base_url</code> is unreachable). Wraps the underlying provider/transport error, which is preserved on
 <code>__cause__</code> so callers can walk the chain for the specific reason (e.g. "Connection refused").
 Mirrors :class:<code>aimu.tools.client.MCPConnectionError</code>.</p>
+
+
+
+
+
+
+
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="aimu.models.ContextOverflowError" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">aimu.models.ContextOverflowError</span>
+
+
+<a href="#aimu.models.ContextOverflowError" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="RuntimeError">RuntimeError</span></code></p>
+
+
+
+        <p>Raised when a request's messages no longer fit the model's context window: either a networked
+backend rejected the request outright, or an in-process backend with no server to reject it ran a
+pre-flight token count against the model's own known window and declined to even attempt the call.
+The input-side counterpart of :class:<code>aimu.agents.TruncatedTurnError</code>, which reports an <em>output</em>
+that ran out of room. On a networked backend, the provider's own error is preserved on
+<code>__cause__</code>; on an in-process pre-flight check there is no such error to chain, and <code>__cause__</code>
+is <code>None</code> by design -- do not assume every instance of this error carries one.</p>
 
 
 

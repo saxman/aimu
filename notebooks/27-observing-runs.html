@@ -1,0 +1,1682 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.10.18">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Observing Runs – AIMU Notebooks</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/headroom.min.js"></script>
+<script src="site_libs/clipboard/clipboard.min.js"></script>
+<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="site_libs/quarto-search/fuse.min.js"></script>
+<script src="site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="./">
+<link href="./28-managing-context.html" rel="next">
+<link href="./26-remote-mcp-servers.html" rel="prev">
+<script src="site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="site_libs/quarto-html/popper.min.js"></script>
+<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="site_libs/quarto-html/anchor.min.js"></script>
+<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-3a8c703fb520cc07f7eefc65bb59a90d.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "sidebar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "start",
+  "type": "textbox",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+
+
+</head>
+
+<body class="nav-sidebar floating quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01-model-client.html">Notebooks</a></li><li class="breadcrumb-item"><a href="./27-observing-runs.html">Observing Runs</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+      <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
+        <i class="bi bi-search"></i>
+      </button>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="pt-lg-2 mt-2 text-left sidebar-header">
+    <div class="sidebar-title mb-0 py-0">
+      <a href="./">AIMU Notebooks</a> 
+    </div>
+      </div>
+        <div class="mt-2 flex-shrink-0 align-items-center">
+        <div class="sidebar-search">
+        <div id="quarto-search" class="" title="Search"></div>
+        </div>
+        </div>
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./index.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Overview</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <a class="sidebar-item-text sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true">
+ <span class="menu-text">Notebooks</span></a>
+          <a class="sidebar-item-toggle text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" role="navigation" aria-expanded="true" aria-label="Toggle section">
+            <i class="bi bi-chevron-right ms-2"></i>
+          </a> 
+      </div>
+      <ul id="quarto-sidebar-section-1" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./01-model-client.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Model Client</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./02-conversations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Conversations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./03-structured-output.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Structured Output</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./04-vision.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Vision Input</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./05-audio-input.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Audio Input</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./06-tools.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Tools</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./07-agents.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Agents</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./08-agent-skills.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Agent Skills</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./09-workflows.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Workflows</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./10-prebuilt-agents.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prebuilt Agents</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./11-embeddings.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Embeddings</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./12-memory.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Memory</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./13-rag.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Retrieval-Augmented Generation (RAG)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./14-prompt-management.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prompt Management</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./15-prompt-tuning.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Prompt Tuning</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./16-evaluations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Evaluations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./17-benchmarking.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Benchmarking</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./18-image-generation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Image Generation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./19-audio-generation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Audio Generation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./20-speech.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Speech</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./21-transcription.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Transcription</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./22-async.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Async (<code>aimu.aio</code>)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./23-composing-agents-a2a.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Composing Agents (A2A)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./24-personal-assistants.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Personal Assistants</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./25-sessions.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Sessions (multi-user)</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./26-remote-mcp-servers.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Remote MCP Servers</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./27-observing-runs.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Observing Runs</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="./28-managing-context.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Managing Context</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#setup" id="toc-setup" class="nav-link active" data-scroll-target="#setup">Setup</a></li>
+  <li><a href="#a---log_events-attach-and-watch" id="toc-a---log_events-attach-and-watch" class="nav-link" data-scroll-target="#a---log_events-attach-and-watch">A - <code>log_events</code>: attach and watch</a></li>
+  <li><a href="#b---the-event-vocabulary-on-an-agents-tool-loop" id="toc-b---the-event-vocabulary-on-an-agents-tool-loop" class="nav-link" data-scroll-target="#b---the-event-vocabulary-on-an-agents-tool-loop">B - The event vocabulary, on an agent’s tool loop</a></li>
+  <li><a href="#c---last_request-did-the-library-do-this-or-the-model" id="toc-c---last_request-did-the-library-do-this-or-the-model" class="nav-link" data-scroll-target="#c---last_request-did-the-library-do-this-or-the-model">C - <code>last_request</code>: did the library do this, or the model?</a></li>
+  <li><a href="#d---agent-and-workflow-wiring" id="toc-d---agent-and-workflow-wiring" class="nav-link" data-scroll-target="#d---agent-and-workflow-wiring">D - Agent and workflow wiring</a></li>
+  <li><a href="#e---a-custom-sink-tally-tokens-across-a-run" id="toc-e---a-custom-sink-tally-tokens-across-a-run" class="nav-link" data-scroll-target="#e---a-custom-sink-tally-tokens-across-a-run">E - A custom sink: tally tokens across a run</a></li>
+  <li><a href="#f---gated-tools-tooldenied" id="toc-f---gated-tools-tooldenied" class="nav-link" data-scroll-target="#f---gated-tools-tooldenied">F - Gated tools: <code>ToolDenied</code></a></li>
+  <li><a href="#g---a-worked-example-an-opentelemetry-shaped-sink" id="toc-g---a-worked-example-an-opentelemetry-shaped-sink" class="nav-link" data-scroll-target="#g---a-worked-example-an-opentelemetry-shaped-sink">G - A worked example: an OpenTelemetry-shaped sink</a></li>
+  <li><a href="#h---known-limitation-a-shared-client-under-concurrent-workers" id="toc-h---known-limitation-a-shared-client-under-concurrent-workers" class="nav-link" data-scroll-target="#h---known-limitation-a-shared-client-under-concurrent-workers">H - Known limitation: a shared client under concurrent workers</a></li>
+  <li><a href="#i---known-limitation-schema-only-emits-requestprepared" id="toc-i---known-limitation-schema-only-emits-requestprepared" class="nav-link" data-scroll-target="#i---known-limitation-schema-only-emits-requestprepared">I - Known limitation: <code>schema=</code> only emits <code>RequestPrepared</code></a></li>
+  <li><a href="#clean-up" id="toc-clean-up" class="nav-link" data-scroll-target="#clean-up">Clean up</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="./01-model-client.html">Notebooks</a></li><li class="breadcrumb-item"><a href="./27-observing-runs.html">Observing Runs</a></li></ol></nav>
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Observing Runs</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<p>A <code>chat()</code> call and an <code>Agent.run()</code> both do more than the string they return: a generate_kwargs merge, a thinking-effort resolution, zero-or-more tool calls, maybe a compaction pass, one or more requests to a provider. None of that is visible in the return value. <code>aimu.events</code> is the telemetry channel that makes it visible: a sink is one callable that takes one event, and you attach it to a client, an agent, an orchestrator, or a workflow to see what actually happened.</p>
+<p>This is a different channel from <code>StreamChunk</code> (<code>stream=True</code>, see <a href="./07-agents.html">notebook 07</a>), which is <em>content</em> — what the model produced, for display. Events are what the library <em>did</em> with it. Both can be active on the same run and neither replaces the other. For the <code>compaction=</code> field this notebook’s section G only introduces, see <a href="./28-managing-context.html">notebook 28</a>.</p>
+<p><strong>What this notebook covers:</strong> - <code>log_events(logger)</code>: the shortest path to the payoff - The event vocabulary: <code>RunStarted</code>, <code>ModelTurnStarted</code>, <code>RequestPrepared</code>, <code>ModelTurnFinished</code>, <code>ToolCalled</code>, <code>ToolDenied</code>, <code>ContextCompacted</code>, <code>RunFinished</code> - Client-level emission — <code>aimu.chat(events=...)</code> is observable with no agent at all - <code>client.last_request</code>: did the library do this, or the model? - Wiring events through <code>Agent</code>, <code>Chain.from_client</code>, and <code>OrchestratorAgent.assemble</code> - A custom sink (a token tally) and an OpenTelemetry-shaped sink (a worked example, not a dependency) - <code>ToolDenied</code>, from a <code>tool_approval</code> policy that says no - Two honest limitations: a shared client under concurrent workers, and the <code>schema=</code> path</p>
+<blockquote class="blockquote">
+<p>This notebook runs a local Ollama model (<code>qwen3:8b</code>) throughout. Reasoning models sample their thinking, so exact <code>output_tokens</code>/<code>total_tokens</code>/<code>duration_s</code> and generated text vary between runs; <code>input_tokens</code> for a fixed prompt does not, and event ordering/type names never do. Those are called out inline rather than pinned as if they were exact.</p>
+</blockquote>
+<section id="setup" class="level2">
+<h2 class="anchored" data-anchor-id="setup">Setup</h2>
+<div id="2a5988d3" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> logging</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>logging.basicConfig(level<span class="op">=</span>logging.INFO, <span class="bu">format</span><span class="op">=</span><span class="st">"</span><span class="sc">%(message)s</span><span class="st">"</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>logging.getLogger(<span class="st">"httpx"</span>).setLevel(logging.WARNING)  <span class="co"># quiet the HTTP transport noise</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>MODEL <span class="op">=</span> <span class="st">"ollama:qwen3:8b"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+<section id="a---log_events-attach-and-watch" class="level2">
+<h2 class="anchored" data-anchor-id="a---log_events-attach-and-watch">A - <code>log_events</code>: attach and watch</h2>
+<p><code>aimu.events.log_events(logger)</code> is a sink that writes one line per event. Attach it to a bare <code>aimu.chat()</code> call — no agent, no tool loop — and it is already observable:</p>
+<div id="896d9400" class="cell" data-execution_count="2">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> log_events</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>reply <span class="op">=</span> aimu.chat(</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Say OK and nothing else."</span>,</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    model<span class="op">=</span>MODEL,</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    events<span class="op">=</span>log_events(logging.getLogger(<span class="st">"aimu.demo"</span>)),</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"reply:"</span>, reply)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<pre><code>ModelTurnStarted ModelTurnStarted(agent=None, iteration=0, model='qwen3:8b', message_count=1, tool_names=())
+RequestPrepared RequestPrepared(agent=None, iteration=0, provider='OllamaClient', model='qwen3:8b', payload={'model': 'qwen3:8b', 'messages': [...], 'options': {'temperature': 0.6, 'top_p': 0.95, 'top_k': 20}, 'tools': [], 'think': True, 'keep_alive': 60, 'format': None})
+ModelTurnFinished ModelTurnFinished(agent=None, iteration=0, model='qwen3:8b', text='OK', usage={'input_tokens': 16, ...}, duration_s=...)
+reply: OK</code></pre>
+<p>(<code>output_tokens</code>/<code>total_tokens</code>/<code>duration_s</code> depend on how much the model reasoned before answering; <code>input_tokens</code> for this exact one-message prompt does not.) <code>events=</code> is accepted the same way by <code>aimu.client(events=...)</code>, and by <code>client.events = ...</code> at any point afterward.</p>
+<p><code>chat()</code>/<code>generate()</code> emit exactly two turn events per model request: <code>ModelTurnStarted</code> before the provider call, <code>ModelTurnFinished</code> after — even when the turn raises (<code>error</code> is then set and <code>text</code>/<code>usage</code> are <code>None</code>, so a sink pairing the two can close a span unconditionally).</p>
+</section>
+<section id="b---the-event-vocabulary-on-an-agents-tool-loop" class="level2">
+<h2 class="anchored" data-anchor-id="b---the-event-vocabulary-on-an-agents-tool-loop">B - The event vocabulary, on an agent’s tool loop</h2>
+<p>Point the same sink at an <code>Agent</code> and the tool loop reports itself too. Every event carries <code>agent</code> and <code>iteration</code> — the same two fields <code>StreamChunk</code> carries — so one sink attached to a nested workflow can still tell events apart by who emitted them.</p>
+<div id="2eb0fc32" class="cell" data-execution_count="3">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> tool</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="at">@tool</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> add(a: <span class="bu">int</span>, b: <span class="bu">int</span>) <span class="op">-&gt;</span> <span class="bu">int</span>:</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Add two integers."""</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> a <span class="op">+</span> b</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    client,</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    <span class="st">"You are a helpful assistant. Use tools when needed."</span>,</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    tools<span class="op">=</span>[add],</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    events<span class="op">=</span>log_events(logging.getLogger(<span class="st">"aimu.demo"</span>)),</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> agent.run(<span class="st">"What is 12 + 30? Use the add tool."</span>)</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"result:"</span>, result)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<pre><code>RunStarted RunStarted(agent='agent-471fd0', iteration=0, task='What is 12 + 30? Use the add tool.')
+ModelTurnStarted ModelTurnStarted(agent='agent-471fd0', iteration=0, model='qwen3:8b', message_count=2, tool_names=('add',))
+RequestPrepared RequestPrepared(agent='agent-471fd0', iteration=0, ...)
+ModelTurnFinished ModelTurnFinished(agent='agent-471fd0', iteration=0, model='qwen3:8b', text='', usage={'input_tokens': 160, ...}, duration_s=...)
+ToolCalled ToolCalled(agent='agent-471fd0', iteration=0, name='add', arguments={'a': 12, 'b': 30}, result='42', error=None, duration_s=...)
+ModelTurnStarted ModelTurnStarted(agent='agent-471fd0', iteration=1, model='qwen3:8b', message_count=4, tool_names=('add',))
+RequestPrepared RequestPrepared(agent='agent-471fd0', iteration=1, ...)
+ModelTurnFinished ModelTurnFinished(agent='agent-471fd0', iteration=1, model='qwen3:8b', text=..., usage={'input_tokens': 199, ...}, duration_s=...)
+RunFinished RunFinished(agent='agent-471fd0', iteration=1, result=..., error=None)
+result: ...</code></pre>
+<p>(The agent id is a random hex assigned at construction and differs every run; <code>input_tokens</code>, the tool <code>arguments={'a': 12, 'b': 30}</code>, and <code>result='42'</code> on <code>ToolCalled</code> are the parts of this trace that are actually fixed — the final answer text and every <code>duration_s</code>/<code>output_tokens</code>/<code>total_tokens</code> are sampled.) The full event vocabulary, all dataclasses in <code>aimu.events</code>: <code>RunStarted</code>, <code>ModelTurnStarted</code>, <code>RequestPrepared</code>, <code>ModelTurnFinished</code>, <code>ToolCalled</code>, <code>ToolDenied</code> (section F), <code>ContextCompacted</code> (see <a href="./28-managing-context.html">notebook 28</a>), <code>RunFinished</code>.</p>
+<blockquote class="blockquote">
+<p><strong>A sink must be thread-safe.</strong> With <code>concurrent_tool_calls=True</code> a turn’s tool calls are dispatched from a <code>ThreadPoolExecutor</code> (sync) or an <code>asyncio.TaskGroup</code> (async), so <code>ToolCalled</code>/<code>ToolDenied</code> arrive concurrently and in nondeterministic order. Turn and run events are emitted from the calling thread and stay ordered.</p>
+</blockquote>
+</section>
+<section id="c---last_request-did-the-library-do-this-or-the-model" class="level2">
+<h2 class="anchored" data-anchor-id="c---last_request-did-the-library-do-this-or-the-model">C - <code>last_request</code>: did the library do this, or the model?</h2>
+<p><code>RequestPrepared</code> carries the same payload the client stores on <code>client.last_request</code> — the request exactly as sent, after AIMU’s own generate_kwargs merge (four tiers), the <code>GENERATE_KWARG_SUPPORT</code> renames and drops, thinking-effort resolution, <code>strip_inert_keys</code> (AIMU’s own <code>timestamp</code>/<code>thinking</code>/<code>provenance</code> bookkeeping never reaches a provider), and provider format adaptation. It is the answer to a question that otherwise takes source-reading: when a model’s behavior looks surprising, is the surprise something the model did, or something AIMU changed on the way out?</p>
+<div id="4faeea02" class="cell" data-execution_count="4">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>plain_client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>plain_client.chat(<span class="st">"Hello"</span>)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(plain_client.last_request)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<pre><code>{'model': 'qwen3:8b', 'messages': [{'role': 'user', 'content': 'Hello'}], 'options': {'temperature': 0.6, 'top_p': 0.95, 'top_k': 20}, 'tools': [], 'think': True, 'keep_alive': 60, 'format': None}</code></pre>
+<p>No sink required — <code>last_request</code> is set on every request regardless of whether <code>events=</code> is attached. The payload is unredacted: it contains whatever you put in the conversation, including tool arguments and any images/audio. A sink that ships events off the machine is the right place to filter, not this attribute.</p>
+</section>
+<section id="d---agent-and-workflow-wiring" class="level2">
+<h2 class="anchored" data-anchor-id="d---agent-and-workflow-wiring">D - Agent and workflow wiring</h2>
+<p><code>Agent(events=)</code> is a field, with a matching <code>agent.run(events=...)</code> per-run override (<code>None</code> uses the field). <code>Chain.from_client(...)</code>, <code>Router.from_client(...)</code>, <code>Parallel.from_client(...)</code>, and <code>PlanExecuteEvaluator.from_client(...)</code> all take <code>events=</code> and forward it to every step/handler/worker they build, tagging each with its own <code>agent</code> name so one sink still tells them apart:</p>
+<div id="ee91c50a" class="cell" data-execution_count="5">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Chain</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> RunEvent</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>chain_client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>seen: <span class="bu">list</span> <span class="op">=</span> []</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> tally_sink(event: RunEvent) <span class="op">-&gt;</span> <span class="va">None</span>:</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    seen.append((event.agent, <span class="bu">type</span>(event).<span class="va">__name__</span>))</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>chain <span class="op">=</span> Chain.from_client(</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>    chain_client,</span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>    [<span class="st">"Rephrase the input as a question."</span>, <span class="st">"Answer the question in one short sentence."</span>],</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>    events<span class="op">=</span>tally_sink,</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> chain.run(<span class="st">"The sky is blue."</span>)</span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"result:"</span>, result)</span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> agent_name, kind <span class="kw">in</span> seen:</span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(agent_name, kind)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<pre><code>result: ...
+step-0 RunStarted
+step-0 ModelTurnStarted
+step-0 RequestPrepared
+step-0 ModelTurnFinished
+step-0 RunFinished
+step-1 RunStarted
+step-1 ModelTurnStarted
+step-1 RequestPrepared
+step-1 ModelTurnFinished
+step-1 RunFinished</code></pre>
+<p><code>OrchestratorAgent.assemble(events=...)</code> forwards the sink to the inner orchestrating <code>Agent</code> — the only way to reach it, since that agent is private. It covers the orchestrator’s own turns and its worker-dispatch tool calls; a worker’s <em>internal</em> turns reach the sink only if that worker <code>Agent</code> was given its own <code>events=</code> too (the same “each layer opts in independently” rule as everywhere else in AIMU):</p>
+<div id="147c26ac" class="cell" data-execution_count="6">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> OrchestratorAgent</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>orch_client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>orch_seen: <span class="bu">list</span> <span class="op">=</span> []</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>summarizer <span class="op">=</span> Agent(orch_client, <span class="st">"Summarize the input in five words or fewer."</span>, name<span class="op">=</span><span class="st">"summarizer"</span>)</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>orch <span class="op">=</span> OrchestratorAgent.assemble(</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    orch_client,</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Call the summarizer tool exactly once on the user's text, then relay its result "</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    <span class="st">"verbatim as your final answer. Never call any tool more than once."</span>,</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>    workers<span class="op">=</span>[summarizer],</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>    events<span class="op">=</span>orch_seen.append,</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> orch.run(<span class="st">"Summarize: The quick brown fox jumps over the lazy dog."</span>)</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"result:"</span>, result)</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"event count:"</span>, <span class="bu">len</span>(orch_seen))</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"event types:"</span>, {<span class="bu">type</span>(e).<span class="va">__name__</span> <span class="cf">for</span> e <span class="kw">in</span> orch_seen})</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"agent names seen:"</span>, {e.agent <span class="cf">for</span> e <span class="kw">in</span> orch_seen})</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<pre><code>result: ...
+event count: 22
+event types: {'RunStarted', 'ModelTurnStarted', 'RequestPrepared', 'ModelTurnFinished', 'ToolCalled', 'RunFinished'}
+agent names seen: {'orchestrator'}</code></pre>
+<p>(<code>event count</code> and how many times the <code>summarizer</code> tool was actually called are sampled — this weak-model demo called it twice across two of these runs despite the instruction not to; the event <em>types</em> and the fact every one of them is tagged <code>'orchestrator'</code>, not <code>'summarizer'</code>, are stable, and are exactly the point: <code>summarizer</code> never got its own <code>events=</code>, so its internal turns are invisible.)</p>
+</section>
+<section id="e---a-custom-sink-tally-tokens-across-a-run" class="level2">
+<h2 class="anchored" data-anchor-id="e---a-custom-sink-tally-tokens-across-a-run">E - A custom sink: tally tokens across a run</h2>
+<p>A sink is a plain callable — nothing says it has to log. This one accumulates token usage from every <code>ModelTurnFinished</code> in a run:</p>
+<div id="30a5f7f0" class="cell" data-execution_count="7">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> ModelTurnFinished</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> TokenTally:</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>):</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.input_tokens <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.output_tokens <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__call__</span>(<span class="va">self</span>, event):</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="bu">isinstance</span>(event, ModelTurnFinished) <span class="kw">and</span> event.usage:</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.input_tokens <span class="op">+=</span> event.usage.get(<span class="st">"input_tokens"</span>, <span class="dv">0</span>)</span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.output_tokens <span class="op">+=</span> event.usage.get(<span class="st">"output_tokens"</span>, <span class="dv">0</span>)</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>tally <span class="op">=</span> TokenTally()</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>tally_client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>tally_agent <span class="op">=</span> Agent(tally_client, <span class="st">"You are terse."</span>, events<span class="op">=</span>tally)</span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>tally_agent.run(<span class="st">"Say hi in three words."</span>)</span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"input_tokens=</span><span class="sc">{</span>tally<span class="sc">.</span>input_tokens<span class="sc">}</span><span class="ss"> output_tokens=</span><span class="sc">{</span>tally<span class="sc">.</span>output_tokens<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<pre><code>input_tokens=25 output_tokens=...</code></pre>
+<p>(Both numbers are real counts from <code>client.last_usage</code>, not estimates. <code>input_tokens</code> depends only on this fixed one-turn prompt + system message, so it reproduces exactly (<code>25</code> across every run this notebook was tested with); <code>output_tokens</code> depends on how much the model reasoned, which is sampled — it ranged from 180 to 432 across the runs used to write this notebook.)</p>
+</section>
+<section id="f---gated-tools-tooldenied" class="level2">
+<h2 class="anchored" data-anchor-id="f---gated-tools-tooldenied">F - Gated tools: <code>ToolDenied</code></h2>
+<p>A <code>tool_approval</code> policy that refuses a call emits <code>ToolDenied</code> (name + the model’s raw arguments) instead of <code>ToolCalled</code>, so a sink can distinguish “the model tried this and it ran” from “the model tried this and a policy said no”:</p>
+<div id="c7ec5552" class="cell" data-execution_count="8">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="at">@aimu.tool</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> delete_everything() <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Delete everything."""</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">"done"</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>denied_client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>denied_agent <span class="op">=</span> Agent(</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>    denied_client,</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Always use the delete_everything tool when asked."</span>,</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>    tools<span class="op">=</span>[delete_everything],</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>    tool_approval<span class="op">=</span><span class="kw">lambda</span> name, args: <span class="va">False</span>,</span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>    events<span class="op">=</span>log_events(logging.getLogger(<span class="st">"aimu.demo"</span>)),</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>denied_agent.run(<span class="st">"Please delete everything now."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<pre><code>RunStarted RunStarted(agent='agent-975fd0', iteration=0, task='Please delete everything now.')
+ModelTurnStarted ModelTurnStarted(agent='agent-975fd0', iteration=0, model='qwen3:8b', message_count=2, tool_names=('delete_everything',))
+RequestPrepared RequestPrepared(agent='agent-975fd0', iteration=0, ...)
+ModelTurnFinished ModelTurnFinished(agent='agent-975fd0', iteration=0, model='qwen3:8b', text='', usage={'input_tokens': 135, ...}, duration_s=...)
+ToolDenied ToolDenied(agent='agent-975fd0', iteration=0, name='delete_everything', arguments={})
+ModelTurnStarted ModelTurnStarted(agent='agent-975fd0', iteration=1, ...)
+RequestPrepared RequestPrepared(agent='agent-975fd0', iteration=1, ...)
+ModelTurnFinished ModelTurnFinished(agent='agent-975fd0', iteration=1, model='qwen3:8b', text=..., ...)
+RunFinished RunFinished(agent='agent-975fd0', iteration=1, result=..., error=None)</code></pre>
+<p><code>ToolDenied</code>’s shape is stable: <code>name='delete_everything'</code> and <code>arguments={}</code> are exactly what the model passed. The tool message the model itself sees is the same text <a href="../docs/how-to/gate-tool-calls.md">gate tool calls</a> documents: <code>"Tool 'delete_everything' was not approved."</code>; the event is the same fact, structured for a sink instead of the transcript.</p>
+</section>
+<section id="g---a-worked-example-an-opentelemetry-shaped-sink" class="level2">
+<h2 class="anchored" data-anchor-id="g---a-worked-example-an-opentelemetry-shaped-sink">G - A worked example: an OpenTelemetry-shaped sink</h2>
+<p>Events are plain data, so mapping them onto spans in an observability system is a dispatch function. This is a worked example, not a dependency — AIMU does not import <code>opentelemetry</code>. The stand-in tracer below is what makes the cell runnable without one installed; swap it for <code>opentelemetry.trace.get_tracer(__name__)</code> and the mapping is unchanged:</p>
+<div id="bda611b4" class="cell" data-execution_count="9">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> ModelTurnFinished, ModelTurnStarted, RunFinished, RunStarted, ToolCalled</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> FakeSpan:</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, name, attributes):</span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.name, <span class="va">self</span>.attributes <span class="op">=</span> name, attributes</span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> FakeTracer:</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Stand-in for trace.get_tracer(__name__); records spans instead of exporting them."""</span></span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>):</span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.spans <span class="op">=</span> []</span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> start_span(<span class="va">self</span>, name, attributes):</span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>        span <span class="op">=</span> FakeSpan(name, attributes)</span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.spans.append(span)</span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> span</span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> make_otel_sink(tracer):</span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> sink(event: RunEvent) <span class="op">-&gt;</span> <span class="va">None</span>:</span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="bu">isinstance</span>(event, RunStarted):</span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>            tracer.start_span(<span class="st">"agent.run"</span>, {<span class="st">"agent"</span>: event.agent, <span class="st">"task"</span>: event.task})</span>
+<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a>        <span class="cf">elif</span> <span class="bu">isinstance</span>(event, ModelTurnStarted):</span>
+<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a>            tracer.start_span(<span class="st">"model.turn"</span>, {<span class="st">"agent"</span>: event.agent, <span class="st">"model"</span>: event.model})</span>
+<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a>        <span class="cf">elif</span> <span class="bu">isinstance</span>(event, ToolCalled):</span>
+<span id="cb16-28"><a href="#cb16-28" aria-hidden="true" tabindex="-1"></a>            tracer.start_span(<span class="st">"tool.call"</span>, {<span class="st">"agent"</span>: event.agent, <span class="st">"name"</span>: event.name})</span>
+<span id="cb16-29"><a href="#cb16-29" aria-hidden="true" tabindex="-1"></a>        <span class="cf">elif</span> <span class="bu">isinstance</span>(event, ModelTurnFinished):</span>
+<span id="cb16-30"><a href="#cb16-30" aria-hidden="true" tabindex="-1"></a>            tracer.start_span(<span class="st">"model.turn.finished"</span>, {<span class="st">"agent"</span>: event.agent, <span class="st">"usage"</span>: event.usage})</span>
+<span id="cb16-31"><a href="#cb16-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">elif</span> <span class="bu">isinstance</span>(event, RunFinished):</span>
+<span id="cb16-32"><a href="#cb16-32" aria-hidden="true" tabindex="-1"></a>            tracer.start_span(<span class="st">"agent.run.finished"</span>, {<span class="st">"agent"</span>: event.agent, <span class="st">"result"</span>: event.result})</span>
+<span id="cb16-33"><a href="#cb16-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-34"><a href="#cb16-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> sink</span>
+<span id="cb16-35"><a href="#cb16-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-36"><a href="#cb16-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-37"><a href="#cb16-37" aria-hidden="true" tabindex="-1"></a>tracer <span class="op">=</span> FakeTracer()</span>
+<span id="cb16-38"><a href="#cb16-38" aria-hidden="true" tabindex="-1"></a>otel_client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb16-39"><a href="#cb16-39" aria-hidden="true" tabindex="-1"></a>otel_agent <span class="op">=</span> Agent(otel_client, <span class="st">"You are terse."</span>, events<span class="op">=</span>make_otel_sink(tracer))</span>
+<span id="cb16-40"><a href="#cb16-40" aria-hidden="true" tabindex="-1"></a>otel_agent.run(<span class="st">"Say hi in three words."</span>)</span>
+<span id="cb16-41"><a href="#cb16-41" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> span <span class="kw">in</span> tracer.spans:</span>
+<span id="cb16-42"><a href="#cb16-42" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(span.name, span.attributes)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<pre><code>agent.run {'agent': 'agent-d80160', 'task': 'Say hi in three words.'}
+model.turn {'agent': 'agent-d80160', 'model': 'qwen3:8b'}
+model.turn.finished {'agent': 'agent-d80160', 'usage': {'input_tokens': 25, ...}}
+agent.run.finished {'agent': 'agent-d80160', 'result': ...}</code></pre>
+<p>(<code>usage['output_tokens']</code>/<code>['total_tokens']</code> and the reply text vary by run — how much the model reasons and what it says are both sampled; <code>input_tokens</code> for this fixed prompt is not.) A real adapter would keep a stack of open spans (so <code>agent.run.finished</code> closes the span <code>agent.run</code> opened, rather than opening a new one) and forward <code>event.iteration</code> as a span attribute for a multi-round tool loop. It would also read <code>event.error</code> on both <code>*Finished</code> events: both fire on a failure too, which is what makes the pairing safe to rely on unconditionally.</p>
+<blockquote class="blockquote">
+<p><strong>If your sink goes quiet, check the log before you assume no events fired.</strong> <code>emit()</code> catches an exception a sink raises, logs it at <code>WARNING</code>, and keeps the run going — observation must never break the thing it’s observing. The cost is that a broken sink fails silently <em>to you</em>: no traceback at the call site, just fewer spans/lines than expected. This example’s first draft did exactly that — <code>make_otel_sink</code> referenced <code>ModelTurnStarted</code> without importing it, so every event except <code>RunStarted</code> raised <code>NameError</code> inside the sink, and the only visible symptom was <code>tracer.spans</code> ending up with one entry instead of four. There was no traceback to follow; the fix was reading the <code>WARNING</code>-level log AIMU had been emitting the whole time.</p>
+</blockquote>
+</section>
+<section id="h---known-limitation-a-shared-client-under-concurrent-workers" class="level2">
+<h2 class="anchored" data-anchor-id="h---known-limitation-a-shared-client-under-concurrent-workers">H - Known limitation: a shared client under concurrent workers</h2>
+<p><code>events=</code> is delivered by mutating <code>model_client.events</code> for the span of a call — the same scoped-swap idiom <code>tools=</code> already uses, and already documented as “not safe across concurrent <code>chat()</code> calls on a shared client.” <code>Parallel.from_client(...)</code> builds every worker <code>Agent</code> over <strong>one shared <code>model_client</code></strong>, and <code>Parallel.run()</code> executes those workers concurrently. Two workers whose runs overlap on that one client can clobber each other’s sink — events get dropped and misattributed, even though each worker <code>Agent</code> was given its own <code>events=</code>.</p>
+<p>This is reproduced deterministically below by manually interleaving two scopes on one client, in the order two concurrent workers can land in (not real threads, so this isn’t timing-dependent — it pins the mechanism, the same way <code>tests/test_workflow_parallel.py::test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events</code> does):</p>
+<div id="88bbb080" class="cell" data-execution_count="10">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> emit</span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>gap_client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>seen_a: <span class="bu">list</span> <span class="op">=</span> []</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>seen_b: <span class="bu">list</span> <span class="op">=</span> []</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>sink_a, sink_b <span class="op">=</span> seen_a.append, seen_b.append</span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a><span class="co"># worker-a's Agent.run() enters its events scope first...</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>scope_a <span class="op">=</span> gap_client._events_override(sink_a)</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>scope_a.<span class="fu">__enter__</span>()</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"client.events is sink_a:"</span>, gap_client.events <span class="kw">is</span> sink_a)</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a><span class="co"># ...but before worker-a's run finishes, worker-b's Agent.run() (a different thread, same</span></span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a><span class="co"># shared client) enters its own scope and clobbers the live sink.</span></span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>scope_b <span class="op">=</span> gap_client._events_override(sink_b)</span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>scope_b.<span class="fu">__enter__</span>()</span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"client.events is sink_b:"</span>, gap_client.events <span class="kw">is</span> sink_b)</span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a>emit(gap_client.events, RunFinished(result<span class="op">=</span><span class="st">"worker-b's own turn"</span>))</span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"seen_a:"</span>, seen_a)</span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"seen_b:"</span>, seen_b)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<pre><code>client.events is sink_a: True
+client.events is sink_b: True
+seen_a: []
+seen_b: [RunFinished(agent=None, iteration=0, result="worker-b's own turn", error=None)]</code></pre>
+<p>worker-a’s sink never sees the event at all — it was silently displaced. This is pinned as a known gap, not a bug waiting to be fixed on this pass. If you need reliable per-worker events out of a <code>Parallel</code>, build each worker over its <strong>own</strong> <code>model_client</code> (skip <code>Parallel.from_client</code> and construct <code>Parallel(workers=[...])</code> directly) rather than sharing one.</p>
+</section>
+<section id="i---known-limitation-schema-only-emits-requestprepared" class="level2">
+<h2 class="anchored" data-anchor-id="i---known-limitation-schema-only-emits-requestprepared">I - Known limitation: <code>schema=</code> only emits <code>RequestPrepared</code></h2>
+<p><code>client.chat(schema=...)</code> (and <code>generate(schema=...)</code>) makes exactly one call and returns before <code>ModelTurnStarted</code> fires, so the structured-output path never emits <code>ModelTurnStarted</code>/<code>ModelTurnFinished</code> — only <code>RequestPrepared</code>:</p>
+<div id="fb738550" class="cell" data-execution_count="11">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> dataclasses</span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a><span class="at">@dataclasses.dataclass</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Answer:</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>    value: <span class="bu">int</span></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>schema_client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>schema_seen: <span class="bu">list</span> <span class="op">=</span> []</span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>schema_client.events <span class="op">=</span> schema_seen.append</span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-13"><a href="#cb20-13" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> schema_client.chat(<span class="st">"What is 2+2? Reply with just the number."</span>, schema<span class="op">=</span>Answer)</span>
+<span id="cb20-14"><a href="#cb20-14" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"result:"</span>, result)</span>
+<span id="cb20-15"><a href="#cb20-15" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"events:"</span>, [<span class="bu">type</span>(e).<span class="va">__name__</span> <span class="cf">for</span> e <span class="kw">in</span> schema_seen])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<pre><code>result: Answer(value=4)
+events: ['RequestPrepared']</code></pre>
+<p>Inside an <code>Agent.run(schema=...)</code>, the run is still bracketed by <code>RunStarted</code>/<code>RunFinished</code> (section D’s <code>RunFinished.result</code> is <code>None</code> here too, since the result is a typed object, not a string — it’s the return value, and also lands on <code>client.last_structured</code>); it is only the inner model-turn pair that is missing on this path.</p>
+</section>
+<section id="clean-up" class="level2">
+<h2 class="anchored" data-anchor-id="clean-up">Clean up</h2>
+<div id="5201fb28" class="cell" data-execution_count="12">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> client, agent, chain_client, tally_client, denied_client, otel_client, gap_client, schema_client</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Cleaned up."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+
+
+<!-- -->
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const cellDetails = window.document.querySelectorAll(".cell details.code-fold");
+        for (let i=0; i<cellDetails.length; i++) {
+          const details = cellDetails[i];
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell div.sourceCode.cell-code");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+<nav class="page-navigation">
+  <div class="nav-page nav-page-previous">
+      <a href="./26-remote-mcp-servers.html" class="pagination-link" aria-label="Remote MCP Servers">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text">Remote MCP Servers</span>
+      </a>          
+  </div>
+  <div class="nav-page nav-page-next">
+      <a href="./28-managing-context.html" class="pagination-link" aria-label="Managing Context">
+        <span class="nav-page-text">Managing Context</span> <i class="bi bi-arrow-right-short"></i>
+      </a>
+  </div>
+</nav><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Observing Runs"</span></span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a><span class="an">jupyter:</span><span class="co"> python3</span></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>A <span class="in">`chat()`</span> call and an <span class="in">`Agent.run()`</span> both do more than the string they return: a</span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>generate_kwargs merge, a thinking-effort resolution, zero-or-more tool calls, maybe a</span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>compaction pass, one or more requests to a provider. None of that is visible in the return</span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>value. <span class="in">`aimu.events`</span> is the telemetry channel that makes it visible: a sink is one callable</span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>that takes one event, and you attach it to a client, an agent, an orchestrator, or a</span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>workflow to see what actually happened.</span>
+<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a>This is a different channel from <span class="in">`StreamChunk`</span> (<span class="in">`stream=True`</span>, see <span class="co">[</span><span class="ot">notebook 07</span><span class="co">](07-agents.qmd)</span>),</span>
+<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a>which is *content* — what the model produced, for display. Events are what the library *did*</span>
+<span id="cb23-16"><a href="#cb23-16" aria-hidden="true" tabindex="-1"></a>with it. Both can be active on the same run and neither replaces the other. For the</span>
+<span id="cb23-17"><a href="#cb23-17" aria-hidden="true" tabindex="-1"></a><span class="in">`compaction=`</span> field this notebook's section G only introduces, see</span>
+<span id="cb23-18"><a href="#cb23-18" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">notebook 28</span><span class="co">](28-managing-context.qmd)</span>.</span>
+<span id="cb23-19"><a href="#cb23-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-20"><a href="#cb23-20" aria-hidden="true" tabindex="-1"></a>**What this notebook covers:**</span>
+<span id="cb23-21"><a href="#cb23-21" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`log_events(logger)`</span>: the shortest path to the payoff</span>
+<span id="cb23-22"><a href="#cb23-22" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>The event vocabulary: <span class="in">`RunStarted`</span>, <span class="in">`ModelTurnStarted`</span>, <span class="in">`RequestPrepared`</span>,</span>
+<span id="cb23-23"><a href="#cb23-23" aria-hidden="true" tabindex="-1"></a>  <span class="in">`ModelTurnFinished`</span>, <span class="in">`ToolCalled`</span>, <span class="in">`ToolDenied`</span>, <span class="in">`ContextCompacted`</span>, <span class="in">`RunFinished`</span></span>
+<span id="cb23-24"><a href="#cb23-24" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Client-level emission — <span class="in">`aimu.chat(events=...)`</span> is observable with no agent at all</span>
+<span id="cb23-25"><a href="#cb23-25" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`client.last_request`</span>: did the library do this, or the model?</span>
+<span id="cb23-26"><a href="#cb23-26" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Wiring events through <span class="in">`Agent`</span>, <span class="in">`Chain.from_client`</span>, and <span class="in">`OrchestratorAgent.assemble`</span></span>
+<span id="cb23-27"><a href="#cb23-27" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>A custom sink (a token tally) and an OpenTelemetry-shaped sink (a worked example, not a</span>
+<span id="cb23-28"><a href="#cb23-28" aria-hidden="true" tabindex="-1"></a>  dependency)</span>
+<span id="cb23-29"><a href="#cb23-29" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`ToolDenied`</span>, from a <span class="in">`tool_approval`</span> policy that says no</span>
+<span id="cb23-30"><a href="#cb23-30" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>Two honest limitations: a shared client under concurrent workers, and the <span class="in">`schema=`</span> path</span>
+<span id="cb23-31"><a href="#cb23-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-32"><a href="#cb23-32" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; This notebook runs a local Ollama model (</span><span class="in">`qwen3:8b`</span><span class="at">) throughout. Reasoning models sample</span></span>
+<span id="cb23-33"><a href="#cb23-33" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; their thinking, so exact </span><span class="in">`output_tokens`</span><span class="at">/</span><span class="in">`total_tokens`</span><span class="at">/</span><span class="in">`duration_s`</span><span class="at"> and generated text</span></span>
+<span id="cb23-34"><a href="#cb23-34" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; vary between runs; </span><span class="in">`input_tokens`</span><span class="at"> for a fixed prompt does not, and event ordering/type</span></span>
+<span id="cb23-35"><a href="#cb23-35" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; names never do. Those are called out inline rather than pinned as if they were exact.</span></span>
+<span id="cb23-36"><a href="#cb23-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-37"><a href="#cb23-37" aria-hidden="true" tabindex="-1"></a><span class="fu">## Setup</span></span>
+<span id="cb23-38"><a href="#cb23-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-41"><a href="#cb23-41" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb23-42"><a href="#cb23-42" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> logging</span>
+<span id="cb23-43"><a href="#cb23-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-44"><a href="#cb23-44" aria-hidden="true" tabindex="-1"></a>logging.basicConfig(level<span class="op">=</span>logging.INFO, <span class="bu">format</span><span class="op">=</span><span class="st">"</span><span class="sc">%(message)s</span><span class="st">"</span>)</span>
+<span id="cb23-45"><a href="#cb23-45" aria-hidden="true" tabindex="-1"></a>logging.getLogger(<span class="st">"httpx"</span>).setLevel(logging.WARNING)  <span class="co"># quiet the HTTP transport noise</span></span>
+<span id="cb23-46"><a href="#cb23-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-47"><a href="#cb23-47" aria-hidden="true" tabindex="-1"></a>MODEL <span class="op">=</span> <span class="st">"ollama:qwen3:8b"</span></span>
+<span id="cb23-48"><a href="#cb23-48" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-49"><a href="#cb23-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-50"><a href="#cb23-50" aria-hidden="true" tabindex="-1"></a><span class="fu">## A - `log_events`: attach and watch</span></span>
+<span id="cb23-51"><a href="#cb23-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-52"><a href="#cb23-52" aria-hidden="true" tabindex="-1"></a><span class="in">`aimu.events.log_events(logger)`</span> is a sink that writes one line per event. Attach it to a</span>
+<span id="cb23-53"><a href="#cb23-53" aria-hidden="true" tabindex="-1"></a>bare <span class="in">`aimu.chat()`</span> call — no agent, no tool loop — and it is already observable:</span>
+<span id="cb23-54"><a href="#cb23-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-57"><a href="#cb23-57" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb23-58"><a href="#cb23-58" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
+<span id="cb23-59"><a href="#cb23-59" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> log_events</span>
+<span id="cb23-60"><a href="#cb23-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-61"><a href="#cb23-61" aria-hidden="true" tabindex="-1"></a>reply <span class="op">=</span> aimu.chat(</span>
+<span id="cb23-62"><a href="#cb23-62" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Say OK and nothing else."</span>,</span>
+<span id="cb23-63"><a href="#cb23-63" aria-hidden="true" tabindex="-1"></a>    model<span class="op">=</span>MODEL,</span>
+<span id="cb23-64"><a href="#cb23-64" aria-hidden="true" tabindex="-1"></a>    events<span class="op">=</span>log_events(logging.getLogger(<span class="st">"aimu.demo"</span>)),</span>
+<span id="cb23-65"><a href="#cb23-65" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb23-66"><a href="#cb23-66" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"reply:"</span>, reply)</span>
+<span id="cb23-67"><a href="#cb23-67" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-68"><a href="#cb23-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-69"><a href="#cb23-69" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-70"><a href="#cb23-70" aria-hidden="true" tabindex="-1"></a><span class="in">ModelTurnStarted ModelTurnStarted(agent=None, iteration=0, model='qwen3:8b', message_count=1, tool_names=())</span></span>
+<span id="cb23-71"><a href="#cb23-71" aria-hidden="true" tabindex="-1"></a><span class="in">RequestPrepared RequestPrepared(agent=None, iteration=0, provider='OllamaClient', model='qwen3:8b', payload={'model': 'qwen3:8b', 'messages': [...], 'options': {'temperature': 0.6, 'top_p': 0.95, 'top_k': 20}, 'tools': [], 'think': True, 'keep_alive': 60, 'format': None})</span></span>
+<span id="cb23-72"><a href="#cb23-72" aria-hidden="true" tabindex="-1"></a><span class="in">ModelTurnFinished ModelTurnFinished(agent=None, iteration=0, model='qwen3:8b', text='OK', usage={'input_tokens': 16, ...}, duration_s=...)</span></span>
+<span id="cb23-73"><a href="#cb23-73" aria-hidden="true" tabindex="-1"></a><span class="in">reply: OK</span></span>
+<span id="cb23-74"><a href="#cb23-74" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-75"><a href="#cb23-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-76"><a href="#cb23-76" aria-hidden="true" tabindex="-1"></a>(<span class="in">`output_tokens`</span>/<span class="in">`total_tokens`</span>/<span class="in">`duration_s`</span> depend on how much the model reasoned before</span>
+<span id="cb23-77"><a href="#cb23-77" aria-hidden="true" tabindex="-1"></a>answering; <span class="in">`input_tokens`</span> for this exact one-message prompt does not.) <span class="in">`events=`</span> is accepted</span>
+<span id="cb23-78"><a href="#cb23-78" aria-hidden="true" tabindex="-1"></a>the same way by <span class="in">`aimu.client(events=...)`</span>, and by <span class="in">`client.events = ...`</span> at any point</span>
+<span id="cb23-79"><a href="#cb23-79" aria-hidden="true" tabindex="-1"></a>afterward.</span>
+<span id="cb23-80"><a href="#cb23-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-81"><a href="#cb23-81" aria-hidden="true" tabindex="-1"></a><span class="in">`chat()`</span>/<span class="in">`generate()`</span> emit exactly two turn events per model request: <span class="in">`ModelTurnStarted`</span></span>
+<span id="cb23-82"><a href="#cb23-82" aria-hidden="true" tabindex="-1"></a>before the provider call, <span class="in">`ModelTurnFinished`</span> after — even when the turn raises (<span class="in">`error`</span> is</span>
+<span id="cb23-83"><a href="#cb23-83" aria-hidden="true" tabindex="-1"></a>then set and <span class="in">`text`</span>/<span class="in">`usage`</span> are <span class="in">`None`</span>, so a sink pairing the two can close a span</span>
+<span id="cb23-84"><a href="#cb23-84" aria-hidden="true" tabindex="-1"></a>unconditionally).</span>
+<span id="cb23-85"><a href="#cb23-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-86"><a href="#cb23-86" aria-hidden="true" tabindex="-1"></a><span class="fu">## B - The event vocabulary, on an agent's tool loop</span></span>
+<span id="cb23-87"><a href="#cb23-87" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-88"><a href="#cb23-88" aria-hidden="true" tabindex="-1"></a>Point the same sink at an <span class="in">`Agent`</span> and the tool loop reports itself too. Every event carries</span>
+<span id="cb23-89"><a href="#cb23-89" aria-hidden="true" tabindex="-1"></a><span class="in">`agent`</span> and <span class="in">`iteration`</span> — the same two fields <span class="in">`StreamChunk`</span> carries — so one sink attached to</span>
+<span id="cb23-90"><a href="#cb23-90" aria-hidden="true" tabindex="-1"></a>a nested workflow can still tell events apart by who emitted them.</span>
+<span id="cb23-91"><a href="#cb23-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-94"><a href="#cb23-94" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb23-95"><a href="#cb23-95" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
+<span id="cb23-96"><a href="#cb23-96" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> tool</span>
+<span id="cb23-97"><a href="#cb23-97" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-98"><a href="#cb23-98" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-99"><a href="#cb23-99" aria-hidden="true" tabindex="-1"></a><span class="at">@tool</span></span>
+<span id="cb23-100"><a href="#cb23-100" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> add(a: <span class="bu">int</span>, b: <span class="bu">int</span>) <span class="op">-&gt;</span> <span class="bu">int</span>:</span>
+<span id="cb23-101"><a href="#cb23-101" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Add two integers."""</span></span>
+<span id="cb23-102"><a href="#cb23-102" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> a <span class="op">+</span> b</span>
+<span id="cb23-103"><a href="#cb23-103" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-104"><a href="#cb23-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-105"><a href="#cb23-105" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb23-106"><a href="#cb23-106" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(</span>
+<span id="cb23-107"><a href="#cb23-107" aria-hidden="true" tabindex="-1"></a>    client,</span>
+<span id="cb23-108"><a href="#cb23-108" aria-hidden="true" tabindex="-1"></a>    <span class="st">"You are a helpful assistant. Use tools when needed."</span>,</span>
+<span id="cb23-109"><a href="#cb23-109" aria-hidden="true" tabindex="-1"></a>    tools<span class="op">=</span>[add],</span>
+<span id="cb23-110"><a href="#cb23-110" aria-hidden="true" tabindex="-1"></a>    events<span class="op">=</span>log_events(logging.getLogger(<span class="st">"aimu.demo"</span>)),</span>
+<span id="cb23-111"><a href="#cb23-111" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb23-112"><a href="#cb23-112" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> agent.run(<span class="st">"What is 12 + 30? Use the add tool."</span>)</span>
+<span id="cb23-113"><a href="#cb23-113" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"result:"</span>, result)</span>
+<span id="cb23-114"><a href="#cb23-114" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-115"><a href="#cb23-115" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-116"><a href="#cb23-116" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-117"><a href="#cb23-117" aria-hidden="true" tabindex="-1"></a><span class="in">RunStarted RunStarted(agent='agent-471fd0', iteration=0, task='What is 12 + 30? Use the add tool.')</span></span>
+<span id="cb23-118"><a href="#cb23-118" aria-hidden="true" tabindex="-1"></a><span class="in">ModelTurnStarted ModelTurnStarted(agent='agent-471fd0', iteration=0, model='qwen3:8b', message_count=2, tool_names=('add',))</span></span>
+<span id="cb23-119"><a href="#cb23-119" aria-hidden="true" tabindex="-1"></a><span class="in">RequestPrepared RequestPrepared(agent='agent-471fd0', iteration=0, ...)</span></span>
+<span id="cb23-120"><a href="#cb23-120" aria-hidden="true" tabindex="-1"></a><span class="in">ModelTurnFinished ModelTurnFinished(agent='agent-471fd0', iteration=0, model='qwen3:8b', text='', usage={'input_tokens': 160, ...}, duration_s=...)</span></span>
+<span id="cb23-121"><a href="#cb23-121" aria-hidden="true" tabindex="-1"></a><span class="in">ToolCalled ToolCalled(agent='agent-471fd0', iteration=0, name='add', arguments={'a': 12, 'b': 30}, result='42', error=None, duration_s=...)</span></span>
+<span id="cb23-122"><a href="#cb23-122" aria-hidden="true" tabindex="-1"></a><span class="in">ModelTurnStarted ModelTurnStarted(agent='agent-471fd0', iteration=1, model='qwen3:8b', message_count=4, tool_names=('add',))</span></span>
+<span id="cb23-123"><a href="#cb23-123" aria-hidden="true" tabindex="-1"></a><span class="in">RequestPrepared RequestPrepared(agent='agent-471fd0', iteration=1, ...)</span></span>
+<span id="cb23-124"><a href="#cb23-124" aria-hidden="true" tabindex="-1"></a><span class="in">ModelTurnFinished ModelTurnFinished(agent='agent-471fd0', iteration=1, model='qwen3:8b', text=..., usage={'input_tokens': 199, ...}, duration_s=...)</span></span>
+<span id="cb23-125"><a href="#cb23-125" aria-hidden="true" tabindex="-1"></a><span class="in">RunFinished RunFinished(agent='agent-471fd0', iteration=1, result=..., error=None)</span></span>
+<span id="cb23-126"><a href="#cb23-126" aria-hidden="true" tabindex="-1"></a><span class="in">result: ...</span></span>
+<span id="cb23-127"><a href="#cb23-127" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-128"><a href="#cb23-128" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-129"><a href="#cb23-129" aria-hidden="true" tabindex="-1"></a>(The agent id is a random hex assigned at construction and differs every run;</span>
+<span id="cb23-130"><a href="#cb23-130" aria-hidden="true" tabindex="-1"></a><span class="in">`input_tokens`</span>, the tool <span class="in">`arguments={'a': 12, 'b': 30}`</span>, and <span class="in">`result='42'`</span> on <span class="in">`ToolCalled`</span> are</span>
+<span id="cb23-131"><a href="#cb23-131" aria-hidden="true" tabindex="-1"></a>the parts of this trace that are actually fixed — the final answer text and every</span>
+<span id="cb23-132"><a href="#cb23-132" aria-hidden="true" tabindex="-1"></a><span class="in">`duration_s`</span>/<span class="in">`output_tokens`</span>/<span class="in">`total_tokens`</span> are sampled.) The full event vocabulary, all</span>
+<span id="cb23-133"><a href="#cb23-133" aria-hidden="true" tabindex="-1"></a>dataclasses in <span class="in">`aimu.events`</span>: <span class="in">`RunStarted`</span>, <span class="in">`ModelTurnStarted`</span>, <span class="in">`RequestPrepared`</span>,</span>
+<span id="cb23-134"><a href="#cb23-134" aria-hidden="true" tabindex="-1"></a><span class="in">`ModelTurnFinished`</span>, <span class="in">`ToolCalled`</span>, <span class="in">`ToolDenied`</span> (section F), <span class="in">`ContextCompacted`</span> (see</span>
+<span id="cb23-135"><a href="#cb23-135" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">notebook 28</span><span class="co">](28-managing-context.qmd)</span>), <span class="in">`RunFinished`</span>.</span>
+<span id="cb23-136"><a href="#cb23-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-137"><a href="#cb23-137" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; **A sink must be thread-safe.** With </span><span class="in">`concurrent_tool_calls=True`</span><span class="at"> a turn's tool calls are</span></span>
+<span id="cb23-138"><a href="#cb23-138" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; dispatched from a </span><span class="in">`ThreadPoolExecutor`</span><span class="at"> (sync) or an </span><span class="in">`asyncio.TaskGroup`</span><span class="at"> (async), so</span></span>
+<span id="cb23-139"><a href="#cb23-139" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; </span><span class="in">`ToolCalled`</span><span class="at">/</span><span class="in">`ToolDenied`</span><span class="at"> arrive concurrently and in nondeterministic order. Turn and run</span></span>
+<span id="cb23-140"><a href="#cb23-140" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; events are emitted from the calling thread and stay ordered.</span></span>
+<span id="cb23-141"><a href="#cb23-141" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-142"><a href="#cb23-142" aria-hidden="true" tabindex="-1"></a><span class="fu">## C - `last_request`: did the library do this, or the model?</span></span>
+<span id="cb23-143"><a href="#cb23-143" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-144"><a href="#cb23-144" aria-hidden="true" tabindex="-1"></a><span class="in">`RequestPrepared`</span> carries the same payload the client stores on <span class="in">`client.last_request`</span> — the</span>
+<span id="cb23-145"><a href="#cb23-145" aria-hidden="true" tabindex="-1"></a>request exactly as sent, after AIMU's own generate_kwargs merge (four tiers), the</span>
+<span id="cb23-146"><a href="#cb23-146" aria-hidden="true" tabindex="-1"></a><span class="in">`GENERATE_KWARG_SUPPORT`</span> renames and drops, thinking-effort resolution, <span class="in">`strip_inert_keys`</span></span>
+<span id="cb23-147"><a href="#cb23-147" aria-hidden="true" tabindex="-1"></a>(AIMU's own <span class="in">`timestamp`</span>/<span class="in">`thinking`</span>/<span class="in">`provenance`</span> bookkeeping never reaches a provider), and</span>
+<span id="cb23-148"><a href="#cb23-148" aria-hidden="true" tabindex="-1"></a>provider format adaptation. It is the answer to a question that otherwise takes</span>
+<span id="cb23-149"><a href="#cb23-149" aria-hidden="true" tabindex="-1"></a>source-reading: when a model's behavior looks surprising, is the surprise something the</span>
+<span id="cb23-150"><a href="#cb23-150" aria-hidden="true" tabindex="-1"></a>model did, or something AIMU changed on the way out?</span>
+<span id="cb23-151"><a href="#cb23-151" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-154"><a href="#cb23-154" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb23-155"><a href="#cb23-155" aria-hidden="true" tabindex="-1"></a>plain_client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb23-156"><a href="#cb23-156" aria-hidden="true" tabindex="-1"></a>plain_client.chat(<span class="st">"Hello"</span>)</span>
+<span id="cb23-157"><a href="#cb23-157" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(plain_client.last_request)</span>
+<span id="cb23-158"><a href="#cb23-158" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-159"><a href="#cb23-159" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-160"><a href="#cb23-160" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-161"><a href="#cb23-161" aria-hidden="true" tabindex="-1"></a><span class="in">{'model': 'qwen3:8b', 'messages': [{'role': 'user', 'content': 'Hello'}], 'options': {'temperature': 0.6, 'top_p': 0.95, 'top_k': 20}, 'tools': [], 'think': True, 'keep_alive': 60, 'format': None}</span></span>
+<span id="cb23-162"><a href="#cb23-162" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-163"><a href="#cb23-163" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-164"><a href="#cb23-164" aria-hidden="true" tabindex="-1"></a>No sink required — <span class="in">`last_request`</span> is set on every request regardless of whether <span class="in">`events=`</span> is</span>
+<span id="cb23-165"><a href="#cb23-165" aria-hidden="true" tabindex="-1"></a>attached. The payload is unredacted: it contains whatever you put in the conversation,</span>
+<span id="cb23-166"><a href="#cb23-166" aria-hidden="true" tabindex="-1"></a>including tool arguments and any images/audio. A sink that ships events off the machine is</span>
+<span id="cb23-167"><a href="#cb23-167" aria-hidden="true" tabindex="-1"></a>the right place to filter, not this attribute.</span>
+<span id="cb23-168"><a href="#cb23-168" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-169"><a href="#cb23-169" aria-hidden="true" tabindex="-1"></a><span class="fu">## D - Agent and workflow wiring</span></span>
+<span id="cb23-170"><a href="#cb23-170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-171"><a href="#cb23-171" aria-hidden="true" tabindex="-1"></a><span class="in">`Agent(events=)`</span> is a field, with a matching <span class="in">`agent.run(events=...)`</span> per-run override</span>
+<span id="cb23-172"><a href="#cb23-172" aria-hidden="true" tabindex="-1"></a>(<span class="in">`None`</span> uses the field). <span class="in">`Chain.from_client(...)`</span>, <span class="in">`Router.from_client(...)`</span>,</span>
+<span id="cb23-173"><a href="#cb23-173" aria-hidden="true" tabindex="-1"></a><span class="in">`Parallel.from_client(...)`</span>, and <span class="in">`PlanExecuteEvaluator.from_client(...)`</span> all take <span class="in">`events=`</span></span>
+<span id="cb23-174"><a href="#cb23-174" aria-hidden="true" tabindex="-1"></a>and forward it to every step/handler/worker they build, tagging each with its own <span class="in">`agent`</span></span>
+<span id="cb23-175"><a href="#cb23-175" aria-hidden="true" tabindex="-1"></a>name so one sink still tells them apart:</span>
+<span id="cb23-176"><a href="#cb23-176" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-179"><a href="#cb23-179" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb23-180"><a href="#cb23-180" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Chain</span>
+<span id="cb23-181"><a href="#cb23-181" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> RunEvent</span>
+<span id="cb23-182"><a href="#cb23-182" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-183"><a href="#cb23-183" aria-hidden="true" tabindex="-1"></a>chain_client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb23-184"><a href="#cb23-184" aria-hidden="true" tabindex="-1"></a>seen: <span class="bu">list</span> <span class="op">=</span> []</span>
+<span id="cb23-185"><a href="#cb23-185" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-186"><a href="#cb23-186" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-187"><a href="#cb23-187" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> tally_sink(event: RunEvent) <span class="op">-&gt;</span> <span class="va">None</span>:</span>
+<span id="cb23-188"><a href="#cb23-188" aria-hidden="true" tabindex="-1"></a>    seen.append((event.agent, <span class="bu">type</span>(event).<span class="va">__name__</span>))</span>
+<span id="cb23-189"><a href="#cb23-189" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-190"><a href="#cb23-190" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-191"><a href="#cb23-191" aria-hidden="true" tabindex="-1"></a>chain <span class="op">=</span> Chain.from_client(</span>
+<span id="cb23-192"><a href="#cb23-192" aria-hidden="true" tabindex="-1"></a>    chain_client,</span>
+<span id="cb23-193"><a href="#cb23-193" aria-hidden="true" tabindex="-1"></a>    [<span class="st">"Rephrase the input as a question."</span>, <span class="st">"Answer the question in one short sentence."</span>],</span>
+<span id="cb23-194"><a href="#cb23-194" aria-hidden="true" tabindex="-1"></a>    events<span class="op">=</span>tally_sink,</span>
+<span id="cb23-195"><a href="#cb23-195" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb23-196"><a href="#cb23-196" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> chain.run(<span class="st">"The sky is blue."</span>)</span>
+<span id="cb23-197"><a href="#cb23-197" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"result:"</span>, result)</span>
+<span id="cb23-198"><a href="#cb23-198" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> agent_name, kind <span class="kw">in</span> seen:</span>
+<span id="cb23-199"><a href="#cb23-199" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(agent_name, kind)</span>
+<span id="cb23-200"><a href="#cb23-200" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-201"><a href="#cb23-201" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-202"><a href="#cb23-202" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-203"><a href="#cb23-203" aria-hidden="true" tabindex="-1"></a><span class="in">result: ...</span></span>
+<span id="cb23-204"><a href="#cb23-204" aria-hidden="true" tabindex="-1"></a><span class="in">step-0 RunStarted</span></span>
+<span id="cb23-205"><a href="#cb23-205" aria-hidden="true" tabindex="-1"></a><span class="in">step-0 ModelTurnStarted</span></span>
+<span id="cb23-206"><a href="#cb23-206" aria-hidden="true" tabindex="-1"></a><span class="in">step-0 RequestPrepared</span></span>
+<span id="cb23-207"><a href="#cb23-207" aria-hidden="true" tabindex="-1"></a><span class="in">step-0 ModelTurnFinished</span></span>
+<span id="cb23-208"><a href="#cb23-208" aria-hidden="true" tabindex="-1"></a><span class="in">step-0 RunFinished</span></span>
+<span id="cb23-209"><a href="#cb23-209" aria-hidden="true" tabindex="-1"></a><span class="in">step-1 RunStarted</span></span>
+<span id="cb23-210"><a href="#cb23-210" aria-hidden="true" tabindex="-1"></a><span class="in">step-1 ModelTurnStarted</span></span>
+<span id="cb23-211"><a href="#cb23-211" aria-hidden="true" tabindex="-1"></a><span class="in">step-1 RequestPrepared</span></span>
+<span id="cb23-212"><a href="#cb23-212" aria-hidden="true" tabindex="-1"></a><span class="in">step-1 ModelTurnFinished</span></span>
+<span id="cb23-213"><a href="#cb23-213" aria-hidden="true" tabindex="-1"></a><span class="in">step-1 RunFinished</span></span>
+<span id="cb23-214"><a href="#cb23-214" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-215"><a href="#cb23-215" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-216"><a href="#cb23-216" aria-hidden="true" tabindex="-1"></a><span class="in">`OrchestratorAgent.assemble(events=...)`</span> forwards the sink to the inner orchestrating</span>
+<span id="cb23-217"><a href="#cb23-217" aria-hidden="true" tabindex="-1"></a><span class="in">`Agent`</span> — the only way to reach it, since that agent is private. It covers the</span>
+<span id="cb23-218"><a href="#cb23-218" aria-hidden="true" tabindex="-1"></a>orchestrator's own turns and its worker-dispatch tool calls; a worker's *internal* turns</span>
+<span id="cb23-219"><a href="#cb23-219" aria-hidden="true" tabindex="-1"></a>reach the sink only if that worker <span class="in">`Agent`</span> was given its own <span class="in">`events=`</span> too (the same</span>
+<span id="cb23-220"><a href="#cb23-220" aria-hidden="true" tabindex="-1"></a>"each layer opts in independently" rule as everywhere else in AIMU):</span>
+<span id="cb23-221"><a href="#cb23-221" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-224"><a href="#cb23-224" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb23-225"><a href="#cb23-225" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> OrchestratorAgent</span>
+<span id="cb23-226"><a href="#cb23-226" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-227"><a href="#cb23-227" aria-hidden="true" tabindex="-1"></a>orch_client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb23-228"><a href="#cb23-228" aria-hidden="true" tabindex="-1"></a>orch_seen: <span class="bu">list</span> <span class="op">=</span> []</span>
+<span id="cb23-229"><a href="#cb23-229" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-230"><a href="#cb23-230" aria-hidden="true" tabindex="-1"></a>summarizer <span class="op">=</span> Agent(orch_client, <span class="st">"Summarize the input in five words or fewer."</span>, name<span class="op">=</span><span class="st">"summarizer"</span>)</span>
+<span id="cb23-231"><a href="#cb23-231" aria-hidden="true" tabindex="-1"></a>orch <span class="op">=</span> OrchestratorAgent.assemble(</span>
+<span id="cb23-232"><a href="#cb23-232" aria-hidden="true" tabindex="-1"></a>    orch_client,</span>
+<span id="cb23-233"><a href="#cb23-233" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Call the summarizer tool exactly once on the user's text, then relay its result "</span></span>
+<span id="cb23-234"><a href="#cb23-234" aria-hidden="true" tabindex="-1"></a>    <span class="st">"verbatim as your final answer. Never call any tool more than once."</span>,</span>
+<span id="cb23-235"><a href="#cb23-235" aria-hidden="true" tabindex="-1"></a>    workers<span class="op">=</span>[summarizer],</span>
+<span id="cb23-236"><a href="#cb23-236" aria-hidden="true" tabindex="-1"></a>    events<span class="op">=</span>orch_seen.append,</span>
+<span id="cb23-237"><a href="#cb23-237" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb23-238"><a href="#cb23-238" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> orch.run(<span class="st">"Summarize: The quick brown fox jumps over the lazy dog."</span>)</span>
+<span id="cb23-239"><a href="#cb23-239" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"result:"</span>, result)</span>
+<span id="cb23-240"><a href="#cb23-240" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"event count:"</span>, <span class="bu">len</span>(orch_seen))</span>
+<span id="cb23-241"><a href="#cb23-241" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"event types:"</span>, {<span class="bu">type</span>(e).<span class="va">__name__</span> <span class="cf">for</span> e <span class="kw">in</span> orch_seen})</span>
+<span id="cb23-242"><a href="#cb23-242" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"agent names seen:"</span>, {e.agent <span class="cf">for</span> e <span class="kw">in</span> orch_seen})</span>
+<span id="cb23-243"><a href="#cb23-243" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-244"><a href="#cb23-244" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-245"><a href="#cb23-245" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-246"><a href="#cb23-246" aria-hidden="true" tabindex="-1"></a><span class="in">result: ...</span></span>
+<span id="cb23-247"><a href="#cb23-247" aria-hidden="true" tabindex="-1"></a><span class="in">event count: 22</span></span>
+<span id="cb23-248"><a href="#cb23-248" aria-hidden="true" tabindex="-1"></a><span class="in">event types: {'RunStarted', 'ModelTurnStarted', 'RequestPrepared', 'ModelTurnFinished', 'ToolCalled', 'RunFinished'}</span></span>
+<span id="cb23-249"><a href="#cb23-249" aria-hidden="true" tabindex="-1"></a><span class="in">agent names seen: {'orchestrator'}</span></span>
+<span id="cb23-250"><a href="#cb23-250" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-251"><a href="#cb23-251" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-252"><a href="#cb23-252" aria-hidden="true" tabindex="-1"></a>(<span class="in">`event count`</span> and how many times the <span class="in">`summarizer`</span> tool was actually called are sampled —</span>
+<span id="cb23-253"><a href="#cb23-253" aria-hidden="true" tabindex="-1"></a>this weak-model demo called it twice across two of these runs despite the instruction not</span>
+<span id="cb23-254"><a href="#cb23-254" aria-hidden="true" tabindex="-1"></a>to; the event *types* and the fact every one of them is tagged <span class="in">`'orchestrator'`</span>, not</span>
+<span id="cb23-255"><a href="#cb23-255" aria-hidden="true" tabindex="-1"></a><span class="in">`'summarizer'`</span>, are stable, and are exactly the point: <span class="in">`summarizer`</span> never got its own</span>
+<span id="cb23-256"><a href="#cb23-256" aria-hidden="true" tabindex="-1"></a><span class="in">`events=`</span>, so its internal turns are invisible.)</span>
+<span id="cb23-257"><a href="#cb23-257" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-258"><a href="#cb23-258" aria-hidden="true" tabindex="-1"></a><span class="fu">## E - A custom sink: tally tokens across a run</span></span>
+<span id="cb23-259"><a href="#cb23-259" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-260"><a href="#cb23-260" aria-hidden="true" tabindex="-1"></a>A sink is a plain callable — nothing says it has to log. This one accumulates token usage</span>
+<span id="cb23-261"><a href="#cb23-261" aria-hidden="true" tabindex="-1"></a>from every <span class="in">`ModelTurnFinished`</span> in a run:</span>
+<span id="cb23-262"><a href="#cb23-262" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-265"><a href="#cb23-265" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb23-266"><a href="#cb23-266" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> ModelTurnFinished</span>
+<span id="cb23-267"><a href="#cb23-267" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-268"><a href="#cb23-268" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-269"><a href="#cb23-269" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> TokenTally:</span>
+<span id="cb23-270"><a href="#cb23-270" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>):</span>
+<span id="cb23-271"><a href="#cb23-271" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.input_tokens <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb23-272"><a href="#cb23-272" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.output_tokens <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb23-273"><a href="#cb23-273" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-274"><a href="#cb23-274" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__call__</span>(<span class="va">self</span>, event):</span>
+<span id="cb23-275"><a href="#cb23-275" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="bu">isinstance</span>(event, ModelTurnFinished) <span class="kw">and</span> event.usage:</span>
+<span id="cb23-276"><a href="#cb23-276" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.input_tokens <span class="op">+=</span> event.usage.get(<span class="st">"input_tokens"</span>, <span class="dv">0</span>)</span>
+<span id="cb23-277"><a href="#cb23-277" aria-hidden="true" tabindex="-1"></a>            <span class="va">self</span>.output_tokens <span class="op">+=</span> event.usage.get(<span class="st">"output_tokens"</span>, <span class="dv">0</span>)</span>
+<span id="cb23-278"><a href="#cb23-278" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-279"><a href="#cb23-279" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-280"><a href="#cb23-280" aria-hidden="true" tabindex="-1"></a>tally <span class="op">=</span> TokenTally()</span>
+<span id="cb23-281"><a href="#cb23-281" aria-hidden="true" tabindex="-1"></a>tally_client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb23-282"><a href="#cb23-282" aria-hidden="true" tabindex="-1"></a>tally_agent <span class="op">=</span> Agent(tally_client, <span class="st">"You are terse."</span>, events<span class="op">=</span>tally)</span>
+<span id="cb23-283"><a href="#cb23-283" aria-hidden="true" tabindex="-1"></a>tally_agent.run(<span class="st">"Say hi in three words."</span>)</span>
+<span id="cb23-284"><a href="#cb23-284" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"input_tokens=</span><span class="sc">{</span>tally<span class="sc">.</span>input_tokens<span class="sc">}</span><span class="ss"> output_tokens=</span><span class="sc">{</span>tally<span class="sc">.</span>output_tokens<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb23-285"><a href="#cb23-285" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-286"><a href="#cb23-286" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-287"><a href="#cb23-287" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-288"><a href="#cb23-288" aria-hidden="true" tabindex="-1"></a><span class="in">input_tokens=25 output_tokens=...</span></span>
+<span id="cb23-289"><a href="#cb23-289" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-290"><a href="#cb23-290" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-291"><a href="#cb23-291" aria-hidden="true" tabindex="-1"></a>(Both numbers are real counts from <span class="in">`client.last_usage`</span>, not estimates. <span class="in">`input_tokens`</span></span>
+<span id="cb23-292"><a href="#cb23-292" aria-hidden="true" tabindex="-1"></a>depends only on this fixed one-turn prompt + system message, so it reproduces exactly</span>
+<span id="cb23-293"><a href="#cb23-293" aria-hidden="true" tabindex="-1"></a>(<span class="in">`25`</span> across every run this notebook was tested with); <span class="in">`output_tokens`</span> depends on how much</span>
+<span id="cb23-294"><a href="#cb23-294" aria-hidden="true" tabindex="-1"></a>the model reasoned, which is sampled — it ranged from 180 to 432 across the runs used to</span>
+<span id="cb23-295"><a href="#cb23-295" aria-hidden="true" tabindex="-1"></a>write this notebook.)</span>
+<span id="cb23-296"><a href="#cb23-296" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-297"><a href="#cb23-297" aria-hidden="true" tabindex="-1"></a><span class="fu">## F - Gated tools: `ToolDenied`</span></span>
+<span id="cb23-298"><a href="#cb23-298" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-299"><a href="#cb23-299" aria-hidden="true" tabindex="-1"></a>A <span class="in">`tool_approval`</span> policy that refuses a call emits <span class="in">`ToolDenied`</span> (name + the model's raw</span>
+<span id="cb23-300"><a href="#cb23-300" aria-hidden="true" tabindex="-1"></a>arguments) instead of <span class="in">`ToolCalled`</span>, so a sink can distinguish "the model tried this and it</span>
+<span id="cb23-301"><a href="#cb23-301" aria-hidden="true" tabindex="-1"></a>ran" from "the model tried this and a policy said no":</span>
+<span id="cb23-302"><a href="#cb23-302" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-305"><a href="#cb23-305" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb23-306"><a href="#cb23-306" aria-hidden="true" tabindex="-1"></a><span class="at">@aimu.tool</span></span>
+<span id="cb23-307"><a href="#cb23-307" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> delete_everything() <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb23-308"><a href="#cb23-308" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Delete everything."""</span></span>
+<span id="cb23-309"><a href="#cb23-309" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">"done"</span></span>
+<span id="cb23-310"><a href="#cb23-310" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-311"><a href="#cb23-311" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-312"><a href="#cb23-312" aria-hidden="true" tabindex="-1"></a>denied_client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb23-313"><a href="#cb23-313" aria-hidden="true" tabindex="-1"></a>denied_agent <span class="op">=</span> Agent(</span>
+<span id="cb23-314"><a href="#cb23-314" aria-hidden="true" tabindex="-1"></a>    denied_client,</span>
+<span id="cb23-315"><a href="#cb23-315" aria-hidden="true" tabindex="-1"></a>    <span class="st">"Always use the delete_everything tool when asked."</span>,</span>
+<span id="cb23-316"><a href="#cb23-316" aria-hidden="true" tabindex="-1"></a>    tools<span class="op">=</span>[delete_everything],</span>
+<span id="cb23-317"><a href="#cb23-317" aria-hidden="true" tabindex="-1"></a>    tool_approval<span class="op">=</span><span class="kw">lambda</span> name, args: <span class="va">False</span>,</span>
+<span id="cb23-318"><a href="#cb23-318" aria-hidden="true" tabindex="-1"></a>    events<span class="op">=</span>log_events(logging.getLogger(<span class="st">"aimu.demo"</span>)),</span>
+<span id="cb23-319"><a href="#cb23-319" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb23-320"><a href="#cb23-320" aria-hidden="true" tabindex="-1"></a>denied_agent.run(<span class="st">"Please delete everything now."</span>)</span>
+<span id="cb23-321"><a href="#cb23-321" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-322"><a href="#cb23-322" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-323"><a href="#cb23-323" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-324"><a href="#cb23-324" aria-hidden="true" tabindex="-1"></a><span class="in">RunStarted RunStarted(agent='agent-975fd0', iteration=0, task='Please delete everything now.')</span></span>
+<span id="cb23-325"><a href="#cb23-325" aria-hidden="true" tabindex="-1"></a><span class="in">ModelTurnStarted ModelTurnStarted(agent='agent-975fd0', iteration=0, model='qwen3:8b', message_count=2, tool_names=('delete_everything',))</span></span>
+<span id="cb23-326"><a href="#cb23-326" aria-hidden="true" tabindex="-1"></a><span class="in">RequestPrepared RequestPrepared(agent='agent-975fd0', iteration=0, ...)</span></span>
+<span id="cb23-327"><a href="#cb23-327" aria-hidden="true" tabindex="-1"></a><span class="in">ModelTurnFinished ModelTurnFinished(agent='agent-975fd0', iteration=0, model='qwen3:8b', text='', usage={'input_tokens': 135, ...}, duration_s=...)</span></span>
+<span id="cb23-328"><a href="#cb23-328" aria-hidden="true" tabindex="-1"></a><span class="in">ToolDenied ToolDenied(agent='agent-975fd0', iteration=0, name='delete_everything', arguments={})</span></span>
+<span id="cb23-329"><a href="#cb23-329" aria-hidden="true" tabindex="-1"></a><span class="in">ModelTurnStarted ModelTurnStarted(agent='agent-975fd0', iteration=1, ...)</span></span>
+<span id="cb23-330"><a href="#cb23-330" aria-hidden="true" tabindex="-1"></a><span class="in">RequestPrepared RequestPrepared(agent='agent-975fd0', iteration=1, ...)</span></span>
+<span id="cb23-331"><a href="#cb23-331" aria-hidden="true" tabindex="-1"></a><span class="in">ModelTurnFinished ModelTurnFinished(agent='agent-975fd0', iteration=1, model='qwen3:8b', text=..., ...)</span></span>
+<span id="cb23-332"><a href="#cb23-332" aria-hidden="true" tabindex="-1"></a><span class="in">RunFinished RunFinished(agent='agent-975fd0', iteration=1, result=..., error=None)</span></span>
+<span id="cb23-333"><a href="#cb23-333" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-334"><a href="#cb23-334" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-335"><a href="#cb23-335" aria-hidden="true" tabindex="-1"></a><span class="in">`ToolDenied`</span>'s shape is stable: <span class="in">`name='delete_everything'`</span> and <span class="in">`arguments={}`</span> are exactly</span>
+<span id="cb23-336"><a href="#cb23-336" aria-hidden="true" tabindex="-1"></a>what the model passed. The tool message the model itself sees is the same text</span>
+<span id="cb23-337"><a href="#cb23-337" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">gate tool calls</span><span class="co">](../docs/how-to/gate-tool-calls.md)</span> documents:</span>
+<span id="cb23-338"><a href="#cb23-338" aria-hidden="true" tabindex="-1"></a><span class="in">`"Tool 'delete_everything' was not approved."`</span>; the event is the same fact, structured for a</span>
+<span id="cb23-339"><a href="#cb23-339" aria-hidden="true" tabindex="-1"></a>sink instead of the transcript.</span>
+<span id="cb23-340"><a href="#cb23-340" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-341"><a href="#cb23-341" aria-hidden="true" tabindex="-1"></a><span class="fu">## G - A worked example: an OpenTelemetry-shaped sink</span></span>
+<span id="cb23-342"><a href="#cb23-342" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-343"><a href="#cb23-343" aria-hidden="true" tabindex="-1"></a>Events are plain data, so mapping them onto spans in an observability system is a dispatch</span>
+<span id="cb23-344"><a href="#cb23-344" aria-hidden="true" tabindex="-1"></a>function. This is a worked example, not a dependency — AIMU does not import</span>
+<span id="cb23-345"><a href="#cb23-345" aria-hidden="true" tabindex="-1"></a><span class="in">`opentelemetry`</span>. The stand-in tracer below is what makes the cell runnable without one</span>
+<span id="cb23-346"><a href="#cb23-346" aria-hidden="true" tabindex="-1"></a>installed; swap it for <span class="in">`opentelemetry.trace.get_tracer(__name__)`</span> and the mapping is</span>
+<span id="cb23-347"><a href="#cb23-347" aria-hidden="true" tabindex="-1"></a>unchanged:</span>
+<span id="cb23-348"><a href="#cb23-348" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-351"><a href="#cb23-351" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb23-352"><a href="#cb23-352" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> ModelTurnFinished, ModelTurnStarted, RunFinished, RunStarted, ToolCalled</span>
+<span id="cb23-353"><a href="#cb23-353" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-354"><a href="#cb23-354" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-355"><a href="#cb23-355" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> FakeSpan:</span>
+<span id="cb23-356"><a href="#cb23-356" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>, name, attributes):</span>
+<span id="cb23-357"><a href="#cb23-357" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.name, <span class="va">self</span>.attributes <span class="op">=</span> name, attributes</span>
+<span id="cb23-358"><a href="#cb23-358" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-359"><a href="#cb23-359" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-360"><a href="#cb23-360" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> FakeTracer:</span>
+<span id="cb23-361"><a href="#cb23-361" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Stand-in for trace.get_tracer(__name__); records spans instead of exporting them."""</span></span>
+<span id="cb23-362"><a href="#cb23-362" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-363"><a href="#cb23-363" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> <span class="fu">__init__</span>(<span class="va">self</span>):</span>
+<span id="cb23-364"><a href="#cb23-364" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.spans <span class="op">=</span> []</span>
+<span id="cb23-365"><a href="#cb23-365" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-366"><a href="#cb23-366" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> start_span(<span class="va">self</span>, name, attributes):</span>
+<span id="cb23-367"><a href="#cb23-367" aria-hidden="true" tabindex="-1"></a>        span <span class="op">=</span> FakeSpan(name, attributes)</span>
+<span id="cb23-368"><a href="#cb23-368" aria-hidden="true" tabindex="-1"></a>        <span class="va">self</span>.spans.append(span)</span>
+<span id="cb23-369"><a href="#cb23-369" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> span</span>
+<span id="cb23-370"><a href="#cb23-370" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-371"><a href="#cb23-371" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-372"><a href="#cb23-372" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> make_otel_sink(tracer):</span>
+<span id="cb23-373"><a href="#cb23-373" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> sink(event: RunEvent) <span class="op">-&gt;</span> <span class="va">None</span>:</span>
+<span id="cb23-374"><a href="#cb23-374" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="bu">isinstance</span>(event, RunStarted):</span>
+<span id="cb23-375"><a href="#cb23-375" aria-hidden="true" tabindex="-1"></a>            tracer.start_span(<span class="st">"agent.run"</span>, {<span class="st">"agent"</span>: event.agent, <span class="st">"task"</span>: event.task})</span>
+<span id="cb23-376"><a href="#cb23-376" aria-hidden="true" tabindex="-1"></a>        <span class="cf">elif</span> <span class="bu">isinstance</span>(event, ModelTurnStarted):</span>
+<span id="cb23-377"><a href="#cb23-377" aria-hidden="true" tabindex="-1"></a>            tracer.start_span(<span class="st">"model.turn"</span>, {<span class="st">"agent"</span>: event.agent, <span class="st">"model"</span>: event.model})</span>
+<span id="cb23-378"><a href="#cb23-378" aria-hidden="true" tabindex="-1"></a>        <span class="cf">elif</span> <span class="bu">isinstance</span>(event, ToolCalled):</span>
+<span id="cb23-379"><a href="#cb23-379" aria-hidden="true" tabindex="-1"></a>            tracer.start_span(<span class="st">"tool.call"</span>, {<span class="st">"agent"</span>: event.agent, <span class="st">"name"</span>: event.name})</span>
+<span id="cb23-380"><a href="#cb23-380" aria-hidden="true" tabindex="-1"></a>        <span class="cf">elif</span> <span class="bu">isinstance</span>(event, ModelTurnFinished):</span>
+<span id="cb23-381"><a href="#cb23-381" aria-hidden="true" tabindex="-1"></a>            tracer.start_span(<span class="st">"model.turn.finished"</span>, {<span class="st">"agent"</span>: event.agent, <span class="st">"usage"</span>: event.usage})</span>
+<span id="cb23-382"><a href="#cb23-382" aria-hidden="true" tabindex="-1"></a>        <span class="cf">elif</span> <span class="bu">isinstance</span>(event, RunFinished):</span>
+<span id="cb23-383"><a href="#cb23-383" aria-hidden="true" tabindex="-1"></a>            tracer.start_span(<span class="st">"agent.run.finished"</span>, {<span class="st">"agent"</span>: event.agent, <span class="st">"result"</span>: event.result})</span>
+<span id="cb23-384"><a href="#cb23-384" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-385"><a href="#cb23-385" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> sink</span>
+<span id="cb23-386"><a href="#cb23-386" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-387"><a href="#cb23-387" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-388"><a href="#cb23-388" aria-hidden="true" tabindex="-1"></a>tracer <span class="op">=</span> FakeTracer()</span>
+<span id="cb23-389"><a href="#cb23-389" aria-hidden="true" tabindex="-1"></a>otel_client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb23-390"><a href="#cb23-390" aria-hidden="true" tabindex="-1"></a>otel_agent <span class="op">=</span> Agent(otel_client, <span class="st">"You are terse."</span>, events<span class="op">=</span>make_otel_sink(tracer))</span>
+<span id="cb23-391"><a href="#cb23-391" aria-hidden="true" tabindex="-1"></a>otel_agent.run(<span class="st">"Say hi in three words."</span>)</span>
+<span id="cb23-392"><a href="#cb23-392" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> span <span class="kw">in</span> tracer.spans:</span>
+<span id="cb23-393"><a href="#cb23-393" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(span.name, span.attributes)</span>
+<span id="cb23-394"><a href="#cb23-394" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-395"><a href="#cb23-395" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-396"><a href="#cb23-396" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-397"><a href="#cb23-397" aria-hidden="true" tabindex="-1"></a><span class="in">agent.run {'agent': 'agent-d80160', 'task': 'Say hi in three words.'}</span></span>
+<span id="cb23-398"><a href="#cb23-398" aria-hidden="true" tabindex="-1"></a><span class="in">model.turn {'agent': 'agent-d80160', 'model': 'qwen3:8b'}</span></span>
+<span id="cb23-399"><a href="#cb23-399" aria-hidden="true" tabindex="-1"></a><span class="in">model.turn.finished {'agent': 'agent-d80160', 'usage': {'input_tokens': 25, ...}}</span></span>
+<span id="cb23-400"><a href="#cb23-400" aria-hidden="true" tabindex="-1"></a><span class="in">agent.run.finished {'agent': 'agent-d80160', 'result': ...}</span></span>
+<span id="cb23-401"><a href="#cb23-401" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-402"><a href="#cb23-402" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-403"><a href="#cb23-403" aria-hidden="true" tabindex="-1"></a>(<span class="in">`usage['output_tokens']`</span>/<span class="in">`['total_tokens']`</span> and the reply text vary by run — how much the</span>
+<span id="cb23-404"><a href="#cb23-404" aria-hidden="true" tabindex="-1"></a>model reasons and what it says are both sampled; <span class="in">`input_tokens`</span> for this fixed prompt is</span>
+<span id="cb23-405"><a href="#cb23-405" aria-hidden="true" tabindex="-1"></a>not.) A real adapter would keep a stack of open spans (so <span class="in">`agent.run.finished`</span> closes the</span>
+<span id="cb23-406"><a href="#cb23-406" aria-hidden="true" tabindex="-1"></a>span <span class="in">`agent.run`</span> opened, rather than opening a new one) and forward <span class="in">`event.iteration`</span> as a</span>
+<span id="cb23-407"><a href="#cb23-407" aria-hidden="true" tabindex="-1"></a>span attribute for a multi-round tool loop. It would also read <span class="in">`event.error`</span> on both</span>
+<span id="cb23-408"><a href="#cb23-408" aria-hidden="true" tabindex="-1"></a><span class="in">`*Finished`</span> events: both fire on a failure too, which is what makes the pairing safe to</span>
+<span id="cb23-409"><a href="#cb23-409" aria-hidden="true" tabindex="-1"></a>rely on unconditionally.</span>
+<span id="cb23-410"><a href="#cb23-410" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-411"><a href="#cb23-411" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; **If your sink goes quiet, check the log before you assume no events fired.** </span><span class="in">`emit()`</span></span>
+<span id="cb23-412"><a href="#cb23-412" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; catches an exception a sink raises, logs it at </span><span class="in">`WARNING`</span><span class="at">, and keeps the run going —</span></span>
+<span id="cb23-413"><a href="#cb23-413" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; observation must never break the thing it's observing. The cost is that a broken sink</span></span>
+<span id="cb23-414"><a href="#cb23-414" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; fails silently *to you*: no traceback at the call site, just fewer spans/lines than</span></span>
+<span id="cb23-415"><a href="#cb23-415" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; expected. This example's first draft did exactly that — </span><span class="in">`make_otel_sink`</span><span class="at"> referenced</span></span>
+<span id="cb23-416"><a href="#cb23-416" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; </span><span class="in">`ModelTurnStarted`</span><span class="at"> without importing it, so every event except </span><span class="in">`RunStarted`</span><span class="at"> raised</span></span>
+<span id="cb23-417"><a href="#cb23-417" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; </span><span class="in">`NameError`</span><span class="at"> inside the sink, and the only visible symptom was </span><span class="in">`tracer.spans`</span><span class="at"> ending up</span></span>
+<span id="cb23-418"><a href="#cb23-418" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; with one entry instead of four. There was no traceback to follow; the fix was reading the</span></span>
+<span id="cb23-419"><a href="#cb23-419" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; </span><span class="in">`WARNING`</span><span class="at">-level log AIMU had been emitting the whole time.</span></span>
+<span id="cb23-420"><a href="#cb23-420" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-421"><a href="#cb23-421" aria-hidden="true" tabindex="-1"></a><span class="fu">## H - Known limitation: a shared client under concurrent workers</span></span>
+<span id="cb23-422"><a href="#cb23-422" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-423"><a href="#cb23-423" aria-hidden="true" tabindex="-1"></a><span class="in">`events=`</span> is delivered by mutating <span class="in">`model_client.events`</span> for the span of a call — the same</span>
+<span id="cb23-424"><a href="#cb23-424" aria-hidden="true" tabindex="-1"></a>scoped-swap idiom <span class="in">`tools=`</span> already uses, and already documented as "not safe across</span>
+<span id="cb23-425"><a href="#cb23-425" aria-hidden="true" tabindex="-1"></a>concurrent <span class="in">`chat()`</span> calls on a shared client." <span class="in">`Parallel.from_client(...)`</span> builds every</span>
+<span id="cb23-426"><a href="#cb23-426" aria-hidden="true" tabindex="-1"></a>worker <span class="in">`Agent`</span> over **one shared `model_client`**, and <span class="in">`Parallel.run()`</span> executes those</span>
+<span id="cb23-427"><a href="#cb23-427" aria-hidden="true" tabindex="-1"></a>workers concurrently. Two workers whose runs overlap on that one client can clobber each</span>
+<span id="cb23-428"><a href="#cb23-428" aria-hidden="true" tabindex="-1"></a>other's sink — events get dropped and misattributed, even though each worker <span class="in">`Agent`</span> was</span>
+<span id="cb23-429"><a href="#cb23-429" aria-hidden="true" tabindex="-1"></a>given its own <span class="in">`events=`</span>.</span>
+<span id="cb23-430"><a href="#cb23-430" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-431"><a href="#cb23-431" aria-hidden="true" tabindex="-1"></a>This is reproduced deterministically below by manually interleaving two scopes on one</span>
+<span id="cb23-432"><a href="#cb23-432" aria-hidden="true" tabindex="-1"></a>client, in the order two concurrent workers can land in (not real threads, so this isn't</span>
+<span id="cb23-433"><a href="#cb23-433" aria-hidden="true" tabindex="-1"></a>timing-dependent — it pins the mechanism, the same way</span>
+<span id="cb23-434"><a href="#cb23-434" aria-hidden="true" tabindex="-1"></a><span class="in">`tests/test_workflow_parallel.py::test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events`</span></span>
+<span id="cb23-435"><a href="#cb23-435" aria-hidden="true" tabindex="-1"></a>does):</span>
+<span id="cb23-436"><a href="#cb23-436" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-439"><a href="#cb23-439" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb23-440"><a href="#cb23-440" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> emit</span>
+<span id="cb23-441"><a href="#cb23-441" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-442"><a href="#cb23-442" aria-hidden="true" tabindex="-1"></a>gap_client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb23-443"><a href="#cb23-443" aria-hidden="true" tabindex="-1"></a>seen_a: <span class="bu">list</span> <span class="op">=</span> []</span>
+<span id="cb23-444"><a href="#cb23-444" aria-hidden="true" tabindex="-1"></a>seen_b: <span class="bu">list</span> <span class="op">=</span> []</span>
+<span id="cb23-445"><a href="#cb23-445" aria-hidden="true" tabindex="-1"></a>sink_a, sink_b <span class="op">=</span> seen_a.append, seen_b.append</span>
+<span id="cb23-446"><a href="#cb23-446" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-447"><a href="#cb23-447" aria-hidden="true" tabindex="-1"></a><span class="co"># worker-a's Agent.run() enters its events scope first...</span></span>
+<span id="cb23-448"><a href="#cb23-448" aria-hidden="true" tabindex="-1"></a>scope_a <span class="op">=</span> gap_client._events_override(sink_a)</span>
+<span id="cb23-449"><a href="#cb23-449" aria-hidden="true" tabindex="-1"></a>scope_a.<span class="fu">__enter__</span>()</span>
+<span id="cb23-450"><a href="#cb23-450" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"client.events is sink_a:"</span>, gap_client.events <span class="kw">is</span> sink_a)</span>
+<span id="cb23-451"><a href="#cb23-451" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-452"><a href="#cb23-452" aria-hidden="true" tabindex="-1"></a><span class="co"># ...but before worker-a's run finishes, worker-b's Agent.run() (a different thread, same</span></span>
+<span id="cb23-453"><a href="#cb23-453" aria-hidden="true" tabindex="-1"></a><span class="co"># shared client) enters its own scope and clobbers the live sink.</span></span>
+<span id="cb23-454"><a href="#cb23-454" aria-hidden="true" tabindex="-1"></a>scope_b <span class="op">=</span> gap_client._events_override(sink_b)</span>
+<span id="cb23-455"><a href="#cb23-455" aria-hidden="true" tabindex="-1"></a>scope_b.<span class="fu">__enter__</span>()</span>
+<span id="cb23-456"><a href="#cb23-456" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"client.events is sink_b:"</span>, gap_client.events <span class="kw">is</span> sink_b)</span>
+<span id="cb23-457"><a href="#cb23-457" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-458"><a href="#cb23-458" aria-hidden="true" tabindex="-1"></a>emit(gap_client.events, RunFinished(result<span class="op">=</span><span class="st">"worker-b's own turn"</span>))</span>
+<span id="cb23-459"><a href="#cb23-459" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"seen_a:"</span>, seen_a)</span>
+<span id="cb23-460"><a href="#cb23-460" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"seen_b:"</span>, seen_b)</span>
+<span id="cb23-461"><a href="#cb23-461" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-462"><a href="#cb23-462" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-463"><a href="#cb23-463" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-464"><a href="#cb23-464" aria-hidden="true" tabindex="-1"></a><span class="in">client.events is sink_a: True</span></span>
+<span id="cb23-465"><a href="#cb23-465" aria-hidden="true" tabindex="-1"></a><span class="in">client.events is sink_b: True</span></span>
+<span id="cb23-466"><a href="#cb23-466" aria-hidden="true" tabindex="-1"></a><span class="in">seen_a: []</span></span>
+<span id="cb23-467"><a href="#cb23-467" aria-hidden="true" tabindex="-1"></a><span class="in">seen_b: [RunFinished(agent=None, iteration=0, result="worker-b's own turn", error=None)]</span></span>
+<span id="cb23-468"><a href="#cb23-468" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-469"><a href="#cb23-469" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-470"><a href="#cb23-470" aria-hidden="true" tabindex="-1"></a>worker-a's sink never sees the event at all — it was silently displaced. This is pinned as a</span>
+<span id="cb23-471"><a href="#cb23-471" aria-hidden="true" tabindex="-1"></a>known gap, not a bug waiting to be fixed on this pass. If you need reliable per-worker</span>
+<span id="cb23-472"><a href="#cb23-472" aria-hidden="true" tabindex="-1"></a>events out of a <span class="in">`Parallel`</span>, build each worker over its **own** <span class="in">`model_client`</span> (skip</span>
+<span id="cb23-473"><a href="#cb23-473" aria-hidden="true" tabindex="-1"></a><span class="in">`Parallel.from_client`</span> and construct <span class="in">`Parallel(workers=[...])`</span> directly) rather than</span>
+<span id="cb23-474"><a href="#cb23-474" aria-hidden="true" tabindex="-1"></a>sharing one.</span>
+<span id="cb23-475"><a href="#cb23-475" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-476"><a href="#cb23-476" aria-hidden="true" tabindex="-1"></a><span class="fu">## I - Known limitation: `schema=` only emits `RequestPrepared`</span></span>
+<span id="cb23-477"><a href="#cb23-477" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-478"><a href="#cb23-478" aria-hidden="true" tabindex="-1"></a><span class="in">`client.chat(schema=...)`</span> (and <span class="in">`generate(schema=...)`</span>) makes exactly one call and returns</span>
+<span id="cb23-479"><a href="#cb23-479" aria-hidden="true" tabindex="-1"></a>before <span class="in">`ModelTurnStarted`</span> fires, so the structured-output path never emits</span>
+<span id="cb23-480"><a href="#cb23-480" aria-hidden="true" tabindex="-1"></a><span class="in">`ModelTurnStarted`</span>/<span class="in">`ModelTurnFinished`</span> — only <span class="in">`RequestPrepared`</span>:</span>
+<span id="cb23-481"><a href="#cb23-481" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-484"><a href="#cb23-484" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb23-485"><a href="#cb23-485" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> dataclasses</span>
+<span id="cb23-486"><a href="#cb23-486" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-487"><a href="#cb23-487" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-488"><a href="#cb23-488" aria-hidden="true" tabindex="-1"></a><span class="at">@dataclasses.dataclass</span></span>
+<span id="cb23-489"><a href="#cb23-489" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Answer:</span>
+<span id="cb23-490"><a href="#cb23-490" aria-hidden="true" tabindex="-1"></a>    value: <span class="bu">int</span></span>
+<span id="cb23-491"><a href="#cb23-491" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-492"><a href="#cb23-492" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-493"><a href="#cb23-493" aria-hidden="true" tabindex="-1"></a>schema_client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb23-494"><a href="#cb23-494" aria-hidden="true" tabindex="-1"></a>schema_seen: <span class="bu">list</span> <span class="op">=</span> []</span>
+<span id="cb23-495"><a href="#cb23-495" aria-hidden="true" tabindex="-1"></a>schema_client.events <span class="op">=</span> schema_seen.append</span>
+<span id="cb23-496"><a href="#cb23-496" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-497"><a href="#cb23-497" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> schema_client.chat(<span class="st">"What is 2+2? Reply with just the number."</span>, schema<span class="op">=</span>Answer)</span>
+<span id="cb23-498"><a href="#cb23-498" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"result:"</span>, result)</span>
+<span id="cb23-499"><a href="#cb23-499" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"events:"</span>, [<span class="bu">type</span>(e).<span class="va">__name__</span> <span class="cf">for</span> e <span class="kw">in</span> schema_seen])</span>
+<span id="cb23-500"><a href="#cb23-500" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-501"><a href="#cb23-501" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-502"><a href="#cb23-502" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-503"><a href="#cb23-503" aria-hidden="true" tabindex="-1"></a><span class="in">result: Answer(value=4)</span></span>
+<span id="cb23-504"><a href="#cb23-504" aria-hidden="true" tabindex="-1"></a><span class="in">events: ['RequestPrepared']</span></span>
+<span id="cb23-505"><a href="#cb23-505" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-506"><a href="#cb23-506" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-507"><a href="#cb23-507" aria-hidden="true" tabindex="-1"></a>Inside an <span class="in">`Agent.run(schema=...)`</span>, the run is still bracketed by <span class="in">`RunStarted`</span>/<span class="in">`RunFinished`</span></span>
+<span id="cb23-508"><a href="#cb23-508" aria-hidden="true" tabindex="-1"></a>(section D's <span class="in">`RunFinished.result`</span> is <span class="in">`None`</span> here too, since the result is a typed object,</span>
+<span id="cb23-509"><a href="#cb23-509" aria-hidden="true" tabindex="-1"></a>not a string — it's the return value, and also lands on <span class="in">`client.last_structured`</span>); it is</span>
+<span id="cb23-510"><a href="#cb23-510" aria-hidden="true" tabindex="-1"></a>only the inner model-turn pair that is missing on this path.</span>
+<span id="cb23-511"><a href="#cb23-511" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-512"><a href="#cb23-512" aria-hidden="true" tabindex="-1"></a><span class="fu">## Clean up</span></span>
+<span id="cb23-513"><a href="#cb23-513" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-516"><a href="#cb23-516" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb23-517"><a href="#cb23-517" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> client, agent, chain_client, tally_client, denied_client, otel_client, gap_client, schema_client</span>
+<span id="cb23-518"><a href="#cb23-518" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Cleaned up."</span>)</span>
+<span id="cb23-519"><a href="#cb23-519" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

@@ -801,6 +801,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -870,6 +874,34 @@
     
   
     Compare models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/observe-a-run/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observe a run
   
 
     
@@ -1234,6 +1266,34 @@
     
   
     Set the context length
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/manage-context/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Manage context
   
 
     
@@ -2045,6 +2105,10 @@
       
         
       
+        
+      
+        
+      
     
     
     
@@ -2487,6 +2551,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.execute_python_in_process" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        execute_python_in_process
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#aimu.tools.builtin.get_webpage" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2715,6 +2790,62 @@
     
   
     aimu.rag
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../events/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.events
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../context/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    aimu.context
   
 
     
@@ -3607,6 +3738,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.execute_python_in_process" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        execute_python_in_process
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#aimu.tools.builtin.get_webpage" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4092,10 +4234,15 @@ the connection.</p>
 </tr>
 <tr>
 <td><code>builtin.ALL_TOOLS</code></td>
-<td>All of the above <strong>except</strong> <code>execute_python</code> (not a sandbox; opt in via <code>builtin.compute</code>)</td>
+<td>All of the above <strong>except</strong> <code>execute_python</code> (isolation, not containment; opt in via <code>builtin.compute</code>)</td>
 </tr>
 </tbody>
 </table>
+<p><code>execute_python</code> runs code in a fresh subprocess (its own hard timeout, crash isolation,
+and no access to this process's environment variables -- but it does not confine the
+filesystem or the network; see its docstring). <code>execute_python_in_process</code> is the
+explicit opt-in for trusted code where subprocess startup cost matters; it is not
+included in <code>builtin.compute</code> or <code>builtin.ALL_TOOLS</code>.</p>
 
 
 <div class="doc doc-object doc-function">
@@ -4345,12 +4492,95 @@ is used and from_timezone is ignored.</p>
 
     <div class="doc doc-contents first">
 
-        <p>Execute Python code in this process and return its output.</p>
-<p>NOT A SECURITY BOUNDARY. Code runs in the calling process with restricted builtins
-and an import allowlist, which stops accidents, not attempts: a one-line expression
-reaches <code>subprocess.Popen</code> through the type hierarchy, and the filesystem through an
-allowlisted module's transitive attributes. Treat any code reaching this tool as code
-you have chosen to run. Gate it with <code>tool_approval</code> when the caller is untrusted.</p>
+        <p>Execute Python code in a fresh subprocess and return its output.</p>
+<p>NOT A SECURITY BOUNDARY: this is isolation, not containment. Running the code in a
+subprocess buys a hard timeout (an in-process exec could hang this process forever)
+and crash isolation (an ordinary crash or early exit in the code brings down only
+the child -- though nothing stops the code from reaching back out and taking this
+process down anyway, e.g. <code>os.kill(os.getppid(), signal.SIGKILL)</code>, since process
+signalling isn't confined any more than the filesystem is; see below). It also buys
+no mutation of this process's imports or global state, a memory cap on Linux
+(best-effort on other POSIX platforms, absent on Windows -- a one-time warning is logged
+if the cap can't be applied, rather than failing silently), and no access to
+this process's environment variables: <code>ANTHROPIC_API_KEY</code> and anything else set
+there is invisible to the child.</p>
+<p>That last point is about <em>environment variables specifically</em>, not credentials in general.
+It does not confine filesystem or network access: the child runs as the
+same user and can read, write, and make requests exactly as this process can, which
+means a <code>.env</code> file, <code>~/.aws/credentials</code>, <code>~/.config/gh/hosts.yml</code>, or any other
+credential sitting on disk is exactly as readable to the child as to this process's
+own user account. Treat any code reaching this tool as code you have chosen to run;
+gate it with <code>tool_approval</code> for untrusted callers, and reach for a container when
+you need real containment.</p>
+<p>The child also runs with restricted builtins and an import allowlist, the same
+accident guard <code>execute_python_in_process</code> uses (stops accidents, not a determined
+attempt) -- kept identical between both backends so switching between them changes
+only where the code runs, not what it's allowed to do.</p>
+<p>Captures stdout and the value of the last expression. Pre-imports math, statistics,
+json, re, itertools, functools, datetime, zoneinfo, and numpy/pandas/scipy/matplotlib
+when installed. For trusted code where the subprocess startup cost matters, see
+<code>execute_python_in_process</code> (same disclosed limits, weaker isolation).</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>code</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Python code to execute.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.tools.builtin.execute_python_in_process" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.tools.builtin.execute_python_in_process</span>
+
+
+<a href="#aimu.tools.builtin.execute_python_in_process" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">execute_python_in_process</span><span class="p">(</span><span class="n">code</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Execute Python code in this process and return its output. Explicit opt-in.</p>
+<p>NOT A SECURITY BOUNDARY: this is isolation, not containment, and weaker isolation
+than <code>execute_python</code> (the default execute-code tool) -- code here shares this
+process's memory, imports, and environment variables (including any API keys sitting
+in os.environ), a hang blocks this process indefinitely, and a crash takes it down
+too. It runs with restricted builtins and an import allowlist, which stops accidents,
+not a determined attempt: a one-line expression reaches <code>subprocess.Popen</code> through the
+type hierarchy, and the filesystem through an allowlisted module's transitive
+attributes. Use this only for trusted code where the subprocess startup cost of
+<code>execute_python</code> matters; gate it with <code>tool_approval</code> otherwise, and reach for a
+container when you need real containment.</p>
 <p>Captures stdout and the value of the last expression. Pre-imports math, statistics,
 json, re, itertools, functools, datetime, zoneinfo, and numpy/pandas/scipy/matplotlib
 when installed.</p>
