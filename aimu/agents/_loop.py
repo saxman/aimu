@@ -14,7 +14,8 @@ not collected as fields by the ``@dataclass`` decorator on the concrete classes.
 
 from __future__ import annotations
 
-from typing import Any
+from contextlib import contextmanager
+from typing import Any, Iterator, Optional
 
 
 class _AgentLoopMixin:
@@ -22,11 +23,47 @@ class _AgentLoopMixin:
 
     # Provided by the concrete Agent dataclasses (annotations only; not dataclass fields here).
     model_client: Any
+    name: str
     reset_messages_on_run: bool
     system_message: Any
     tools: list
     deps: Any
     tool_approval: Any
+
+    def _structured_sink(self, events: Any) -> Any:
+        """The sink to install on the client for a ``schema=`` run.
+
+        ``events`` wrapped so the client's own turn events (``ModelTurnStarted`` /
+        ``RequestPrepared`` / ``ModelTurnFinished``) carry this agent's name, exactly as the
+        tool-loop engine does for a looping run. Without it the structured path produced
+        events attributed to nobody. ``iteration`` is always 0: this path makes one model
+        turn, not a loop.
+        """
+        from ._tool_loop import _attributing
+
+        return _attributing(events, self.name, lambda: 0)
+
+    @contextmanager
+    def _structured_run_events(self, task: Optional[str], events: Any) -> Iterator[None]:
+        """Bracket a ``schema=`` run with ``RunStarted`` / ``RunFinished``.
+
+        A structured run is still a run: it must open and close a span like any other, so a
+        sink pairing the two does not leak. ``RunFinished.result`` is ``None`` here because
+        the run returns a validated object rather than a string (it is the return value, and
+        is also on ``model_client.last_structured``); ``error`` carries an exception that
+        ended the run.
+        """
+        from aimu.events import RunFinished, RunStarted, emit
+
+        emit(events, RunStarted(agent=self.name, iteration=0, task=task or ""))
+        error: Optional[BaseException] = None
+        try:
+            yield
+        except BaseException as exc:
+            error = exc
+            raise
+        finally:
+            emit(events, RunFinished(agent=self.name, iteration=0, result=None, error=error))
 
     def _prepare_run(self, deps: Any = None, tool_approval: Any = None) -> None:
         """Reset client state and re-apply system_message before a run, when configured.

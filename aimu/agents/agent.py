@@ -178,17 +178,14 @@ class Agent(_AgentLoopMixin, Runner):
                     task, generate_kwargs, images, deps, tool_approval, schema, thinking, events
                 )
             self._prepare_run(deps, tool_approval)
-            # Raw events (unwrapped by _attributing_sink, unlike the tool-loop call sites):
-            # this path emits no turn events today (the schema= structured-output path does
-            # not currently call _emit_turn_started/_emit_turn_finished), so there is nothing
-            # for the wrapper to attribute yet. If that ever changes, swap in
-            # self._attributing_sink() here too, the same as the tool-loop call sites.
-            with self.model_client._events_override(events):
-                result = self.model_client.chat(
-                    task, generate_kwargs=generate_kwargs, images=images, schema=schema, thinking=thinking
-                )
-            self._last_messages = list(self.model_client.messages)
-            return result
+            try:
+                with self._structured_run_events(task, events):
+                    with self.model_client._events_override(self._structured_sink(events)):
+                        return self.model_client.chat(
+                            task, generate_kwargs=generate_kwargs, images=images, schema=schema, thinking=thinking
+                        )
+            finally:
+                self._last_messages = list(self.model_client.messages)
         if stream:
             return self._run_streamed(
                 task,
@@ -276,12 +273,10 @@ class Agent(_AgentLoopMixin, Runner):
         in a ``finally`` so a cancelled/partial run still records its turn."""
         self._prepare_run(deps, tool_approval)
         try:
-            # Raw events (unwrapped by _attributing_sink, unlike the tool-loop call sites):
-            # this path emits no turn events today (the schema= structured-output path does
-            # not currently call _emit_turn_started/_emit_turn_finished), so there is nothing
-            # for the wrapper to attribute yet. If that ever changes, swap in
-            # self._attributing_sink() here too, the same as the tool-loop call sites.
-            with self.model_client._events_override(events):
+            with (
+                self._structured_run_events(task, events),
+                self.model_client._events_override(self._structured_sink(events)),
+            ):
                 for chunk in self.model_client.chat(
                     task,
                     generate_kwargs=generate_kwargs,

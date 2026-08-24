@@ -169,15 +169,11 @@ class Agent(_AgentLoopMixin, AsyncRunner):
                 )
             self._prepare_run(deps, tool_approval)
             try:
-                # Raw events (unwrapped by _attributing_sink, unlike the tool-loop call
-                # sites): this path emits no turn events today (schema= does not currently
-                # call _emit_turn_started/_emit_turn_finished), so there is nothing for the
-                # wrapper to attribute yet. Swap in self._attributing_sink() here too if that
-                # ever changes.
-                with self.model_client._events_override(events):
-                    return await self.model_client.chat(
-                        task, generate_kwargs=generate_kwargs, images=images, schema=schema, thinking=thinking
-                    )
+                with self._structured_run_events(task, events):
+                    with self.model_client._events_override(self._structured_sink(events)):
+                        return await self.model_client.chat(
+                            task, generate_kwargs=generate_kwargs, images=images, schema=schema, thinking=thinking
+                        )
             finally:
                 self._last_messages = list(self.model_client.messages)
         self._prepare_run(deps, tool_approval)
@@ -248,11 +244,10 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         with this agent's name; snapshots ``_last_messages`` in a ``finally`` for cancel-safe resume."""
         self._prepare_run(deps, tool_approval)
         try:
-            # Raw events (unwrapped by _attributing_sink, unlike the tool-loop call sites):
-            # this path emits no turn events today (schema= does not currently call
-            # _emit_turn_started/_emit_turn_finished), so there is nothing for the wrapper to
-            # attribute yet. Swap in self._attributing_sink() here too if that ever changes.
-            with self.model_client._events_override(events):
+            with (
+                self._structured_run_events(task, events),
+                self.model_client._events_override(self._structured_sink(events)),
+            ):
                 stream = await self.model_client.chat(
                     task,
                     generate_kwargs=generate_kwargs,

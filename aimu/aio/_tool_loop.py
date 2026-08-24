@@ -334,12 +334,22 @@ class _AsyncToolLoop(_BaseToolLoop):
 
         fn = {f.__name__: f for f in self._current_tools()}.get(tc["name"])
         if fn is None:
-            return {
-                "role": "tool",
-                "name": tc["name"],
-                "content": f"Tool '{tc['name']}' not found.",
-                "tool_call_id": tc_id,
-            }
+            # A model inventing a tool name is one of the most interesting things a sink can
+            # see, so it is a ToolCalled with the error set, not silence. The transcript
+            # already records it; the telemetry channel must too.
+            content = f"Tool '{tc['name']}' not found."
+            emit(
+                self._events,
+                ToolCalled(
+                    agent=self._agent_name,
+                    iteration=iteration,
+                    name=tc["name"],
+                    arguments=tc["arguments"],
+                    result=content,
+                    error=content,
+                ),
+            )
+            return {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
         if getattr(fn, "__tool_is_streaming__", False):
             raise ValueError(
                 f"Tool '{tc['name']}' is a generator (streaming) tool. Run the agent with stream=True "

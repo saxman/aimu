@@ -429,6 +429,92 @@ def test_agent_run_emits_run_and_tool_events():
     assert called.result == "5"
 
 
+def test_structured_run_emits_attributed_bracketed_events():
+    """Agent.run(schema=...) is still a run: it must open and close a span, and the client's
+    own events must be attributed to the agent rather than arriving orphaned."""
+    from dataclasses import dataclass
+
+    from aimu.agents import Agent
+
+    @dataclass
+    class Out:
+        x: int
+
+    class Recording(MockModelClient):
+        """A provider records its request payload; the structured path is no exception, and
+        that RequestPrepared is what used to arrive orphaned."""
+
+        def _chat(self, *args, **kwargs):
+            self._record_request({"messages": list(self.messages)})
+            return super()._chat(*args, **kwargs)
+
+    client = Recording(['{"x": 5}'])
+    client.model.supports_structured_output = False  # parse path
+    seen = []
+    agent = Agent(client, name="critic", events=seen.append)
+
+    result = agent.run("verdict?", schema=Out)
+    assert isinstance(result, Out)
+
+    kinds = [type(e).__name__ for e in seen]
+    assert kinds[0] == "RunStarted"
+    assert kinds[-1] == "RunFinished"
+    assert "RequestPrepared" in kinds, kinds
+    assert all(e.agent == "critic" for e in seen), kinds
+    assert next(e for e in seen if isinstance(e, RunFinished)).error is None
+
+
+def test_structured_run_reports_the_error_when_it_raises():
+    from dataclasses import dataclass
+
+    from aimu.agents import Agent
+
+    @dataclass
+    class Out:
+        x: int
+
+    class Boom(MockModelClient):
+        def _chat(self, *args, **kwargs):
+            raise RuntimeError("nope")
+
+    seen = []
+    agent = Agent(Boom([]), name="critic", events=seen.append)
+    with pytest.raises(RuntimeError):
+        agent.run("verdict?", schema=Out)
+
+    finished = [e for e in seen if isinstance(e, RunFinished)]
+    assert len(finished) == 1
+    assert isinstance(finished[0].error, RuntimeError)
+
+
+def test_streamed_structured_run_emits_attributed_bracketed_events():
+    from dataclasses import dataclass
+
+    from aimu.agents import Agent
+
+    @dataclass
+    class Out:
+        x: int
+
+    class Recording(MockModelClient):
+        def _chat(self, *args, **kwargs):
+            self._record_request({"messages": list(self.messages)})
+            return super()._chat(*args, **kwargs)
+
+    client = Recording(['{"x": 5}'])
+    client.model.supports_structured_output = False
+    seen = []
+    agent = Agent(client, name="critic", events=seen.append)
+
+    list(agent.run("verdict?", stream=True, schema=Out))
+
+    kinds = [type(e).__name__ for e in seen]
+    assert kinds[0] == "RunStarted"
+    assert kinds[-1] == "RunFinished"
+    assert "RequestPrepared" in kinds, kinds
+    assert all(e.agent == "critic" for e in seen), kinds
+
+
 def test_events_is_a_per_run_override():
     """Mirrors deps / tool_approval / thinking: None uses the field."""
     from aimu.agents.agent import Agent
@@ -552,6 +638,37 @@ def test_concurrent_tool_dispatch_emits_exactly_one_tool_called_each():
     assert len(called) == 2
     results = sorted(c.result for c in called)
     assert results == ["3", "7"]
+
+
+def test_a_hallucinated_tool_name_emits_ToolCalled_with_the_error():
+    """A model inventing a tool name is exactly what a sink wants to see. The transcript
+    records the "not found" tool message; telemetry must not stay silent about it."""
+    from aimu.agents import Agent
+
+    client = MockModelClient([{"tool": "no_such_tool", "arguments": {"a": 1}}, "sorry"])
+    seen = []
+    agent = Agent(client, name="a", tools=[], events=seen.append, max_iterations=3)
+    agent.run("go")
+
+    called = [e for e in seen if isinstance(e, ToolCalled)]
+    assert len(called) == 1
+    assert called[0].name == "no_such_tool"
+    assert called[0].arguments == {"a": 1}
+    assert called[0].error == "Tool 'no_such_tool' not found."
+    assert called[0].result == "Tool 'no_such_tool' not found."
+
+
+def test_a_hallucinated_tool_name_emits_ToolCalled_when_streaming():
+    from aimu.agents import Agent
+
+    client = MockModelClient([{"tool": "no_such_tool", "arguments": {}}, "sorry"])
+    seen = []
+    agent = Agent(client, name="a", tools=[], events=seen.append, max_iterations=3)
+    list(agent.run("go", stream=True))
+
+    called = [e for e in seen if isinstance(e, ToolCalled)]
+    assert len(called) == 1
+    assert called[0].error == "Tool 'no_such_tool' not found."
 
 
 def test_a_denied_tool_emits_ToolDenied_not_ToolCalled():

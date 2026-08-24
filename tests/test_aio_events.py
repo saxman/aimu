@@ -110,6 +110,154 @@ async def test_async_generate_reports_one_message_however_long_the_conversation(
     assert next(e for e in seen if isinstance(e, ModelTurnStarted)).message_count == 1
 
 
+class _Recording(MockAsyncModelClient):
+    """Records its request payload, like every real provider's request path does."""
+
+    async def _chat(self, *args, **kwargs):
+        self._record_request({"messages": list(self.messages)})
+        return await super()._chat(*args, **kwargs)
+
+
+async def test_async_structured_run_emits_attributed_bracketed_events():
+    """aio.Agent.run(schema=...) is still a run: bracketed, and the client's own events
+    attributed to the agent rather than arriving orphaned."""
+    from dataclasses import dataclass
+
+    from aimu.aio import Agent
+    from aimu.events import RunFinished
+
+    @dataclass
+    class Out:
+        x: int
+
+    client = _Recording(['{"x": 5}'])
+    client.model.supports_structured_output = False
+    seen = []
+    agent = Agent(client, name="critic", events=seen.append)
+
+    result = await agent.run("verdict?", schema=Out)
+    assert isinstance(result, Out)
+
+    kinds = [type(e).__name__ for e in seen]
+    assert kinds[0] == "RunStarted"
+    assert kinds[-1] == "RunFinished"
+    assert "RequestPrepared" in kinds, kinds
+    assert all(e.agent == "critic" for e in seen), kinds
+    assert next(e for e in seen if isinstance(e, RunFinished)).error is None
+
+
+async def test_async_streamed_structured_run_emits_attributed_bracketed_events():
+    from dataclasses import dataclass
+
+    from aimu.aio import Agent
+
+    @dataclass
+    class Out:
+        x: int
+
+    client = _Recording(['{"x": 5}'])
+    client.model.supports_structured_output = False
+    seen = []
+    agent = Agent(client, name="critic", events=seen.append)
+
+    stream = await agent.run("verdict?", stream=True, schema=Out)
+    async for _ in stream:
+        pass
+
+    kinds = [type(e).__name__ for e in seen]
+    assert kinds[0] == "RunStarted"
+    assert kinds[-1] == "RunFinished"
+    assert all(e.agent == "critic" for e in seen), kinds
+
+
+async def test_async_skill_agent_structured_run_emits_bracketed_events(tmp_path):
+    from dataclasses import dataclass
+
+    from aimu.aio import SkillAgent
+    from aimu.skills import SkillManager
+
+    @dataclass
+    class Out:
+        x: int
+
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    client = _Recording(['{"x": 5}'])
+    client.model.supports_structured_output = False
+    seen = []
+    agent = SkillAgent(
+        client, name="critic", events=seen.append, skill_manager=SkillManager(skill_dirs=[str(skills_dir)])
+    )
+
+    result = await agent.run("verdict?", schema=Out)
+    assert isinstance(result, Out)
+
+    kinds = [type(e).__name__ for e in seen]
+    assert kinds[0] == "RunStarted"
+    assert kinds[-1] == "RunFinished"
+    assert all(e.agent == "critic" for e in seen), kinds
+
+
+async def test_async_skill_agent_streamed_structured_run_emits_bracketed_events(tmp_path):
+    from dataclasses import dataclass
+
+    from aimu.aio import SkillAgent
+    from aimu.skills import SkillManager
+
+    @dataclass
+    class Out:
+        x: int
+
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    client = _Recording(['{"x": 5}'])
+    client.model.supports_structured_output = False
+    seen = []
+    agent = SkillAgent(
+        client, name="critic", events=seen.append, skill_manager=SkillManager(skill_dirs=[str(skills_dir)])
+    )
+
+    stream = await agent.run("verdict?", stream=True, schema=Out)
+    async for _ in stream:
+        pass
+
+    kinds = [type(e).__name__ for e in seen]
+    assert kinds[0] == "RunStarted"
+    assert kinds[-1] == "RunFinished"
+    assert all(e.agent == "critic" for e in seen), kinds
+
+
+async def test_async_hallucinated_tool_name_emits_ToolCalled_with_the_error():
+    from aimu.aio import Agent
+    from aimu.events import ToolCalled
+
+    client = MockAsyncModelClient([{"tool": "no_such_tool", "arguments": {"a": 1}}, "sorry"])
+    seen = []
+    agent = Agent(client, name="a", tools=[], events=seen.append, max_iterations=3)
+    await agent.run("go")
+
+    called = [e for e in seen if isinstance(e, ToolCalled)]
+    assert len(called) == 1
+    assert called[0].name == "no_such_tool"
+    assert called[0].error == "Tool 'no_such_tool' not found."
+
+
+async def test_async_hallucinated_tool_name_emits_ToolCalled_when_streaming():
+    from aimu.aio import Agent
+    from aimu.events import ToolCalled
+
+    client = MockAsyncModelClient([{"tool": "no_such_tool", "arguments": {}}, "sorry"])
+    seen = []
+    agent = Agent(client, name="a", tools=[], events=seen.append, max_iterations=3)
+    stream = await agent.run("go", stream=True)
+    async for _ in stream:
+        pass
+
+    called = [e for e in seen if isinstance(e, ToolCalled)]
+    assert len(called) == 1
+    assert called[0].error == "Tool 'no_such_tool' not found."
+
+
 async def test_async_no_sink_means_no_behaviour_change():
     """The default path must be byte-identical to before."""
     client = MockAsyncModelClient(["hello"])
