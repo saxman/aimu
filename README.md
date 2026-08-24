@@ -14,7 +14,7 @@
 
 </div>
 
-AIMU is a comprehensive generative AI framework that makes it easy to understand what generative AI models and systems are capable of, and understand how they work while you use them. It gives you a single provider-agnostic interface across text, images, audio, and speech, autonomous agents and code-controlled workflows, and small composable utilities for tools, memory, prompt tuning, evaluations, and benchmarking. All of it in plain Python you can read, so nothing a model does is hidden behind the library.
+AIMU is a comprehensive generative AI framework that makes it easy to find out what generative AI models and systems are capable of, and to understand how they work while you use them. It gives you a single provider-agnostic interface across text, images, audio, and speech, autonomous agents and code-controlled workflows, and small composable utilities for tools, memory, prompt tuning, evaluations, and benchmarking. All of it in plain Python you can read, so nothing a model does is hidden behind the library.
 
 Whether you need vision input, autonomous tool use, image generation, audio generation, or text-to-speech, the call is one line:
 ```python
