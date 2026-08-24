@@ -103,6 +103,7 @@ nav:
   - How-to:
       - how-to/index.md
       - Compare models: how-to/compare-models.md
+      - Observe a run: how-to/observe-a-run.md
       - Switch providers: how-to/switch-providers.md
       - Add a custom tool: how-to/add-custom-tool.md
       - Add a new model: how-to/add-new-model.md
@@ -116,6 +117,7 @@ nav:
       - Get structured output: how-to/use-structured-output.md
       - Control thinking effort: how-to/control-thinking.md
       - Set the context length: how-to/set-context-length.md
+      - Manage context: how-to/manage-context.md
       - Use async (aio): how-to/use-async.md
       - Handle vision input: how-to/handle-vision.md
       - Handle audio input: how-to/handle-audio-input.md

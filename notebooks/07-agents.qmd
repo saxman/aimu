@@ -274,7 +274,7 @@ print(result)
 
 ## F - execute_python Tool
 
-The `execute_python` built-in runs Python code in-process inside an agent -- useful for data analysis and computation. It is **not a security boundary** (restricted builtins and an import allowlist stop accidents, not attempts), so it is in `builtin.compute` but not `ALL_TOOLS`; opt in explicitly.
+The `execute_python` built-in runs Python code in a fresh subprocess for an agent -- useful for data analysis and computation. The subprocess buys a hard timeout, crash isolation, and no access to this process's environment variables, but it is **not a security boundary** (restricted builtins and an import allowlist stop accidents, not attempts, and the filesystem/network are not confined), so it is in `builtin.compute` but not `ALL_TOOLS`; opt in explicitly. `execute_python_in_process` is the faster, weaker-isolation alternative that shares this process's memory and environment.
 
 ```{python}
 from aimu.tools import builtin

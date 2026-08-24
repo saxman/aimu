@@ -7,6 +7,7 @@ If you're new to AIMU, start with the [tutorials](../tutorials/index.md) instead
 ## Working with models
 
 - [Compare models](compare-models.md): find out what a model can do: capability flags, the same task across providers, token cost, what a run actually did, then `Benchmark` at scale
+- [Observe a run](observe-a-run.md): attach `events=` to see turn-by-turn telemetry, `last_request` for the exact payload sent, and a worked OpenTelemetry-shaped sink
 - [Switch providers](switch-providers.md): change backends without changing call sites
 - [Add a new model](add-new-model.md): register a model enum member
 - [Add or update a provider](add-new-provider.md): write a provider client and wire it into the factory
@@ -14,6 +15,7 @@ If you're new to AIMU, start with the [tutorials](../tutorials/index.md) instead
 - [Get structured output](use-structured-output.md): `schema=` on `chat()` / `generate()` returns a typed dataclass/Pydantic object; native enforcement with a parse fallback
 - [Control thinking effort](control-thinking.md): `thinking=` to turn reasoning off or set an effort level, portably across providers
 - [Set the context length](set-context-length.md): `context_length` in `generate_kwargs`, as a client default or per request
+- [Manage context](manage-context.md): trim or summarize a conversation by hand, or automatically via `Agent(compaction=...)`
 - [Use async (`aio`)](use-async.md): embed AIMU in async apps; `asyncio.TaskGroup`-backed `Parallel`
 - [Handle vision input](handle-vision.md): pass images via `images=`
 - [Generate images](generate-images.md): `aimu.image_client()` / `generate_image()` with HuggingFace `diffusers` + Google Nano Banana

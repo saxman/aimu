@@ -147,8 +147,9 @@ def _raise_for_request_too_large(exc: "anthropic.RequestTooLargeError") -> None:
     mapping is trying to avoid).
     """
     raise ContextOverflowError(
-        "The request no longer fits the model's context window: Anthropic rejected it as too "
-        "large (413). Shorten the conversation, advertise fewer tools, or compact history first "
+        "Anthropic rejected the request as too large (413). This is usually the context window, "
+        "but a large image or document in the request can also trigger it. Shorten the "
+        "conversation, advertise fewer tools, or compact history first "
         "(aimu.context.trim_messages / summarize_messages)."
     ) from exc
 
