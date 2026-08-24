@@ -34,6 +34,7 @@ from aimu.models.providers.openai_compat import (
     OpenAICompatClient as _SyncOpenAICompatClient,
     SGLangOpenAIModel,
     VLLMOpenAIModel,
+    _raise_if_context_overflowed,
 )
 
 from .._base import AsyncBaseModelClient
@@ -43,8 +44,9 @@ logger = logging.getLogger(__name__)
 
 async def _guarded_create(client, sdk_client, **kwargs):
     """Call the chat-completions endpoint, translating a server-unreachable failure into
-    ``ModelConnectionError``. The SDK's ``APIConnectionError`` message is generic ("Connection
-    error."); the specific cause (e.g. "Connection refused") is preserved on ``__cause__``.
+    ``ModelConnectionError`` and an over-long-prompt failure into ``ContextOverflowError``. The
+    SDK's ``APIConnectionError`` message is generic ("Connection error."); the specific cause
+    (e.g. "Connection refused") is preserved on ``__cause__``.
 
     Records ``kwargs`` as ``client.last_request`` immediately before the call, mirroring the
     sync ``_guarded_create``.
@@ -54,16 +56,23 @@ async def _guarded_create(client, sdk_client, **kwargs):
         return await sdk_client.chat.completions.create(**kwargs)
     except openai.APIConnectionError as exc:
         raise ModelConnectionError(str(exc)) from exc
+    except openai.BadRequestError as exc:
+        _raise_if_context_overflowed(exc)
+        raise
 
 
 async def _guard_stream(stream):
     """Yield from a streaming response, translating a mid-stream connection drop into
-    ``ModelConnectionError`` (the connection can fail while consuming, not only on create)."""
+    ``ModelConnectionError`` and an over-long-prompt failure into ``ContextOverflowError`` (either
+    can surface while consuming, not only on create)."""
     try:
         async for chunk in stream:
             yield chunk
     except openai.APIConnectionError as exc:
         raise ModelConnectionError(str(exc)) from exc
+    except openai.BadRequestError as exc:
+        _raise_if_context_overflowed(exc)
+        raise
 
 
 class AsyncOpenAICompatClient(AsyncBaseModelClient):

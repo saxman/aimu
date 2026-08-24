@@ -8,7 +8,7 @@ from typing import Iterator, Optional, Any, Union
 # Llama model itself is still constructed lazily in __init__ to defer weight loading.
 import llama_cpp
 
-from ..base import StreamingContentType, StreamChunk, Model, BaseModelClient, classproperty
+from ..base import StreamingContentType, StreamChunk, Model, BaseModelClient, ContextOverflowError, classproperty
 from .._catalog import Wire
 from .._internal.generate_kwargs import Unsupported
 from .._internal.image_input import _build_user_content_blocks
@@ -23,6 +23,58 @@ _registry_lock = threading.Lock()
 
 def _make_cache_key(model_path: str, n_ctx: int, n_gpu_layers: int, chat_format: str | None) -> tuple:
     return (model_path, n_ctx, n_gpu_layers, str(chat_format))
+
+
+def _stringify_content(content: Any) -> str:
+    """Extract plain text from a message's ``content`` for the pre-flight token count below.
+
+    ``content`` is either a plain string or an OpenAI-format content-block list (vision input);
+    only the text blocks contribute -- an image block has no token-comparable text, and the
+    pre-flight check only needs a reasonable proxy for the prompt's real length, not an exact
+    reproduction of what a vision-capable GGUF would render.
+    """
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return " ".join(
+            str(block.get("text", "")) for block in content if isinstance(block, dict) and block.get("type") == "text"
+        )
+    return str(content) if content is not None else ""
+
+
+def _raise_if_prompt_overflows(llm: Any, messages: list[dict]) -> None:
+    """Pre-flight guard: raise ``ContextOverflowError`` before an over-long prompt reaches
+    ``create_chat_completion()``.
+
+    In-process, so there is no server error to translate. Unlike HuggingFace, llama-cpp-python
+    doesn't expose the exact chat-template-rendered token count without reaching into its
+    internal chat-format machinery, so this is a deliberate approximation: it tokenizes the plain
+    role+text content of *messages* with the model's own loaded tokenizer (real BPE, not a
+    chars-per-token estimate) and compares against ``n_ctx()`` -- the model's actual,
+    precisely-known context window (an ``__init__`` argument, not a guess). The chat template's
+    own formatting tokens (role tags, special tokens) are not counted, so this under-counts the
+    real prompt slightly and is biased toward false negatives, not false positives: it will not
+    flag a request that's actually still within the window as an overflow.
+
+    A module-level function taking the loaded ``Llama`` instance explicitly, rather than a bound
+    method reading ``self._llm``, so it degrades the same way (skipped, not guessed) against a
+    minimal test double that doesn't implement ``n_ctx()``/``tokenize()``.
+    """
+    n_ctx_fn = getattr(llm, "n_ctx", None)
+    tokenize_fn = getattr(llm, "tokenize", None)
+    if n_ctx_fn is None or tokenize_fn is None:
+        return
+    n_ctx = n_ctx_fn()
+    text = "\n".join(f"{m.get('role', '')}: {_stringify_content(m.get('content'))}" for m in messages)
+    token_count = len(tokenize_fn(text.encode("utf-8"), add_bos=True, special=True))
+    if token_count <= n_ctx:
+        return
+    raise ContextOverflowError(
+        f"The request no longer fits the model's context window: the conversation is "
+        f"approximately {token_count} tokens, but this client was constructed with n_ctx={n_ctx}. "
+        "Shorten the conversation, advertise fewer tools, or construct LlamaCppClient(..., "
+        "n_ctx=N) with a larger window."
+    )
 
 
 # Shared by every vision-capable member of LlamaCppModel below. llama-cpp vision needs an mmproj
@@ -207,6 +259,7 @@ class LlamaCppClient(BaseModelClient):
         # are the closest equivalent AIMU has to a wire payload for a local GGUF model.
         # generate_kwargs is splatted first so it cannot silently override "messages".
         payload = {**generate_kwargs, "messages": [{"role": "user", "content": content_in}]}
+        _raise_if_prompt_overflows(self._llm, payload["messages"])
         self._record_request(payload)
         response = self._llm.create_chat_completion(**payload)
         logger.debug("LLM raw response: %s", response)
@@ -233,6 +286,7 @@ class LlamaCppClient(BaseModelClient):
         # generate_kwargs splatted first: see _chat_streamed for why (stream=True must not be
         # silently overridable).
         payload = {**generate_kwargs, "messages": [{"role": "user", "content": content_in}], "stream": True}
+        _raise_if_prompt_overflows(self._llm, payload["messages"])
         self._record_request(payload)
         stream = self._llm.create_chat_completion(**payload)
         yield from self._iter_stream(stream)
@@ -257,6 +311,7 @@ class LlamaCppClient(BaseModelClient):
         # splatted first so an accidental "messages"/"tools" key in it cannot silently override
         # the real ones.
         payload = {**generate_kwargs, "messages": list(self.messages), "tools": tools if tools else None}
+        _raise_if_prompt_overflows(self._llm, payload["messages"])
         self._record_request(payload)
         response = self._llm.create_chat_completion(**payload)
         logger.debug("LLM raw response: %s", response)
@@ -305,6 +360,7 @@ class LlamaCppClient(BaseModelClient):
             "stream": True,
             "tools": tools if tools else None,
         }
+        _raise_if_prompt_overflows(self._llm, payload["messages"])
         self._record_request(payload)
         stream = self._llm.create_chat_completion(**payload)
 

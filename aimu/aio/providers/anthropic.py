@@ -17,7 +17,7 @@ import anthropic
 from dotenv import load_dotenv
 
 from aimu.models.providers.anthropic import AnthropicClient as _SyncAnthropicClient
-from aimu.models.providers.anthropic import ANTHROPIC_GENERATE_KWARGS, AnthropicModel
+from aimu.models.providers.anthropic import ANTHROPIC_GENERATE_KWARGS, AnthropicModel, _raise_if_context_overflowed
 from aimu.models._internal.sdk_config import sdk_client_kwargs
 from aimu.models._internal.usage import usage_from_anthropic
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
@@ -106,7 +106,11 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
             "tool_choice": {"type": "tool", "name": name},
         }
         self._record_request(payload)
-        response = await self._client.messages.create(**payload)
+        try:
+            response = await self._client.messages.create(**payload)
+        except anthropic.BadRequestError as exc:
+            _raise_if_context_overflowed(exc)
+            raise
         self.last_usage = usage_from_anthropic(response)
         for block in response.content:
             if block.type == "tool_use":
@@ -142,11 +146,15 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
             "tool_choice": {"type": "tool", "name": name},
         }
         self._record_request(payload)
-        async with self._client.messages.stream(**payload) as stream:
-            async for event in stream:
-                if event.type == "content_block_delta" and event.delta.type == "input_json_delta":
-                    yield StreamChunk(StreamingContentType.GENERATING, event.delta.partial_json)
-            final = await stream.get_final_message()
+        try:
+            async with self._client.messages.stream(**payload) as stream:
+                async for event in stream:
+                    if event.type == "content_block_delta" and event.delta.type == "input_json_delta":
+                        yield StreamChunk(StreamingContentType.GENERATING, event.delta.partial_json)
+                final = await stream.get_final_message()
+        except anthropic.BadRequestError as exc:
+            _raise_if_context_overflowed(exc)
+            raise
         self.last_usage = usage_from_anthropic(final)
         text = "{}"
         for block in final.content:
@@ -195,7 +203,11 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
             ],
         }
         self._record_request(payload)
-        response = await self._client.messages.create(**payload)
+        try:
+            response = await self._client.messages.create(**payload)
+        except anthropic.BadRequestError as exc:
+            _raise_if_context_overflowed(exc)
+            raise
         self.last_usage = usage_from_anthropic(response)
 
         self.last_thinking = ""
@@ -225,16 +237,20 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
             ],
         }
         self._record_request(payload)
-        async with self._client.messages.stream(**payload) as stream:
-            async for event in stream:
-                if event.type == "content_block_delta":
-                    delta = event.delta
-                    if delta.type == "thinking_delta":
-                        self.last_thinking += delta.thinking
-                        yield StreamChunk(StreamingContentType.THINKING, delta.thinking)
-                    elif delta.type == "text_delta":
-                        yield StreamChunk(StreamingContentType.GENERATING, delta.text)
-            self.last_usage = usage_from_anthropic(await stream.get_final_message())
+        try:
+            async with self._client.messages.stream(**payload) as stream:
+                async for event in stream:
+                    if event.type == "content_block_delta":
+                        delta = event.delta
+                        if delta.type == "thinking_delta":
+                            self.last_thinking += delta.thinking
+                            yield StreamChunk(StreamingContentType.THINKING, delta.thinking)
+                        elif delta.type == "text_delta":
+                            yield StreamChunk(StreamingContentType.GENERATING, delta.text)
+                self.last_usage = usage_from_anthropic(await stream.get_final_message())
+        except anthropic.BadRequestError as exc:
+            _raise_if_context_overflowed(exc)
+            raise
 
     async def _chat(
         self,
@@ -284,7 +300,11 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
             "tools": ant_tools,
         }
         self._record_request(payload)
-        response = await self._client.messages.create(**payload)
+        try:
+            response = await self._client.messages.create(**payload)
+        except anthropic.BadRequestError as exc:
+            _raise_if_context_overflowed(exc)
+            raise
 
         self.last_thinking = ""
         tool_use_blocks = []
@@ -332,21 +352,25 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
             "tools": ant_tools,
         }
         self._record_request(payload)
-        async with self._client.messages.stream(**payload) as stream:
-            async for event in stream:
-                if event.type == "content_block_start":
-                    block = event.content_block
-                    if block.type == "tool_use":
-                        tool_use_acc.append({"id": block.id, "name": block.name, "input_json": ""})
-                elif event.type == "content_block_delta":
-                    delta = event.delta
-                    if delta.type == "thinking_delta":
-                        self.last_thinking += delta.thinking
-                        first_pass_chunks.append(StreamChunk(StreamingContentType.THINKING, delta.thinking))
-                    elif delta.type == "text_delta":
-                        first_pass_chunks.append(StreamChunk(StreamingContentType.GENERATING, delta.text))
-                    elif delta.type == "input_json_delta" and tool_use_acc:
-                        tool_use_acc[-1]["input_json"] += delta.partial_json
+        try:
+            async with self._client.messages.stream(**payload) as stream:
+                async for event in stream:
+                    if event.type == "content_block_start":
+                        block = event.content_block
+                        if block.type == "tool_use":
+                            tool_use_acc.append({"id": block.id, "name": block.name, "input_json": ""})
+                    elif event.type == "content_block_delta":
+                        delta = event.delta
+                        if delta.type == "thinking_delta":
+                            self.last_thinking += delta.thinking
+                            first_pass_chunks.append(StreamChunk(StreamingContentType.THINKING, delta.thinking))
+                        elif delta.type == "text_delta":
+                            first_pass_chunks.append(StreamChunk(StreamingContentType.GENERATING, delta.text))
+                        elif delta.type == "input_json_delta" and tool_use_acc:
+                            tool_use_acc[-1]["input_json"] += delta.partial_json
+        except anthropic.BadRequestError as exc:
+            _raise_if_context_overflowed(exc)
+            raise
 
         self.last_usage = usage_from_anthropic(await stream.get_final_message())
 

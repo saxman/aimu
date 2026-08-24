@@ -20,6 +20,7 @@ import openai
 
 from ..base import (
     BaseModelClient,
+    ContextOverflowError,
     Model,
     ModelConnectionError,
     StreamChunk,
@@ -39,10 +40,30 @@ from ._thinking import _ThinkingParser, _split_thinking
 logger = logging.getLogger(__name__)
 
 
+def _raise_if_context_overflowed(exc: openai.BadRequestError) -> None:
+    """Translate a ``context_length_exceeded`` 400 into ``ContextOverflowError``, or return.
+
+    OpenAI's error body carries a machine-readable ``code`` for this specific case (unlike
+    Anthropic, which has none), so match on that rather than on the message text or "it was a
+    400": an unrelated bad request (a malformed tool schema, an unsupported parameter, ...) must
+    still propagate as itself, not as a misleading overflow error a catch-compact-retry loop can't
+    fix. Local servers that don't set this code (some do not) simply aren't caught here -- their
+    own 400 propagates unchanged, which is honest rather than a regression.
+    """
+    if getattr(exc, "code", None) != "context_length_exceeded":
+        return
+    raise ContextOverflowError(
+        "The request no longer fits the model's context window: the server rejected it as too "
+        "long (context_length_exceeded). Shorten the conversation, advertise fewer tools, or "
+        "compact history first (aimu.context.trim_messages / summarize_messages)."
+    ) from exc
+
+
 def _guarded_create(client, sdk_client, **kwargs):
     """Call the chat-completions endpoint, translating a server-unreachable failure into
-    ``ModelConnectionError``. The SDK's ``APIConnectionError`` message is generic ("Connection
-    error."); the specific cause (e.g. "Connection refused") is preserved on ``__cause__``.
+    ``ModelConnectionError`` and an over-long-prompt failure into ``ContextOverflowError``. The
+    SDK's ``APIConnectionError`` message is generic ("Connection error."); the specific cause
+    (e.g. "Connection refused") is preserved on ``__cause__``.
 
     Records ``kwargs`` as ``client.last_request`` immediately before the call: this is the one
     seam every OpenAI-compatible client (local servers, OpenAI, Gemini) routes through, so the
@@ -54,15 +75,22 @@ def _guarded_create(client, sdk_client, **kwargs):
         return sdk_client.chat.completions.create(**kwargs)
     except openai.APIConnectionError as exc:
         raise ModelConnectionError(str(exc)) from exc
+    except openai.BadRequestError as exc:
+        _raise_if_context_overflowed(exc)
+        raise
 
 
 def _guard_stream(stream) -> Iterator:
     """Yield from a streaming response, translating a mid-stream connection drop into
-    ``ModelConnectionError`` (the connection can fail while consuming, not only on create)."""
+    ``ModelConnectionError`` and an over-long-prompt failure into ``ContextOverflowError`` (either
+    can surface while consuming, not only on create)."""
     try:
         yield from stream
     except openai.APIConnectionError as exc:
         raise ModelConnectionError(str(exc)) from exc
+    except openai.BadRequestError as exc:
+        _raise_if_context_overflowed(exc)
+        raise
 
 
 # The local inference servers that read extra sampling fields off an OpenAI request (vLLM, SGLang,

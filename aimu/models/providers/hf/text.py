@@ -1,4 +1,4 @@
-from ...base import StreamingContentType, StreamChunk, Model, BaseModelClient, classproperty
+from ...base import StreamingContentType, StreamChunk, Model, BaseModelClient, ContextOverflowError, classproperty
 from ..._catalog import Wire
 from ..._internal.audio_input import _extract_audio_arrays, _replace_audio_with_placeholder
 from ..._internal.generate_kwargs import Unsupported
@@ -62,6 +62,39 @@ def _load_profile(model: "HuggingFaceModel") -> str:
 
 def _make_cache_key(spec_id: str, load_profile: str, model_kwargs: dict | None) -> tuple:
     return (spec_id, load_profile, *sorted((k, str(v)) for k, v in (model_kwargs or {}).items()))
+
+
+def _raise_if_prompt_overflows(hf_model: Any, model_inputs: Any, *, model_name: str) -> None:
+    """Pre-flight guard: raise ``ContextOverflowError`` before an over-long prompt reaches
+    ``generate()``.
+
+    In-process, so there is no server error to translate (unlike Ollama/OpenAI-compat/
+    Anthropic): this counts the exact token length the tokenizer/processor just produced
+    (``model_inputs.input_ids``, the literal tensor about to be handed to ``generate()``)
+    against the model's own declared window, ``config.max_position_embeddings`` -- the same
+    field ``HF_GENERATE_KWARGS`` already names as authoritative for why ``context_length`` is
+    not a request-time parameter here.
+
+    Skipped, not guessed, when the loaded model (or its config) doesn't expose that attribute
+    (e.g. a multimodal config that nests it under a sub-config): inventing a window number would
+    risk a false positive worse than not checking at all, per the "do not invent one" guidance
+    this check follows. A module-level function taking the model explicitly, rather than a bound
+    method reading ``self._hf_model``, so it degrades the same way against a minimal test double
+    that stands in for a full client.
+    """
+    config = getattr(hf_model, "config", None)
+    max_position_embeddings = getattr(config, "max_position_embeddings", None)
+    if not isinstance(max_position_embeddings, int):
+        return
+    prompt_tokens = model_inputs.input_ids.shape[-1]
+    if prompt_tokens <= max_position_embeddings:
+        return
+    raise ContextOverflowError(
+        f"The request no longer fits the model's context window: the rendered prompt is "
+        f"{prompt_tokens} tokens, but {model_name} supports at most {max_position_embeddings}. "
+        "Shorten the conversation, advertise fewer tools, or compact history first "
+        "(aimu.context.trim_messages / summarize_messages)."
+    )
 
 
 DEFAULT_GENERATE_KWARGS = {
@@ -436,7 +469,9 @@ class HuggingFaceClient(BaseModelClient):
             # cloud one needs to see that media was sent, not the pixels/samples themselves.
             self._last_rendered_images = len(pil_images) or None
             self._last_rendered_audio = len(audio_arrays) or None
-            return self._hf_processor(**processor_kwargs).to(self._hf_model.device)
+            model_inputs = self._hf_processor(**processor_kwargs).to(self._hf_model.device)
+            _raise_if_prompt_overflows(self._hf_model, model_inputs, model_name=self.model.name)
+            return model_inputs
         if self.model == self.MODELS.MAGISTRAL_SMALL:
             # ValueError: Kwargs ['add_generation_prompt', 'enable_thinking', 'xml_tools'] are not supported by `MistralCommonTokenizer.apply_chat_template`.
             text = self._hf_tokenizer.apply_chat_template(
@@ -467,7 +502,9 @@ class HuggingFaceClient(BaseModelClient):
                 **template_extra,
             )
         self._last_rendered_prompt = text
-        return self._hf_tokenizer([text], return_tensors="pt").to(self._hf_model.device)
+        model_inputs = self._hf_tokenizer([text], return_tensors="pt").to(self._hf_model.device)
+        _raise_if_prompt_overflows(self._hf_model, model_inputs, model_name=self.model.name)
+        return model_inputs
 
     def _generate_sync(
         self,
