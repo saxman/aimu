@@ -390,6 +390,16 @@ span attribute for a multi-round tool loop. It would also read `event.error` on 
 `*Finished` events: both fire on a failure too, which is what makes the pairing safe to
 rely on unconditionally.
 
+> **If your sink goes quiet, check the log before you assume no events fired.** `emit()`
+> catches an exception a sink raises, logs it at `WARNING`, and keeps the run going —
+> observation must never break the thing it's observing. The cost is that a broken sink
+> fails silently *to you*: no traceback at the call site, just fewer spans/lines than
+> expected. This example's first draft did exactly that — `make_otel_sink` referenced
+> `ModelTurnStarted` without importing it, so every event except `RunStarted` raised
+> `NameError` inside the sink, and the only visible symptom was `tracer.spans` ending up
+> with one entry instead of four. There was no traceback to follow; the fix was reading the
+> `WARNING`-level log AIMU had been emitting the whole time.
+
 ## H - Known limitation: a shared client under concurrent workers
 
 `events=` is delivered by mutating `model_client.events` for the span of a call — the same
