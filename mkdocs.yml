@@ -154,6 +154,8 @@ nav:
           - aimu.memory: reference/api/memory.md
           - aimu.sessions: reference/api/sessions.md
           - aimu.rag: reference/api/rag.md
+          - aimu.events: reference/api/events.md
+          - aimu.context: reference/api/context.md
           - aimu.prompts: reference/api/prompts.md
           - aimu.evals: reference/api/evals.md
           - aimu.history: reference/api/history.md

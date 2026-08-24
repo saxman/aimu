@@ -45,12 +45,21 @@ for i in range(6):
     messages.append({"role": "user", "content": f"This is user message number {i}, with some extra padding."})
     messages.append({"role": "assistant", "content": f"This is assistant reply number {i}, also padded out."})
 
-aimu.count_tokens(messages)                                  # 328 (estimate)
+aimu.count_tokens(messages)                                  # 274 (estimate)
 trimmed = aimu.trim_messages(messages, max_tokens=80, keep_last=2)
-aimu.count_tokens(trimmed)                                   # 65
+aimu.count_tokens(trimmed)                                   # 78
 [m["role"] for m in trimmed]
-# ['system', 'user', 'assistant']
+# ['system', 'assistant', 'user', 'assistant']
 ```
+
+That's four messages kept, not the two `keep_last=2` might suggest. `keep_last` is a *floor*,
+not a target: with no tool calls in this conversation, every message is its own group (see the
+invariant below), and `trim_messages` drops the oldest groups one at a time, stopping the moment
+the conversation fits `max_tokens` — it doesn't keep going down to exactly the protected tail.
+Here `keep_last=2` protects `user 5`/`assistant 5`, leaving ten older messages (`user 0` through
+`assistant 4`) droppable. Dropping the oldest nine of those ten already gets to 78 tokens, under
+the 80 budget, so the tenth (`assistant 4`) survives too — dropping it as well would reach 56, work
+the loop doesn't need to do. A tighter `max_tokens` (say, 60) would drop it.
 
 System messages (`keep_system=True`, the default) are always kept regardless of budget.
 `keep_last` protects the trailing **messages**, not exchanges — a plain back-and-forth is 2
@@ -99,7 +108,7 @@ for m in summarized:
 
 ```
 system : Summary of earlier conversation:
-The user stated their favorite color is blue, and the assistant acknowledged it as a great color. No decisions or open questions were mentioned in the conversation.
+The user shared that their favorite color is blue, and the assistant acknowledged it positively. No decisions or open questions were raised in this brief exchange.
 user : What is 2+2?
 assistant : 4
 ```
@@ -142,7 +151,7 @@ unconditional `WARNING` log — so a caller with no sink still learns their conv
 rewritten:
 
 ```
-WARNING Compacted conversation for agent 'agent-cb9d30': dropped 2 message(s) (~97 -> ~62 tokens, AIMU's own estimate).
+WARNING Compacted conversation for agent 'agent-079be0': dropped 2 message(s) (~97 -> ~61 tokens, AIMU's own estimate).
 ```
 
 A compaction call that returns the conversation unchanged (the common case early in a

@@ -159,10 +159,10 @@ for span in tracer.spans:
 ```
 
 ```
-agent.run {'agent': 'agent-e89e80', 'task': 'Say hi in three words.'}
-model.turn {'agent': 'agent-e89e80', 'model': 'qwen3:8b'}
-model.turn.finished {'agent': 'agent-e89e80', 'usage': {'input_tokens': 25, 'output_tokens': 220, 'total_tokens': 245}}
-agent.run.finished {'agent': 'agent-e89e80', 'result': 'Hi there.'}
+agent.run {'agent': 'agent-089e80', 'task': 'Say hi in three words.'}
+model.turn {'agent': 'agent-089e80', 'model': 'qwen3:8b'}
+model.turn.finished {'agent': 'agent-089e80', 'usage': {'input_tokens': 25, 'output_tokens': 555, 'total_tokens': 580}}
+agent.run.finished {'agent': 'agent-089e80', 'result': "Hi, what's up?"}
 ```
 
 A real adapter would keep a stack of open spans (so `agent.run.finished` closes the span

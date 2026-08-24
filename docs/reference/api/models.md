@@ -26,6 +26,8 @@ Provider-agnostic model clients.
 
 ::: aimu.models.ModelConnectionError
 
+::: aimu.models.ContextOverflowError
+
 ## Provider clients
 
 ::: aimu.models.OllamaClient
