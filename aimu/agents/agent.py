@@ -116,6 +116,7 @@ class Agent(_AgentLoopMixin, Runner):
         schema: Optional[type] = None,
         thinking: Optional[Union[bool, str]] = None,
         events: Optional[EventSink] = None,
+        compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
     ) -> Union[str, Any, Iterator[StreamChunk]]:
         """Run the agentic loop. ``images`` attach only to the initial turn.
 
@@ -156,9 +157,16 @@ class Agent(_AgentLoopMixin, Runner):
         via ``Parallel.from_client``): attaching a sink is a mutation of shared state, not a
         per-call argument, so concurrent runs will drop and misorder events. Give each
         concurrently-running agent its own ``model_client`` if you need reliable delivery.
+
+        ``compaction`` is a per-run override of the agent's ``self.compaction`` field: a
+        callable applied to the conversation before every model turn the run makes (see
+        :mod:`aimu.context` for ``trim_messages`` / ``summarize_messages``). ``None``
+        (default) uses the field. Not used by the ``schema=`` structured-output path, which
+        makes a single model turn rather than running the tool loop.
         """
         thinking = thinking if thinking is not None else self.thinking
         events = events if events is not None else self.events
+        compaction = compaction if compaction is not None else self.compaction
         if schema is not None:
             if stream:
                 return self._run_structured_streamed(
@@ -186,9 +194,10 @@ class Agent(_AgentLoopMixin, Runner):
                 tool_approval=tool_approval,
                 thinking=thinking,
                 events=events,
+                compaction=compaction,
             )
         self._prepare_run(deps, tool_approval)
-        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events)
+        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events, compaction)
         try:
             return loop.run(task, generate_kwargs=generate_kwargs, images=images)
         finally:
@@ -206,6 +215,7 @@ class Agent(_AgentLoopMixin, Runner):
         tool_approval: Optional[Callable],
         thinking: Optional[Union[bool, str]] = None,
         events: Optional[EventSink] = None,
+        compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
     ) -> _ToolLoop:
         """Build the iterative tool-calling engine with this run's effective tools + policy."""
         from aimu.tools.approval import approve_all
@@ -222,7 +232,7 @@ class Agent(_AgentLoopMixin, Runner):
             thinking=thinking,
             events=events if events is not None else self.events,
             agent_name=self.name,
-            compaction=self.compaction,
+            compaction=compaction if compaction is not None else self.compaction,
         )
 
     def _run_streamed(
@@ -235,9 +245,10 @@ class Agent(_AgentLoopMixin, Runner):
         tool_approval: Optional[Callable] = None,
         thinking: Optional[Union[bool, str]] = None,
         events: Optional[EventSink] = None,
+        compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
     ) -> Iterator[StreamChunk]:
         self._prepare_run(deps, tool_approval)
-        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events)
+        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events, compaction)
         try:
             for chunk in loop.run_streamed(task, generate_kwargs=generate_kwargs, images=images):
                 yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=chunk.iteration)

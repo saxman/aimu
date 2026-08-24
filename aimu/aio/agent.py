@@ -131,6 +131,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         schema: Optional[type] = None,
         thinking: Optional[Union[bool, str]] = None,
         events: Optional[EventSink] = None,
+        compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
     ) -> Union[str, Any, AsyncIterator[StreamChunk]]:
         """Run the async agentic loop. ``images`` attach only to the initial turn.
 
@@ -147,11 +148,15 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         concurrently** (e.g. every worker ``Agent`` in a :class:`~aimu.agents.Parallel` built via
         ``Parallel.from_client``): attaching a sink mutates shared state rather than passing a
         per-call argument, so concurrent runs will drop and misorder events. Give each
-        concurrently-running agent its own ``model_client`` if you need reliable delivery. See the
-        sync :meth:`aimu.agents.Agent.run` for full semantics.
+        concurrently-running agent its own ``model_client`` if you need reliable delivery.
+        ``compaction`` is a per-run override of ``self.compaction`` (a callable applied to the
+        conversation before every model turn the run makes; see :mod:`aimu.context`), not used
+        by the ``schema=`` structured-output path. See the sync :meth:`aimu.agents.Agent.run`
+        for full semantics.
         """
         thinking = thinking if thinking is not None else self.thinking
         events = events if events is not None else self.events
+        compaction = compaction if compaction is not None else self.compaction
         if schema is not None:
             if stream:
                 return self._run_structured_streamed(
@@ -171,7 +176,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
             finally:
                 self._last_messages = list(self.model_client.messages)
         self._prepare_run(deps, tool_approval)
-        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events)
+        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events, compaction)
         if stream:
             return self._run_loop_streamed(loop, task, generate_kwargs, images)
         return await self._run_loop(loop, task, generate_kwargs, images)
@@ -188,6 +193,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         tool_approval: Optional[Callable],
         thinking: Optional[Union[bool, str]] = None,
         events: Optional[EventSink] = None,
+        compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
     ) -> _AsyncToolLoop:
         """Build the async iterative tool-calling engine with this run's effective tools + policy."""
         from aimu.tools.approval import approve_all
@@ -204,7 +210,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
             thinking=thinking,
             events=events if events is not None else self.events,
             agent_name=self.name,
-            compaction=self.compaction,
+            compaction=compaction if compaction is not None else self.compaction,
         )
 
     async def _run_loop(

@@ -130,15 +130,17 @@ class SkillAgent(Agent):
         schema=None,
         thinking=None,
         events=None,
+        compaction=None,
     ):
         # Prepare + async skill setup must complete before the loop, and _prepare_run
         # (which resets model_client.tools) must run exactly once, before skills are added.
         # That ordering is why this can't just call super().run() (which re-prepares); instead
         # it prepares, sets up skills, then delegates to Agent's post-prepare loop helpers.
-        # ``deps``, ``tool_approval``, ``schema``, ``thinking``, and ``events`` mirror
-        # aio.Agent.run(); see that method.
+        # ``deps``, ``tool_approval``, ``schema``, ``thinking``, ``events``, and ``compaction``
+        # mirror aio.Agent.run(); see that method.
         thinking = thinking if thinking is not None else self.thinking
         events = events if events is not None else self.events
+        compaction = compaction if compaction is not None else self.compaction
         self._prepare_run(deps, tool_approval)
         await self._setup_skills_async()
 
@@ -159,7 +161,7 @@ class SkillAgent(Agent):
             finally:
                 self._last_messages = list(self.model_client.messages)
 
-        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events)
+        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events, compaction)
         if stream:
             return self._run_loop_streamed(loop, task, generate_kwargs, images)
 

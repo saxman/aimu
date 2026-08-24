@@ -113,3 +113,38 @@ async def test_async_explicit_trim_does_not_warn(caplog):
 
     assert result == "final answer"
     assert "Compacted conversation" not in caplog.text
+
+
+async def test_async_compaction_is_a_per_run_override():
+    """Mirrors deps / tool_approval / thinking / events: None uses the field, otherwise the
+    run()-level override wins."""
+    from aimu.aio.agent import Agent
+    from aimu.events import ContextCompacted
+
+    old_messages = _old_conversation()
+    budget = count_tokens(old_messages[-2:])
+
+    def trimmer(msgs: list[dict]) -> list[dict]:
+        return trim_messages(msgs, max_tokens=budget, keep_last=0)
+
+    def no_op(msgs: list[dict]) -> list[dict]:
+        return msgs
+
+    # The field is a no-op (would never announce anything on its own); the per-run
+    # override is the trimmer. Seeing ContextCompacted proves the override ran, not the field.
+    seen = []
+    client = MockAsyncModelClient(["final answer"])
+    client.model.supports_tools = False
+    client.messages = list(old_messages)
+    agent = Agent(client, events=seen.append, compaction=no_op)
+    await agent.run("q", compaction=trimmer)
+    assert any(isinstance(e, ContextCompacted) for e in seen)
+
+    # compaction=None (the default, i.e. omitted) falls back to the field.
+    seen2 = []
+    client2 = MockAsyncModelClient(["final answer"])
+    client2.model.supports_tools = False
+    client2.messages = list(old_messages)
+    agent2 = Agent(client2, events=seen2.append, compaction=trimmer)
+    await agent2.run("q")  # no override -> None -> falls back to self.compaction
+    assert any(isinstance(e, ContextCompacted) for e in seen2)
