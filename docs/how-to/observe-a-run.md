@@ -69,13 +69,18 @@ agent.run("What is 12 + 30? Use the add tool.")
 RunStarted RunStarted(agent='agent-679be0', iteration=0, task='What is 12 + 30? Use the add tool.')
 ModelTurnStarted ModelTurnStarted(agent='agent-679be0', iteration=0, model='qwen3:8b', message_count=1, tool_names=('add',))
 RequestPrepared RequestPrepared(agent='agent-679be0', iteration=0, ...)
-ModelTurnFinished ModelTurnFinished(agent='agent-679be0', iteration=0, model='qwen3:8b', text='', usage={'input_tokens': 160, ...}, duration_s=2.49)
-ToolCalled ToolCalled(agent='agent-679be0', iteration=0, name='add', arguments={'a': 12, 'b': 30}, result='42', error=None, duration_s=4.5e-05)
+ModelTurnFinished ModelTurnFinished(agent='agent-679be0', iteration=0, model='qwen3:8b', text='', usage={'input_tokens': 160, ...}, duration_s=...)
+ToolCalled ToolCalled(agent='agent-679be0', iteration=0, name='add', arguments={'a': 12, 'b': 30}, result='42', error=None, duration_s=...)
 ModelTurnStarted ModelTurnStarted(agent='agent-679be0', iteration=1, model='qwen3:8b', message_count=4, tool_names=('add',))
 RequestPrepared RequestPrepared(agent='agent-679be0', iteration=1, ...)
-ModelTurnFinished ModelTurnFinished(agent='agent-679be0', iteration=1, model='qwen3:8b', text='The result of 12 + 30 is **42**.', ...)
-RunFinished RunFinished(agent='agent-679be0', iteration=1, result='The result of 12 + 30 is **42**.', error=None)
+ModelTurnFinished ModelTurnFinished(agent='agent-679be0', iteration=1, model='qwen3:8b', text=..., ...)
+RunFinished RunFinished(agent='agent-679be0', iteration=1, result=..., error=None)
 ```
+
+(`duration_s` is a wall-clock timing and will differ on any other machine; the final answer text
+is generated and, while it reliably said `'The result of 12 + 30 is **42**.'` in most of ten fresh
+runs here, it varied in the rest — `input_tokens`, the tool `arguments`, and `result='42'` are the
+parts of this block that are actually fixed.)
 
 Every event carries `agent` and `iteration` (the same two fields `StreamChunk` carries), so one
 sink attached to a nested workflow — a `Chain` step, a `Router` handler, every worker in a
