@@ -162,6 +162,16 @@ def _anthropic_bad_request(*, message: str):
     return anthropic.BadRequestError(message, response=response, body=response.json())
 
 
+def _anthropic_request_too_large(*, message: str):
+    import anthropic
+
+    request = httpx.Request("POST", _ANTHROPIC_URL)
+    response = httpx.Response(
+        413, request=request, json={"type": "error", "error": {"type": "request_too_large", "message": message}}
+    )
+    return anthropic.RequestTooLargeError(message, response=response, body=response.json())
+
+
 def _raise_prompt_too_long(*args, **kwargs):
     raise _anthropic_bad_request(message="prompt is too long: 220000 tokens > 200000 maximum")
 
@@ -170,12 +180,20 @@ def _raise_unrelated_anthropic_bad_request(*args, **kwargs):
     raise _anthropic_bad_request(message='messages: roles must alternate between "user" and "assistant"')
 
 
+def _raise_request_too_large(*args, **kwargs):
+    raise _anthropic_request_too_large(message="request too large, please try again with fewer tokens")
+
+
 async def _araise_prompt_too_long(*args, **kwargs):
     _raise_prompt_too_long()
 
 
 async def _araise_unrelated_anthropic_bad_request(*args, **kwargs):
     _raise_unrelated_anthropic_bad_request()
+
+
+async def _araise_request_too_large(*args, **kwargs):
+    _raise_request_too_large()
 
 
 def _anthropic_client(create_fn, stream_fn=None):
@@ -244,6 +262,26 @@ def test_anthropic_unrelated_bad_request_is_not_translated():
 
 
 @pytestmark_anthropic
+def test_anthropic_chat_translates_request_too_large():
+    """A 413 (RequestTooLargeError) is a distinct exception class from BadRequestError -- a bare
+    ``except anthropic.BadRequestError`` cannot see it, so this needs (and has) its own clause."""
+    import anthropic
+
+    client = _anthropic_client(_raise_request_too_large)
+    with pytest.raises(ContextOverflowError) as info:
+        client._chat("hi")
+    assert isinstance(info.value.__cause__, anthropic.RequestTooLargeError)
+    assert "context window" in str(info.value)
+
+
+@pytestmark_anthropic
+def test_anthropic_streamed_chat_translates_request_too_large():
+    client = _anthropic_client(_raise_request_too_large, stream_fn=_raise_request_too_large)
+    with pytest.raises(ContextOverflowError):
+        list(client._chat("hi", stream=True))
+
+
+@pytestmark_anthropic
 async def test_async_anthropic_chat_translates_prompt_too_long():
     client = _async_anthropic_client(_araise_prompt_too_long)
     with pytest.raises(ContextOverflowError) as info:
@@ -269,6 +307,25 @@ async def test_async_anthropic_unrelated_bad_request_is_not_translated():
     client = _async_anthropic_client(_araise_unrelated_anthropic_bad_request)
     with pytest.raises(anthropic.BadRequestError):
         await client._chat("hi")
+
+
+@pytestmark_anthropic
+async def test_async_anthropic_chat_translates_request_too_large():
+    import anthropic
+
+    client = _async_anthropic_client(_araise_request_too_large)
+    with pytest.raises(ContextOverflowError) as info:
+        await client._chat("hi")
+    assert isinstance(info.value.__cause__, anthropic.RequestTooLargeError)
+
+
+@pytestmark_anthropic
+async def test_async_anthropic_streamed_chat_translates_request_too_large():
+    client = _async_anthropic_client(_raise_request_too_large, stream_fn=_raise_request_too_large)
+    with pytest.raises(ContextOverflowError):
+        stream = await client._chat("hi", stream=True)
+        async for _ in stream:
+            pass
 
 
 # --------------------------------------------------------------------------------------- #
@@ -332,6 +389,18 @@ def test_hf_generate_raises_when_prompt_overflows(monkeypatch):
     assert info.value.__cause__ is None  # pre-flight guard, not a caught SDK error
     assert "context window" in str(info.value)
     assert "200" in str(info.value) and "100" in str(info.value)
+
+
+@pytestmark_hf
+def test_hf_generate_overflow_still_records_last_request(monkeypatch):
+    """Regression: the pre-flight raise must not leave last_request stale (or None). The moment a
+    caller most wants to see the request AIMU built is the moment it was too big to send."""
+    client = _hf_client(monkeypatch, n_tokens=200, max_position_embeddings=100, cache_marker="hf-overflow-last-request")
+    assert client.last_request is None  # nothing sent yet
+    with pytest.raises(ContextOverflowError):
+        client.generate("hi")
+    assert client.last_request is not None
+    assert client.last_request["prompt"] == "RENDERED PROMPT"
 
 
 @pytestmark_hf
@@ -413,6 +482,18 @@ def test_llamacpp_generate_raises_when_prompt_overflows(monkeypatch):
     assert info.value.__cause__ is None
     assert "context window" in str(info.value)
     assert "50" in str(info.value)
+
+
+@pytestmark_llamacpp
+def test_llamacpp_generate_overflow_still_records_last_request(monkeypatch):
+    """Regression: the pre-flight raise must not leave last_request stale (or None) -- same
+    defect class as the HuggingFace one above, on the other in-process provider."""
+    client = _llamacpp_client(monkeypatch, n_ctx=50, tokenize_count=200, model_path="overflow-last-request.gguf")
+    assert client.last_request is None  # nothing sent yet
+    with pytest.raises(ContextOverflowError):
+        client.generate("hi")
+    assert client.last_request is not None
+    assert client.last_request["messages"] == [{"role": "user", "content": "hi"}]
 
 
 @pytestmark_llamacpp

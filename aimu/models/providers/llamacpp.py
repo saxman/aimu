@@ -259,8 +259,8 @@ class LlamaCppClient(BaseModelClient):
         # are the closest equivalent AIMU has to a wire payload for a local GGUF model.
         # generate_kwargs is splatted first so it cannot silently override "messages".
         payload = {**generate_kwargs, "messages": [{"role": "user", "content": content_in}]}
-        _raise_if_prompt_overflows(self._llm, payload["messages"])
         self._record_request(payload)
+        _raise_if_prompt_overflows(self._llm, payload["messages"])
         response = self._llm.create_chat_completion(**payload)
         logger.debug("LLM raw response: %s", response)
         msg = response["choices"][0]["message"]
@@ -286,8 +286,8 @@ class LlamaCppClient(BaseModelClient):
         # generate_kwargs splatted first: see _chat_streamed for why (stream=True must not be
         # silently overridable).
         payload = {**generate_kwargs, "messages": [{"role": "user", "content": content_in}], "stream": True}
-        _raise_if_prompt_overflows(self._llm, payload["messages"])
         self._record_request(payload)
+        _raise_if_prompt_overflows(self._llm, payload["messages"])
         stream = self._llm.create_chat_completion(**payload)
         yield from self._iter_stream(stream)
 
@@ -311,8 +311,8 @@ class LlamaCppClient(BaseModelClient):
         # splatted first so an accidental "messages"/"tools" key in it cannot silently override
         # the real ones.
         payload = {**generate_kwargs, "messages": list(self.messages), "tools": tools if tools else None}
-        _raise_if_prompt_overflows(self._llm, payload["messages"])
         self._record_request(payload)
+        _raise_if_prompt_overflows(self._llm, payload["messages"])
         response = self._llm.create_chat_completion(**payload)
         logger.debug("LLM raw response: %s", response)
         msg = response["choices"][0]["message"]
@@ -360,8 +360,8 @@ class LlamaCppClient(BaseModelClient):
             "stream": True,
             "tools": tools if tools else None,
         }
-        _raise_if_prompt_overflows(self._llm, payload["messages"])
         self._record_request(payload)
+        _raise_if_prompt_overflows(self._llm, payload["messages"])
         stream = self._llm.create_chat_completion(**payload)
 
         # Yield content/thinking chunks as they arrive (incremental streaming) while accumulating

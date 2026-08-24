@@ -114,19 +114,41 @@ ANTHROPIC_GENERATE_KWARGS = {
 def _raise_if_context_overflowed(exc: "anthropic.BadRequestError") -> None:
     """Translate Anthropic's prompt-too-long 400 into ``ContextOverflowError``, or return.
 
-    Unlike OpenAI, Anthropic has no machine-readable error code for this case: every 400 shares
-    ``error.type == "invalid_request_error"`` (bad tool schema, non-alternating roles, an
-    unsupported thinking/effort pairing, ...), so the code alone can't distinguish them. The
-    message text is the only signal, and Anthropic's own wording for this specific failure is
-    "prompt is too long: N tokens > M maximum" -- matched narrowly on that phrase rather than on
-    "it was a 400", so an unrelated bad request still propagates as itself instead of a misleading
-    overflow error a catch-compact-retry loop can't fix.
+    On the 400 path specifically, Anthropic has no machine-readable error code for this case:
+    every ``BadRequestError`` shares ``error.type == "invalid_request_error"`` (bad tool schema,
+    non-alternating roles, an unsupported thinking/effort pairing, ...), so the code alone can't
+    distinguish them there. (A 413 is a different exception class entirely -- see
+    ``_raise_for_request_too_large`` below -- and *does* have a distinct signal, so this function
+    only ever sees the 400s that genuinely have none.) The message text is the only signal on this
+    path, and Anthropic's own wording for this specific failure is "prompt is too long: N tokens >
+    M maximum" -- matched narrowly on that phrase rather than on "it was a 400", so an unrelated
+    bad request still propagates as itself instead of a misleading overflow error a
+    catch-compact-retry loop can't fix.
     """
     if "prompt is too long" not in str(exc).lower():
         return
     raise ContextOverflowError(
         "The request no longer fits the model's context window: Anthropic rejected the prompt as "
         "too long. Shorten the conversation, advertise fewer tools, or compact history first "
+        "(aimu.context.trim_messages / summarize_messages)."
+    ) from exc
+
+
+def _raise_for_request_too_large(exc: "anthropic.RequestTooLargeError") -> None:
+    """Translate a 413 (``RequestTooLargeError``) into ``ContextOverflowError``. Always raises.
+
+    Unlike the 400 path above, this exception class *is* the machine-readable signal: Anthropic's
+    SDK maps status 413 to this dedicated type (a sibling of ``BadRequestError``, not a subclass of
+    it, so a bare ``except anthropic.BadRequestError`` never sees it), and Anthropic's own error
+    reference lists "too many input tokens" among 413's causes. No message-text disambiguation is
+    needed here the way it is for the 400 path: catching this specific type is itself the narrow
+    match ("matching on the exception type rather than the status number" -- a generic ``except
+    APIStatusError: if e.status_code == 413`` would be the "it was a 4xx" mistake this whole
+    mapping is trying to avoid).
+    """
+    raise ContextOverflowError(
+        "The request no longer fits the model's context window: Anthropic rejected it as too "
+        "large (413). Shorten the conversation, advertise fewer tools, or compact history first "
         "(aimu.context.trim_messages / summarize_messages)."
     ) from exc
 
@@ -231,6 +253,8 @@ class AnthropicClient(BaseModelClient):
         self._record_request(payload)
         try:
             response = self._client.messages.create(**payload)
+        except anthropic.RequestTooLargeError as exc:
+            _raise_for_request_too_large(exc)
         except anthropic.BadRequestError as exc:
             _raise_if_context_overflowed(exc)
             raise
@@ -278,6 +302,8 @@ class AnthropicClient(BaseModelClient):
                     if event.type == "content_block_delta" and event.delta.type == "input_json_delta":
                         yield StreamChunk(StreamingContentType.GENERATING, event.delta.partial_json)
                 final = stream.get_final_message()
+        except anthropic.RequestTooLargeError as exc:
+            _raise_for_request_too_large(exc)
         except anthropic.BadRequestError as exc:
             _raise_if_context_overflowed(exc)
             raise
@@ -513,6 +539,8 @@ class AnthropicClient(BaseModelClient):
         self._record_request(payload)
         try:
             response = self._client.messages.create(**payload)
+        except anthropic.RequestTooLargeError as exc:
+            _raise_for_request_too_large(exc)
         except anthropic.BadRequestError as exc:
             _raise_if_context_overflowed(exc)
             raise
@@ -571,6 +599,8 @@ class AnthropicClient(BaseModelClient):
                         elif delta.type == "text_delta":
                             yield StreamChunk(StreamingContentType.GENERATING, delta.text)
                 self.last_usage = usage_from_anthropic(stream.get_final_message())
+        except anthropic.RequestTooLargeError as exc:
+            _raise_for_request_too_large(exc)
         except anthropic.BadRequestError as exc:
             _raise_if_context_overflowed(exc)
             raise
@@ -623,6 +653,8 @@ class AnthropicClient(BaseModelClient):
         self._record_request(payload)
         try:
             response = self._client.messages.create(**payload)
+        except anthropic.RequestTooLargeError as exc:
+            _raise_for_request_too_large(exc)
         except anthropic.BadRequestError as exc:
             _raise_if_context_overflowed(exc)
             raise
@@ -691,6 +723,8 @@ class AnthropicClient(BaseModelClient):
                             first_pass_chunks.append(StreamChunk(StreamingContentType.GENERATING, delta.text))
                         elif delta.type == "input_json_delta" and tool_use_acc:
                             tool_use_acc[-1]["input_json"] += delta.partial_json
+        except anthropic.RequestTooLargeError as exc:
+            _raise_for_request_too_large(exc)
         except anthropic.BadRequestError as exc:
             _raise_if_context_overflowed(exc)
             raise

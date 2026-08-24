@@ -17,7 +17,12 @@ import anthropic
 from dotenv import load_dotenv
 
 from aimu.models.providers.anthropic import AnthropicClient as _SyncAnthropicClient
-from aimu.models.providers.anthropic import ANTHROPIC_GENERATE_KWARGS, AnthropicModel, _raise_if_context_overflowed
+from aimu.models.providers.anthropic import (
+    ANTHROPIC_GENERATE_KWARGS,
+    AnthropicModel,
+    _raise_for_request_too_large,
+    _raise_if_context_overflowed,
+)
 from aimu.models._internal.sdk_config import sdk_client_kwargs
 from aimu.models._internal.usage import usage_from_anthropic
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
@@ -108,6 +113,8 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         self._record_request(payload)
         try:
             response = await self._client.messages.create(**payload)
+        except anthropic.RequestTooLargeError as exc:
+            _raise_for_request_too_large(exc)
         except anthropic.BadRequestError as exc:
             _raise_if_context_overflowed(exc)
             raise
@@ -152,6 +159,8 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
                     if event.type == "content_block_delta" and event.delta.type == "input_json_delta":
                         yield StreamChunk(StreamingContentType.GENERATING, event.delta.partial_json)
                 final = await stream.get_final_message()
+        except anthropic.RequestTooLargeError as exc:
+            _raise_for_request_too_large(exc)
         except anthropic.BadRequestError as exc:
             _raise_if_context_overflowed(exc)
             raise
@@ -205,6 +214,8 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         self._record_request(payload)
         try:
             response = await self._client.messages.create(**payload)
+        except anthropic.RequestTooLargeError as exc:
+            _raise_for_request_too_large(exc)
         except anthropic.BadRequestError as exc:
             _raise_if_context_overflowed(exc)
             raise
@@ -248,6 +259,8 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
                         elif delta.type == "text_delta":
                             yield StreamChunk(StreamingContentType.GENERATING, delta.text)
                 self.last_usage = usage_from_anthropic(await stream.get_final_message())
+        except anthropic.RequestTooLargeError as exc:
+            _raise_for_request_too_large(exc)
         except anthropic.BadRequestError as exc:
             _raise_if_context_overflowed(exc)
             raise
@@ -302,6 +315,8 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         self._record_request(payload)
         try:
             response = await self._client.messages.create(**payload)
+        except anthropic.RequestTooLargeError as exc:
+            _raise_for_request_too_large(exc)
         except anthropic.BadRequestError as exc:
             _raise_if_context_overflowed(exc)
             raise
@@ -368,6 +383,8 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
                             first_pass_chunks.append(StreamChunk(StreamingContentType.GENERATING, delta.text))
                         elif delta.type == "input_json_delta" and tool_use_acc:
                             tool_use_acc[-1]["input_json"] += delta.partial_json
+        except anthropic.RequestTooLargeError as exc:
+            _raise_for_request_too_large(exc)
         except anthropic.BadRequestError as exc:
             _raise_if_context_overflowed(exc)
             raise

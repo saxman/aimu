@@ -21,10 +21,13 @@ class ModelConnectionError(RuntimeError):
 
 
 class ContextOverflowError(RuntimeError):
-    """Raised when a request's messages no longer fit the model's context window, so the server could
-    not render a prompt from them. The input-side counterpart of :class:`aimu.agents.TruncatedTurnError`,
-    which reports an *output* that ran out of room. The provider's own error is preserved on
-    ``__cause__``."""
+    """Raised when a request's messages no longer fit the model's context window: either a networked
+    backend rejected the request outright, or an in-process backend with no server to reject it ran a
+    pre-flight token count against the model's own known window and declined to even attempt the call.
+    The input-side counterpart of :class:`aimu.agents.TruncatedTurnError`, which reports an *output*
+    that ran out of room. On a networked backend, the provider's own error is preserved on
+    ``__cause__``; on an in-process pre-flight check there is no such error to chain, and ``__cause__``
+    is ``None`` by design -- do not assume every instance of this error carries one."""
 
 
 class StreamingContentType(str, Enum):

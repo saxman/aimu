@@ -470,7 +470,6 @@ class HuggingFaceClient(BaseModelClient):
             self._last_rendered_images = len(pil_images) or None
             self._last_rendered_audio = len(audio_arrays) or None
             model_inputs = self._hf_processor(**processor_kwargs).to(self._hf_model.device)
-            _raise_if_prompt_overflows(self._hf_model, model_inputs, model_name=self.model.name)
             return model_inputs
         if self.model == self.MODELS.MAGISTRAL_SMALL:
             # ValueError: Kwargs ['add_generation_prompt', 'enable_thinking', 'xml_tools'] are not supported by `MistralCommonTokenizer.apply_chat_template`.
@@ -503,7 +502,6 @@ class HuggingFaceClient(BaseModelClient):
             )
         self._last_rendered_prompt = text
         model_inputs = self._hf_tokenizer([text], return_tensors="pt").to(self._hf_model.device)
-        _raise_if_prompt_overflows(self._hf_model, model_inputs, model_name=self.model.name)
         return model_inputs
 
     def _generate_sync(
@@ -530,6 +528,7 @@ class HuggingFaceClient(BaseModelClient):
                 "audio": self._last_rendered_audio,
             }
         )
+        _raise_if_prompt_overflows(self._hf_model, model_inputs, model_name=self.model.name)
         generated_ids = self._hf_model.generate(**model_inputs, **generate_kwargs)
 
         output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :]
@@ -613,6 +612,7 @@ class HuggingFaceClient(BaseModelClient):
                 "audio": self._last_rendered_audio,
             }
         )
+        _raise_if_prompt_overflows(self._hf_model, model_inputs, model_name=self.model.name)
         self._hf_model.generate(**model_inputs, **generate_kwargs, streamer=streamer)
 
         # first part is always empty
