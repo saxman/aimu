@@ -67,7 +67,7 @@ agent.run("What is 12 + 30? Use the add tool.")
 
 ```
 RunStarted RunStarted(agent='agent-679be0', iteration=0, task='What is 12 + 30? Use the add tool.')
-ModelTurnStarted ModelTurnStarted(agent='agent-679be0', iteration=0, model='qwen3:8b', message_count=1, tool_names=('add',))
+ModelTurnStarted ModelTurnStarted(agent='agent-679be0', iteration=0, model='qwen3:8b', message_count=2, tool_names=('add',))
 RequestPrepared RequestPrepared(agent='agent-679be0', iteration=0, ...)
 ModelTurnFinished ModelTurnFinished(agent='agent-679be0', iteration=0, model='qwen3:8b', text='', usage={'input_tokens': 160, ...}, duration_s=...)
 ToolCalled ToolCalled(agent='agent-679be0', iteration=0, name='add', arguments={'a': 12, 'b': 30}, result='42', error=None, duration_s=...)

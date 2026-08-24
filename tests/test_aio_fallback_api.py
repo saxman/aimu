@@ -184,3 +184,41 @@ async def test_async_streaming_all_fail_raises():
     fb = AsyncFallbackClient([AsyncStubClient(error=ConnectionError("a")), AsyncStubClient(error=ConnectionError("b"))])
     with pytest.raises(FallbackExhaustedError):
         [c async for c in await fb.chat("hi", stream=True)]
+
+
+# ---------------------------------------------------------------------------
+# Event sinks: `events` is configuration on the inner client, not an output slot
+# ---------------------------------------------------------------------------
+
+
+async def test_async_inner_client_own_event_sink_survives():
+    from helpers_aio import MockAsyncModelClient
+
+    inner_events = []
+    inner = MockAsyncModelClient(["hello"])
+    inner.events = inner_events.append
+    fb = AsyncFallbackClient([inner])
+
+    assert await fb.chat("hi") == "hello"
+    assert inner.events is not None, "AsyncFallbackClient destroyed the inner client's own sink"
+    assert inner_events
+
+
+async def test_async_fallback_sink_reaches_the_winning_client():
+    from helpers_aio import MockAsyncModelClient
+
+    from aimu.events import ModelTurnStarted
+
+    inner_events = []
+    primary = AsyncStubClient(error=ConnectionError("down"))
+    backup = MockAsyncModelClient(["the answer"])
+    backup.events = inner_events.append
+
+    seen = []
+    fb = AsyncFallbackClient([primary, backup])
+    fb.events = seen.append
+
+    assert await fb.chat("hi") == "the answer"
+    assert any(isinstance(event, ModelTurnStarted) for event in seen)
+    assert not inner_events
+    assert backup.events is not None  # restored, not destroyed

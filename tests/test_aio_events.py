@@ -28,6 +28,88 @@ async def test_async_client_emits_turn_events_with_no_agent():
     assert finished.duration_s >= 0.0
 
 
+class _AsyncSeedingClient(MockAsyncModelClient):
+    """Routes ``_chat`` through the shared ``_chat_setup`` seam, so the system message is
+    seeded inside ``_chat`` exactly as a real provider seeds it."""
+
+    async def _chat(
+        self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None
+    ):
+        await self._chat_setup(user_message, generate_kwargs, use_tools, images, audio)
+        reply = self._responses[self._call_count]
+        self._call_count += 1
+        self._append_message({"role": "assistant", "content": reply})
+        return reply
+
+
+async def test_async_failing_turn_still_reports_finished_with_the_error():
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+
+    class Boom(MockAsyncModelClient):
+        async def _chat(self, *args, **kwargs):
+            raise RuntimeError("provider said no")
+
+    seen = []
+    client = Boom([])
+    client.events = seen.append
+    with pytest.raises(RuntimeError):
+        await client.chat("hi")
+
+    assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
+    finished = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert len(finished) == 1
+    assert isinstance(finished[0].error, RuntimeError)
+
+
+async def test_async_failing_generate_still_reports_finished_with_the_error():
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+
+    class Boom(MockAsyncModelClient):
+        async def _generate(self, *args, **kwargs):
+            raise RuntimeError("provider said no")
+
+    seen = []
+    client = Boom([])
+    client.events = seen.append
+    with pytest.raises(RuntimeError):
+        await client.generate("hi")
+
+    assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
+    finished = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert len(finished) == 1
+    assert isinstance(finished[0].error, RuntimeError)
+
+
+async def test_async_message_count_counts_the_system_message_this_turn_seeds():
+    from aimu.events import ModelTurnStarted
+
+    seen = []
+    client = _AsyncSeedingClient(["a", "b"])
+    client.system_message = "You are helpful."
+    client.events = seen.append
+
+    await client.chat("first")
+    assert next(e for e in seen if isinstance(e, ModelTurnStarted)).message_count == 2
+
+    seen.clear()
+    await client.chat("second")
+    assert next(e for e in seen if isinstance(e, ModelTurnStarted)).message_count == 4
+
+
+async def test_async_generate_reports_one_message_however_long_the_conversation():
+    from aimu.events import ModelTurnStarted
+
+    seen = []
+    client = _AsyncSeedingClient(["a", "b", "c"])
+    client.events = seen.append
+    await client.chat("first")
+    await client.chat("second")
+    seen.clear()
+
+    await client.generate("one-shot")
+    assert next(e for e in seen if isinstance(e, ModelTurnStarted)).message_count == 1
+
+
 async def test_async_no_sink_means_no_behaviour_change():
     """The default path must be byte-identical to before."""
     client = MockAsyncModelClient(["hello"])
@@ -174,7 +256,9 @@ async def test_async_fallback_client_chat_emits_exactly_one_pair():
 
     assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
     assert sum(isinstance(e, ModelTurnFinished) for e in seen) == 1
-    assert primary.events is not None
+    # The sink is scoped onto the winning attempt for the call and restored afterwards, so
+    # a sink the inner client owns is never destroyed (see test_fallback_api.py).
+    assert primary.events is None
 
 
 # ---------------------------------------------------------------------------

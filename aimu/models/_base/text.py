@@ -319,8 +319,14 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
             if stream:
                 return self._generate_structured_streamed(prompt, generate_kwargs, images, audio, schema, include)
             return self._generate_structured(prompt, generate_kwargs, images, audio, schema)
-        started, model_id = self._emit_turn_started()
-        result = self._generate(prompt, generate_kwargs, stream=stream, images=images, audio=audio)
+        started, model_id = self._emit_turn_started(stateless=True)
+        try:
+            result = self._generate(prompt, generate_kwargs, stream=stream, images=images, audio=audio)
+        except BaseException as exc:
+            # A turn that raises still ended; without this, a failing request leaves a
+            # dangling ModelTurnStarted and any sink pairing started/finished leaks one.
+            self._emit_turn_finished(model_id, started, None, error=exc)
+            raise
         if stream:
             result = self._emit_when_drained(result, started, model_id)
         else:
@@ -405,9 +411,13 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
 
         if tools is None:
             started, model_id = self._emit_turn_started(user_message)
-            result = self._chat(
-                user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images, audio=audio
-            )
+            try:
+                result = self._chat(
+                    user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images, audio=audio
+                )
+            except BaseException as exc:
+                self._emit_turn_finished(model_id, started, None, error=exc)
+                raise
             if stream:
                 result = self._emit_when_drained(result, started, model_id)
             else:
@@ -422,9 +432,13 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
             )
         with self._tools_override(tools):
             started, model_id = self._emit_turn_started(user_message)
-            result = self._chat(
-                user_message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio
-            )
+            try:
+                result = self._chat(
+                    user_message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio
+                )
+            except BaseException as exc:
+                self._emit_turn_finished(model_id, started, None, error=exc)
+                raise
             self._emit_turn_finished(model_id, started, result)
             return result
 
@@ -582,13 +596,20 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         """Drop chunks whose phase isn't in the include set."""
         return _filter_chunks_fn(chunks, include)
 
-    def _emit_turn_started(self, pending_user_message: Optional[str] = None) -> tuple[float, str]:
+    def _emit_turn_started(
+        self, pending_user_message: Optional[str] = None, *, stateless: bool = False
+    ) -> tuple[float, str]:
         """Emit :class:`~aimu.events.ModelTurnStarted` and return ``(started, model_id)``.
 
-        ``pending_user_message`` is the ``user_message`` about to be appended by ``_chat``
-        (``None`` for a continuation turn or a stateless ``generate()`` call, which appends
-        nothing): ``message_count`` counts it so it reflects what this turn actually sends,
-        not ``self.messages`` as it stood a moment before ``_chat`` appends the new turn.
+        ``message_count`` is what this request will actually carry, which is not
+        ``len(self.messages)``: ``_chat`` has not appended anything yet. It counts the
+        ``pending_user_message`` about to be appended (``None`` on a continuation turn,
+        which appends nothing) plus the system message when *this* turn is the one that
+        seeds it -- otherwise a first turn would report 1 while ``RequestPrepared``, logged
+        moments later from the same call, shows 2.
+
+        ``stateless=True`` is the ``generate()`` path: it never touches ``self.messages``
+        and sends exactly one message, so it reports 1 regardless of conversation length.
 
         ``started`` (``time.monotonic()``) and ``model_id`` are threaded through to the
         matching :meth:`_emit_turn_finished` / :meth:`_emit_when_drained` call so the pair
@@ -596,7 +617,7 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         """
         model_id = str(getattr(self.model, "value", self.model))
         started = time.monotonic()
-        message_count = len(self.messages) + (1 if pending_user_message is not None else 0)
+        message_count = 1 if stateless else self._pending_message_count(pending_user_message)
         emit(
             getattr(self, "events", None),
             ModelTurnStarted(
@@ -607,12 +628,21 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         )
         return started, model_id
 
-    def _emit_turn_finished(self, model_id: str, started: float, result: Union[str, Any]) -> None:
+    def _emit_turn_finished(
+        self,
+        model_id: str,
+        started: float,
+        result: Union[str, Any],
+        error: Optional[BaseException] = None,
+    ) -> None:
         """Emit :class:`~aimu.events.ModelTurnFinished` for a completed non-streamed turn.
 
         ``usage`` is read defensively (``getattr`` with a ``None`` default): views that don't
         delegate ``last_usage`` to an inner client (e.g. ``Agent.as_model_client()``) still
         have a turn to report, just with no usage figure attached.
+
+        ``error`` is the exception that ended the turn, when one did: every ``ModelTurnStarted``
+        is paired with a ``ModelTurnFinished``, so a sink can close its span either way.
         """
         emit(
             getattr(self, "events", None),
@@ -621,6 +651,7 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                 text=result if isinstance(result, str) else None,
                 usage=getattr(self, "last_usage", None),
                 duration_s=time.monotonic() - started,
+                error=error,
             ),
         )
 
@@ -641,11 +672,15 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
             yield from chunks
             return
         text_parts: list[str] = []
+        error: Optional[BaseException] = None
         try:
             for chunk in chunks:
                 if chunk.is_text() and chunk.phase == StreamingContentType.GENERATING:
                     text_parts.append(chunk.content)
                 yield chunk
+        except BaseException as exc:
+            error = exc
+            raise
         finally:
             emit(
                 sink,
@@ -654,6 +689,7 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                     text="".join(text_parts) or None,
                     usage=getattr(self, "last_usage", None),
                     duration_s=time.monotonic() - started,
+                    error=error,
                 ),
             )
 

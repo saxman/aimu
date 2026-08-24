@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import copy
 import logging
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Iterable, Iterator, Optional, Union
 
 from .base import BaseModelClient, StreamChunk, StreamingContentType
@@ -27,6 +28,35 @@ if TYPE_CHECKING:
     from ..events import EventSink
 
 logger = logging.getLogger(__name__)
+
+
+@contextmanager
+def _scoped_events(client, events: Optional["EventSink"]) -> Iterator[None]:
+    """Attach ``events`` to ``client`` for one delegated call, then restore.
+
+    ``events`` is *configuration*, not an output slot: an inner client may have been
+    constructed with a sink of its own, and overwriting it would silently destroy it.
+    ``events=None`` is therefore a no-op, and a sink set on the fallback client is
+    restored away afterwards.
+
+    Prefers the client's own ``_events_override`` seam (every ``BaseModelClient`` has it,
+    and on a ``ModelClient`` wrapper it propagates to the inner client); falls back to
+    save/restore for a duck-typed client that only implements the public surface.
+    """
+    if events is None:
+        yield
+        return
+    override = getattr(client, "_events_override", None)
+    if override is not None:
+        with override(events):
+            yield
+        return
+    saved = getattr(client, "events", None)
+    client.events = events
+    try:
+        yield
+    finally:
+        client.events = saved
 
 
 class FallbackExhaustedError(RuntimeError):
@@ -88,7 +118,10 @@ class _FallbackStateMixin:
         client.last_usage = None
         client.last_structured = None
         client.last_request = None
-        client.events = self.events
+        # ``events`` is configuration, not an output slot: an inner client may have been
+        # constructed with its own sink. It is scoped per delegated call via
+        # ``_events_override`` (a no-op when this FallbackClient has no sink of its own),
+        # never overwritten here.
 
     def _adopt_state(self, client: BaseModelClient) -> None:
         """Adopt the winning client's resulting state as the canonical conversation."""
@@ -169,18 +202,19 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
         for client in self.clients:
             self._load_state(client)
             try:
-                result = client.chat(
-                    user_message,
-                    generate_kwargs,
-                    use_tools=use_tools,
-                    stream=False,
-                    images=images,
-                    include=include,
-                    tools=tools,
-                    audio=audio,
-                    schema=schema,
-                    thinking=thinking,
-                )
+                with _scoped_events(client, self.events):
+                    result = client.chat(
+                        user_message,
+                        generate_kwargs,
+                        use_tools=use_tools,
+                        stream=False,
+                        images=images,
+                        include=include,
+                        tools=tools,
+                        audio=audio,
+                        schema=schema,
+                        thinking=thinking,
+                    )
             except self.retry_on as exc:
                 logger.warning("Fallback: client %r failed (%s); trying next.", _label(client), exc)
                 errors.append((client, exc))
@@ -203,32 +237,38 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
         errors: list[tuple[BaseModelClient, BaseException]] = []
         for client in self.clients:
             self._load_state(client)
-            stream = client.chat(
-                user_message,
-                generate_kwargs,
-                use_tools=use_tools,
-                stream=True,
-                images=images,
-                include=include,
-                tools=tools,
-                audio=audio,
-                thinking=thinking,
-            )
-            iterator = iter(stream)
-            try:
-                first = next(iterator)
-            except StopIteration:
-                self._adopt_state(client)  # empty but successful stream
+            # The override stays live across lazy iteration, so the inner client's turn
+            # events reach this FallbackClient's sink for the whole stream, and its own
+            # sink is restored when the generator finishes or is abandoned.
+            with _scoped_events(client, self.events):
+                stream = client.chat(
+                    user_message,
+                    generate_kwargs,
+                    use_tools=use_tools,
+                    stream=True,
+                    images=images,
+                    include=include,
+                    tools=tools,
+                    audio=audio,
+                    thinking=thinking,
+                )
+                iterator = iter(stream)
+                try:
+                    first = next(iterator)
+                except StopIteration:
+                    self._adopt_state(client)  # empty but successful stream
+                    return
+                except self.retry_on as exc:
+                    logger.warning(
+                        "Fallback: client %r failed before first chunk (%s); trying next.", _label(client), exc
+                    )
+                    errors.append((client, exc))
+                    continue
+                # Committed to this client; a later error propagates (can't replay emitted output).
+                yield first
+                yield from iterator
+                self._adopt_state(client)
                 return
-            except self.retry_on as exc:
-                logger.warning("Fallback: client %r failed before first chunk (%s); trying next.", _label(client), exc)
-                errors.append((client, exc))
-                continue
-            # Committed to this client; a later error propagates (can't replay emitted output).
-            yield first
-            yield from iterator
-            self._adopt_state(client)
-            return
         raise self._exhausted(errors)
 
     def generate(
@@ -251,18 +291,18 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
             client.last_usage = None
             client.last_structured = None
             client.last_request = None
-            client.events = self.events
             try:
-                result = client.generate(
-                    prompt,
-                    generate_kwargs,
-                    stream=False,
-                    images=images,
-                    include=include,
-                    audio=audio,
-                    schema=schema,
-                    thinking=thinking,
-                )
+                with _scoped_events(client, self.events):
+                    result = client.generate(
+                        prompt,
+                        generate_kwargs,
+                        stream=False,
+                        images=images,
+                        include=include,
+                        audio=audio,
+                        schema=schema,
+                        thinking=thinking,
+                    )
             except self.retry_on as exc:
                 logger.warning("Fallback: client %r failed on generate (%s); trying next.", _label(client), exc)
                 errors.append((client, exc))
@@ -286,23 +326,29 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
             client.last_usage = None
             client.last_structured = None
             client.last_request = None
-            client.events = self.events
-            stream = client.generate(
-                prompt, generate_kwargs, stream=True, images=images, include=include, audio=audio, thinking=thinking
-            )
-            iterator = iter(stream)
-            try:
-                first = next(iterator)
-            except StopIteration:
-                self._adopt_generate_state(client)  # empty but successful stream
+            with _scoped_events(client, self.events):
+                stream = client.generate(
+                    prompt,
+                    generate_kwargs,
+                    stream=True,
+                    images=images,
+                    include=include,
+                    audio=audio,
+                    thinking=thinking,
+                )
+                iterator = iter(stream)
+                try:
+                    first = next(iterator)
+                except StopIteration:
+                    self._adopt_generate_state(client)  # empty but successful stream
+                    return
+                except self.retry_on as exc:
+                    errors.append((client, exc))
+                    continue
+                yield first
+                yield from iterator
+                self._adopt_generate_state(client)
                 return
-            except self.retry_on as exc:
-                errors.append((client, exc))
-                continue
-            yield first
-            yield from iterator
-            self._adopt_generate_state(client)
-            return
         raise self._exhausted(errors)
 
     # ------------------------------------------------------------------ #

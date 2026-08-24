@@ -12,7 +12,7 @@ import logging
 from typing import Any, AsyncIterator, Iterable, Optional, Union
 
 from aimu.models.base import StreamChunk, StreamingContentType
-from aimu.models.fallback import _FallbackStateMixin, _label
+from aimu.models.fallback import _FallbackStateMixin, _label, _scoped_events
 
 from ._base import AsyncBaseModelClient
 
@@ -50,18 +50,19 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
         for client in self.clients:
             self._load_state(client)
             try:
-                result = await client.chat(
-                    user_message,
-                    generate_kwargs,
-                    use_tools=use_tools,
-                    stream=False,
-                    images=images,
-                    include=include,
-                    tools=tools,
-                    audio=audio,
-                    schema=schema,
-                    thinking=thinking,
-                )
+                with _scoped_events(client, self.events):
+                    result = await client.chat(
+                        user_message,
+                        generate_kwargs,
+                        use_tools=use_tools,
+                        stream=False,
+                        images=images,
+                        include=include,
+                        tools=tools,
+                        audio=audio,
+                        schema=schema,
+                        thinking=thinking,
+                    )
             except self.retry_on as exc:
                 logger.warning("Fallback: client %r failed (%s); trying next.", _label(client), exc)
                 errors.append((client, exc))
@@ -84,32 +85,38 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
         errors: list[tuple[Any, BaseException]] = []
         for client in self.clients:
             self._load_state(client)
-            stream = await client.chat(
-                user_message,
-                generate_kwargs,
-                use_tools=use_tools,
-                stream=True,
-                images=images,
-                include=include,
-                tools=tools,
-                audio=audio,
-                thinking=thinking,
-            )
-            iterator = stream.__aiter__()
-            try:
-                first = await iterator.__anext__()
-            except StopAsyncIteration:
-                self._adopt_state(client)  # empty but successful stream
+            # The override stays live across lazy iteration, so the inner client's turn
+            # events reach this FallbackClient's sink for the whole stream, and its own
+            # sink is restored when the generator finishes or is abandoned.
+            with _scoped_events(client, self.events):
+                stream = await client.chat(
+                    user_message,
+                    generate_kwargs,
+                    use_tools=use_tools,
+                    stream=True,
+                    images=images,
+                    include=include,
+                    tools=tools,
+                    audio=audio,
+                    thinking=thinking,
+                )
+                iterator = stream.__aiter__()
+                try:
+                    first = await iterator.__anext__()
+                except StopAsyncIteration:
+                    self._adopt_state(client)  # empty but successful stream
+                    return
+                except self.retry_on as exc:
+                    logger.warning(
+                        "Fallback: client %r failed before first chunk (%s); trying next.", _label(client), exc
+                    )
+                    errors.append((client, exc))
+                    continue
+                yield first
+                async for chunk in iterator:
+                    yield chunk
+                self._adopt_state(client)
                 return
-            except self.retry_on as exc:
-                logger.warning("Fallback: client %r failed before first chunk (%s); trying next.", _label(client), exc)
-                errors.append((client, exc))
-                continue
-            yield first
-            async for chunk in iterator:
-                yield chunk
-            self._adopt_state(client)
-            return
         raise self._exhausted(errors)
 
     async def generate(
@@ -132,18 +139,18 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
             client.last_usage = None
             client.last_structured = None
             client.last_request = None
-            client.events = self.events
             try:
-                result = await client.generate(
-                    prompt,
-                    generate_kwargs,
-                    stream=False,
-                    images=images,
-                    include=include,
-                    audio=audio,
-                    schema=schema,
-                    thinking=thinking,
-                )
+                with _scoped_events(client, self.events):
+                    result = await client.generate(
+                        prompt,
+                        generate_kwargs,
+                        stream=False,
+                        images=images,
+                        include=include,
+                        audio=audio,
+                        schema=schema,
+                        thinking=thinking,
+                    )
             except self.retry_on as exc:
                 logger.warning("Fallback: client %r failed on generate (%s); trying next.", _label(client), exc)
                 errors.append((client, exc))
@@ -167,30 +174,30 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
             client.last_usage = None
             client.last_structured = None
             client.last_request = None
-            client.events = self.events
-            stream = await client.generate(
-                prompt,
-                generate_kwargs,
-                stream=True,
-                images=images,
-                include=include,
-                audio=audio,
-                thinking=thinking,
-            )
-            iterator = stream.__aiter__()
-            try:
-                first = await iterator.__anext__()
-            except StopAsyncIteration:
-                self._adopt_generate_state(client)  # empty but successful stream
+            with _scoped_events(client, self.events):
+                stream = await client.generate(
+                    prompt,
+                    generate_kwargs,
+                    stream=True,
+                    images=images,
+                    include=include,
+                    audio=audio,
+                    thinking=thinking,
+                )
+                iterator = stream.__aiter__()
+                try:
+                    first = await iterator.__anext__()
+                except StopAsyncIteration:
+                    self._adopt_generate_state(client)  # empty but successful stream
+                    return
+                except self.retry_on as exc:
+                    errors.append((client, exc))
+                    continue
+                yield first
+                async for chunk in iterator:
+                    yield chunk
+                self._adopt_generate_state(client)
                 return
-            except self.retry_on as exc:
-                errors.append((client, exc))
-                continue
-            yield first
-            async for chunk in iterator:
-                yield chunk
-            self._adopt_generate_state(client)
-            return
         raise self._exhausted(errors)
 
     # Abstract-method stubs: the public methods above are overridden.

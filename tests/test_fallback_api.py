@@ -290,3 +290,70 @@ def test_composes_as_agent_model_client():
 
     assert agent.run("question") == "the answer"
     assert primary.chat_calls == 1  # primary was tried and failed over
+
+
+# ---------------------------------------------------------------------------
+# Event sinks: `events` is configuration on the inner client, not an output slot
+# ---------------------------------------------------------------------------
+
+
+def test_inner_client_own_event_sink_survives_a_fallback_call():
+    """A sink the inner client was constructed with must not be wiped by delegation."""
+    from helpers import MockModelClient
+
+    inner_events = []
+    inner = MockModelClient(["hello"])
+    inner.events = inner_events.append
+    fb = FallbackClient([inner])  # no sink of its own
+
+    assert fb.chat("hi") == "hello"
+    assert inner.events is not None, "FallbackClient destroyed the inner client's own sink"
+    assert inner_events, "the inner client's own sink should still have received its turn events"
+
+
+def test_fallback_sink_reaches_the_winning_client_and_is_restored():
+    from helpers import MockModelClient
+
+    from aimu.events import ModelTurnStarted
+
+    inner_events = []
+    primary = StubClient(error=ConnectionError("down"))
+    backup = MockModelClient(["the answer"])
+    backup.events = inner_events.append
+
+    seen = []
+    fb = FallbackClient([primary, backup])
+    fb.events = seen.append
+
+    assert fb.chat("hi") == "the answer"
+    assert any(isinstance(event, ModelTurnStarted) for event in seen)
+    assert not inner_events, "the FallbackClient's sink should have been scoped over the inner one"
+    assert backup.events is not None  # restored, not destroyed
+    backup.events(ModelTurnStarted(model="x"))
+    assert len(inner_events) == 1
+
+
+def test_inner_client_own_event_sink_survives_a_streamed_call():
+    from helpers import MockModelClient
+
+    inner_events = []
+    inner = MockModelClient(["hello world"])
+    inner.events = inner_events.append
+    fb = FallbackClient([inner])
+
+    list(fb.chat("hi", stream=True))
+    assert inner.events is not None
+    assert inner_events
+
+
+def test_inner_client_own_event_sink_survives_generate():
+    from helpers import MockModelClient
+
+    inner_events = []
+    inner = MockModelClient(["hello"])
+    inner.events = inner_events.append
+    fb = FallbackClient([inner])
+
+    fb.generate("hi")
+    assert inner.events is not None
+    assert inner_events

@@ -102,6 +102,137 @@ def test_client_emits_turn_events_with_no_agent():
     assert finished.duration_s >= 0.0
 
 
+def test_a_failing_turn_still_reports_finished_with_the_error():
+    """A turn that raises still ended. Without the try/finally, a ContextOverflowError or a
+    provider 4xx leaves a dangling ModelTurnStarted and every started/finished sink leaks."""
+
+    class Boom(MockModelClient):
+        def _chat(self, *args, **kwargs):
+            raise RuntimeError("provider said no")
+
+    seen = []
+    client = Boom([])
+    client.events = seen.append
+    with pytest.raises(RuntimeError):
+        client.chat("hi")
+
+    assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
+    finished = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert len(finished) == 1
+    assert isinstance(finished[0].error, RuntimeError)
+    assert finished[0].text is None
+
+
+def test_a_failing_generate_still_reports_finished_with_the_error():
+    class Boom(MockModelClient):
+        def _generate(self, *args, **kwargs):
+            raise RuntimeError("provider said no")
+
+    seen = []
+    client = Boom([])
+    client.events = seen.append
+    with pytest.raises(RuntimeError):
+        client.generate("hi")
+
+    assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
+    finished = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert len(finished) == 1
+    assert isinstance(finished[0].error, RuntimeError)
+
+
+def test_a_failing_turn_with_a_tools_override_still_reports_finished():
+    class Boom(MockModelClient):
+        def _chat(self, *args, **kwargs):
+            raise RuntimeError("provider said no")
+
+    def a_tool() -> str:
+        """Does nothing."""
+        return ""
+
+    seen = []
+    client = Boom([])
+    client.events = seen.append
+    with pytest.raises(RuntimeError):
+        client.chat("hi", tools=[a_tool])
+
+    assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
+    assert sum(isinstance(e, ModelTurnFinished) for e in seen) == 1
+
+
+def test_a_stream_that_raises_mid_flight_reports_the_error():
+    class Boom(MockModelClient):
+        def _chat(self, *args, **kwargs):
+            def gen():
+                raise RuntimeError("dropped")
+                yield  # pragma: no cover
+
+            return gen()
+
+    seen = []
+    client = Boom([])
+    client.events = seen.append
+    with pytest.raises(RuntimeError):
+        list(client.chat("hi", stream=True))
+
+    finished = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert len(finished) == 1
+    assert isinstance(finished[0].error, RuntimeError)
+
+
+class _SeedingClient(MockModelClient):
+    """A client whose ``_chat`` goes through the shared ``_chat_setup`` seam, so the system
+    message is seeded exactly as a real provider seeds it: inside ``_chat``, after the
+    ModelTurnStarted emit."""
+
+    def _chat(self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
+        self._chat_setup(user_message, generate_kwargs, use_tools, images, audio)
+        reply = self._responses[self._call_count]
+        self._call_count += 1
+        self._append_message({"role": "assistant", "content": reply})
+        return reply
+
+
+def test_message_count_counts_the_system_message_this_turn_seeds():
+    """The first turn sends system + user, so it must report 2 -- RequestPrepared, logged
+    from the same call moments later, shows both."""
+    seen = []
+    client = _SeedingClient(["a", "b"])
+    client.system_message = "You are helpful."
+    client.events = seen.append
+
+    client.chat("first")
+    first = next(e for e in seen if isinstance(e, ModelTurnStarted))
+    assert first.message_count == 2
+    assert len(client.messages) == 3  # system + user + assistant
+
+    seen.clear()
+    client.chat("second")
+    second = next(e for e in seen if isinstance(e, ModelTurnStarted))
+    assert second.message_count == 4  # system, user, assistant, + the new user turn
+
+
+def test_message_count_without_a_system_message():
+    seen = []
+    client = _SeedingClient(["a"])
+    client.events = seen.append
+    client.chat("first")
+    assert next(e for e in seen if isinstance(e, ModelTurnStarted)).message_count == 1
+
+
+def test_generate_reports_one_message_however_long_the_conversation():
+    """generate() is stateless: it sends the prompt, not self.messages."""
+    seen = []
+    client = _SeedingClient(["a", "b", "c"])
+    client.events = seen.append
+    client.chat("first")
+    client.chat("second")
+    seen.clear()
+
+    client.generate("one-shot")
+    started = next(e for e in seen if isinstance(e, ModelTurnStarted))
+    assert started.message_count == 1
+
+
 def test_no_sink_means_no_behaviour_change():
     """The default path must be byte-identical to before."""
     client = MockModelClient(["hello"])
@@ -261,8 +392,9 @@ def test_fallback_client_chat_emits_exactly_one_pair():
 
     assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
     assert sum(isinstance(e, ModelTurnFinished) for e in seen) == 1
-    # events is pushed down by _load_state so the winning attempt is the one that emits.
-    assert primary.events is not None
+    # The sink is scoped onto the winning attempt for the call and restored afterwards, so
+    # a sink the inner client owns is never destroyed (see test_fallback_api.py).
+    assert primary.events is None
 
 
 # ---------------------------------------------------------------------------

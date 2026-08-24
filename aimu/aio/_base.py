@@ -185,8 +185,14 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
             if stream:
                 return self._generate_structured_streamed(prompt, generate_kwargs, images, audio, schema, include)
             return await self._generate_structured(prompt, generate_kwargs, images, audio, schema)
-        started, model_id = self._emit_turn_started()
-        result = await self._generate(prompt, generate_kwargs, stream=stream, images=images, audio=audio)
+        started, model_id = self._emit_turn_started(stateless=True)
+        try:
+            result = await self._generate(prompt, generate_kwargs, stream=stream, images=images, audio=audio)
+        except BaseException as exc:
+            # A turn that raises still ended; without this, a failing request leaves a
+            # dangling ModelTurnStarted and any sink pairing started/finished leaks one.
+            self._emit_turn_finished(model_id, started, None, error=exc)
+            raise
         if stream:
             result = self._emit_when_drained(result, started, model_id)
         else:
@@ -242,9 +248,13 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
 
         if tools is None:
             started, model_id = self._emit_turn_started(user_message)
-            result = await self._chat(
-                user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images, audio=audio
-            )
+            try:
+                result = await self._chat(
+                    user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images, audio=audio
+                )
+            except BaseException as exc:
+                self._emit_turn_finished(model_id, started, None, error=exc)
+                raise
             if stream:
                 result = self._emit_when_drained(result, started, model_id)
             else:
@@ -259,9 +269,13 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
             )
         with self._tools_override(tools):
             started, model_id = self._emit_turn_started(user_message)
-            result = await self._chat(
-                user_message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio
-            )
+            try:
+                result = await self._chat(
+                    user_message, generate_kwargs, use_tools=use_tools, stream=False, images=images, audio=audio
+                )
+            except BaseException as exc:
+                self._emit_turn_finished(model_id, started, None, error=exc)
+                raise
             self._emit_turn_finished(model_id, started, result)
             return result
 
@@ -377,15 +391,18 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
             async for chunk in result:
                 yield chunk
 
-    def _emit_turn_started(self, pending_user_message: Optional[str] = None) -> tuple[float, str]:
+    def _emit_turn_started(
+        self, pending_user_message: Optional[str] = None, *, stateless: bool = False
+    ) -> tuple[float, str]:
         """Emit :class:`~aimu.events.ModelTurnStarted` and return ``(started, model_id)``.
 
         Mirrors the sync :meth:`~aimu.models.base.BaseModelClient._emit_turn_started`,
-        including the ``pending_user_message`` accounting for the turn's user append.
+        including the ``pending_user_message`` / system-seed accounting for
+        ``message_count`` and the ``stateless=True`` (``generate()``) case, which reports 1.
         """
         model_id = str(getattr(self.model, "value", self.model))
         started = time.monotonic()
-        message_count = len(self.messages) + (1 if pending_user_message is not None else 0)
+        message_count = 1 if stateless else self._pending_message_count(pending_user_message)
         emit(
             getattr(self, "events", None),
             ModelTurnStarted(
@@ -396,11 +413,20 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         )
         return started, model_id
 
-    def _emit_turn_finished(self, model_id: str, started: float, result: Union[str, Any]) -> None:
+    def _emit_turn_finished(
+        self,
+        model_id: str,
+        started: float,
+        result: Union[str, Any],
+        error: Optional[BaseException] = None,
+    ) -> None:
         """Emit :class:`~aimu.events.ModelTurnFinished` for a completed non-streamed turn.
 
         ``usage`` is read defensively: views that don't delegate ``last_usage`` to an inner
         client still have a turn to report, just with no usage figure attached.
+
+        ``error`` is the exception that ended the turn, when one did: every ``ModelTurnStarted``
+        is paired with a ``ModelTurnFinished``, so a sink can close its span either way.
         """
         emit(
             getattr(self, "events", None),
@@ -409,6 +435,7 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                 text=result if isinstance(result, str) else None,
                 usage=getattr(self, "last_usage", None),
                 duration_s=time.monotonic() - started,
+                error=error,
             ),
         )
 
@@ -433,11 +460,15 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                 yield chunk
             return
         text_parts: list[str] = []
+        error: Optional[BaseException] = None
         try:
             async for chunk in chunks:
                 if chunk.is_text() and chunk.phase == StreamingContentType.GENERATING:
                     text_parts.append(chunk.content)
                 yield chunk
+        except BaseException as exc:
+            error = exc
+            raise
         finally:
             emit(
                 sink,
@@ -446,6 +477,7 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                     text="".join(text_parts) or None,
                     usage=getattr(self, "last_usage", None),
                     duration_s=time.monotonic() - started,
+                    error=error,
                 ),
             )
 

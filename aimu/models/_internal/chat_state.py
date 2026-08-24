@@ -176,6 +176,17 @@ class _ChatStateMixin:
         message.setdefault("timestamp", datetime.now().isoformat())
         self.messages.append(message)
 
+    def _pending_message_count(self, pending_user_message: Optional[str]) -> int:
+        """How many messages the request about to be issued will carry.
+
+        Mirrors ``_append_user_turn``: the system message is seeded only on a turn that
+        appends a user message to an empty history.
+        """
+        if pending_user_message is None:
+            return len(self.messages)
+        seeds_system = 1 if (not self.messages and self.system_message) else 0
+        return len(self.messages) + 1 + seeds_system
+
     def _append_user_turn(self, user_message: str, images: Optional[list] = None, audio: Optional[list] = None) -> None:
         """Append the system message (if first turn) and the user turn to ``self.messages``.
 
