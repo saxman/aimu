@@ -116,7 +116,16 @@ class ToolDenied(RunEvent):
 @dataclass(frozen=True)
 class ContextCompacted(RunEvent):
     """Conversation history was rewritten. ``dropped`` is the removed messages, not a count,
-    so a caller who wants the discarded turns still has them."""
+    so a caller who wants the discarded turns still has them.
+
+    ``before_tokens`` / ``after_tokens`` are AIMU's own default token *estimate* (see
+    :func:`aimu.context.count_tokens`), not a measurement of whatever the ``compaction``
+    callable itself counted to decide what to drop. A callable that used a real tokenizer,
+    a word count, or any other budget will disagree with these numbers -- that is stated
+    rather than hidden, since AIMU cannot see inside an opaque callable to know what it
+    actually counted. Treat them as rough orientation, not a claim about the number that
+    drove the decision.
+    """
 
     dropped: list = field(default_factory=list)
     before_tokens: int = 0

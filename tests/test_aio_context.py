@@ -96,6 +96,27 @@ async def test_async_compaction_that_drops_nothing_is_silent(caplog):
     assert "Compacted conversation" not in caplog.text
 
 
+async def test_async_compaction_that_rebuilds_without_dropping_is_silent(caplog):
+    """Async mirror: a normalize/dedupe callable returning new dict objects for every kept
+    message must not be mistaken for a drop by identity comparison."""
+    from aimu.aio.agent import Agent
+    from aimu.events import ContextCompacted
+
+    old_messages = _old_conversation()
+    client = MockAsyncModelClient(["final answer"])
+    client.model.supports_tools = False
+    client.messages = list(old_messages)
+
+    seen = []
+    agent = Agent(client, events=seen.append, compaction=lambda msgs: [dict(m) for m in msgs])
+    with caplog.at_level(logging.WARNING, logger=_ASYNC_TOOL_LOOP_LOGGER):
+        result = await agent.run("another question")
+
+    assert result == "final answer"
+    assert not any(isinstance(e, ContextCompacted) for e in seen)
+    assert "Compacted conversation" not in caplog.text
+
+
 async def test_async_explicit_trim_does_not_warn(caplog):
     """client.messages = trim_messages(...) needs no announcement: the caller performed
     the drop and holds both lists."""

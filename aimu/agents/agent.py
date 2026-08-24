@@ -89,11 +89,16 @@ class Agent(_AgentLoopMixin, Runner):
     # doesn't opt in behaves exactly as it did before this field existed. Set to a callable such
     # as ``lambda msgs: trim_messages(msgs, max_tokens=8000)`` or
     # ``lambda msgs: summarize_messages(client, msgs)`` (see aimu.context) to compact automatically
-    # before every model turn. An *applied* compaction (one that actually dropped a message) is
-    # never silent: it emits a ContextCompacted event for a caller with a sink attached, and logs
-    # a WARNING unconditionally, so a caller without one still learns their conversation was
-    # rewritten (see _ToolLoop._maybe_compact for the full rationale). A compaction that returns
-    # the conversation unchanged is a no-op and announces nothing.
+    # before every model turn. An *applied* compaction (one that actually dropped a message,
+    # judged by content -- not identity, since the callable may rebuild kept messages into new
+    # dict objects) is never silent: it emits a ContextCompacted event for a caller with a sink
+    # attached, and logs a WARNING unconditionally, so a caller without one still learns their
+    # conversation was rewritten (see _ToolLoop._maybe_compact for the full rationale). A
+    # compaction that returns the conversation unchanged is a no-op and announces nothing. The
+    # event's before_tokens/after_tokens are AIMU's own default estimate, not a measurement of
+    # whatever counter the callable itself used. If the callable raises, the run raises (fail
+    # loud): a compaction that cannot be trusted to run should stop the turn, not be silently
+    # skipped while the caller believes their context is being managed.
     compaction: Optional[Callable[[list[dict]], list[dict]]] = None
     concurrent_tool_calls: bool = False
     _last_messages: list = field(default_factory=list, init=False, repr=False)

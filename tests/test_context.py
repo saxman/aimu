@@ -320,6 +320,31 @@ def test_compaction_that_drops_nothing_is_silent(caplog):
     assert "Compacted conversation" not in caplog.text
 
 
+def test_compaction_that_rebuilds_without_dropping_is_silent(caplog):
+    """A normalize/dedupe callable that returns new dict objects for every kept message
+    (not the same objects, per aimu.context's own convention) must not be mistaken for a
+    drop. Comparing by identity would flag every message as dropped on every turn -- the
+    false-alarm failure the no-op guard exists to prevent, reached through a different door."""
+    from aimu.agents.agent import Agent
+    from aimu.events import ContextCompacted
+
+    old_messages = _old_conversation()
+    client = MockModelClient(["final answer"])
+    client.model.supports_tools = False
+    client.messages = list(old_messages)
+
+    seen = []
+    # Same content, brand-new dict objects for every message: a plausible normalize/dedupe,
+    # and one the list[dict] -> list[dict] signature does not rule out.
+    agent = Agent(client, events=seen.append, compaction=lambda msgs: [dict(m) for m in msgs])
+    with caplog.at_level(logging.WARNING, logger=_TOOL_LOOP_LOGGER):
+        result = agent.run("another question")
+
+    assert result == "final answer"
+    assert not any(isinstance(e, ContextCompacted) for e in seen)
+    assert "Compacted conversation" not in caplog.text
+
+
 def test_explicit_trim_does_not_warn(caplog):
     """client.messages = trim_messages(...) needs no announcement: the caller performed
     the drop and holds both lists."""

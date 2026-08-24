@@ -15,8 +15,10 @@ It is internal: the public ladder is ``chat()`` (one turn) -> ``Agent`` (autonom
 
 from __future__ import annotations
 
+import json
 import logging
 import time
+from collections import Counter
 from dataclasses import replace
 from typing import Any, Callable, Iterator, Optional, Union
 
@@ -120,6 +122,34 @@ def last_turn_called_tools(messages: list[dict]) -> bool:
     and async loops. Thin wrapper over :func:`classify_terminal_turn` kept for existing callers.
     """
     return classify_terminal_turn(messages) == TERMINAL_PENDING_TOOLS
+
+
+def _dropped_by_content(before: list[dict], after: list[dict]) -> list[dict]:
+    """Multiset diff of *before* against *after*, by JSON-serialized content, not identity.
+
+    A compaction callable's type (``list[dict] -> list[dict]``) does not promise it only ever
+    removes messages -- a plausible normalize/dedupe rebuilds every kept message into a new
+    dict object (e.g. ``lambda msgs: [dict(m) for m in msgs]``). Comparing by identity
+    (``id()``) would then report every message as "dropped" even though nothing was actually
+    removed, which is exactly the every-turn false alarm the no-op guard in
+    :meth:`_BaseToolLoop._maybe_compact` exists to prevent, reached through a different door.
+    Comparing by content means a rebuild-without-removal correctly yields no diff.
+
+    Multiset (not set) semantics: matches are consumed one-for-one via a ``Counter``, so two
+    identical-content messages where only one survives report exactly one drop, not zero (set
+    difference would see the content as "still present") or two (a naive membership test would
+    double-count). Order of *before* determines which duplicate is reported dropped, which
+    doesn't matter since the messages are content-identical.
+    """
+    remaining = Counter(json.dumps(m, sort_keys=True, default=str) for m in after)
+    dropped = []
+    for message in before:
+        key = json.dumps(message, sort_keys=True, default=str)
+        if remaining[key] > 0:
+            remaining[key] -= 1
+        else:
+            dropped.append(message)
+    return dropped
 
 
 class _BaseToolLoop:
@@ -251,19 +281,33 @@ class _BaseToolLoop:
         produces neither: a WARNING on every turn of every short conversation would train
         callers to ignore it, and then it would say nothing the one time it mattered.
 
-        "Dropped" is computed by identity (``id()``), not value equality: both context
-        functions return kept messages as the very same dict objects and only fabricate new
-        ones for whatever replaces the dropped span (a summary message), so a message
-        present in the before-list but absent from the after-list, by identity, is exactly
-        the set that was removed -- and a caller who wants a removed message back can still
-        find it (mutating a returned dict elsewhere would be a caller bug independent of this).
+        "Dropped" is computed by content (:func:`_dropped_by_content`), not identity: the
+        ``compaction`` type, ``list[dict] -> list[dict]``, does not promise the callable only
+        ever removes messages -- a plausible normalize/dedupe rebuilds every kept message into
+        a new dict object, and comparing by ``id()`` would then report every message as
+        dropped even though nothing was removed, reintroducing the every-turn false alarm the
+        no-op guard above exists to prevent, just through a different door.
+
+        The announced ``before_tokens``/``after_tokens`` are AIMU's own default estimate (see
+        :func:`aimu.context.count_tokens`), computed independently of whatever the
+        ``compaction`` callable itself used to decide what to drop. They will not match a
+        compaction that counted with a real tokenizer, a word count, or any other budget --
+        that is stated rather than hidden, since AIMU cannot see inside an opaque callable to
+        know what it actually counted. Treat them as rough orientation ("compaction ran, and
+        shrank the conversation by about this much"), not a claim about the number that drove
+        the decision.
+
+        If ``compaction`` itself raises, the exception propagates uncaught (fail loud, matching
+        the run's own exception handling in :meth:`run`/:meth:`run_streamed`): a compaction that
+        cannot be trusted to run correctly should stop the turn, not be silently skipped while
+        the caller continues to believe their context is being managed -- the same reasoning
+        that makes an unhandled tool bug visible rather than swallowed for the tools that matter.
         """
         if self._compaction is None:
             return
         before = list(self._client.messages)
         after = self._compaction(before)
-        after_ids = {id(m) for m in after}
-        dropped = [m for m in before if id(m) not in after_ids]
+        dropped = _dropped_by_content(before, after)
         if not dropped:
             return
         self._client.messages = after
@@ -280,7 +324,7 @@ class _BaseToolLoop:
             ),
         )
         logger.warning(
-            "Compacted conversation for agent '%s': dropped %d message(s) (~%d -> ~%d tokens).",
+            "Compacted conversation for agent '%s': dropped %d message(s) (~%d -> ~%d tokens, AIMU's own estimate).",
             self._agent_name,
             len(dropped),
             before_tokens,
