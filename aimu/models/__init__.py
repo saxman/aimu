@@ -58,6 +58,7 @@ from .image_client import ImageClient, resolve_image_model_enum, resolve_image_m
 from .model_client import (
     ModelClient,
     available_text_models,
+    resolve_default_text_model,
     resolve_default_text_model_enum,
     resolve_model_enum,
     resolve_model_string,
@@ -260,6 +261,7 @@ __all__ = [
     "available_text_models",
     "available_transcription_models",
     "resolve_audio_model_string",
+    "resolve_default_text_model",
     "resolve_default_text_model_enum",
     "resolve_image_model_enum",
     "resolve_image_model_string",

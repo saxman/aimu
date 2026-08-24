@@ -137,7 +137,8 @@ To inspect or choose among what's available instead of taking the auto-pick:
 
 ```python
 aimu.available_text_models()            # list[Model]: locally loadable models, provider-priority order
-aimu.resolve_default_text_model_enum()  # the single auto-pick, as an enum member
+aimu.resolve_default_text_model()       # the single auto-pick, as the full string (endpoint included)
+aimu.resolve_default_text_model_enum()  # the same pick as an enum member (no endpoint, no flags)
 ```
 
 ## Provider keys

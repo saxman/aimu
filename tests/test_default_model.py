@@ -94,6 +94,32 @@ def test_text_env_var_with_endpoint_still_rejects_an_unknown_id(monkeypatch):
         _defaults.resolve_default_text_model()
 
 
+# --- resolve_default_text_model: public export ----------------------------------------
+
+
+def test_string_resolver_is_publicly_exported():
+    """The extended-form resolver is importable, not just its enum twin.
+
+    ``resolve_default_text_model_enum``'s own docstring sends a caller wanting ``@base_url`` or
+    ``;flags`` to "the string resolver", so the pair has to be reachable from the same place the
+    docstring is read from. Exporting only the enum half left the documented answer importable
+    solely from ``aimu.models._internal``, and a host that needs the endpoint (to build a second
+    client on the same default the first one got) had no supported way to ask for it.
+    """
+    import aimu
+
+    assert aimu.resolve_default_text_model is _defaults.resolve_default_text_model
+    assert aimu.models.resolve_default_text_model is _defaults.resolve_default_text_model
+
+
+def test_exported_string_resolver_keeps_the_endpoint(monkeypatch):
+    """The exported name is the lossless half: what comes back still carries the endpoint."""
+    import aimu
+
+    monkeypatch.setenv("AIMU_LANGUAGE_MODEL", "ollama:qwen3.5:9b@http://gpu-box:11434")
+    assert aimu.resolve_default_text_model() == "ollama:qwen3.5:9b@http://gpu-box:11434"
+
+
 # --- resolve_default_text_model: local probe fall-through -----------------------------
 
 

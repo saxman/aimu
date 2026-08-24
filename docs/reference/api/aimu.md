@@ -9,6 +9,7 @@ Top-level convenience API.
         - available_text_models
         - chat
         - client
+        - resolve_default_text_model
         - resolve_default_text_model_enum
         - resolve_image_model_enum
         - resolve_model_enum

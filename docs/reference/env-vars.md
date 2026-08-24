@@ -56,7 +56,7 @@ AIMU_LANGUAGE_MODEL=lmstudio:some-local-build@http://box:1234;tools,vision
 
 Note this pins only the *client*. Local discovery stays endpoint-blind (see [switch-providers.md](../how-to/switch-providers.md)), so export `OLLAMA_HOST` as well when a remote server should also be considered by `available_text_models()`.
 
-`resolve_default_text_model_enum()` is the exception, and it says so: it returns a `Model` enum member, which can carry neither an endpoint nor ad-hoc flags, so it rejects both by name rather than reporting a valid id as unknown. Use the string resolver for those.
+`resolve_default_text_model_enum()` is the exception, and it says so: it returns a `Model` enum member, which can carry neither an endpoint nor ad-hoc flags, so it rejects both by name rather than reporting a valid id as unknown. Use `resolve_default_text_model()` for those: it is the same resolution, returned as the string, so what comes back still carries the endpoint the env var set. That is the one to reach for when a host has to build a *second* client on the same default the first one got, since a resolved enum no longer knows which endpoint it came from.
 
 The async surface skips the HuggingFace-cache probe (an `hf:` default would mean wrapping a sync in-process client), so it resolves from Ollama and local OpenAI-compatible servers only.
 
