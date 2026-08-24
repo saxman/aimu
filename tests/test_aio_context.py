@@ -48,8 +48,12 @@ async def test_async_compaction_emits_ContextCompacted_carrying_the_dropped_mess
     assert len(compacted) == 1
     event = compacted[0]
     assert event.dropped == old_messages[:2]
-    assert event.dropped[0] is old_messages[0]
-    assert event.dropped[1] is old_messages[1]
+    # Copies, not the live dicts: a later in-place write to client.messages must not mutate
+    # an event a sink has already seen. Mirrors the sync test.
+    assert event.dropped[0] is not old_messages[0]
+    assert event.dropped[1] is not old_messages[1]
+    old_messages[0]["provenance"] = "mutated afterwards"
+    assert "provenance" not in event.dropped[0]
     assert event.before_tokens == count_tokens(old_messages)
     assert event.after_tokens == count_tokens(old_messages[-2:])
 

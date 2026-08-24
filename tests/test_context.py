@@ -186,14 +186,18 @@ def test_summarize_never_orphans_a_tool_result_at_the_keep_last_boundary():
     """
 
     class FakeClient:
+        def __init__(self):
+            self.prompt = None
+
         def generate(self, prompt: str) -> str:
+            self.prompt = prompt
             return "summary"
 
     messages = [
         {"role": "user", "content": "q1"},
         {
             "role": "assistant",
-            "content": "",
+            "content": "CALLING",
             "tool_calls": [{"id": "c1", "type": "function", "function": {"name": "f", "arguments": "{}"}}],
         },
         {"role": "tool", "tool_call_id": "c1", "content": "result"},
@@ -201,10 +205,45 @@ def test_summarize_never_orphans_a_tool_result_at_the_keep_last_boundary():
     ]
     # A naive messages[-2:] tail would be [tool, a1], orphaning the tool result from the
     # assistant+tool_calls message that would land in the summarized prefix.
-    result = summarize_messages(FakeClient(), messages, keep_last=2)
+    client = FakeClient()
+    result = summarize_messages(client, messages, keep_last=2)
     ids = {m["tool_call_id"] for m in result if m.get("role") == "tool"}
     advertised = {call["id"] for m in result if m.get("role") == "assistant" for call in (m.get("tool_calls") or [])}
     assert ids <= advertised, f"orphaned tool results: {ids - advertised}"
+
+    # The prefix and the tail must *partition* the conversation. Extending the tail outward
+    # to the group edge without pulling the prefix back with it leaves the assistant+tool_calls
+    # message in both: summarized away and kept verbatim, the same message counted twice.
+    assert "q1" in client.prompt
+    assert "CALLING" not in client.prompt, "the kept tail was also fed to the summarizer"
+    assert any(m.get("content") == "CALLING" for m in result)
+
+
+def test_keep_last_counts_messages_not_groups():
+    """keep_last is documented in *messages*. A tool-call group answering two calls is three
+    messages, so keep_last=2 is already satisfied by that one group; counting groups instead
+    would protect an extra older message the budget said to drop."""
+    group = [
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {"id": "c1", "type": "function", "function": {"name": "f", "arguments": "{}"}},
+                {"id": "c2", "type": "function", "function": {"name": "g", "arguments": "{}"}},
+            ],
+        },
+        {"role": "tool", "tool_call_id": "c1", "content": "r1"},
+        {"role": "tool", "tool_call_id": "c2", "content": "r2"},
+    ]
+    messages = [
+        {"role": "user", "content": "OLDEST"},
+        {"role": "assistant", "content": "SECOND"},
+        *group,
+    ]
+
+    result = trim_messages(messages, max_tokens=1, keep_last=2)
+
+    assert result == group, "protected tail should be exactly the one three-message group"
 
 
 def test_trim_drops_oldest_first_not_newest_first():
@@ -272,8 +311,13 @@ def test_compaction_emits_ContextCompacted_carrying_the_dropped_messages():
     event = compacted[0]
     # The dropped *messages*, not a count: a caller who wants them back can recover them.
     assert event.dropped == old_messages[:2]
-    assert event.dropped[0] is old_messages[0]  # same objects, not re-serialized copies
-    assert event.dropped[1] is old_messages[1]
+    # Copies, not the live dicts: an event records what happened, and the originals are still
+    # reachable through client.messages, where a later in-place write would otherwise mutate
+    # an event a sink has already seen.
+    assert event.dropped[0] is not old_messages[0]
+    old_messages[0]["provenance"] = "mutated afterwards"
+    assert "provenance" not in event.dropped[0]
+    assert event.dropped[1] is not old_messages[1]
     assert event.before_tokens == count_tokens(old_messages)
     assert event.after_tokens == count_tokens(old_messages[-2:])
 

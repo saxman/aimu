@@ -206,8 +206,11 @@ def trim_messages(
         max_tokens: The token budget to trim down to, per ``counter`` (or the default
             estimate; see :func:`count_tokens`).
         keep_system: When ``True`` (default), every ``{"role": "system"}`` message is kept
-            regardless of budget. When ``False``, system messages are ordinary droppable
-            messages like any other.
+            regardless of budget, and is **moved to the front** of the returned list. That is
+            invisible for the usual single leading system prompt, but a system message that
+            sat mid-conversation (an earlier summary inserted by :func:`summarize_messages`,
+            say) comes back ahead of the turns it originally followed. When ``False``, system
+            messages are ordinary droppable messages like any other and order is preserved.
         keep_last: The number of trailing **messages** (not exchanges -- see the module
             docstring) to always protect from dropping, extended outward to whole tool-call
             groups when the raw count would otherwise split one.
@@ -249,7 +252,9 @@ def summarize_messages(
 ) -> list[dict]:
     """Replace the older part of a conversation with a one-message LLM summary.
 
-    Any ``{"role": "system"}`` messages are always preserved unchanged. Of the rest, the
+    Any ``{"role": "system"}`` messages are always preserved unchanged, and are returned at
+    the front (a mid-conversation system message is hoisted, the same reordering
+    :func:`trim_messages` does under ``keep_system=True``). Of the rest, the
     last ``keep_last`` **messages** (see the module docstring on why messages, not
     exchanges; extended outward to whole tool-call groups per :func:`_group_messages`, the
     same invariant :func:`trim_messages` enforces) are kept verbatim as the tail. Everything

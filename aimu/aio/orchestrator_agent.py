@@ -6,6 +6,7 @@ from abc import ABC
 from typing import Any, AsyncIterator, Callable, Optional, Union
 
 from aimu.agents.base import MessageHistory
+from aimu.events import EventSink
 from aimu.models.base import StreamChunk
 
 from ._base import AsyncBaseModelClient
@@ -33,7 +34,14 @@ class OrchestratorAgent(AsyncRunner, ABC):
         tools: list[Callable],
         concurrent_tool_calls: bool = False,
         final_answer_prompt: Optional[str] = None,
+        events: Optional[EventSink] = None,
     ) -> None:
+        """Wire up the orchestrator's inner :class:`Agent`.
+
+        ``events`` is forwarded to that inner agent: it is private, so without this an
+        orchestrator would be the one runner a caller could not observe. See the sync
+        :meth:`aimu.agents.OrchestratorAgent._init_orchestrator` for what it covers.
+        """
         self._orchestrator = Agent(
             model_client,
             name=name,
@@ -41,6 +49,7 @@ class OrchestratorAgent(AsyncRunner, ABC):
             tools=list(tools),
             concurrent_tool_calls=concurrent_tool_calls,
             final_answer_prompt=final_answer_prompt,
+            events=events,
         )
 
     @classmethod
@@ -53,6 +62,7 @@ class OrchestratorAgent(AsyncRunner, ABC):
         name: str = "orchestrator",
         concurrent_tool_calls: bool = True,
         final_answer_prompt: Optional[str] = None,
+        events: Optional[EventSink] = None,
     ) -> "OrchestratorAgent":
         """Build a ready-to-run async orchestrator from a list of worker runners.
 
@@ -70,6 +80,7 @@ class OrchestratorAgent(AsyncRunner, ABC):
             tools=tool_fns,
             concurrent_tool_calls=concurrent_tool_calls,
             final_answer_prompt=final_answer_prompt,
+            events=events,
         )
         return instance
 

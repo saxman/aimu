@@ -258,6 +258,22 @@ async def test_async_hallucinated_tool_name_emits_ToolCalled_when_streaming():
     assert called[0].error == "Tool 'no_such_tool' not found."
 
 
+async def test_async_orchestrator_assemble_forwards_the_sink_to_the_inner_agent():
+    from aimu.aio import Agent, OrchestratorAgent
+    from aimu.events import ModelTurnStarted
+
+    worker = Agent(MockAsyncModelClient(["worker output"]), "Do the work.", name="worker")
+    client = MockAsyncModelClient(["orchestrated answer"])
+    seen = []
+    orch = OrchestratorAgent.assemble(client, "Use the worker.", workers=[worker], events=seen.append)
+
+    assert await orch.run("task") == "orchestrated answer"
+    kinds = [type(e).__name__ for e in seen]
+    assert "RunStarted" in kinds and "RunFinished" in kinds
+    assert any(isinstance(e, ModelTurnStarted) for e in seen)
+    assert all(e.agent == "orchestrator" for e in seen), kinds
+
+
 async def test_async_no_sink_means_no_behaviour_change():
     """The default path must be byte-identical to before."""
     client = MockAsyncModelClient(["hello"])

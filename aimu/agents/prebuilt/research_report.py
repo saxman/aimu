@@ -4,6 +4,7 @@ from typing import Callable, Optional
 
 from aimu.agents.orchestrator_agent import OrchestratorAgent
 from aimu.agents.prebuilt._base import make_workers
+from aimu.events import EventSink
 from aimu.models.model_client import ModelClient
 from aimu.tools import tool
 
@@ -51,7 +52,13 @@ class ResearchReportAgent(OrchestratorAgent):
         report = agent.run("What is retrieval-augmented generation?")
     """
 
-    def __init__(self, model_client: ModelClient, worker_tools: Optional[list[Callable]] = None) -> None:
+    def __init__(
+        self,
+        model_client: ModelClient,
+        worker_tools: Optional[list[Callable]] = None,
+        *,
+        events: Optional[EventSink] = None,
+    ) -> None:
         live_tools_note = (
             " Use your search and browsing tools to find current, accurate information." if worker_tools else ""
         )
@@ -104,4 +111,5 @@ class ResearchReportAgent(OrchestratorAgent):
             ),
             tools=[research_overview, find_examples, find_counterpoints],
             concurrent_tool_calls=worker_tools is not None,
+            events=events,
         )

@@ -1,7 +1,8 @@
 # `aimu.events`
 
 Run events: a frozen-dataclass event union plus one `Callable[[RunEvent], None]` sink. Attach a
-sink to a client, an `Agent`, or a workflow's `from_client(...)` to see what a run actually did.
+sink to a client, an `Agent`, an `OrchestratorAgent` (`assemble(..., events=...)`), or a
+workflow's `from_client(...)` to see what a run actually did.
 See [how-to: observe a run](../../how-to/observe-a-run.md).
 
 ## Sink and dispatch

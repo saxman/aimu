@@ -4,7 +4,7 @@ A `chat()` call and an `Agent.run()` both do more than the string they return: a
 merge, a thinking-effort resolution, zero-or-more tool calls, maybe a compaction pass, one or more
 requests to a provider. None of that is visible in the return value. `aimu.events` is the
 telemetry channel that makes it visible: a sink is one callable that takes one event, and you
-attach it to a client, an agent, or a workflow to see what actually happened.
+attach it to a client, an agent, an orchestrator, or a workflow to see what actually happened.
 
 This is a different channel from `StreamChunk` (`stream=True`), which is content — what the model
 produced, for display. Events are what the library did with it. Both can be active on the same run
@@ -85,8 +85,11 @@ parts of this block that are actually fixed.)
 Every event carries `agent` and `iteration` (the same two fields `StreamChunk` carries), so one
 sink attached to a nested workflow — a `Chain` step, a `Router` handler, every worker in a
 `Parallel` — can still tell events apart by who emitted them. `Chain.from_client(...)`,
-`Router.from_client(...)`, and `Parallel.from_client(...)` all take `events=` and forward it to
-every step/handler/worker they build.
+`Router.from_client(...)`, `Parallel.from_client(...)`, and
+`PlanExecuteEvaluator.from_client(...)` all take `events=` and forward it to every
+step/handler/worker they build, and so do `OrchestratorAgent.assemble(...)` and the three
+prebuilt orchestrators in `aimu.agents.prebuilt` (whose inner orchestrating `Agent` is private,
+so `events=` is the only way to reach it).
 
 The event types, all dataclasses in `aimu.events`: `RunStarted`, `ModelTurnStarted`,
 `RequestPrepared`, `ModelTurnFinished`, `ToolCalled`, `ToolDenied`, `ContextCompacted` (see
@@ -94,6 +97,20 @@ The event types, all dataclasses in `aimu.events`: `RunStarted`, `ModelTurnStart
 `Callable[[RunEvent], None]`; write your own to filter, aggregate, or forward events instead of
 just logging them — a sink that raises is caught and logged rather than breaking the run it's
 observing (the same contract `emit()` documents).
+
+Two contracts worth knowing before you write one:
+
+- **A sink must be thread-safe.** With `concurrent_tool_calls=True` a turn's tool calls are
+  dispatched from a `ThreadPoolExecutor` (sync) or an `asyncio.TaskGroup` (async), so
+  `ToolCalled` / `ToolDenied` arrive concurrently and in nondeterministic order. Turn and run
+  events are emitted from the calling thread and stay ordered.
+- **`ModelTurnFinished` fires even when the turn failed**, with the exception on its `error`
+  field and `text`/`usage` unset — so a sink pairing `ModelTurnStarted` with it (durations, a
+  usage rollup, an OpenTelemetry span) closes its span on a `ContextOverflowError` or a
+  provider 4xx instead of leaking one. `RunFinished.error` is the same idea a level up, and
+  `RunFinished.result` is `None` on a streamed run (the chunks went to you, so the runner never
+  assembled a final string) and on a `schema=` run (the result is a typed object, not a string;
+  it is the return value, and is also on `client.last_structured`).
 
 ## `last_request`: did the library do this, or the model?
 
@@ -178,7 +195,10 @@ what it says are both sampled, not fixed; `input_tokens` for this fixed prompt i
 
 A real adapter would keep a stack of open spans (so `agent.run.finished` closes the span
 `agent.run` opened, rather than opening a new one), and forward `event.iteration` as a span
-attribute for a multi-round tool loop. The dispatch shape above is the whole idea; the rest is
+attribute for a multi-round tool loop. It would also read `event.error` on both `*Finished`
+events and mark the span accordingly: both fire on a failure too, which is what makes the
+pairing safe to rely on. Note that `result` above is populated because this is a non-streamed,
+non-`schema=` run; see the two contracts above for when it is `None`. The dispatch shape above is the whole idea; the rest is
 whatever your tracer's API wants.
 
 ## Gated tools: `ToolDenied`

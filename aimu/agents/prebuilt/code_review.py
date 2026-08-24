@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from aimu.agents.orchestrator_agent import OrchestratorAgent
 from aimu.agents.prebuilt._base import make_workers
+from aimu.events import EventSink
 from aimu.models.model_client import ModelClient
 from aimu.tools import tool
 
@@ -30,7 +33,7 @@ class CodeReviewAgent(OrchestratorAgent):
         review = agent.run("Review this code:\\n\\n" + code_snippet)
     """
 
-    def __init__(self, model_client: ModelClient) -> None:
+    def __init__(self, model_client: ModelClient, *, events: Optional[EventSink] = None) -> None:
         security_agent, performance_agent, readability_agent = make_workers(
             model_client,
             [
@@ -82,4 +85,5 @@ class CodeReviewAgent(OrchestratorAgent):
                 "report with actionable fix recommendations, ordered by severity."
             ),
             tools=[review_security, review_performance, review_readability],
+            events=events,
         )

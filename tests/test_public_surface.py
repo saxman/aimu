@@ -32,6 +32,7 @@ REQUIRED_AIMU = {
     "BaseModelClient",
     "BaseSpeechClient",
     "ContextCompacted",
+    "ContextOverflowError",
     "EmbeddingClient",
     "EmbeddingModel",
     "EmbeddingSpec",

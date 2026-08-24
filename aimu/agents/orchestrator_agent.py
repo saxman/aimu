@@ -5,6 +5,7 @@ from typing import Any, Callable, Iterator, Optional, Union
 
 from aimu.agents.agent import Agent
 from aimu.agents.base import MessageHistory, Runner
+from aimu.events import EventSink
 from aimu.models.base import BaseModelClient, StreamChunk
 
 
@@ -45,6 +46,7 @@ class OrchestratorAgent(Runner, ABC):
         tools: list[Callable],
         concurrent_tool_calls: bool = False,
         final_answer_prompt: Optional[str] = None,
+        events: Optional[EventSink] = None,
     ) -> None:
         """Wire up the orchestrator's inner :class:`Agent`.
 
@@ -52,6 +54,12 @@ class OrchestratorAgent(Runner, ABC):
         function is defined. ``final_answer_prompt`` (opt-in) is forwarded to the inner
         :class:`Agent` to guarantee a final answer if the orchestrator exhausts its
         iterations while still dispatching to workers (see :class:`Agent`).
+
+        ``events`` is forwarded to the inner :class:`Agent` too. The inner agent is private,
+        so without this an orchestrator (and every prebuilt one) would be the one runner a
+        caller could not observe. It covers the orchestrator's own turns and its worker
+        *dispatch* tool calls; a worker's internal turns reach the sink only if that worker
+        was given one as well.
         """
         self._orchestrator = Agent(
             model_client,
@@ -60,6 +68,7 @@ class OrchestratorAgent(Runner, ABC):
             tools=list(tools),
             concurrent_tool_calls=concurrent_tool_calls,
             final_answer_prompt=final_answer_prompt,
+            events=events,
         )
 
     @classmethod
@@ -72,6 +81,7 @@ class OrchestratorAgent(Runner, ABC):
         name: str = "orchestrator",
         concurrent_tool_calls: bool = True,
         final_answer_prompt: Optional[str] = None,
+        events: Optional[EventSink] = None,
     ) -> "OrchestratorAgent":
         """Build a ready-to-run orchestrator from a list of worker runners.
 
@@ -99,6 +109,7 @@ class OrchestratorAgent(Runner, ABC):
             tools=tool_fns,
             concurrent_tool_calls=concurrent_tool_calls,
             final_answer_prompt=final_answer_prompt,
+            events=events,
         )
         return instance
 

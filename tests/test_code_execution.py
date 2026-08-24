@@ -349,8 +349,14 @@ def test_timeout_kills_the_whole_process_group_including_a_backgrounded_grandchi
     another process must not leave the backgrounded process running once we report the
     timeout. `start_new_session=True` + `os.killpg(...)` on `TimeoutExpired` reaches the
     whole group, not just the direct child a plain `proc.kill()` would reach.
+
+    The timeout is 5s rather than the sub-second one the neighbouring tests use: the
+    subject here is *what the kill reaches*, not how quickly it fires, and the child has to
+    get far enough to spawn the grandchild first. Cold-start of the child interpreter has
+    been measured above 1.2s on a loaded machine, so a 0.5s budget SIGKILLed it mid-preload
+    and the test failed for reasons unrelated to process groups.
     """
-    monkeypatch.setattr(builtin, "_EXECUTE_PYTHON_TIMEOUT_S", 0.5)
+    monkeypatch.setattr(builtin, "_EXECUTE_PYTHON_TIMEOUT_S", 5.0)
     marker = tmp_path / "grandchild_pid.txt"
     shell_command = f"sleep 30 & echo $! > {marker}"
     code = f"import json\nreal_os = {_REACH_REAL_OS}\nreal_os.system({shell_command!r})\nwhile True: pass\n"

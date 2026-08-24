@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from aimu.agents.orchestrator_agent import OrchestratorAgent
 from aimu.agents.prebuilt._base import make_workers
+from aimu.events import EventSink
 from aimu.models.model_client import ModelClient
 from aimu.tools import tool
 
@@ -30,7 +33,7 @@ class ContentCreationAgent(OrchestratorAgent):
         content = agent.run("Write about the benefits of test-driven development")
     """
 
-    def __init__(self, model_client: ModelClient) -> None:
+    def __init__(self, model_client: ModelClient, *, events: Optional[EventSink] = None) -> None:
         research_agent, outline_agent, section_agent = make_workers(
             model_client,
             [
@@ -80,4 +83,5 @@ class ContentCreationAgent(OrchestratorAgent):
                 "Assemble and return the final content with all sections joined together."
             ),
             tools=[research_topic, create_outline, write_section],
+            events=events,
         )

@@ -800,6 +800,38 @@ def test_fallback_client_streamed_chat_emits_exactly_one_pair():
 # ---------------------------------------------------------------------------
 
 
+def test_orchestrator_assemble_forwards_the_sink_to_the_inner_agent():
+    """The inner orchestrator Agent is private, so without events= on assemble() the
+    flagship autonomous class (and every prebuilt orchestrator) was unobservable."""
+    from aimu.agents import Agent, OrchestratorAgent
+
+    worker = Agent(MockModelClient(["worker output"]), "Do the work.", name="worker")
+    client = MockModelClient(["orchestrated answer"])
+    seen = []
+    orch = OrchestratorAgent.assemble(client, "Use the worker.", workers=[worker], events=seen.append)
+
+    assert orch.run("task") == "orchestrated answer"
+    kinds = [type(e).__name__ for e in seen]
+    assert "RunStarted" in kinds and "RunFinished" in kinds
+    assert any(isinstance(e, ModelTurnStarted) for e in seen)
+    assert all(e.agent == "orchestrator" for e in seen), kinds
+
+
+def test_prebuilt_orchestrator_forwards_the_sink(monkeypatch):
+    """All three prebuilt orchestrators were unobservable for the same reason; one stands
+    for the set, since they share _init_orchestrator."""
+    from aimu.agents.prebuilt import CodeReviewAgent, _base
+
+    monkeypatch.setattr(_base, "ModelClient", lambda model: MockModelClient(["worker output"]))
+
+    seen = []
+    agent = CodeReviewAgent(MockModelClient(["review"]), events=seen.append)
+    agent.run("some code")
+
+    assert any(isinstance(e, RunStarted) for e in seen)
+    assert all(e.agent == "code-review-agent" for e in seen)
+
+
 def test_chain_forwards_the_sink_to_every_step():
     """One sink sees the whole pipeline, with each event attributed to its step."""
     from aimu.agents import Chain

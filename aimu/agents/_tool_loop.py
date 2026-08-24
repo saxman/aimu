@@ -15,6 +15,7 @@ It is internal: the public ladder is ``chat()`` (one turn) -> ``Agent`` (autonom
 
 from __future__ import annotations
 
+import copy
 import json
 import logging
 import time
@@ -148,7 +149,11 @@ def _dropped_by_content(before: list[dict], after: list[dict]) -> list[dict]:
         if remaining[key] > 0:
             remaining[key] -= 1
         else:
-            dropped.append(message)
+            # Deep-copied: an event is a record of what happened, and these dicts are still
+            # live in client.messages, where a later in-place write (the provenance tag the
+            # loop stamps on an injected turn, say) would otherwise mutate an event a sink
+            # has already seen.
+            dropped.append(copy.deepcopy(message))
     return dropped
 
 
