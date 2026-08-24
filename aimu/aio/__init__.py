@@ -42,6 +42,7 @@ use ``asyncio.TaskGroup``: if one worker raises, siblings are cancelled and an
 from typing import TYPE_CHECKING
 
 from ._model_client import AsyncModelClient, client, chat
+from .context import summarize_messages
 from aimu.models import ContextOverflowError, ModelConnectionError
 from .fallback import AsyncFallbackClient
 from aimu.agents import DegenerateTurnError, TruncatedTurnError
@@ -166,6 +167,7 @@ __all__ = [
     "generate_speech",
     "image_client",
     "speech_client",
+    "summarize_messages",
     "transcribe",
     "transcription_client",
     "HAS_A2A",

@@ -106,6 +106,7 @@ REQUIRED_AIMU = {
     "clear_hf_cache",
     "clear_llamacpp_cache",
     "client",
+    "count_tokens",
     "embed",
     "embedding_client",
     "emit",
@@ -129,9 +130,11 @@ REQUIRED_AIMU = {
     "resolve_transcription_model_string",
     "speech_client",
     "strip_inert_keys",
+    "summarize_messages",
     "tool",
     "transcribe",
     "transcription_client",
+    "trim_messages",
 }
 CONDITIONAL_AIMU = set()
 
@@ -339,6 +342,7 @@ REQUIRED_AIO = {
     "generate_speech",
     "image_client",
     "speech_client",
+    "summarize_messages",
     "transcribe",
     "transcription_client",
 }

@@ -655,6 +655,7 @@ __all__ = [
     "clear_hf_cache",
     "clear_llamacpp_cache",
     "client",
+    "count_tokens",
     "embed",
     "embedding_client",
     "emit",
@@ -684,9 +685,11 @@ __all__ = [
     "resolve_speech_model_string",
     "resolve_transcription_model_string",
     "speech_client",
+    "summarize_messages",
     "tool",
     "transcribe",
     "transcription_client",
+    "trim_messages",
 ]
 
 
@@ -730,6 +733,12 @@ _LAZY_EVENT_SYMBOLS = frozenset(
 )
 
 
+# aimu.context imports only stdlib and typing (it joins the `import aimu` chain), so
+# deferring it costs nothing at import time; resolved lazily here anyway for the same
+# API-consistency reason events are.
+_LAZY_CONTEXT_SYMBOLS = frozenset({"count_tokens", "trim_messages", "summarize_messages"})
+
+
 def __getattr__(name: str):
     """Resolve ``Agent``, ``aio``, events, and provider re-exports on first access (PEP 562).
 
@@ -758,6 +767,10 @@ def __getattr__(name: str):
         from . import events as _events
 
         return getattr(_events, name)
+    if name in _LAZY_CONTEXT_SYMBOLS:
+        from . import context as _context
+
+        return getattr(_context, name)
     if name in _LAZY_PROVIDER_SYMBOLS:
         from . import models as _models
 
