@@ -172,3 +172,49 @@ def test_trim_on_an_already_small_conversation_is_a_noop():
     trimmed = trim_messages(messages, max_tokens=10_000)
     assert trimmed == messages
     assert trimmed is not messages
+
+
+def test_summarize_never_orphans_a_tool_result_at_the_keep_last_boundary():
+    """Mirrors test_trim_never_orphans_a_tool_result_even_at_the_keep_last_boundary.
+
+    A naive index slice (last keep_last raw messages as the tail) would cut this
+    conversation between the tool-call group's two messages, summarizing away the
+    assistant message carrying tool_calls while leaving its tool result in the kept tail.
+    """
+
+    class FakeClient:
+        def generate(self, prompt: str) -> str:
+            return "summary"
+
+    messages = [
+        {"role": "user", "content": "q1"},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [{"id": "c1", "type": "function", "function": {"name": "f", "arguments": "{}"}}],
+        },
+        {"role": "tool", "tool_call_id": "c1", "content": "result"},
+        {"role": "assistant", "content": "a1"},
+    ]
+    # A naive messages[-2:] tail would be [tool, a1], orphaning the tool result from the
+    # assistant+tool_calls message that would land in the summarized prefix.
+    result = summarize_messages(FakeClient(), messages, keep_last=2)
+    ids = {m["tool_call_id"] for m in result if m.get("role") == "tool"}
+    advertised = {call["id"] for m in result if m.get("role") == "assistant" for call in (m.get("tool_calls") or [])}
+    assert ids <= advertised, f"orphaned tool results: {ids - advertised}"
+
+
+def test_trim_drops_oldest_first_not_newest_first():
+    """A partial drop -- some but not all droppable messages removed -- must remove the
+    oldest ones, per the documented "oldest-first" order. A budget that fits exactly one
+    droppable message keeps the newest and drops the rest.
+    """
+    oldest = {"role": "user", "content": "OLDEST"}
+    middle = {"role": "user", "content": "MIDDLE"}
+    newest = {"role": "user", "content": "NEWEST"}
+    messages = [oldest, middle, newest]
+
+    budget = count_tokens([newest])  # exactly enough for the single newest message
+    trimmed = trim_messages(messages, max_tokens=budget, keep_last=0)
+
+    assert trimmed == [newest]

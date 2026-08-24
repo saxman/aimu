@@ -12,6 +12,11 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+# Direct import of the sibling module's underscore-prefixed helpers, not routed through an
+# aimu._internal package: aimu.context is a single small module, not a multi-file package,
+# and this mirrors the existing precedent of aimu.aio.providers.openai_compat importing
+# _ThinkingParser / _split_thinking straight from aimu.models.providers._thinking -- a
+# private helper shared by exactly one sync/async pair doesn't warrant a new shared package.
 from aimu.context import DEFAULT_SUMMARIZE_PROMPT, _flatten, _group_messages, _protect_tail, _render_transcript
 
 __all__ = ["summarize_messages"]

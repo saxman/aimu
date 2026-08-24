@@ -42,6 +42,11 @@ use ``asyncio.TaskGroup``: if one worker raises, siblings are cancelled and an
 from typing import TYPE_CHECKING
 
 from ._model_client import AsyncModelClient, client, chat
+
+# Eager, not deferred like the sync surface: aimu.aio.context imports only aimu.context
+# (stdlib+typing), so there is no heavy dependency to avoid paying for, and aio itself is
+# already behind aimu's lazy `aio` attribute gate -- deferring further here would add
+# indirection with nothing to show for it on the import-weight guard.
 from .context import summarize_messages
 from aimu.models import ContextOverflowError, ModelConnectionError
 from .fallback import AsyncFallbackClient
