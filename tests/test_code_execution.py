@@ -310,7 +310,7 @@ def test_kill_process_group_also_kills_a_grandchild():
     """Important 3, mechanism-level: the direct-child-only `proc.kill()` historically
     left a backgrounded grandchild running past the timeout. Exercises the actual kill
     helper against a real process tree shaped like the one execute_python launches
-    (`start_new_session=True`), independent of the sandboxed-code allowlist, for a
+    (`start_new_session=True`), independent of the code's own import allowlist, for a
     fast and fully deterministic check of exactly what gets killed.
     """
     proc = subprocess.Popen(  # noqa: S603
@@ -373,6 +373,96 @@ def test_timeout_kills_the_whole_process_group_including_a_backgrounded_grandchi
         time.sleep(0.1)
     else:
         pytest.fail(f"grandchild pid {grandchild_pid} was not killed")
+
+
+def test_kill_process_group_falls_back_to_proc_kill_without_killpg(monkeypatch):
+    """Regression: `os.killpg`/`os.getpgid` don't exist on Windows. Before the
+    fallback, `_kill_execute_python_process_group` raised `AttributeError` on a
+    platform lacking them instead of killing anything -- proved here by removing both
+    attributes (simulating Windows without needing one) and confirming the direct
+    child is still killed via `proc.kill()` rather than the call raising.
+    """
+    monkeypatch.delattr(builtin.os, "killpg", raising=False)
+    monkeypatch.delattr(builtin.os, "getpgid", raising=False)
+
+    proc = subprocess.Popen(  # noqa: S603
+        [sys.executable, "-c", "import time; time.sleep(30)"],
+        start_new_session=True,
+    )
+    try:
+        builtin._kill_execute_python_process_group(proc)
+        proc.wait(timeout=5)
+    finally:
+        if proc.poll() is None:
+            proc.kill()
+            proc.wait()
+
+    assert proc.returncode is not None
+
+
+def test_timeout_path_still_returns_a_string_without_killpg(monkeypatch):
+    """Important 1, end-to-end: with `os.killpg`/`os.getpgid` unavailable (simulating
+    Windows), the timeout path must still return the timeout error string -- not raise
+    `AttributeError` out of `execute_python` -- and the hung child must still be dead
+    afterward, just via the direct-child-only `proc.kill()` fallback.
+    """
+    monkeypatch.delattr(builtin.os, "killpg", raising=False)
+    monkeypatch.delattr(builtin.os, "getpgid", raising=False)
+    monkeypatch.setattr(builtin, "_EXECUTE_PYTHON_TIMEOUT_S", 0.5)
+
+    captured = {}
+    real_popen_init = subprocess.Popen.__init__
+
+    def _capturing_init(self, *args, **kwargs):
+        real_popen_init(self, *args, **kwargs)
+        captured["proc"] = self
+
+    monkeypatch.setattr(subprocess.Popen, "__init__", _capturing_init)
+
+    out = execute_python("while True: pass")
+
+    assert "timed out" in out.lower()
+    proc = captured["proc"]
+    for _ in range(50):
+        try:
+            os.kill(proc.pid, 0)
+        except ProcessLookupError:
+            break
+        time.sleep(0.1)
+    else:
+        pytest.fail(f"child pid {proc.pid} was not killed by the proc.kill() fallback")
+
+
+def test_interrupted_wait_kills_the_child_instead_of_orphaning_it(monkeypatch):
+    """Important 2: `start_new_session=True` detaches the child from this process's
+    controlling terminal, so a Ctrl-C (or any `BaseException` escaping `proc.wait()`,
+    e.g. `asyncio.CancelledError` surfacing through a `RunHandle`) does not reach the
+    child for free the way it would a foreground child. Before the `except
+    BaseException` handler, an interrupted run left the child running indefinitely --
+    orphaned, burning CPU. Simulates the interruption without a real Ctrl-C: the first
+    `proc.wait()` call raises `KeyboardInterrupt`; `execute_python` must kill the child
+    and re-raise rather than swallow the interrupt or leave the child alive. The second
+    `proc.wait()` call (this handler's own cleanup) is left to run for real, so by the
+    time `execute_python` re-raises, the child is actually reaped, not just signalled.
+    """
+    real_wait = subprocess.Popen.wait
+    state = {"calls": 0, "proc": None}
+
+    def _wait_raise_once(self, *args, **kwargs):
+        state["calls"] += 1
+        state["proc"] = self
+        if state["calls"] == 1:
+            raise KeyboardInterrupt()
+        return real_wait(self, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess.Popen, "wait", _wait_raise_once)
+
+    with pytest.raises(KeyboardInterrupt):
+        execute_python("import time\ntime.sleep(30)\n")
+
+    assert state["calls"] >= 2, "the cleanup proc.wait() after the kill was never reached"
+    proc = state["proc"]
+    assert proc.poll() is not None, "child was not reaped -- it would be orphaned and still running"
 
 
 def test_a_fast_backgrounding_snippet_returns_its_real_output_not_a_false_timeout():

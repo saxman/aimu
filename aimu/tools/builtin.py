@@ -369,7 +369,7 @@ _EXECUTE_PYTHON_TIMEOUT_S = 10
 # try/except that reports failure back over stderr rather than raising, so a platform
 # that can't enforce it degrades to "no cap" instead of refusing to run at all.
 _EXECUTE_PYTHON_MEMORY_LIMIT_BYTES = 512 * 1024 * 1024
-_EXECUTE_PYTHON_OUTPUT_LIMIT_CHARS = 20_000
+_EXECUTE_PYTHON_OUTPUT_LIMIT_BYTES = 20_000
 
 # A private, unlikely-to-collide marker: written to the child's stderr by the rlimit
 # try/except in the worker source when the memory cap could not be applied. The parent
@@ -483,9 +483,21 @@ def _kill_execute_python_process_group(proc: subprocess.Popen) -> None:
     child, which is exactly how a "hard timeout" used to leave a backgrounded
     grandchild running indefinitely. SIGKILL is uncatchable, so this can't race the
     child's (or grandchild's) own exception handling.
+
+    `os.killpg`/`os.getpgid` don't exist on Windows, so this falls back to killing just
+    the direct child there: worse than a real process-group kill (a backgrounded
+    grandchild can still be left running), but it's the same guarantee
+    `subprocess.run(timeout=...)` gave before this tool moved to a hand-rolled `Popen`,
+    and it keeps this function returning a string rather than raising `AttributeError`
+    partway through the timeout/cleanup path.
     """
+    killpg = getattr(os, "killpg", None)
+    getpgid = getattr(os, "getpgid", None)
+    if killpg is None or getpgid is None:
+        proc.kill()
+        return
     try:
-        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        killpg(getpgid(proc.pid), signal.SIGKILL)
     except ProcessLookupError:
         pass  # already gone
 
@@ -562,8 +574,10 @@ def execute_python(code: str) -> str:
         stdout_path = os.path.join(tmpdir, "stdout.txt")
         stderr_path = os.path.join(tmpdir, "stderr.txt")
 
-        with open(stdout_path, "wb") as stdout_f, open(stderr_path, "wb") as stderr_f:
-            proc = subprocess.Popen(  # noqa: S603
+        with (
+            open(stdout_path, "wb") as stdout_f,
+            open(stderr_path, "wb") as stderr_f,
+            subprocess.Popen(  # noqa: S603
                 [sys.executable, "-c", _EXECUTE_PYTHON_WORKER_SOURCE],
                 stdin=subprocess.PIPE,
                 stdout=stdout_f,
@@ -571,7 +585,8 @@ def execute_python(code: str) -> str:
                 cwd=tmpdir,
                 env=_execute_python_env(),
                 start_new_session=True,
-            )
+            ) as proc,
+        ):
             try:
                 proc.stdin.write(code.encode("utf-8"))
             except BrokenPipeError:
@@ -590,11 +605,27 @@ def execute_python(code: str) -> str:
                 _kill_execute_python_process_group(proc)
                 proc.wait()
                 return f"Error: execution timed out after {_EXECUTE_PYTHON_TIMEOUT_S}s"
+            except BaseException:
+                # Anything else escaping wait() -- KeyboardInterrupt, asyncio.CancelledError
+                # surfacing through a RunHandle, or any other interruption -- must still
+                # kill the child before propagating. start_new_session=True (needed so a
+                # SIGKILL can reach a backgrounded grandchild too) has the side effect of
+                # detaching the child from this process's controlling terminal, so a Ctrl-C
+                # does NOT reach it for free the way it would a foreground child; without
+                # this handler an interrupted run leaves the child (and any grandchild)
+                # orphaned and running indefinitely. Deliberately `except BaseException`,
+                # not `Exception`: KeyboardInterrupt and CancelledError are exactly the
+                # cases this exists for, and Popen's own context-manager __exit__ assumes
+                # SIGINT already reached the child, which is false once it has its own
+                # process group.
+                _kill_execute_python_process_group(proc)
+                proc.wait()
+                raise
 
         # stdout_f/stderr_f are closed by the `with` above, and the child has already
         # exited (proc.wait() returned), so its writes are guaranteed flushed to disk.
-        stdout_text = _read_capped(stdout_path, _EXECUTE_PYTHON_OUTPUT_LIMIT_CHARS)
-        stderr_text = _strip_memory_cap_marker(_read_capped(stderr_path, _EXECUTE_PYTHON_OUTPUT_LIMIT_CHARS))
+        stdout_text = _read_capped(stdout_path, _EXECUTE_PYTHON_OUTPUT_LIMIT_BYTES)
+        stderr_text = _strip_memory_cap_marker(_read_capped(stderr_path, _EXECUTE_PYTHON_OUTPUT_LIMIT_BYTES))
 
     if proc.returncode != 0:
         detail = stderr_text.strip() or f"exit code {proc.returncode}"
