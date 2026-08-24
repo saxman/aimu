@@ -9,9 +9,12 @@ mutation of this process, a memory cap on POSIX, and no access to this process's
 environment (so no leaked API keys) -- but it does not confine the filesystem or the
 network, and none of these tests should be read as claiming otherwise.
 
-The old in-process behavior is still reachable, explicitly, as
-``execute_python_in_process``; its own restricted-builtins/import-allowlist tests live
-in ``tests/test_tools.py`` (renamed there to make clear which backend they cover).
+The restricted-builtins/import-allowlist accident guard is kept, unchanged, on BOTH
+backends: it never provided containment (the same historical escapes still work here,
+see test_child_cannot_see_the_parents_api_keys below), so the subprocess boundary adds
+new isolation properties on top of it rather than replacing it. A caller switching
+between ``execute_python`` and ``execute_python_in_process`` (the explicit in-process
+opt-in) gets the same rules either way -- only where the code runs differs.
 """
 
 import time
@@ -23,9 +26,20 @@ from aimu.tools.builtin import execute_python, execute_python_in_process
 
 
 def test_child_cannot_see_the_parents_api_keys(monkeypatch):
-    """The concrete win. An in-process exec could read every credential in os.environ."""
+    """The concrete win.
+
+    ``import os`` is blocked by the accident-guard allowlist (both backends), so this
+    reaches ``os.environ`` the same way the historical sandbox-escape docs describe:
+    through an allowlisted module's transitive attributes (``json`` -> its ``codecs``
+    submodule -> that module's own ``sys`` reference -> ``sys.modules["os"]``). That
+    escape defeats the accident guard exactly as documented -- the point of this test
+    is that it *still* doesn't recover the credential, because the credential was never
+    in the child's environment in the first place. That's a property of the subprocess
+    boundary + the scrubbed env=, not of the allowlist, and it holds even against a
+    determined attempt to route around the allowlist.
+    """
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-should-not-leak")
-    out = execute_python("import os; print(os.environ.get('ANTHROPIC_API_KEY'))")
+    out = execute_python("import json; print(json.codecs.sys.modules['os'].environ.get('ANTHROPIC_API_KEY'))")
     assert "sk-should-not-leak" not in out
     assert "None" in out  # the child prints None: the var truly isn't there, not just unprinted
 
@@ -45,13 +59,24 @@ def test_a_hanging_program_is_killed_by_the_timeout(monkeypatch):
 
 
 def test_a_crash_does_not_take_down_the_host():
-    """os._exit(1) in the child must return an error string, not kill pytest.
+    """A child that dies abnormally must return an error string, not take pytest down
+    with it.
 
-    os._exit() bypasses Python's exception machinery entirely (no try/except in the
-    child can catch it), so this specifically exercises process-level crash isolation,
-    not error handling.
+    Uses ``raise SystemExit(1)`` rather than ``os._exit(1)``: ``os`` is outside the
+    import allowlist enforced by both backends (see
+    test_child_cannot_see_the_parents_api_keys and tests/test_tools.py), so reaching
+    for it here would require the same escape-through-an-allowlisted-module trick,
+    which is beside the point of this test. ``SystemExit`` needs no import (it's a
+    builtin exception, present in the restricted builtins) and is a ``BaseException``,
+    so the shared ``except Exception:`` inside ``_exec_restricted_code`` does not catch
+    it -- it propagates out of the child's ``-c`` script uncaught, and the interpreter
+    exits with that status exactly as an unrecoverable crash would. What's actually
+    under test is ``execute_python``'s handling of a nonzero child exit code, which is
+    the same code path a real crash (a segfault, ``os._exit``) would take; this is the
+    clean, fast, deterministic way to reach it without needing a non-allowlisted import
+    or a platform-specific crash mechanism.
     """
-    out = execute_python("import os\nos._exit(1)")
+    out = execute_python("raise SystemExit(1)")
     assert "error" in out.lower()
     # If crash isolation didn't hold, this line would never execute.
     assert True
@@ -95,14 +120,19 @@ def test_in_process_backend_docstring_is_equally_honest():
     assert "not a security boundary" in doc
 
 
-def test_subprocess_backend_does_not_restrict_imports():
-    """The accident-guard import allowlist doesn't carry over to the subprocess path:
-    once the code is genuinely isolated, blocking `import os` adds no real security
-    and only gets in the way of legitimate code. Contrast with
-    execute_python_in_process, which still blocks this (tests/test_tools.py).
+def test_subprocess_backend_still_enforces_the_import_allowlist():
+    """Consistency requirement: a caller switching between execute_python and
+    execute_python_in_process must not get different rules. The subprocess boundary
+    buys isolation properties (timeout, crash isolation, no leaked environment) that
+    don't depend on restricting imports, but the restricted-builtins/import-allowlist
+    accident guard applies to both backends identically -- it is not a security
+    boundary either way (see test_child_cannot_see_the_parents_api_keys for what
+    actually makes the credential-leak property hold), but dropping it from just one
+    backend would make `import os` succeed by accident in ordinary (non-adversarial)
+    model output there and not the other, which is its own kind of surprising.
     """
-    out = execute_python("import os\nprint('reached')")
-    assert "reached" in out
+    out = execute_python("import os")
+    assert "Error" in out or "ImportError" in out
 
 
 def test_subprocess_backend_still_returns_stdout_and_last_expression():

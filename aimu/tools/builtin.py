@@ -359,24 +359,23 @@ _SANDBOX_BUILTINS = {
 }
 
 
-def _run_python_code(code: str, *, restrict_builtins: bool) -> str:
-    """Parse and run *code*, capturing stdout plus the value of the last expression
-    (or returning an error string on failure). Shared implementation for both
-    ``execute_python`` backends, so they can never drift on what "run this code"
-    means -- only on where it runs and, via *restrict_builtins*, on whether the
-    accident-guard restrictions from before this tool ran in a subprocess still apply.
+def _exec_restricted_code(code: str) -> str:
+    """Parse and run *code* against a namespace with restricted builtins and an
+    import allowlist, returning captured stdout plus the last expression's ``repr``
+    (or an error string). Shared implementation for both ``execute_python`` backends,
+    so they can never drift on what "run this code" means, and -- deliberately -- on
+    what it's allowed to do: the restriction is kept identical between
+    ``execute_python`` (subprocess) and ``execute_python_in_process`` so switching
+    between them changes only where the code runs, not what rules it runs under.
 
-    ``execute_python_in_process`` passes ``restrict_builtins=True``: restricted
-    builtins and an import allowlist, which stop accidents, not a determined attempt
-    (a one-line expression reaches `subprocess.Popen` through the type hierarchy, and
-    the filesystem through an allowlisted module's transitive attributes).
-
-    The ``execute_python`` subprocess worker passes ``restrict_builtins=False``: once
-    the code is genuinely isolated in its own process with a scrubbed environment,
-    blocking `import os` or `open()` inside it adds no real security (the child can
-    already touch the filesystem and network as documented) and only gets in the way
-    of legitimate code -- pretending otherwise would be exactly the overclaiming this
-    tool used to do.
+    This stops accidents, not a determined attempt (a one-line expression reaches
+    `subprocess.Popen` through the type hierarchy, and the filesystem through an
+    allowlisted module's transitive attributes). That is true of both backends: the
+    subprocess boundary buys real isolation properties of its own (timeout, crash
+    isolation, no host mutation, no leaked environment -- see `execute_python`'s
+    docstring), but it does not confine the filesystem or network, so this allowlist
+    is still the only thing standing between the model and an accidental `import os`
+    or `open()` in either backend.
     """
     namespace = {}
     for mod_name in _SANDBOX_ALLOWLIST:
@@ -385,15 +384,14 @@ def _run_python_code(code: str, *, restrict_builtins: bool) -> str:
         except ImportError:
             pass
 
-    if restrict_builtins:
-        _real_import = _builtins_module.__import__
+    _real_import = _builtins_module.__import__
 
-        def _restricted_import(name, globals=None, locals=None, fromlist=(), level=0):
-            if name.split(".")[0] not in _SANDBOX_ALLOWLIST:
-                raise ImportError(f"'{name}' is not in the execute_python import allowlist")
-            return _real_import(name, globals, locals, fromlist, level)
+    def _restricted_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name.split(".")[0] not in _SANDBOX_ALLOWLIST:
+            raise ImportError(f"'{name}' is not in the execute_python import allowlist")
+        return _real_import(name, globals, locals, fromlist, level)
 
-        namespace["__builtins__"] = {**_SANDBOX_BUILTINS, "__import__": _restricted_import}
+    namespace["__builtins__"] = {**_SANDBOX_BUILTINS, "__import__": _restricted_import}
 
     try:
         tree = ast.parse(code)
@@ -449,18 +447,19 @@ def execute_python_in_process(code: str) -> str:
     Args:
         code: Python code to execute.
     """
-    return _run_python_code(code, restrict_builtins=True)
+    return _exec_restricted_code(code)
 
 
 # execute_python (the subprocess backend) runs the child with sys.executable so it is
 # the same interpreter/environment this process runs under, importing this module to
-# reach _run_python_code -- one execution path, not a duplicated script. It passes
-# restrict_builtins=False: see _run_python_code's docstring for why the accident-guard
-# restrictions don't carry over to the subprocess path.
+# reach _exec_restricted_code -- one execution path, not a duplicated script, and the
+# same restricted-builtins/import-allowlist accident guard as execute_python_in_process
+# (see _exec_restricted_code's docstring for why that guard is kept, not dropped, once
+# the code also runs in its own process).
 _EXECUTE_PYTHON_WORKER_SOURCE = (
     "import sys\n"
-    "from aimu.tools.builtin import _run_python_code\n"
-    "sys.stdout.write(_run_python_code(sys.stdin.read(), restrict_builtins=False))\n"
+    "from aimu.tools.builtin import _exec_restricted_code\n"
+    "sys.stdout.write(_exec_restricted_code(sys.stdin.read()))\n"
 )
 
 _EXECUTE_PYTHON_TIMEOUT_S = 10
@@ -528,10 +527,10 @@ def execute_python(code: str) -> str:
     reaching this tool as code you have chosen to run; gate it with `tool_approval` for
     untrusted callers, and reach for a container when you need real containment.
 
-    The child has ordinary Python builtins and can import anything installed there --
-    there is no import allowlist here, unlike `execute_python_in_process`: once the code
-    is genuinely isolated in its own process, restricting `import os` or `open()` adds no
-    real security and only gets in the way of legitimate code.
+    The child also runs with restricted builtins and an import allowlist, the same
+    accident guard `execute_python_in_process` uses (stops accidents, not a determined
+    attempt) -- kept identical between both backends so switching between them changes
+    only where the code runs, not what it's allowed to do.
 
     Captures stdout and the value of the last expression. Pre-imports math, statistics,
     json, re, itertools, functools, datetime, zoneinfo, and numpy/pandas/scipy/matplotlib
