@@ -20,7 +20,8 @@ import time
 from dataclasses import replace
 from typing import Any, Callable, Iterator, Optional, Union
 
-from aimu.events import EventSink, RunEvent, RunFinished, RunStarted, ToolCalled, ToolDenied, emit
+from aimu.context import count_tokens
+from aimu.events import ContextCompacted, EventSink, RunEvent, RunFinished, RunStarted, ToolCalled, ToolDenied, emit
 from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER, PROVENANCE_KEY
 from aimu.models.base import StreamChunk, StreamingContentType
 
@@ -145,6 +146,7 @@ class _BaseToolLoop:
         thinking: Optional[Union[bool, str]] = None,
         events: Optional[EventSink] = None,
         agent_name: Optional[str] = None,
+        compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
     ):
         # ``tools`` is either the tool-callable list, or a zero-arg callable returning it
         # (re-read each round so tools added mid-run — e.g. SkillAgent.reload_skills authoring a
@@ -165,6 +167,12 @@ class _BaseToolLoop:
         # ToolCalled/ToolDenied directly, stamped with the agent's name and the current round.
         self._events = events
         self._agent_name = agent_name
+        # None (default): the loop never touches model_client.messages on its own, so an
+        # existing run is byte-identical to before this field existed. Set, it is applied
+        # (see _maybe_compact) before every model turn -- an automatic rewrite of history the
+        # caller still believes is present, which is a bigger silent change than any kwarg
+        # drop principle 6 was written about, so an applied compaction is never silent.
+        self._compaction = compaction
         # Updated by run()/run_streamed() right before every client call, so the attributing
         # sink (see _attributing_sink) can report which round a client-emitted event happened
         # in without the client itself ever knowing about rounds.
@@ -222,6 +230,63 @@ class _BaseToolLoop:
         """The forced tools-disabled wrap-up prompt: the configured one, else the built-in default."""
         return self._final_answer_prompt or DEFAULT_WRAP_UP_PROMPT
 
+    def _maybe_compact(self) -> None:
+        """Apply the configured ``compaction`` callable to ``self._client.messages``, if any,
+        right before the next model turn. No-op when ``compaction`` is unset (the default):
+        the loop then never touches ``model_client.messages`` on its own, so an agent that
+        doesn't opt in is byte-identical to one from before this field existed.
+
+        An *applied* compaction (one that actually dropped something) is never silent, per
+        principle 6 ("warns and says what it dropped, rather than quietly changing what you
+        asked for"): silently rewriting history the caller still believes is present is a
+        bigger quiet change than any kwarg drop that principle protects against. So it is
+        announced twice -- a :class:`~aimu.events.ContextCompacted` event carrying the
+        removed messages for a caller with a sink (:func:`~aimu.events.emit` is a no-op
+        without one), and a ``WARNING`` log line unconditionally, so a caller with no sink
+        attached still learns their conversation was rewritten.
+
+        A compaction that returns the conversation unchanged -- the common case on a short
+        conversation, since :func:`~aimu.context.trim_messages` and
+        :func:`~aimu.context.summarize_messages` are themselves no-ops under budget --
+        produces neither: a WARNING on every turn of every short conversation would train
+        callers to ignore it, and then it would say nothing the one time it mattered.
+
+        "Dropped" is computed by identity (``id()``), not value equality: both context
+        functions return kept messages as the very same dict objects and only fabricate new
+        ones for whatever replaces the dropped span (a summary message), so a message
+        present in the before-list but absent from the after-list, by identity, is exactly
+        the set that was removed -- and a caller who wants a removed message back can still
+        find it (mutating a returned dict elsewhere would be a caller bug independent of this).
+        """
+        if self._compaction is None:
+            return
+        before = list(self._client.messages)
+        after = self._compaction(before)
+        after_ids = {id(m) for m in after}
+        dropped = [m for m in before if id(m) not in after_ids]
+        if not dropped:
+            return
+        self._client.messages = after
+        before_tokens = count_tokens(before)
+        after_tokens = count_tokens(after)
+        emit(
+            self._events,
+            ContextCompacted(
+                agent=self._agent_name,
+                iteration=self._current_iteration,
+                dropped=dropped,
+                before_tokens=before_tokens,
+                after_tokens=after_tokens,
+            ),
+        )
+        logger.warning(
+            "Compacted conversation for agent '%s': dropped %d message(s) (~%d -> ~%d tokens).",
+            self._agent_name,
+            len(dropped),
+            before_tokens,
+            after_tokens,
+        )
+
     def _tool_call_kwargs(self, fn: Callable, arguments: dict) -> dict:
         """Coerce model-supplied args to the tool's hints and inject ``ToolContext(deps)``."""
         from aimu.tools.decorator import coerce_tool_arguments
@@ -270,6 +335,7 @@ class _ToolLoop(_BaseToolLoop):
         self._current_iteration = 0
         try:
             with self._client._events_override(self._attributing_sink()):
+                self._maybe_compact()
                 response = self._client.chat(
                     user_message,
                     generate_kwargs=generate_kwargs,
@@ -284,6 +350,7 @@ class _ToolLoop(_BaseToolLoop):
                     if state == TERMINAL_PENDING_TOOLS:
                         self._dispatch(last_iteration)
                         self._current_iteration = chats
+                        self._maybe_compact()
                         response = self._client.chat(
                             generate_kwargs=generate_kwargs, tools=self._current_tools(), thinking=self._thinking
                         )
@@ -293,8 +360,9 @@ class _ToolLoop(_BaseToolLoop):
                         # was empty because it was cut off, in which case there is nothing to resume
                         # and nudging only shrinks the next one.
                         self._raise_if_truncated()
-                        injected_at = len(self._client.messages)
                         self._current_iteration = chats
+                        self._maybe_compact()
+                        injected_at = len(self._client.messages)
                         response = self._client.chat(
                             self._continuation_prompt,
                             generate_kwargs=generate_kwargs,
@@ -334,6 +402,7 @@ class _ToolLoop(_BaseToolLoop):
         self._current_iteration = 0
         try:
             with self._client._events_override(self._attributing_sink()):
+                self._maybe_compact()
                 yield from self._retag(
                     self._client.chat(
                         user_message,
@@ -351,6 +420,7 @@ class _ToolLoop(_BaseToolLoop):
                         yield from self._dispatch_streamed(iteration)
                         iteration += 1
                         self._current_iteration = iteration
+                        self._maybe_compact()
                         yield from self._retag(
                             self._client.chat(
                                 generate_kwargs=generate_kwargs,
@@ -364,6 +434,7 @@ class _ToolLoop(_BaseToolLoop):
                         self._raise_if_truncated()  # cut off, not degenerate: a nudge cannot recover it
                         iteration += 1
                         self._current_iteration = iteration
+                        self._maybe_compact()
                         injected_at = len(self._client.messages)
                         yield from self._retag(
                             self._client.chat(
@@ -380,9 +451,10 @@ class _ToolLoop(_BaseToolLoop):
                         return
 
                 if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
-                    injected_at = len(self._client.messages)
                     iteration += 1
                     self._current_iteration = iteration
+                    self._maybe_compact()
+                    injected_at = len(self._client.messages)
                     yield from self._retag(
                         self._client.chat(
                             self._wrap_up_prompt(),
@@ -416,11 +488,12 @@ class _ToolLoop(_BaseToolLoop):
         """
         if classify_terminal_turn(self._client.messages) == TERMINAL_HEALTHY:
             return response
-        injected_at = len(self._client.messages)
         # Only advance past the last real turn's iteration when a real call is about to be
         # made (this branch): the healthy check above already returned without one, so
         # self._current_iteration must stay put and keep pointing at that last real turn.
         self._current_iteration += 1
+        self._maybe_compact()
+        injected_at = len(self._client.messages)
         response = self._client.chat(
             self._wrap_up_prompt(),
             generate_kwargs=generate_kwargs,

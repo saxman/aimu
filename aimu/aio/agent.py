@@ -102,6 +102,16 @@ class Agent(_AgentLoopMixin, AsyncRunner):
     # agent (e.g. every worker Agent in a Parallel built via Parallel.from_client) -- events will
     # drop and misorder. Give each concurrently-running agent its own model_client if that matters.
     events: Optional[EventSink] = None
+    # None (default): the loop never rewrites model_client.messages on its own -- an agent that
+    # doesn't opt in behaves exactly as it did before this field existed. Set to a callable such
+    # as ``lambda msgs: trim_messages(msgs, max_tokens=8000)`` or
+    # ``lambda msgs: summarize_messages(client, msgs)`` (see aimu.context) to compact automatically
+    # before every model turn. An *applied* compaction (one that actually dropped a message) is
+    # never silent: it emits a ContextCompacted event for a caller with a sink attached, and logs
+    # a WARNING unconditionally, so a caller without one still learns their conversation was
+    # rewritten (see the sync aimu.agents.Agent.compaction docstring for the full rationale). A
+    # compaction that returns the conversation unchanged is a no-op and announces nothing.
+    compaction: Optional[Callable[[list[dict]], list[dict]]] = None
     concurrent_tool_calls: bool = False
     _last_messages: list = field(default_factory=list, init=False, repr=False)
 
@@ -194,6 +204,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
             thinking=thinking,
             events=events if events is not None else self.events,
             agent_name=self.name,
+            compaction=self.compaction,
         )
 
     async def _run_loop(

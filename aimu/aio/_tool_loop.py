@@ -52,6 +52,7 @@ class _AsyncToolLoop(_BaseToolLoop):
         self._current_iteration = 0
         try:
             with self._client._events_override(self._attributing_sink()):
+                self._maybe_compact()
                 response = await self._client.chat(
                     user_message,
                     generate_kwargs=generate_kwargs,
@@ -66,6 +67,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                     if state == TERMINAL_PENDING_TOOLS:
                         await self._dispatch(last_iteration)
                         self._current_iteration = rounds + 1
+                        self._maybe_compact()
                         response = await self._client.chat(
                             generate_kwargs=generate_kwargs, tools=self._current_tools(), thinking=self._thinking
                         )
@@ -75,8 +77,9 @@ class _AsyncToolLoop(_BaseToolLoop):
                         # was empty because it was cut off, in which case there is nothing to resume
                         # and nudging only shrinks the next one.
                         self._raise_if_truncated()
-                        injected_at = len(self._client.messages)
                         self._current_iteration = rounds + 1
+                        self._maybe_compact()
+                        injected_at = len(self._client.messages)
                         response = await self._client.chat(
                             self._continuation_prompt,
                             generate_kwargs=generate_kwargs,
@@ -116,6 +119,7 @@ class _AsyncToolLoop(_BaseToolLoop):
         self._current_iteration = 0
         try:
             with self._client._events_override(self._attributing_sink()):
+                self._maybe_compact()
                 stream = await self._client.chat(
                     user_message,
                     generate_kwargs=generate_kwargs,
@@ -133,6 +137,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                             yield chunk
                         iteration += 1
                         self._current_iteration = iteration
+                        self._maybe_compact()
                         stream = await self._client.chat(
                             generate_kwargs=generate_kwargs,
                             stream=True,
@@ -145,6 +150,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                         self._raise_if_truncated()  # cut off, not degenerate: a nudge cannot recover it
                         iteration += 1
                         self._current_iteration = iteration
+                        self._maybe_compact()
                         injected_at = len(self._client.messages)
                         stream = await self._client.chat(
                             self._continuation_prompt,
@@ -160,9 +166,10 @@ class _AsyncToolLoop(_BaseToolLoop):
                         return
 
                 if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
-                    injected_at = len(self._client.messages)
                     iteration += 1
                     self._current_iteration = iteration
+                    self._maybe_compact()
+                    injected_at = len(self._client.messages)
                     stream = await self._client.chat(
                         self._wrap_up_prompt(),
                         generate_kwargs=generate_kwargs,
@@ -194,11 +201,12 @@ class _AsyncToolLoop(_BaseToolLoop):
         """
         if classify_terminal_turn(self._client.messages) == TERMINAL_HEALTHY:
             return response
-        injected_at = len(self._client.messages)
         # Only advance past the last real turn's iteration when a real call is about to be
         # made (this branch): the healthy check above already returned without one, so
         # self._current_iteration must stay put and keep pointing at that last real turn.
         self._current_iteration += 1
+        self._maybe_compact()
+        injected_at = len(self._client.messages)
         response = await self._client.chat(
             self._wrap_up_prompt(),
             generate_kwargs=generate_kwargs,

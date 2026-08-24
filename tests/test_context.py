@@ -5,7 +5,10 @@ must never orphan a `tool` message from the `assistant` message carrying its `to
 Every provider rejects that shape, and it is exactly what a naive slice produces.
 """
 
+import logging
+
 from aimu.context import count_tokens, summarize_messages, trim_messages
+from tests.helpers import MockModelClient
 
 
 def test_trim_never_orphans_a_tool_result():
@@ -218,3 +221,120 @@ def test_trim_drops_oldest_first_not_newest_first():
     trimmed = trim_messages(messages, max_tokens=budget, keep_last=0)
 
     assert trimmed == [newest]
+
+
+# ---------------------------------------------------------------------------
+# Agent(compaction=...): an automatic compaction must announce what it dropped.
+#
+# Principle 6: a request a backend cannot honour "warns and says what it dropped, rather
+# than quietly changing what you asked for". Silently rewriting model_client.messages before
+# a turn drops conversation the caller still believes is present -- a bigger quiet change
+# than any kwarg drop that principle was written about -- so an *applied* compaction (one
+# that actually removed a message) is always announced twice: a ContextCompacted event for a
+# caller with a sink, and a WARNING log for one without. A compaction that changes nothing
+# must produce neither.
+# ---------------------------------------------------------------------------
+
+_TOOL_LOOP_LOGGER = "aimu.agents._tool_loop"
+
+
+def _old_conversation() -> list[dict]:
+    return [
+        {"role": "user", "content": "old question one"},
+        {"role": "assistant", "content": "old answer one"},
+        {"role": "user", "content": "old question two"},
+        {"role": "assistant", "content": "old answer two"},
+    ]
+
+
+def test_compaction_emits_ContextCompacted_carrying_the_dropped_messages():
+    """Not a count -- the messages, so a caller who wants them back has them."""
+    from aimu.agents.agent import Agent
+    from aimu.events import ContextCompacted
+
+    old_messages = _old_conversation()
+    client = MockModelClient(["final answer"])
+    client.model.supports_tools = False
+    client.messages = list(old_messages)
+
+    seen = []
+    budget = count_tokens(old_messages[-2:])  # room for only the newest exchange
+    agent = Agent(
+        client,
+        events=seen.append,
+        compaction=lambda msgs: trim_messages(msgs, max_tokens=budget, keep_last=0),
+    )
+    result = agent.run("new question")
+
+    assert result == "final answer"
+    compacted = [e for e in seen if isinstance(e, ContextCompacted)]
+    assert len(compacted) == 1
+    event = compacted[0]
+    # The dropped *messages*, not a count: a caller who wants them back can recover them.
+    assert event.dropped == old_messages[:2]
+    assert event.dropped[0] is old_messages[0]  # same objects, not re-serialized copies
+    assert event.dropped[1] is old_messages[1]
+    assert event.before_tokens == count_tokens(old_messages)
+    assert event.after_tokens == count_tokens(old_messages[-2:])
+
+
+def test_compaction_warns_even_with_no_sink_attached(caplog):
+    """A caller who attached no sink still learns their conversation was rewritten."""
+    from aimu.agents.agent import Agent
+
+    old_messages = _old_conversation()
+    client = MockModelClient(["final answer"])
+    client.model.supports_tools = False
+    client.messages = list(old_messages)
+
+    budget = count_tokens(old_messages[-2:])
+    agent = Agent(client, compaction=lambda msgs: trim_messages(msgs, max_tokens=budget, keep_last=0))
+
+    with caplog.at_level(logging.WARNING, logger=_TOOL_LOOP_LOGGER):
+        result = agent.run("new question")  # events=None: no sink attached at all
+
+    assert result == "final answer"
+    assert "dropped 2 message" in caplog.text
+
+
+def test_compaction_that_drops_nothing_is_silent(caplog):
+    """No spurious warning on a conversation already under the limit."""
+    from aimu.agents.agent import Agent
+    from aimu.events import ContextCompacted
+
+    client = MockModelClient(["final answer"])
+    client.model.supports_tools = False
+    client.messages = [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "yo"}]
+
+    seen = []
+    agent = Agent(
+        client,
+        events=seen.append,
+        compaction=lambda msgs: trim_messages(msgs, max_tokens=10_000),  # nowhere near the limit
+    )
+    with caplog.at_level(logging.WARNING, logger=_TOOL_LOOP_LOGGER):
+        result = agent.run("another question")
+
+    assert result == "final answer"
+    assert not any(isinstance(e, ContextCompacted) for e in seen)
+    assert "Compacted conversation" not in caplog.text
+
+
+def test_explicit_trim_does_not_warn(caplog):
+    """client.messages = trim_messages(...) needs no announcement: the caller performed
+    the drop and holds both lists."""
+    from aimu.agents.agent import Agent
+
+    old_messages = _old_conversation()
+    client = MockModelClient(["final answer"])
+    client.model.supports_tools = False
+    budget = count_tokens(old_messages[-2:])
+    # The caller performs the drop directly, before the agent ever sees the conversation.
+    client.messages = trim_messages(old_messages, max_tokens=budget, keep_last=0)
+
+    agent = Agent(client)  # compaction=None (default): the automatic hook never runs
+    with caplog.at_level(logging.WARNING, logger=_TOOL_LOOP_LOGGER):
+        result = agent.run("new question")
+
+    assert result == "final answer"
+    assert "Compacted conversation" not in caplog.text
