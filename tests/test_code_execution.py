@@ -25,6 +25,7 @@ how ``aimu`` itself is installed and never re-runs ``aimu.tools.builtin``'s modu
 """
 
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -463,6 +464,66 @@ def test_interrupted_wait_kills_the_child_instead_of_orphaning_it(monkeypatch):
     assert state["calls"] >= 2, "the cleanup proc.wait() after the kill was never reached"
     proc = state["proc"]
     assert proc.poll() is not None, "child was not reaped -- it would be orphaned and still running"
+
+
+class _StdinRaisingOnClose:
+    """Wraps a live ``Popen.stdin`` and raises ``KeyboardInterrupt`` from the first
+    ``close()``, letting the ``write()`` before it genuinely succeed -- so the child is
+    really running when the interrupt lands.
+    """
+
+    def __init__(self, real, state):
+        self._real = real
+        self._state = state
+
+    def write(self, data):
+        return self._real.write(data)
+
+    def close(self):
+        self._state["closes"] += 1
+        if self._state["closes"] == 1:
+            raise KeyboardInterrupt()
+        return self._real.close()
+
+
+def test_interrupt_while_feeding_stdin_kills_the_child_instead_of_orphaning_it(monkeypatch):
+    """The kill-on-interrupt guard has to cover the child's whole lifetime, not just
+    `proc.wait()`. The stdin write/close between spawning the child and reaching the
+    wait was outside it: an interrupt there propagated in a fraction of a second while
+    the child ran on to completion. `Popen.__exit__` is no backstop -- its
+    KeyboardInterrupt branch waits only ~0.25s, on the assumption that the SIGINT
+    already reached the child, which `start_new_session=True` makes false.
+
+    Forces the interrupt with monkeypatch rather than racing a real signal, and asserts
+    on the child's liveness rather than sleeping and hoping.
+    """
+    state = {"closes": 0, "proc": None}
+    real_popen = subprocess.Popen
+
+    class _InterruptingPopen(real_popen):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            state["proc"] = self
+            self.stdin = _StdinRaisingOnClose(self.stdin, state)
+
+    monkeypatch.setattr(subprocess, "Popen", _InterruptingPopen)
+
+    with pytest.raises(KeyboardInterrupt):
+        execute_python("import time\ntime.sleep(20)\n")
+
+    proc = state["proc"]
+    assert proc is not None, "the child was never spawned -- the interrupt landed too early to be this bug"
+    pid = proc.pid
+    try:
+        assert proc.poll() is not None, "child was not reaped -- it would be orphaned and still running"
+        with pytest.raises(ProcessLookupError):
+            os.kill(pid, 0)
+    finally:
+        # Only reachable when the guard regressed and the child is still alive.
+        try:
+            os.killpg(os.getpgid(pid), signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
 
 
 def test_a_fast_backgrounding_snippet_returns_its_real_output_not_a_false_timeout():

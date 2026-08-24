@@ -587,14 +587,22 @@ def execute_python(code: str) -> str:
                 start_new_session=True,
             ) as proc,
         ):
+            # Everything from here to the end of the `with` runs under one guard: once the
+            # child exists, no path out of this block -- normal, exceptional, or
+            # interrupted -- may leave it alive. Feeding stdin is inside it too, because an
+            # interruption during the write or the close is just as capable of orphaning a
+            # child that is already running (and `Popen.__exit__` will not save us; see the
+            # `except BaseException` note below).
             try:
-                proc.stdin.write(code.encode("utf-8"))
-            except BrokenPipeError:
-                pass
-            finally:
-                proc.stdin.close()
+                try:
+                    proc.stdin.write(code.encode("utf-8"))
+                except BrokenPipeError:
+                    # The child exited before reading its input. Not an interruption: fall
+                    # through to the normal path, where its output and exit code explain why.
+                    pass
+                finally:
+                    proc.stdin.close()
 
-            try:
                 # wait(), unlike communicate(), never depends on the stdout/stderr fds
                 # being closed by every process holding a copy of them -- only on the
                 # direct child's own exit. A backgrounded grandchild inheriting those
@@ -606,7 +614,7 @@ def execute_python(code: str) -> str:
                 proc.wait()
                 return f"Error: execution timed out after {_EXECUTE_PYTHON_TIMEOUT_S}s"
             except BaseException:
-                # Anything else escaping wait() -- KeyboardInterrupt, asyncio.CancelledError
+                # Anything else escaping this block -- KeyboardInterrupt, asyncio.CancelledError
                 # surfacing through a RunHandle, or any other interruption -- must still
                 # kill the child before propagating. start_new_session=True (needed so a
                 # SIGKILL can reach a backgrounded grandchild too) has the side effect of
@@ -615,9 +623,11 @@ def execute_python(code: str) -> str:
                 # this handler an interrupted run leaves the child (and any grandchild)
                 # orphaned and running indefinitely. Deliberately `except BaseException`,
                 # not `Exception`: KeyboardInterrupt and CancelledError are exactly the
-                # cases this exists for, and Popen's own context-manager __exit__ assumes
-                # SIGINT already reached the child, which is false once it has its own
-                # process group.
+                # cases this exists for, and Popen's own context-manager __exit__ is no
+                # backstop -- its KeyboardInterrupt branch waits only ~0.25s on the
+                # assumption that the SIGINT already reached the child, which is false once
+                # the child has its own process group. Kill, then reap, then re-raise: a
+                # kill without the wait would leave a zombie.
                 _kill_execute_python_process_group(proc)
                 proc.wait()
                 raise
