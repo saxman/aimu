@@ -6,7 +6,11 @@ from typing import TYPE_CHECKING, Any, Iterator, Optional, Union
 
 from .base import AdHocModel, BaseModelClient, Model, ModelSpec, StreamChunk
 from ._internal.factory import ProviderEntry, installed
-from ._internal.model_defaults import available_text_models, resolve_default_text_model_enum
+from ._internal.model_defaults import (
+    available_text_models,
+    resolve_default_text_model,
+    resolve_default_text_model_enum,
+)
 from ._internal.model_string import parse_model_string
 
 if TYPE_CHECKING:
@@ -17,6 +21,7 @@ log = logging.getLogger(__name__)
 __all__ = [
     "ModelClient",
     "available_text_models",
+    "resolve_default_text_model",
     "resolve_default_text_model_enum",
     "resolve_model_enum",
     "resolve_model_string",
