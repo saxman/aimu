@@ -1,0 +1,485 @@
+---
+title: "Observing Runs"
+jupyter: python3
+---
+
+
+A `chat()` call and an `Agent.run()` both do more than the string they return: a
+generate_kwargs merge, a thinking-effort resolution, zero-or-more tool calls, maybe a
+compaction pass, one or more requests to a provider. None of that is visible in the return
+value. `aimu.events` is the telemetry channel that makes it visible: a sink is one callable
+that takes one event, and you attach it to a client, an agent, an orchestrator, or a
+workflow to see what actually happened.
+
+This is a different channel from `StreamChunk` (`stream=True`, see [notebook 07](07-agents.qmd)),
+which is *content* — what the model produced, for display. Events are what the library *did*
+with it. Both can be active on the same run and neither replaces the other. For the
+`compaction=` field this notebook's section G only introduces, see
+[notebook 28](28-managing-context.qmd).
+
+**What this notebook covers:**
+- `log_events(logger)`: the shortest path to the payoff
+- The event vocabulary: `RunStarted`, `ModelTurnStarted`, `RequestPrepared`,
+  `ModelTurnFinished`, `ToolCalled`, `ToolDenied`, `ContextCompacted`, `RunFinished`
+- Client-level emission — `aimu.chat(events=...)` is observable with no agent at all
+- `client.last_request`: did the library do this, or the model?
+- Wiring events through `Agent`, `Chain.from_client`, and `OrchestratorAgent.assemble`
+- A custom sink (a token tally) and an OpenTelemetry-shaped sink (a worked example, not a
+  dependency)
+- `ToolDenied`, from a `tool_approval` policy that says no
+- Two honest limitations: a shared client under concurrent workers, and the `schema=` path
+
+> This notebook runs a local Ollama model (`qwen3:8b`) throughout. Reasoning models sample
+> their thinking, so exact `output_tokens`/`total_tokens`/`duration_s` and generated text
+> vary between runs; `input_tokens` for a fixed prompt does not, and event ordering/type
+> names never do. Those are called out inline rather than pinned as if they were exact.
+
+## Setup
+
+```{python}
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)  # quiet the HTTP transport noise
+
+MODEL = "ollama:qwen3:8b"
+```
+
+## A - `log_events`: attach and watch
+
+`aimu.events.log_events(logger)` is a sink that writes one line per event. Attach it to a
+bare `aimu.chat()` call — no agent, no tool loop — and it is already observable:
+
+```{python}
+import aimu
+from aimu.events import log_events
+
+reply = aimu.chat(
+    "Say OK and nothing else.",
+    model=MODEL,
+    events=log_events(logging.getLogger("aimu.demo")),
+)
+print("reply:", reply)
+```
+
+```
+ModelTurnStarted ModelTurnStarted(agent=None, iteration=0, model='qwen3:8b', message_count=1, tool_names=())
+RequestPrepared RequestPrepared(agent=None, iteration=0, provider='OllamaClient', model='qwen3:8b', payload={'model': 'qwen3:8b', 'messages': [...], 'options': {'temperature': 0.6, 'top_p': 0.95, 'top_k': 20}, 'tools': [], 'think': True, 'keep_alive': 60, 'format': None})
+ModelTurnFinished ModelTurnFinished(agent=None, iteration=0, model='qwen3:8b', text='OK', usage={'input_tokens': 16, ...}, duration_s=...)
+reply: OK
+```
+
+(`output_tokens`/`total_tokens`/`duration_s` depend on how much the model reasoned before
+answering; `input_tokens` for this exact one-message prompt does not.) `events=` is accepted
+the same way by `aimu.client(events=...)`, and by `client.events = ...` at any point
+afterward.
+
+`chat()`/`generate()` emit exactly two turn events per model request: `ModelTurnStarted`
+before the provider call, `ModelTurnFinished` after — even when the turn raises (`error` is
+then set and `text`/`usage` are `None`, so a sink pairing the two can close a span
+unconditionally).
+
+## B - The event vocabulary, on an agent's tool loop
+
+Point the same sink at an `Agent` and the tool loop reports itself too. Every event carries
+`agent` and `iteration` — the same two fields `StreamChunk` carries — so one sink attached to
+a nested workflow can still tell events apart by who emitted them.
+
+```{python}
+from aimu.agents import Agent
+from aimu.tools import tool
+
+
+@tool
+def add(a: int, b: int) -> int:
+    """Add two integers."""
+    return a + b
+
+
+client = aimu.client(MODEL)
+agent = Agent(
+    client,
+    "You are a helpful assistant. Use tools when needed.",
+    tools=[add],
+    events=log_events(logging.getLogger("aimu.demo")),
+)
+result = agent.run("What is 12 + 30? Use the add tool.")
+print("result:", result)
+```
+
+```
+RunStarted RunStarted(agent='agent-471fd0', iteration=0, task='What is 12 + 30? Use the add tool.')
+ModelTurnStarted ModelTurnStarted(agent='agent-471fd0', iteration=0, model='qwen3:8b', message_count=2, tool_names=('add',))
+RequestPrepared RequestPrepared(agent='agent-471fd0', iteration=0, ...)
+ModelTurnFinished ModelTurnFinished(agent='agent-471fd0', iteration=0, model='qwen3:8b', text='', usage={'input_tokens': 160, ...}, duration_s=...)
+ToolCalled ToolCalled(agent='agent-471fd0', iteration=0, name='add', arguments={'a': 12, 'b': 30}, result='42', error=None, duration_s=...)
+ModelTurnStarted ModelTurnStarted(agent='agent-471fd0', iteration=1, model='qwen3:8b', message_count=4, tool_names=('add',))
+RequestPrepared RequestPrepared(agent='agent-471fd0', iteration=1, ...)
+ModelTurnFinished ModelTurnFinished(agent='agent-471fd0', iteration=1, model='qwen3:8b', text=..., usage={'input_tokens': 199, ...}, duration_s=...)
+RunFinished RunFinished(agent='agent-471fd0', iteration=1, result=..., error=None)
+result: ...
+```
+
+(The agent id is a random hex assigned at construction and differs every run;
+`input_tokens`, the tool `arguments={'a': 12, 'b': 30}`, and `result='42'` on `ToolCalled` are
+the parts of this trace that are actually fixed — the final answer text and every
+`duration_s`/`output_tokens`/`total_tokens` are sampled.) The full event vocabulary, all
+dataclasses in `aimu.events`: `RunStarted`, `ModelTurnStarted`, `RequestPrepared`,
+`ModelTurnFinished`, `ToolCalled`, `ToolDenied` (section F), `ContextCompacted` (see
+[notebook 28](28-managing-context.qmd)), `RunFinished`.
+
+> **A sink must be thread-safe.** With `concurrent_tool_calls=True` a turn's tool calls are
+> dispatched from a `ThreadPoolExecutor` (sync) or an `asyncio.TaskGroup` (async), so
+> `ToolCalled`/`ToolDenied` arrive concurrently and in nondeterministic order. Turn and run
+> events are emitted from the calling thread and stay ordered.
+
+## C - `last_request`: did the library do this, or the model?
+
+`RequestPrepared` carries the same payload the client stores on `client.last_request` — the
+request exactly as sent, after AIMU's own generate_kwargs merge (four tiers), the
+`GENERATE_KWARG_SUPPORT` renames and drops, thinking-effort resolution, `strip_inert_keys`
+(AIMU's own `timestamp`/`thinking`/`provenance` bookkeeping never reaches a provider), and
+provider format adaptation. It is the answer to a question that otherwise takes
+source-reading: when a model's behavior looks surprising, is the surprise something the
+model did, or something AIMU changed on the way out?
+
+```{python}
+plain_client = aimu.client(MODEL)
+plain_client.chat("Hello")
+print(plain_client.last_request)
+```
+
+```
+{'model': 'qwen3:8b', 'messages': [{'role': 'user', 'content': 'Hello'}], 'options': {'temperature': 0.6, 'top_p': 0.95, 'top_k': 20}, 'tools': [], 'think': True, 'keep_alive': 60, 'format': None}
+```
+
+No sink required — `last_request` is set on every request regardless of whether `events=` is
+attached. The payload is unredacted: it contains whatever you put in the conversation,
+including tool arguments and any images/audio. A sink that ships events off the machine is
+the right place to filter, not this attribute.
+
+## D - Agent and workflow wiring
+
+`Agent(events=)` is a field, with a matching `agent.run(events=...)` per-run override
+(`None` uses the field). `Chain.from_client(...)`, `Router.from_client(...)`,
+`Parallel.from_client(...)`, and `PlanExecuteEvaluator.from_client(...)` all take `events=`
+and forward it to every step/handler/worker they build, tagging each with its own `agent`
+name so one sink still tells them apart:
+
+```{python}
+from aimu.agents import Chain
+from aimu.events import RunEvent
+
+chain_client = aimu.client(MODEL)
+seen: list = []
+
+
+def tally_sink(event: RunEvent) -> None:
+    seen.append((event.agent, type(event).__name__))
+
+
+chain = Chain.from_client(
+    chain_client,
+    ["Rephrase the input as a question.", "Answer the question in one short sentence."],
+    events=tally_sink,
+)
+result = chain.run("The sky is blue.")
+print("result:", result)
+for agent_name, kind in seen:
+    print(agent_name, kind)
+```
+
+```
+result: ...
+step-0 RunStarted
+step-0 ModelTurnStarted
+step-0 RequestPrepared
+step-0 ModelTurnFinished
+step-0 RunFinished
+step-1 RunStarted
+step-1 ModelTurnStarted
+step-1 RequestPrepared
+step-1 ModelTurnFinished
+step-1 RunFinished
+```
+
+`OrchestratorAgent.assemble(events=...)` forwards the sink to the inner orchestrating
+`Agent` — the only way to reach it, since that agent is private. It covers the
+orchestrator's own turns and its worker-dispatch tool calls; a worker's *internal* turns
+reach the sink only if that worker `Agent` was given its own `events=` too (the same
+"each layer opts in independently" rule as everywhere else in AIMU):
+
+```{python}
+from aimu.agents import OrchestratorAgent
+
+orch_client = aimu.client(MODEL)
+orch_seen: list = []
+
+summarizer = Agent(orch_client, "Summarize the input in five words or fewer.", name="summarizer")
+orch = OrchestratorAgent.assemble(
+    orch_client,
+    "Call the summarizer tool exactly once on the user's text, then relay its result "
+    "verbatim as your final answer. Never call any tool more than once.",
+    workers=[summarizer],
+    events=orch_seen.append,
+)
+result = orch.run("Summarize: The quick brown fox jumps over the lazy dog.")
+print("result:", result)
+print("event count:", len(orch_seen))
+print("event types:", {type(e).__name__ for e in orch_seen})
+print("agent names seen:", {e.agent for e in orch_seen})
+```
+
+```
+result: ...
+event count: 22
+event types: {'RunStarted', 'ModelTurnStarted', 'RequestPrepared', 'ModelTurnFinished', 'ToolCalled', 'RunFinished'}
+agent names seen: {'orchestrator'}
+```
+
+(`event count` and how many times the `summarizer` tool was actually called are sampled —
+this weak-model demo called it twice across two of these runs despite the instruction not
+to; the event *types* and the fact every one of them is tagged `'orchestrator'`, not
+`'summarizer'`, are stable, and are exactly the point: `summarizer` never got its own
+`events=`, so its internal turns are invisible.)
+
+## E - A custom sink: tally tokens across a run
+
+A sink is a plain callable — nothing says it has to log. This one accumulates token usage
+from every `ModelTurnFinished` in a run:
+
+```{python}
+from aimu.events import ModelTurnFinished
+
+
+class TokenTally:
+    def __init__(self):
+        self.input_tokens = 0
+        self.output_tokens = 0
+
+    def __call__(self, event):
+        if isinstance(event, ModelTurnFinished) and event.usage:
+            self.input_tokens += event.usage.get("input_tokens", 0)
+            self.output_tokens += event.usage.get("output_tokens", 0)
+
+
+tally = TokenTally()
+tally_client = aimu.client(MODEL)
+tally_agent = Agent(tally_client, "You are terse.", events=tally)
+tally_agent.run("Say hi in three words.")
+print(f"input_tokens={tally.input_tokens} output_tokens={tally.output_tokens}")
+```
+
+```
+input_tokens=25 output_tokens=...
+```
+
+(Both numbers are real counts from `client.last_usage`, not estimates. `input_tokens`
+depends only on this fixed one-turn prompt + system message, so it reproduces exactly
+(`25` across every run this notebook was tested with); `output_tokens` depends on how much
+the model reasoned, which is sampled — it ranged from 180 to 432 across the runs used to
+write this notebook.)
+
+## F - Gated tools: `ToolDenied`
+
+A `tool_approval` policy that refuses a call emits `ToolDenied` (name + the model's raw
+arguments) instead of `ToolCalled`, so a sink can distinguish "the model tried this and it
+ran" from "the model tried this and a policy said no":
+
+```{python}
+@aimu.tool
+def delete_everything() -> str:
+    """Delete everything."""
+    return "done"
+
+
+denied_client = aimu.client(MODEL)
+denied_agent = Agent(
+    denied_client,
+    "Always use the delete_everything tool when asked.",
+    tools=[delete_everything],
+    tool_approval=lambda name, args: False,
+    events=log_events(logging.getLogger("aimu.demo")),
+)
+denied_agent.run("Please delete everything now.")
+```
+
+```
+RunStarted RunStarted(agent='agent-975fd0', iteration=0, task='Please delete everything now.')
+ModelTurnStarted ModelTurnStarted(agent='agent-975fd0', iteration=0, model='qwen3:8b', message_count=2, tool_names=('delete_everything',))
+RequestPrepared RequestPrepared(agent='agent-975fd0', iteration=0, ...)
+ModelTurnFinished ModelTurnFinished(agent='agent-975fd0', iteration=0, model='qwen3:8b', text='', usage={'input_tokens': 135, ...}, duration_s=...)
+ToolDenied ToolDenied(agent='agent-975fd0', iteration=0, name='delete_everything', arguments={})
+ModelTurnStarted ModelTurnStarted(agent='agent-975fd0', iteration=1, ...)
+RequestPrepared RequestPrepared(agent='agent-975fd0', iteration=1, ...)
+ModelTurnFinished ModelTurnFinished(agent='agent-975fd0', iteration=1, model='qwen3:8b', text=..., ...)
+RunFinished RunFinished(agent='agent-975fd0', iteration=1, result=..., error=None)
+```
+
+`ToolDenied`'s shape is stable: `name='delete_everything'` and `arguments={}` are exactly
+what the model passed. The tool message the model itself sees is the same text
+[gate tool calls](../docs/how-to/gate-tool-calls.md) documents:
+`"Tool 'delete_everything' was not approved."`; the event is the same fact, structured for a
+sink instead of the transcript.
+
+## G - A worked example: an OpenTelemetry-shaped sink
+
+Events are plain data, so mapping them onto spans in an observability system is a dispatch
+function. This is a worked example, not a dependency — AIMU does not import
+`opentelemetry`. The stand-in tracer below is what makes the cell runnable without one
+installed; swap it for `opentelemetry.trace.get_tracer(__name__)` and the mapping is
+unchanged:
+
+```{python}
+from aimu.events import ModelTurnFinished, ModelTurnStarted, RunFinished, RunStarted, ToolCalled
+
+
+class FakeSpan:
+    def __init__(self, name, attributes):
+        self.name, self.attributes = name, attributes
+
+
+class FakeTracer:
+    """Stand-in for trace.get_tracer(__name__); records spans instead of exporting them."""
+
+    def __init__(self):
+        self.spans = []
+
+    def start_span(self, name, attributes):
+        span = FakeSpan(name, attributes)
+        self.spans.append(span)
+        return span
+
+
+def make_otel_sink(tracer):
+    def sink(event: RunEvent) -> None:
+        if isinstance(event, RunStarted):
+            tracer.start_span("agent.run", {"agent": event.agent, "task": event.task})
+        elif isinstance(event, ModelTurnStarted):
+            tracer.start_span("model.turn", {"agent": event.agent, "model": event.model})
+        elif isinstance(event, ToolCalled):
+            tracer.start_span("tool.call", {"agent": event.agent, "name": event.name})
+        elif isinstance(event, ModelTurnFinished):
+            tracer.start_span("model.turn.finished", {"agent": event.agent, "usage": event.usage})
+        elif isinstance(event, RunFinished):
+            tracer.start_span("agent.run.finished", {"agent": event.agent, "result": event.result})
+
+    return sink
+
+
+tracer = FakeTracer()
+otel_client = aimu.client(MODEL)
+otel_agent = Agent(otel_client, "You are terse.", events=make_otel_sink(tracer))
+otel_agent.run("Say hi in three words.")
+for span in tracer.spans:
+    print(span.name, span.attributes)
+```
+
+```
+agent.run {'agent': 'agent-d80160', 'task': 'Say hi in three words.'}
+model.turn {'agent': 'agent-d80160', 'model': 'qwen3:8b'}
+model.turn.finished {'agent': 'agent-d80160', 'usage': {'input_tokens': 25, ...}}
+agent.run.finished {'agent': 'agent-d80160', 'result': ...}
+```
+
+(`usage['output_tokens']`/`['total_tokens']` and the reply text vary by run — how much the
+model reasons and what it says are both sampled; `input_tokens` for this fixed prompt is
+not.) A real adapter would keep a stack of open spans (so `agent.run.finished` closes the
+span `agent.run` opened, rather than opening a new one) and forward `event.iteration` as a
+span attribute for a multi-round tool loop. It would also read `event.error` on both
+`*Finished` events: both fire on a failure too, which is what makes the pairing safe to
+rely on unconditionally.
+
+## H - Known limitation: a shared client under concurrent workers
+
+`events=` is delivered by mutating `model_client.events` for the span of a call — the same
+scoped-swap idiom `tools=` already uses, and already documented as "not safe across
+concurrent `chat()` calls on a shared client." `Parallel.from_client(...)` builds every
+worker `Agent` over **one shared `model_client`**, and `Parallel.run()` executes those
+workers concurrently. Two workers whose runs overlap on that one client can clobber each
+other's sink — events get dropped and misattributed, even though each worker `Agent` was
+given its own `events=`.
+
+This is reproduced deterministically below by manually interleaving two scopes on one
+client, in the order two concurrent workers can land in (not real threads, so this isn't
+timing-dependent — it pins the mechanism, the same way
+`tests/test_workflow_parallel.py::test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events`
+does):
+
+```{python}
+from aimu.events import emit
+
+gap_client = aimu.client(MODEL)
+seen_a: list = []
+seen_b: list = []
+sink_a, sink_b = seen_a.append, seen_b.append
+
+# worker-a's Agent.run() enters its events scope first...
+scope_a = gap_client._events_override(sink_a)
+scope_a.__enter__()
+print("client.events is sink_a:", gap_client.events is sink_a)
+
+# ...but before worker-a's run finishes, worker-b's Agent.run() (a different thread, same
+# shared client) enters its own scope and clobbers the live sink.
+scope_b = gap_client._events_override(sink_b)
+scope_b.__enter__()
+print("client.events is sink_b:", gap_client.events is sink_b)
+
+emit(gap_client.events, RunFinished(result="worker-b's own turn"))
+print("seen_a:", seen_a)
+print("seen_b:", seen_b)
+```
+
+```
+client.events is sink_a: True
+client.events is sink_b: True
+seen_a: []
+seen_b: [RunFinished(agent=None, iteration=0, result="worker-b's own turn", error=None)]
+```
+
+worker-a's sink never sees the event at all — it was silently displaced. This is pinned as a
+known gap, not a bug waiting to be fixed on this pass. If you need reliable per-worker
+events out of a `Parallel`, build each worker over its **own** `model_client` (skip
+`Parallel.from_client` and construct `Parallel(workers=[...])` directly) rather than
+sharing one.
+
+## I - Known limitation: `schema=` only emits `RequestPrepared`
+
+`client.chat(schema=...)` (and `generate(schema=...)`) makes exactly one call and returns
+before `ModelTurnStarted` fires, so the structured-output path never emits
+`ModelTurnStarted`/`ModelTurnFinished` — only `RequestPrepared`:
+
+```{python}
+import dataclasses
+
+
+@dataclasses.dataclass
+class Answer:
+    value: int
+
+
+schema_client = aimu.client(MODEL)
+schema_seen: list = []
+schema_client.events = schema_seen.append
+
+result = schema_client.chat("What is 2+2? Reply with just the number.", schema=Answer)
+print("result:", result)
+print("events:", [type(e).__name__ for e in schema_seen])
+```
+
+```
+result: Answer(value=4)
+events: ['RequestPrepared']
+```
+
+Inside an `Agent.run(schema=...)`, the run is still bracketed by `RunStarted`/`RunFinished`
+(section D's `RunFinished.result` is `None` here too, since the result is a typed object,
+not a string — it's the return value, and also lands on `client.last_structured`); it is
+only the inner model-turn pair that is missing on this path.
+
+## Clean up
+
+```{python}
+del client, agent, chain_client, tally_client, denied_client, otel_client, gap_client, schema_client
+print("Cleaned up.")
+```

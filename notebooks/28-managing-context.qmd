@@ -1,0 +1,293 @@
+---
+title: "Managing Context"
+jupyter: python3
+---
+
+
+A conversation is `self.messages` — a plain `list[dict]`, OpenAI format (see
+[notebook 02](02-conversations.qmd)) — and it only grows. Left alone, a long-running agent
+([notebook 07](07-agents.qmd)) eventually produces a request that no longer fits the model's
+context window. `aimu.context` is three plain functions over that list — `count_tokens`,
+`trim_messages`, `summarize_messages` — plus a `compaction=` field on `Agent` that runs one
+of them automatically before every model turn. Nothing here is a hidden policy applied
+inside a client: it's the same "plain data, plain functions" shape as `aimu.rag`
+([notebook 13](13-rag.qmd)), so what gets dropped and why is always something you can print.
+
+**What this notebook covers:**
+- `count_tokens`, and its honesty caveat: an estimate, not a measurement
+- `trim_messages`, and the invariant that justifies it existing (never orphan a `tool`
+  message from the `assistant` turn carrying its `tool_calls`)
+- `keep_last` counts messages, not exchanges
+- `summarize_messages`: replace old turns with a generated summary instead of dropping them
+- `Agent(compaction=)`: automate either one, and how an applied compaction announces itself
+  (an event, and a warning)
+- `ContextOverflowError`: the portable catch-compact-retry signal for when it's already too
+  late
+
+> This notebook runs a local Ollama model (`qwen3:8b`) in sections D, E, and F; A through C
+> are pure functions and need no backend. Generated summary text and token usage vary by
+> run; the numbers from the pure functions (`count_tokens`, `trim_messages`) do not, for a
+> fixed input.
+
+## Setup
+
+```{python}
+import aimu
+
+MODEL = "ollama:qwen3:8b"
+```
+
+## A - Count tokens: an honest estimate
+
+`count_tokens` estimates a message list's size. The default counter is `len(text) // 4`
+over each message JSON-serialized, with AIMU's own inert bookkeeping keys
+(`timestamp`, `thinking`, `provenance`) stripped first — a provider never sees those, but
+the structural overhead of `role`/`tool_calls`/JSON punctuation does ride along in the real
+request:
+
+```{python}
+messages = [{"role": "user", "content": "hello there"}]
+print(aimu.count_tokens(messages))
+```
+
+```
+10
+```
+
+**This is an estimate, not a measurement** — typically wrong by 20-30% for any specific
+model's real tokenizer. The only exact count AIMU can report is after the fact, via
+`client.last_usage` following a real call (see [notebook 27](27-observing-runs.qmd), section
+E). Pass `counter=` with a real tokenizer when accuracy matters more than a zero-dependency
+default:
+
+```python
+aimu.count_tokens(messages, counter=lambda text: len(enc.encode(text)))  # enc: any tiktoken-like encoder
+```
+
+## B - Trim to a budget: `trim_messages`
+
+`trim_messages` drops the oldest messages until the conversation fits `max_tokens` (per
+`count_tokens`), and returns a new list — the input is never mutated:
+
+```{python}
+budget_messages = [{"role": "system", "content": "You are a assistant."}]
+for i in range(6):
+    budget_messages.append({"role": "user", "content": f"This is user message number {i}, with some extra padding."})
+    budget_messages.append({"role": "assistant", "content": f"This is assistant reply number {i}, also padded out."})
+
+print(aimu.count_tokens(budget_messages))
+trimmed = aimu.trim_messages(budget_messages, max_tokens=80, keep_last=2)
+print(aimu.count_tokens(trimmed))
+print([m["role"] for m in trimmed])
+```
+
+```
+274
+78
+['system', 'assistant', 'user', 'assistant']
+```
+
+Four messages kept, not the two `keep_last=2` might suggest — see section C for why.
+
+**The invariant that justifies this over a hand-written `messages[-n:]` slice**: trimming
+never orphans a `tool` message from the `assistant` message carrying the `tool_calls` it's
+answering. Every provider rejects that shape, and it's exactly what a naive slice produces.
+`trim_messages` treats an `assistant`-with-`tool_calls` message and every `tool` message
+answering it as one indivisible unit — dropped together, kept together, never split. On a
+real two-turn tool-using conversation (built the same way [notebook 07](07-agents.qmd)
+does — note the system prompt lives on the *client*, not the agent, so both `run()` calls
+accumulate onto one history rather than resetting; see [notebook 25](25-sessions.qmd)'s
+gotcha for why):
+
+```{python}
+from aimu.agents import Agent
+from aimu.tools import tool
+
+
+@tool
+def add(a: int, b: int) -> int:
+    """Add two integers."""
+    return a + b
+
+
+tool_client = aimu.client(MODEL, system="You are a helpful assistant. Use the add tool for arithmetic.")
+tool_agent = Agent(tool_client, tools=[add])
+tool_agent.run("What is 12 + 30? Use the add tool.")
+tool_agent.run("What is 100 + 1? Use the add tool.")
+
+print([m["role"] for m in tool_client.messages])
+
+tool_trimmed = aimu.trim_messages(tool_client.messages, max_tokens=150, keep_last=1)
+print([m["role"] for m in tool_trimmed])
+```
+
+```
+['system', 'user', 'assistant', 'tool', 'assistant', 'user', 'assistant', 'tool', 'assistant']
+['system', 'assistant', 'user', 'assistant', 'tool', 'assistant']
+```
+
+Reading the trimmed list against the original: the first exchange's `user` question *and*
+the `assistant`-with-`tool_calls`/`tool` pair answering it were dropped together (the whole
+group, never split), while the first exchange's own **final** `assistant` reply (no
+`tool_calls`, so nothing to orphan) survived on its own, right after `system`. The second
+exchange's `assistant`-with-`tool_calls`/`tool` pair was kept intact even though only its
+trailing `assistant` message was technically inside the protected `keep_last=1` tail — the
+boundary was pushed outward to the group's edge rather than splitting it. (Which messages
+are big enough to need dropping depends on how much the model reasoned before each reply —
+a `thinking` model's reasoning text inflates some assistant messages far more than others —
+so a re-run can drop a different combination of groups than shown here; what never changes
+is that a `tool` message is never separated from the `assistant` message carrying the
+`tool_calls` it answers.)
+
+## C - `keep_last` counts messages, not exchanges
+
+A "turn" is ambiguous: a plain back-and-forth is 2 messages (user + assistant), but an
+agentic turn can be 5+ (user, assistant-with-tool_calls, one or more tool results, final
+assistant answer). `keep_last=2` on section B's tool-using conversation protects only the
+last 2 *messages* — here, `tool` and the final `assistant` — not the whole last exchange:
+
+```{python}
+print([m["role"] for m in aimu.trim_messages(tool_client.messages, max_tokens=10_000, keep_last=2)])
+```
+
+```
+['system', 'user', 'assistant', 'tool', 'assistant', 'user', 'assistant', 'tool', 'assistant']
+```
+
+Nothing dropped here — the whole conversation already fits comfortably under 10,000 tokens,
+so `trim_messages` returns everything unchanged (a copy). Pass a larger `keep_last` if you
+want whole exchanges protected on a tool-using conversation; system messages
+(`keep_system=True`, the default) are always kept regardless of budget or `keep_last`.
+
+## D - Summarize instead of dropping: `summarize_messages`
+
+`trim_messages` discards the oldest turns outright. `summarize_messages` replaces them with
+one LLM-generated summary instead, so the conversation keeps *some* memory of what came
+before rather than none:
+
+```{python}
+summary_client = aimu.client(MODEL)
+plain_messages = [
+    {"role": "user", "content": "My favorite color is blue."},
+    {"role": "assistant", "content": "Got it, blue is a great color."},
+    {"role": "user", "content": "What is 2+2?"},
+    {"role": "assistant", "content": "4"},
+]
+summarized = aimu.summarize_messages(summary_client, plain_messages, keep_last=2)
+for m in summarized:
+    print(m["role"], ":", m["content"])
+```
+
+```
+system : Summary of earlier conversation:
+<generated summary text -- varies by run and model>
+user : What is 2+2?
+assistant : 4
+```
+
+The `"Summary of earlier conversation:\n"` prefix is a fixed template; the tail
+(`user`/`assistant` here) is the original messages kept verbatim — only the summary
+sentence is generated text, and it will read differently on your machine. `client` is
+anything with a `generate(prompt: str) -> str` method (a plain `BaseModelClient`, or
+`agent.as_model_client()`), passed in rather than constructed internally so this function
+stays free of any provider dependency. It applies the same group-protection invariant as
+`trim_messages` when carving out the tail. When the whole conversation already fits in
+`keep_last`, no summarization call is made and the input is returned unchanged (a copy).
+
+## E - Automate it: `Agent(compaction=)`
+
+Both functions above are things you call by hand. `Agent(compaction=...)` (and the per-run
+`agent.run(compaction=...)` override) runs a callable of your choice —
+`list[dict] -> list[dict]` — right before every model turn in the loop:
+
+```{python}
+import logging
+
+logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(message)s")
+
+from aimu.events import ContextCompacted
+
+compaction_seen: list = []
+compaction_client = aimu.client(MODEL, system="You are terse. Reply in one short sentence.")
+compaction_agent = Agent(
+    compaction_client,
+    events=compaction_seen.append,
+    compaction=lambda msgs: aimu.trim_messages(msgs, max_tokens=60, keep_last=2),
+)
+compaction_agent.run("Tell me a fact about the moon.")
+compaction_agent.run("Now tell me a fact about the sun.")
+compaction_agent.run("Now tell me a fact about Mars.")
+
+compacted = [e for e in compaction_seen if isinstance(e, ContextCompacted)]
+print("ContextCompacted events:", len(compacted))
+for e in compacted:
+    print("dropped roles:", [m["role"] for m in e.dropped], "| before:", e.before_tokens, "| after:", e.after_tokens)
+```
+
+```
+WARNING Compacted conversation for agent 'agent-775fd0': dropped 2 message(s) (~106 -> ~62 tokens, AIMU's own estimate).
+ContextCompacted events: 1
+dropped roles: ['user', 'assistant'] | before: 106 | after: 62
+```
+
+**An applied compaction is never silent.** "Applied" means it actually dropped something
+(judged by content, not identity — the callable may rebuild kept messages into new dict
+objects). When that happens, two things fire together: a `ContextCompacted` event for a
+sink attached via `events=` (see [notebook 27](27-observing-runs.qmd)), and an unconditional
+`WARNING` log — so a caller with no sink still learns their conversation was rewritten. The
+agent id and the two token counts vary by run (they depend on how much the model reasoned in
+the turns leading up to compaction); "dropped 2 message(s)" is stable here, since
+`keep_last=2` with one exchange (user + assistant) accumulating past the 60-token budget
+each time drops exactly one full exchange on schedule.
+
+A compaction call that returns the conversation unchanged (the common case early on, before
+the budget is actually exceeded) is a no-op and announces nothing. `ContextCompacted`'s
+`before_tokens`/`after_tokens` are AIMU's own default estimate — not a measurement of
+whatever the callable itself counted to decide what to drop.
+
+**If the compaction callable raises, the run raises** — the same "failures are apparent"
+rule as everywhere else in AIMU; a compaction that can't be trusted to run should stop the
+turn, not be silently skipped while the caller believes their context is being managed.
+
+## F - When it's already too late: `ContextOverflowError`
+
+Compaction is preventive. `ContextOverflowError` (`from aimu.models import ContextOverflowError`)
+is what a request that *already* doesn't fit raises — the input-side counterpart of
+`TruncatedTurnError` (`aimu.agents`), which reports an *output* that ran out of room
+instead. Coverage differs by backend, because the failure itself looks different per
+backend:
+
+| Provider | How it's detected |
+|---|---|
+| `ollama` | native API rejects the request after trimming past the required user turn |
+| `anthropic` | a 400 whose message names the prompt as too long, or a 413 |
+| `openai`, `gemini`, local OpenAI-compat servers that set it | 400 with `code=context_length_exceeded` |
+| `hf`, `llamacpp` | in-process pre-flight token count against the model's own known window, before the call is even attempted |
+
+The recovery recipe — catch, trim, retry:
+
+```python
+from aimu.models import ContextOverflowError
+
+try:
+    agent.run(task)
+except ContextOverflowError:
+    agent.model_client.messages = aimu.trim_messages(agent.model_client.messages, max_tokens=8000)
+    agent.run(task)
+```
+
+This cell is deliberately not executed for pasted output: triggering the real error live
+needs a request that overflows a *specific, small* context window in the exact way each
+backend's own overflow detection expects (Ollama's native path only raises when its
+server-side trim reaches past the required user turn), which is backend- and
+timing-dependent rather than something a short demo prompt reliably reproduces. Raising the
+model's own context window (`generate_kwargs={"context_length": N}` on Ollama; see
+[docs/how-to/set-context-length.md](../docs/how-to/set-context-length.md)) is the other
+lever, when the model actually supports a larger one.
+
+## Clean up
+
+```{python}
+del tool_client, tool_agent, summary_client, compaction_client, compaction_agent
+print("Cleaned up.")
+```

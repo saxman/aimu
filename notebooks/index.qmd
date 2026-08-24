@@ -41,3 +41,5 @@ execute against your own backend.
 24. [Personal Assistants](24-personal-assistants.qmd)
 25. [Sessions (multi-user)](25-sessions.qmd)
 26. [Remote MCP Servers](26-remote-mcp-servers.qmd)
+27. [Observing Runs](27-observing-runs.qmd)
+28. [Managing Context](28-managing-context.qmd)
