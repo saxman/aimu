@@ -331,6 +331,58 @@ async def test_async_abandoned_stream_still_reports_partial_text():
     assert len(finished) == 1
 
 
+def _a_tool() -> str:
+    """Does nothing."""
+    return ""
+
+
+async def test_async_failing_tools_streamed_turn_emits_finished_before_any_chunk():
+    """``_chat_with_tools_streamed`` is itself an async generator, so ``await chat()`` only
+    builds it -- ``_emit_turn_started`` and the eager ``_chat()`` call happen on first
+    iteration (mirroring ``_chat_setup`` running eagerly under a real provider). A raise
+    there, before any chunk exists, must still close out the started/finished pair."""
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+
+    class Boom(MockAsyncModelClient):
+        async def _chat(self, *args, **kwargs):
+            raise RuntimeError("provider said no")
+
+    seen = []
+    client = Boom([])
+    client.events = seen.append
+    stream = await client.chat("hi", tools=[_a_tool], stream=True)
+    assert not seen  # nothing fires until the async generator is iterated
+
+    with pytest.raises(RuntimeError):
+        async for _ in stream:
+            pass
+
+    assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
+    finished = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert len(finished) == 1
+    assert isinstance(finished[0].error, RuntimeError)
+
+
+async def test_async_tools_streamed_turn_emits_exactly_one_finished_on_success():
+    """A normal streamed turn with a ``tools=`` override must report exactly one
+    ModelTurnFinished: not zero (the missed-guard bug) and not two (a double-emit from
+    also firing on the successful eager call before ``_emit_when_drained`` runs)."""
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+
+    seen = []
+    client = MockAsyncModelClient(["streamed hello"])
+    client.events = seen.append
+
+    stream = await client.chat("hi", tools=[_a_tool], stream=True)
+    chunks = [chunk async for chunk in stream]
+    assert chunks  # sanity: the mock actually streamed something
+
+    assert sum(isinstance(e, ModelTurnStarted) for e in seen) == 1
+    finished = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert len(finished) == 1
+    assert finished[0].text == "streamed hello"
+
+
 # ---------------------------------------------------------------------------
 # Wrapper double-emit regression tests (async mirror of tests/test_events.py).
 # ---------------------------------------------------------------------------

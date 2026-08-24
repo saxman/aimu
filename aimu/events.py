@@ -127,8 +127,13 @@ class ModelTurnFinished(RunEvent):
     On a streamed turn this fires when the stream is actually drained (or abandoned), not
     when it was created, so ``usage`` -- which only populates at the end -- is real and
     ``duration_s`` covers the whole stream. ``text`` is the concatenated ``GENERATING``
-    content on a streamed turn, and the returned string on a non-streamed one; it is
-    ``None`` for a structured (``schema=``) result, which is not a string.
+    content on a streamed turn, and the returned string on a non-streamed one.
+
+    Not emitted at all on the ``schema=`` structured-output path: ``chat()`` / ``generate()``
+    return before :class:`ModelTurnStarted` is emitted when ``schema`` is set, since that path
+    makes exactly one call and reports itself a different way (see
+    ``Agent._structured_run_events`` / :class:`RunFinished`). There is therefore no started
+    turn to leave unpaired there either.
     """
 
     model: str = ""

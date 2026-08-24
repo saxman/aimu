@@ -573,9 +573,16 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         """
         with self._tools_override(tools):
             started, model_id = self._emit_turn_started(user_message)
-            result = self._chat(
-                user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images, audio=audio
-            )
+            try:
+                result = self._chat(
+                    user_message, generate_kwargs, use_tools=use_tools, stream=True, images=images, audio=audio
+                )
+            except BaseException as exc:
+                # _chat_setup runs eagerly even under stream=True, so a raise here (before any
+                # chunk exists) still ended the turn; without this, a dangling ModelTurnStarted
+                # would have no matching ModelTurnFinished.
+                self._emit_turn_finished(model_id, started, None, error=exc)
+                raise
             result = self._emit_when_drained(result, started, model_id)
             if include is not None:
                 result = self._filter_chunks(result, self._resolve_include(include))

@@ -107,10 +107,12 @@ Two contracts worth knowing before you write one:
 - **`ModelTurnFinished` fires even when the turn failed**, with the exception on its `error`
   field and `text`/`usage` unset — so a sink pairing `ModelTurnStarted` with it (durations, a
   usage rollup, an OpenTelemetry span) closes its span on a `ContextOverflowError` or a
-  provider 4xx instead of leaking one. `RunFinished.error` is the same idea a level up, and
-  `RunFinished.result` is `None` on a streamed run (the chunks went to you, so the runner never
-  assembled a final string) and on a `schema=` run (the result is a typed object, not a string;
-  it is the return value, and is also on `client.last_structured`).
+  provider 4xx instead of leaking one. It is **not emitted at all** on a `schema=` run: `chat()`
+  / `generate()` return before `ModelTurnStarted` fires when `schema` is set, so there is no
+  started turn to pair (or leave dangling) there. `RunFinished.error` is the same started/finished
+  idea a level up, and `RunFinished.result` is `None` on a streamed run (the chunks went to you,
+  so the runner never assembled a final string) and on a `schema=` run (the result is a typed
+  object, not a string; it is the return value, and is also on `client.last_structured`).
 
 ## `last_request`: did the library do this, or the model?
 
