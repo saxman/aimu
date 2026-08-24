@@ -6,18 +6,14 @@ so that the tools are available either in-process (``Agent(client, tools=[get_we
 or cross-process (``python -m aimu.tools.mcp``).
 """
 
-import ast
-import builtins as _builtins_module
-import contextlib
 import datetime
-import importlib
-import io
+import logging
 import os
 import re
+import signal
 import subprocess
 import sys
 import tempfile
-import traceback
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -27,15 +23,10 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import requests
 from dotenv import load_dotenv
 
+from . import _execute_python_worker
 from .decorator import tool
 
-# `resource` (POSIX rlimits, used to cap the execute_python subprocess's memory) does
-# not exist on Windows. Guard the import and degrade to no memory cap there rather
-# than failing to import this module at all.
-try:
-    import resource
-except ImportError:  # pragma: no cover - exercised only on Windows
-    resource = None
+_logger = logging.getLogger(__name__)
 
 load_dotenv()
 SEARXNG_BASE_URL = os.environ.get("SEARXNG_BASE_URL", "http://localhost:8080")
@@ -335,94 +326,13 @@ def calculate(expression: str) -> str:
         return f"Error: {e}"
 
 
-# Modules allowlisted for execute_python (both backends).
-_SANDBOX_ALLOWLIST = frozenset(
-    [
-        "math",
-        "statistics",
-        "json",
-        "re",
-        "itertools",
-        "functools",
-        "datetime",
-        "zoneinfo",
-        "numpy",
-        "pandas",
-        "scipy",
-        "matplotlib",
-    ]
-)
-
-# Restricted builtins: copy all stdlib builtins, then block dangerous ones.
-_SANDBOX_BUILTINS = {
-    k: v for k, v in vars(_builtins_module).items() if k not in ("open", "breakpoint", "input", "__import__")
-}
-
-
-def _exec_restricted_code(code: str) -> str:
-    """Parse and run *code* against a namespace with restricted builtins and an
-    import allowlist, returning captured stdout plus the last expression's ``repr``
-    (or an error string). Shared implementation for both ``execute_python`` backends,
-    so they can never drift on what "run this code" means, and -- deliberately -- on
-    what it's allowed to do: the restriction is kept identical between
-    ``execute_python`` (subprocess) and ``execute_python_in_process`` so switching
-    between them changes only where the code runs, not what rules it runs under.
-
-    This stops accidents, not a determined attempt (a one-line expression reaches
-    `subprocess.Popen` through the type hierarchy, and the filesystem through an
-    allowlisted module's transitive attributes). That is true of both backends: the
-    subprocess boundary buys real isolation properties of its own (timeout, crash
-    isolation, no host mutation, no leaked environment -- see `execute_python`'s
-    docstring), but it does not confine the filesystem or network, so this allowlist
-    is still the only thing standing between the model and an accidental `import os`
-    or `open()` in either backend.
-    """
-    namespace = {}
-    for mod_name in _SANDBOX_ALLOWLIST:
-        try:
-            namespace[mod_name] = importlib.import_module(mod_name)
-        except ImportError:
-            pass
-
-    _real_import = _builtins_module.__import__
-
-    def _restricted_import(name, globals=None, locals=None, fromlist=(), level=0):
-        if name.split(".")[0] not in _SANDBOX_ALLOWLIST:
-            raise ImportError(f"'{name}' is not in the execute_python import allowlist")
-        return _real_import(name, globals, locals, fromlist, level)
-
-    namespace["__builtins__"] = {**_SANDBOX_BUILTINS, "__import__": _restricted_import}
-
-    try:
-        tree = ast.parse(code)
-    except SyntaxError as exc:
-        return f"SyntaxError: {exc}"
-
-    # If the last statement is an expression, compile preamble + last separately
-    # so we can eval() the expression and capture its value without AST mutation.
-    stdout_buf = io.StringIO()
-    result = None
-    try:
-        with contextlib.redirect_stdout(stdout_buf):
-            if tree.body and isinstance(tree.body[-1], ast.Expr):
-                preamble = ast.Module(body=tree.body[:-1], type_ignores=[])
-                ast.fix_missing_locations(preamble)
-                expr = ast.Expression(body=tree.body[-1].value)
-                ast.fix_missing_locations(expr)
-                exec(compile(preamble, "<execute_python>", "exec"), namespace)  # noqa: S102
-                result = eval(compile(expr, "<execute_python>", "eval"), namespace)  # noqa: S307
-            else:
-                exec(compile(tree, "<execute_python>", "exec"), namespace)  # noqa: S102
-    except Exception:
-        return f"Error:\n{traceback.format_exc()}"
-
-    parts = []
-    stdout = stdout_buf.getvalue()
-    if stdout:
-        parts.append(stdout.rstrip())
-    if result is not None:
-        parts.append(repr(result))
-    return "\n".join(parts) if parts else "(no output)"
+# Restricted-exec logic (the shared "run this code, capture stdout + last expression"
+# behavior for both execute_python backends) lives in the dependency-free
+# _execute_python_worker leaf module -- see its docstring for why the subprocess
+# backend can't just `import aimu.tools.builtin` in the child. Re-exported here mainly
+# so existing callers/tests that reached for `_SANDBOX_ALLOWLIST` on this module still
+# find it.
+_SANDBOX_ALLOWLIST = _execute_python_worker.SANDBOX_ALLOWLIST
 
 
 @tool
@@ -447,31 +357,63 @@ def execute_python_in_process(code: str) -> str:
     Args:
         code: Python code to execute.
     """
-    return _exec_restricted_code(code)
+    return _execute_python_worker.run_restricted(code)
 
-
-# execute_python (the subprocess backend) runs the child with sys.executable so it is
-# the same interpreter/environment this process runs under, importing this module to
-# reach _exec_restricted_code -- one execution path, not a duplicated script, and the
-# same restricted-builtins/import-allowlist accident guard as execute_python_in_process
-# (see _exec_restricted_code's docstring for why that guard is kept, not dropped, once
-# the code also runs in its own process).
-_EXECUTE_PYTHON_WORKER_SOURCE = (
-    "import sys\n"
-    "from aimu.tools.builtin import _exec_restricted_code\n"
-    "sys.stdout.write(_exec_restricted_code(sys.stdin.read()))\n"
-)
 
 _EXECUTE_PYTHON_TIMEOUT_S = 10
-# RLIMIT_AS caps the child's total address space; enforced only on POSIX (see the
-# guarded `resource` import above). 512 MiB comfortably fits numpy/pandas imports
-# while still catching a runaway allocation.
+# RLIMIT_AS caps the child's total address space. Genuinely enforced on Linux;
+# best-effort elsewhere (macOS/XNU refuses to lower it at all -- confirmed
+# independently via a plain shell's `ulimit -v`, so this is a platform limitation, not
+# a bug here -- and Windows has no rlimit mechanism to speak of). See
+# _build_execute_python_worker_source(): the child sets this itself, inside a
+# try/except that reports failure back over stderr rather than raising, so a platform
+# that can't enforce it degrades to "no cap" instead of refusing to run at all.
 _EXECUTE_PYTHON_MEMORY_LIMIT_BYTES = 512 * 1024 * 1024
 _EXECUTE_PYTHON_OUTPUT_LIMIT_CHARS = 20_000
 
+# A private, unlikely-to-collide marker: written to the child's stderr by the rlimit
+# try/except in the worker source when the memory cap could not be applied. The parent
+# strips it out of the visible error text and turns it into a one-time logging warning
+# (_warn_once_execute_python) instead of a docstring nobody reads at runtime.
+_MEMORY_CAP_UNAVAILABLE_MARKER = "__AIMU_EXECUTE_PYTHON_MEMORY_CAP_UNAVAILABLE__"
+
+# The directory this module lives in, baked in as a literal at import time. The worker
+# script inserts it at the front of the child's sys.path so `import _execute_python_worker`
+# resolves there directly -- independent of PYTHONPATH, site-packages, or the child's
+# cwd (a throwaway temp directory), all of which the scrubbed environment and isolated
+# cwd would otherwise break for a PYTHONPATH-based install or an unbuilt source checkout.
+_EXECUTE_PYTHON_WORKER_DIR = str(Path(__file__).resolve().parent)
+
+
+def _build_execute_python_worker_source() -> str:
+    """Build the ``-c`` script for the execute_python child.
+
+    Sets the memory cap as the very first thing the child does, before importing
+    anything (including the allowlisted third-party modules `run_restricted` preloads,
+    which are exactly the kind of heavy allocation the cap exists to bound) -- and
+    never imports the `aimu` package (see `_execute_python_worker`'s module docstring).
+    """
+    limit = _EXECUTE_PYTHON_MEMORY_LIMIT_BYTES
+    return (
+        "import sys\n"
+        f"sys.path.insert(0, {_EXECUTE_PYTHON_WORKER_DIR!r})\n"
+        "try:\n"
+        "    import resource\n"
+        f"    resource.setrlimit(resource.RLIMIT_AS, ({limit}, {limit}))\n"
+        "except Exception:\n"
+        f"    sys.stderr.write({_MEMORY_CAP_UNAVAILABLE_MARKER + chr(10)!r})\n"
+        "import _execute_python_worker\n"
+        "sys.stdout.write(_execute_python_worker.run_restricted(sys.stdin.read()))\n"
+    )
+
+
+_EXECUTE_PYTHON_WORKER_SOURCE = _build_execute_python_worker_source()
+
 # Environment variables passed through to the execute_python child. Everything else in
 # this process's os.environ -- API keys included -- is deliberately left behind; only
-# what the interpreter and the allowlisted libraries need to start is kept.
+# what the interpreter and the allowlisted libraries need to start is kept. Notably
+# absent on purpose: PYTHONPATH. The child never needs it (see _EXECUTE_PYTHON_WORKER_DIR
+# above), and leaving it out narrows the environment further.
 _EXECUTE_PYTHON_ENV_ALLOWLIST = (
     "PATH",
     "HOME",
@@ -488,27 +430,94 @@ _EXECUTE_PYTHON_ENV_ALLOWLIST = (
 
 def _execute_python_env() -> dict:
     """A minimal environment for the execute_python child: enough to start Python and
-    import the allowlisted libraries, nothing else. The parent's full os.environ
-    (credentials included) is never passed through.
+    import the allowlisted libraries, nothing else. This process's environment
+    variables -- API keys included -- are never passed through. (Credentials living in
+    *files* -- a `.env`, `~/.aws/credentials`, and so on -- are a different story; see
+    `execute_python`'s docstring.)
     """
     return {name: value for name in _EXECUTE_PYTHON_ENV_ALLOWLIST if (value := os.environ.get(name)) is not None}
 
 
-def _cap_execute_python_memory():
-    """`preexec_fn` for the execute_python subprocess: cap its address space on POSIX.
+_execute_python_warned: set = set()
 
-    Only ever passed to `subprocess.run` when `resource` imported successfully, so this
-    runs on POSIX only; Windows has no `resource` module and no equivalent rlimit here.
-    Best-effort even there: some POSIX kernels accept the `resource` import but refuse to
-    lower `RLIMIT_AS` (macOS/XNU is one -- the same call fails from a plain shell via
-    `ulimit -v`). A failure here degrades to no memory cap rather than crashing the
-    subprocess launch, matching the no-`resource`-at-all path on Windows.
+
+def _warn_once_execute_python(message: str) -> None:
+    """Log *message* at WARNING the first time only.
+
+    Mirrors `_ChatStateMixin._warn_once` (aimu/models/_internal/chat_state.py), which
+    exists for the same reason: repeating the same warning on every call in an agent
+    loop would just be noise. This is a module-level set rather than an instance
+    attribute because `execute_python` is a plain function, not a client with `self`
+    to hold the "have I warned" state.
     """
-    limit = _EXECUTE_PYTHON_MEMORY_LIMIT_BYTES
+    if message in _execute_python_warned:
+        return
+    _execute_python_warned.add(message)
+    _logger.warning(message)
+
+
+def _strip_memory_cap_marker(stderr_text: str) -> str:
+    """Remove the memory-cap-unavailable marker from *stderr_text* if present, firing a
+    one-time discoverable warning first. Previously this failure was swallowed by a
+    bare `except: pass` with the degradation documented only in a private docstring --
+    discoverable by reading source, not by anyone actually running the tool.
+    """
+    if _MEMORY_CAP_UNAVAILABLE_MARKER in stderr_text:
+        _warn_once_execute_python(
+            "execute_python: could not apply the POSIX memory cap on this platform "
+            "(RLIMIT_AS is not enforceable here); running without a memory cap. "
+            "See execute_python's docstring."
+        )
+        stderr_text = stderr_text.replace(_MEMORY_CAP_UNAVAILABLE_MARKER + "\n", "")
+        stderr_text = stderr_text.replace(_MEMORY_CAP_UNAVAILABLE_MARKER, "")
+    return stderr_text
+
+
+def _kill_execute_python_process_group(proc: subprocess.Popen) -> None:
+    """Kill *proc* and every process in its process group.
+
+    `execute_python` launches with `start_new_session=True`, making the child the
+    leader of a new process group; anything it spawns (e.g. a backgrounded process the
+    snippet itself launches and does not wait for) inherits that same group unless it
+    detaches into a session of its own. A plain `proc.kill()` reaches only the direct
+    child, which is exactly how a "hard timeout" used to leave a backgrounded
+    grandchild running indefinitely. SIGKILL is uncatchable, so this can't race the
+    child's (or grandchild's) own exception handling.
+    """
     try:
-        resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
-    except (ValueError, OSError):
-        pass
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except ProcessLookupError:
+        pass  # already gone
+
+
+def _read_capped(path: str, limit_bytes: int) -> str:
+    """Read at most *limit_bytes* from the file at *path*, decoding leniently.
+
+    Two properties this buys over the previous pipe-based ``capture_output=True`` +
+    post-hoc truncation:
+
+    - **Bounded parent memory.** Reading only a capped prefix, rather than the whole
+      file, means an output bomb (`print('x' * 200_000_000)`) cannot inflate this
+      process's own RSS the way buffering the full child output first did (743 MB of
+      *parent* memory, observed, before the old truncation ever ran) -- the excess
+      stays on disk in the temp directory, deleted with it.
+    - **No `UnicodeDecodeError` escaping this tool.** `errors="replace"` means a
+      snippet that writes raw/invalid bytes to stdout still returns a string, never an
+      uncaught exception; the tool's contract is "a string, or an error string."
+
+    Returns "" if *path* doesn't exist (e.g. the child never got far enough to create
+    it).
+    """
+    try:
+        total_size = os.path.getsize(path)
+    except OSError:
+        return ""
+    with open(path, "rb") as f:
+        data = f.read(limit_bytes)
+    text = data.decode("utf-8", errors="replace")
+    if total_size > limit_bytes:
+        text = f"{text}\n[... truncated {total_size - limit_bytes} bytes]"
+    return text
 
 
 @tool
@@ -516,16 +525,25 @@ def execute_python(code: str) -> str:
     """Execute Python code in a fresh subprocess and return its output.
 
     NOT A SECURITY BOUNDARY: this is isolation, not containment. Running the code in a
-    subprocess buys a hard timeout (an in-process exec could hang this process forever),
-    crash isolation (a crash or `os._exit()` in the code brings down only the child), no
-    mutation of this process's imports or global state, a memory cap on POSIX, and --
-    concretely -- no access to this process's environment variables, so `ANTHROPIC_API_KEY`
-    and every other credential this host holds is never visible to the child.
+    subprocess buys a hard timeout (an in-process exec could hang this process forever)
+    and crash isolation (an ordinary crash or early exit in the code brings down only
+    the child -- though nothing stops the code from reaching back out and taking this
+    process down anyway, e.g. `os.kill(os.getppid(), signal.SIGKILL)`, since process
+    signalling isn't confined any more than the filesystem is; see below). It also buys
+    no mutation of this process's imports or global state, a memory cap on Linux
+    (best-effort on other POSIX platforms, absent on Windows -- a one-time warning is logged
+    if the cap can't be applied, rather than failing silently), and no access to
+    this process's environment variables: `ANTHROPIC_API_KEY` and anything else set
+    there is invisible to the child.
 
-    It does not confine filesystem or network access: the child runs as the same user
-    and can read, write, and make requests exactly as this process can. Treat any code
-    reaching this tool as code you have chosen to run; gate it with `tool_approval` for
-    untrusted callers, and reach for a container when you need real containment.
+    That last point is about *environment variables specifically*, not credentials in general.
+    It does not confine filesystem or network access: the child runs as the
+    same user and can read, write, and make requests exactly as this process can, which
+    means a `.env` file, `~/.aws/credentials`, `~/.config/gh/hosts.yml`, or any other
+    credential sitting on disk is exactly as readable to the child as to this process's
+    own user account. Treat any code reaching this tool as code you have chosen to run;
+    gate it with `tool_approval` for untrusted callers, and reach for a container when
+    you need real containment.
 
     The child also runs with restricted builtins and an import allowlist, the same
     accident guard `execute_python_in_process` uses (stops accidents, not a determined
@@ -540,26 +558,49 @@ def execute_python(code: str) -> str:
     Args:
         code: Python code to execute.
     """
-    try:
-        with tempfile.TemporaryDirectory(prefix="aimu-execute-python-") as tmpdir:
-            completed = subprocess.run(  # noqa: S603
+    with tempfile.TemporaryDirectory(prefix="aimu-execute-python-") as tmpdir:
+        stdout_path = os.path.join(tmpdir, "stdout.txt")
+        stderr_path = os.path.join(tmpdir, "stderr.txt")
+
+        with open(stdout_path, "wb") as stdout_f, open(stderr_path, "wb") as stderr_f:
+            proc = subprocess.Popen(  # noqa: S603
                 [sys.executable, "-c", _EXECUTE_PYTHON_WORKER_SOURCE],
-                input=code,
-                capture_output=True,
-                text=True,
-                timeout=_EXECUTE_PYTHON_TIMEOUT_S,
-                env=_execute_python_env(),
+                stdin=subprocess.PIPE,
+                stdout=stdout_f,
+                stderr=stderr_f,
                 cwd=tmpdir,
-                preexec_fn=_cap_execute_python_memory if resource is not None else None,  # noqa: S604
+                env=_execute_python_env(),
+                start_new_session=True,
             )
-    except subprocess.TimeoutExpired:
-        return f"Error: execution timed out after {_EXECUTE_PYTHON_TIMEOUT_S}s"
+            try:
+                proc.stdin.write(code.encode("utf-8"))
+            except BrokenPipeError:
+                pass
+            finally:
+                proc.stdin.close()
 
-    if completed.returncode != 0:
-        detail = completed.stderr.strip() or f"exit code {completed.returncode}"
-        return _truncate(f"Error: subprocess exited abnormally ({detail})", _EXECUTE_PYTHON_OUTPUT_LIMIT_CHARS)
+            try:
+                # wait(), unlike communicate(), never depends on the stdout/stderr fds
+                # being closed by every process holding a copy of them -- only on the
+                # direct child's own exit. A backgrounded grandchild inheriting those
+                # fds therefore can't hold a fast, successful run hostage the way it
+                # could when output was captured through a pipe.
+                proc.wait(timeout=_EXECUTE_PYTHON_TIMEOUT_S)
+            except subprocess.TimeoutExpired:
+                _kill_execute_python_process_group(proc)
+                proc.wait()
+                return f"Error: execution timed out after {_EXECUTE_PYTHON_TIMEOUT_S}s"
 
-    return _truncate(completed.stdout, _EXECUTE_PYTHON_OUTPUT_LIMIT_CHARS)
+        # stdout_f/stderr_f are closed by the `with` above, and the child has already
+        # exited (proc.wait() returned), so its writes are guaranteed flushed to disk.
+        stdout_text = _read_capped(stdout_path, _EXECUTE_PYTHON_OUTPUT_LIMIT_CHARS)
+        stderr_text = _strip_memory_cap_marker(_read_capped(stderr_path, _EXECUTE_PYTHON_OUTPUT_LIMIT_CHARS))
+
+    if proc.returncode != 0:
+        detail = stderr_text.strip() or f"exit code {proc.returncode}"
+        return f"Error: subprocess exited abnormally ({detail})"
+
+    return stdout_text
 
 
 class _TextExtractor(HTMLParser):
