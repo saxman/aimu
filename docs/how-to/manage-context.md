@@ -108,10 +108,15 @@ for m in summarized:
 
 ```
 system : Summary of earlier conversation:
-The user shared that their favorite color is blue, and the assistant acknowledged it positively. No decisions or open questions were raised in this brief exchange.
+<generated summary text — varies by run and model>
 user : What is 2+2?
 assistant : 4
 ```
+
+The `"Summary of earlier conversation:\n"` prefix is a fixed template (see
+`summarize_messages`'s source), and the tail (`user`/`assistant` here) is the original messages
+kept verbatim, unchanged by the call — only the summary sentence itself is generated text, and it
+will read differently on your machine.
 
 `client` is anything with a `generate(prompt: str) -> str` method — a plain `BaseModelClient`, or
 `agent.as_model_client()` — passed in rather than constructed internally, so this function stays
@@ -151,8 +156,13 @@ unconditional `WARNING` log — so a caller with no sink still learns their conv
 rewritten:
 
 ```
-WARNING Compacted conversation for agent 'agent-079be0': dropped 2 message(s) (~97 -> ~61 tokens, AIMU's own estimate).
+WARNING Compacted conversation for agent '<agent name>': dropped 2 message(s) (~<N> -> ~<M> tokens, AIMU's own estimate).
 ```
+
+The agent name and the two token counts vary by run — the counts depend on how much the model
+actually reasoned in the turns leading up to compaction, which is sampled, not fixed. "dropped 2
+message(s)" is stable here: with `keep_last=2` and one exchange (user + assistant) accumulating
+past the 60-token budget each time, one full exchange is what gets dropped on schedule.
 
 A compaction call that returns the conversation unchanged (the common case early in a
 conversation, before the budget is actually exceeded) is a no-op and announces nothing. The

@@ -34,8 +34,11 @@ Running that against a local Ollama server prints:
 ```
 ModelTurnStarted ModelTurnStarted(agent=None, iteration=0, model='qwen3:8b', message_count=1, tool_names=())
 RequestPrepared RequestPrepared(agent=None, iteration=0, provider='OllamaClient', model='qwen3:8b', payload={'model': 'qwen3:8b', 'messages': [...], 'options': {'temperature': 0.6, 'top_p': 0.95, 'top_k': 20}, 'tools': [], 'think': True, 'keep_alive': 60, 'format': None})
-ModelTurnFinished ModelTurnFinished(agent=None, iteration=0, model='qwen3:8b', text='OK', usage={'input_tokens': 16, 'output_tokens': 135, 'total_tokens': 151}, duration_s=5.66)
+ModelTurnFinished ModelTurnFinished(agent=None, iteration=0, model='qwen3:8b', text='OK', usage={'input_tokens': 16, ...}, duration_s=...)
 ```
+
+(`output_tokens`/`total_tokens`/`duration_s` depend on how much the model reasoned before answering
+and will differ on your machine; `input_tokens` for this exact one-message prompt won't.)
 
 That's a bare one-shot `aimu.chat()` call — no agent, no tool loop — and it's already observable.
 `events=` is accepted the same way by `aimu.client(events=...)`, and by `client.events = ...` at
@@ -161,9 +164,12 @@ for span in tracer.spans:
 ```
 agent.run {'agent': 'agent-089e80', 'task': 'Say hi in three words.'}
 model.turn {'agent': 'agent-089e80', 'model': 'qwen3:8b'}
-model.turn.finished {'agent': 'agent-089e80', 'usage': {'input_tokens': 25, 'output_tokens': 555, 'total_tokens': 580}}
-agent.run.finished {'agent': 'agent-089e80', 'result': "Hi, what's up?"}
+model.turn.finished {'agent': 'agent-089e80', 'usage': {'input_tokens': 25, ...}}
+agent.run.finished {'agent': 'agent-089e80', 'result': ...}
 ```
+
+(`output_tokens`/`total_tokens` and the reply text vary by run — how much the model reasons and
+what it says are both sampled, not fixed; `input_tokens` for this fixed prompt is not.)
 
 A real adapter would keep a stack of open spans (so `agent.run.finished` closes the span
 `agent.run` opened, rather than opening a new one), and forward `event.iteration` as a span
