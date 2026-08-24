@@ -31,7 +31,13 @@ The `aimu.tools.builtin` module ships ready-made `@tool` functions grouped by do
 | `builtin.compute` | `calculate`, `execute_python` |
 | `builtin.time` | `get_current_date_and_time`, `convert_time` |
 | `builtin.misc` | `echo` |
-| `builtin.ALL_TOOLS` | All of the above **except** `execute_python` (not a sandbox; opt in via `builtin.compute`) |
+| `builtin.ALL_TOOLS` | All of the above **except** `execute_python` (isolation, not containment; opt in via `builtin.compute`) |
+
+`execute_python` runs code in a fresh subprocess (its own hard timeout, crash isolation,
+and no access to this process's environment variables -- but it does not confine the
+filesystem or the network; see its docstring). `execute_python_in_process` is the
+explicit opt-in for trusted code where subprocess startup cost matters; it is not
+included in `builtin.compute` or `builtin.ALL_TOOLS`.
 
 ::: aimu.tools.builtin.echo
 
@@ -44,6 +50,8 @@ The `aimu.tools.builtin` module ships ready-made `@tool` functions grouped by do
 ::: aimu.tools.builtin.calculate
 
 ::: aimu.tools.builtin.execute_python
+
+::: aimu.tools.builtin.execute_python_in_process
 
 ::: aimu.tools.builtin.get_webpage
 

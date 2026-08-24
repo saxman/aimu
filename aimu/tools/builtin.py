@@ -14,6 +14,9 @@ import importlib
 import io
 import os
 import re
+import subprocess
+import sys
+import tempfile
 import traceback
 from html.parser import HTMLParser
 from pathlib import Path
@@ -25,6 +28,14 @@ import requests
 from dotenv import load_dotenv
 
 from .decorator import tool
+
+# `resource` (POSIX rlimits, used to cap the execute_python subprocess's memory) does
+# not exist on Windows. Guard the import and degrade to no memory cap there rather
+# than failing to import this module at all.
+try:
+    import resource
+except ImportError:  # pragma: no cover - exercised only on Windows
+    resource = None
 
 load_dotenv()
 SEARXNG_BASE_URL = os.environ.get("SEARXNG_BASE_URL", "http://localhost:8080")
@@ -324,7 +335,7 @@ def calculate(expression: str) -> str:
         return f"Error: {e}"
 
 
-# Modules allowlisted for execute_python.
+# Modules allowlisted for execute_python (both backends).
 _SANDBOX_ALLOWLIST = frozenset(
     [
         "math",
@@ -348,24 +359,25 @@ _SANDBOX_BUILTINS = {
 }
 
 
-@tool
-def execute_python(code: str) -> str:
-    """Execute Python code in this process and return its output.
+def _run_python_code(code: str, *, restrict_builtins: bool) -> str:
+    """Parse and run *code*, capturing stdout plus the value of the last expression
+    (or returning an error string on failure). Shared implementation for both
+    ``execute_python`` backends, so they can never drift on what "run this code"
+    means -- only on where it runs and, via *restrict_builtins*, on whether the
+    accident-guard restrictions from before this tool ran in a subprocess still apply.
 
-    NOT A SECURITY BOUNDARY. Code runs in the calling process with restricted builtins
-    and an import allowlist, which stops accidents, not attempts: a one-line expression
-    reaches `subprocess.Popen` through the type hierarchy, and the filesystem through an
-    allowlisted module's transitive attributes. Treat any code reaching this tool as code
-    you have chosen to run. Gate it with `tool_approval` when the caller is untrusted.
+    ``execute_python_in_process`` passes ``restrict_builtins=True``: restricted
+    builtins and an import allowlist, which stop accidents, not a determined attempt
+    (a one-line expression reaches `subprocess.Popen` through the type hierarchy, and
+    the filesystem through an allowlisted module's transitive attributes).
 
-    Captures stdout and the value of the last expression. Pre-imports math, statistics,
-    json, re, itertools, functools, datetime, zoneinfo, and numpy/pandas/scipy/matplotlib
-    when installed.
-
-    Args:
-        code: Python code to execute.
+    The ``execute_python`` subprocess worker passes ``restrict_builtins=False``: once
+    the code is genuinely isolated in its own process with a scrubbed environment,
+    blocking `import os` or `open()` inside it adds no real security (the child can
+    already touch the filesystem and network as documented) and only gets in the way
+    of legitimate code -- pretending otherwise would be exactly the overclaiming this
+    tool used to do.
     """
-    # Pre-load allowed modules for direct use in the namespace.
     namespace = {}
     for mod_name in _SANDBOX_ALLOWLIST:
         try:
@@ -373,16 +385,15 @@ def execute_python(code: str) -> str:
         except ImportError:
             pass
 
-    _real_import = _builtins_module.__import__
+    if restrict_builtins:
+        _real_import = _builtins_module.__import__
 
-    def _restricted_import(name, globals=None, locals=None, fromlist=(), level=0):
-        if name.split(".")[0] not in _SANDBOX_ALLOWLIST:
-            raise ImportError(f"'{name}' is not in the execute_python import allowlist")
-        return _real_import(name, globals, locals, fromlist, level)
+        def _restricted_import(name, globals=None, locals=None, fromlist=(), level=0):
+            if name.split(".")[0] not in _SANDBOX_ALLOWLIST:
+                raise ImportError(f"'{name}' is not in the execute_python import allowlist")
+            return _real_import(name, globals, locals, fromlist, level)
 
-    sandbox_builtins = {**_SANDBOX_BUILTINS, "__import__": _restricted_import}
-    namespace["__builtins__"] = sandbox_builtins
-    namespace["_result"] = None
+        namespace["__builtins__"] = {**_SANDBOX_BUILTINS, "__import__": _restricted_import}
 
     try:
         tree = ast.parse(code)
@@ -414,6 +425,142 @@ def execute_python(code: str) -> str:
     if result is not None:
         parts.append(repr(result))
     return "\n".join(parts) if parts else "(no output)"
+
+
+@tool
+def execute_python_in_process(code: str) -> str:
+    """Execute Python code in this process and return its output. Explicit opt-in.
+
+    NOT A SECURITY BOUNDARY: this is isolation, not containment, and weaker isolation
+    than `execute_python` (the default execute-code tool) -- code here shares this
+    process's memory, imports, and environment variables (including any API keys sitting
+    in os.environ), a hang blocks this process indefinitely, and a crash takes it down
+    too. It runs with restricted builtins and an import allowlist, which stops accidents,
+    not a determined attempt: a one-line expression reaches `subprocess.Popen` through the
+    type hierarchy, and the filesystem through an allowlisted module's transitive
+    attributes. Use this only for trusted code where the subprocess startup cost of
+    `execute_python` matters; gate it with `tool_approval` otherwise, and reach for a
+    container when you need real containment.
+
+    Captures stdout and the value of the last expression. Pre-imports math, statistics,
+    json, re, itertools, functools, datetime, zoneinfo, and numpy/pandas/scipy/matplotlib
+    when installed.
+
+    Args:
+        code: Python code to execute.
+    """
+    return _run_python_code(code, restrict_builtins=True)
+
+
+# execute_python (the subprocess backend) runs the child with sys.executable so it is
+# the same interpreter/environment this process runs under, importing this module to
+# reach _run_python_code -- one execution path, not a duplicated script. It passes
+# restrict_builtins=False: see _run_python_code's docstring for why the accident-guard
+# restrictions don't carry over to the subprocess path.
+_EXECUTE_PYTHON_WORKER_SOURCE = (
+    "import sys\n"
+    "from aimu.tools.builtin import _run_python_code\n"
+    "sys.stdout.write(_run_python_code(sys.stdin.read(), restrict_builtins=False))\n"
+)
+
+_EXECUTE_PYTHON_TIMEOUT_S = 10
+# RLIMIT_AS caps the child's total address space; enforced only on POSIX (see the
+# guarded `resource` import above). 512 MiB comfortably fits numpy/pandas imports
+# while still catching a runaway allocation.
+_EXECUTE_PYTHON_MEMORY_LIMIT_BYTES = 512 * 1024 * 1024
+_EXECUTE_PYTHON_OUTPUT_LIMIT_CHARS = 20_000
+
+# Environment variables passed through to the execute_python child. Everything else in
+# this process's os.environ -- API keys included -- is deliberately left behind; only
+# what the interpreter and the allowlisted libraries need to start is kept.
+_EXECUTE_PYTHON_ENV_ALLOWLIST = (
+    "PATH",
+    "HOME",
+    "LANG",
+    "LC_ALL",
+    "SYSTEMROOT",
+    "SystemRoot",
+    "COMSPEC",
+    "TEMP",
+    "TMP",
+    "PYTHONIOENCODING",
+)
+
+
+def _execute_python_env() -> dict:
+    """A minimal environment for the execute_python child: enough to start Python and
+    import the allowlisted libraries, nothing else. The parent's full os.environ
+    (credentials included) is never passed through.
+    """
+    return {name: value for name in _EXECUTE_PYTHON_ENV_ALLOWLIST if (value := os.environ.get(name)) is not None}
+
+
+def _cap_execute_python_memory():
+    """`preexec_fn` for the execute_python subprocess: cap its address space on POSIX.
+
+    Only ever passed to `subprocess.run` when `resource` imported successfully, so this
+    runs on POSIX only; Windows has no `resource` module and no equivalent rlimit here.
+    Best-effort even there: some POSIX kernels accept the `resource` import but refuse to
+    lower `RLIMIT_AS` (macOS/XNU is one -- the same call fails from a plain shell via
+    `ulimit -v`). A failure here degrades to no memory cap rather than crashing the
+    subprocess launch, matching the no-`resource`-at-all path on Windows.
+    """
+    limit = _EXECUTE_PYTHON_MEMORY_LIMIT_BYTES
+    try:
+        resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
+    except (ValueError, OSError):
+        pass
+
+
+@tool
+def execute_python(code: str) -> str:
+    """Execute Python code in a fresh subprocess and return its output.
+
+    NOT A SECURITY BOUNDARY: this is isolation, not containment. Running the code in a
+    subprocess buys a hard timeout (an in-process exec could hang this process forever),
+    crash isolation (a crash or `os._exit()` in the code brings down only the child), no
+    mutation of this process's imports or global state, a memory cap on POSIX, and --
+    concretely -- no access to this process's environment variables, so `ANTHROPIC_API_KEY`
+    and every other credential this host holds is never visible to the child.
+
+    It does not confine filesystem or network access: the child runs as the same user
+    and can read, write, and make requests exactly as this process can. Treat any code
+    reaching this tool as code you have chosen to run; gate it with `tool_approval` for
+    untrusted callers, and reach for a container when you need real containment.
+
+    The child has ordinary Python builtins and can import anything installed there --
+    there is no import allowlist here, unlike `execute_python_in_process`: once the code
+    is genuinely isolated in its own process, restricting `import os` or `open()` adds no
+    real security and only gets in the way of legitimate code.
+
+    Captures stdout and the value of the last expression. Pre-imports math, statistics,
+    json, re, itertools, functools, datetime, zoneinfo, and numpy/pandas/scipy/matplotlib
+    when installed. For trusted code where the subprocess startup cost matters, see
+    `execute_python_in_process` (same disclosed limits, weaker isolation).
+
+    Args:
+        code: Python code to execute.
+    """
+    try:
+        with tempfile.TemporaryDirectory(prefix="aimu-execute-python-") as tmpdir:
+            completed = subprocess.run(  # noqa: S603
+                [sys.executable, "-c", _EXECUTE_PYTHON_WORKER_SOURCE],
+                input=code,
+                capture_output=True,
+                text=True,
+                timeout=_EXECUTE_PYTHON_TIMEOUT_S,
+                env=_execute_python_env(),
+                cwd=tmpdir,
+                preexec_fn=_cap_execute_python_memory if resource is not None else None,  # noqa: S604
+            )
+    except subprocess.TimeoutExpired:
+        return f"Error: execution timed out after {_EXECUTE_PYTHON_TIMEOUT_S}s"
+
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or f"exit code {completed.returncode}"
+        return _truncate(f"Error: subprocess exited abnormally ({detail})", _EXECUTE_PYTHON_OUTPUT_LIMIT_CHARS)
+
+    return _truncate(completed.stdout, _EXECUTE_PYTHON_OUTPUT_LIMIT_CHARS)
 
 
 class _TextExtractor(HTMLParser):
@@ -954,8 +1101,9 @@ def make_tools(
       singleton with one bound to that client.
     - If *memory_store* is provided, appends ``store_memory``, ``search_memories``,
       and ``list_memories`` tools bound to that store.
-    - If *allow_code_execution* is ``True``, appends :func:`execute_python`.
-      Read its docstring first; it is not a sandbox.
+    - If *allow_code_execution* is ``True``, appends :func:`execute_python` (the
+      subprocess-backed tool). Read its docstring first: it is isolation, not
+      containment.
     """
     tools = list(ALL_TOOLS)
     if image_client is not None:
@@ -1658,8 +1806,9 @@ def make_transcription_tool(client):
 
 transcription = [transcribe_audio]
 
-# execute_python is excluded from ALL_TOOLS: it runs code in this process with no
-# containment, so it is opt-in via builtin.compute or make_tools(allow_code_execution=True).
+# execute_python (and its explicit in-process opt-in, execute_python_in_process) are
+# excluded from ALL_TOOLS: isolation, not containment, so they're opt-in via
+# builtin.compute or make_tools(allow_code_execution=True).
 ALL_TOOLS = [
     *misc,
     *time,

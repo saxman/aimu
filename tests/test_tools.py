@@ -462,13 +462,17 @@ def test_execute_python_uses_math_module():
     assert "4.0" in result
 
 
-def test_execute_python_blocks_os_import():
-    result = builtin.execute_python("import os")
+def test_execute_python_in_process_blocks_os_import():
+    """execute_python (subprocess) no longer restricts imports -- see
+    test_code_execution.py. The import allowlist survives only on the explicit
+    in-process opt-in.
+    """
+    result = builtin.execute_python_in_process("import os")
     assert "Error" in result or "not available" in result or "ImportError" in result
 
 
-def test_execute_python_blocks_open():
-    result = builtin.execute_python("open('/etc/passwd')")
+def test_execute_python_in_process_blocks_open():
+    result = builtin.execute_python_in_process("open('/etc/passwd')")
     assert "Error" in result or "NameError" in result
 
 
