@@ -12,6 +12,7 @@ import logging
 from typing import Any, Callable, Optional, Protocol
 from uuid import uuid4
 
+from aimu.events import EventSink
 from aimu.models import StreamChunk, StreamingContentType
 from aimu.tools.builtin import (  # noqa: F401 (re-exports)
     DEFAULT_SUBAGENT_SYSTEM_MESSAGE,
@@ -260,6 +261,7 @@ def make_async_subagent_tool(
     tool_approval: Optional[Callable] = None,
     tool_name: str = "spawn_subagent",
     observer: Optional[SubagentObserver] = None,
+    events: Optional[EventSink] = None,
 ) -> Callable:
     """Async twin of :func:`aimu.tools.builtin.make_subagent_tool`.
 
@@ -277,6 +279,12 @@ def make_async_subagent_tool(
     Passing ``observer`` (a :class:`SubagentObserver`) switches each spawn to a streamed child run and
     reports it as it happens, without making this a streaming tool (which would disable the parent's
     concurrent dispatch). Nested spawns inherit it.
+
+    ``events`` is the sink each spawned child reports to. It has to be passed explicitly: a spawn
+    builds a fresh client per call, which is outside the client family a caller's scoped per-run
+    override reaches, so a delegated run is otherwise invisible to a caller measuring the whole
+    turn. Set on the child ``Agent`` rather than passed to its ``run``, which covers the observed
+    path too (``_run_observed`` calls ``run`` itself).
     """
     from aimu.models.base import BaseModelClient
 
@@ -309,6 +317,7 @@ def make_async_subagent_tool(
                     tool_approval=tool_approval,
                     tool_name=tool_name,
                     observer=observer,
+                    events=events,
                 )
             )
         client = _fresh_async_subagent_client(m)
@@ -325,6 +334,7 @@ def make_async_subagent_tool(
             deps=deps,
             tool_approval=tool_approval,
             thinking=thinking,
+            events=events,
         )
 
     if agent_types is None:

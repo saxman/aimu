@@ -11,12 +11,13 @@ import time
 
 import pytest
 
+from aimu.aio.agent import Agent as _RealAsyncAgent
 from aimu.aio.tools import builtin as _aio_builtin
 from aimu.aio.tools.builtin import make_async_subagent_tool
 from aimu.models import OllamaModel, StreamChunk, StreamingContentType
 
-# Capture the real fresh-client builder before the autouse fixture patches the module attribute,
-# so the branch tests below can exercise the genuine cloud-vs-in-process logic.
+# Capture the real fresh-client builder and Agent before the autouse fixture patches the module
+# attributes, so a test can restore either one and exercise the genuine, unfaked behavior.
 _REAL_FRESH_CLIENT = _aio_builtin._fresh_async_subagent_client
 
 
@@ -46,6 +47,7 @@ class _RecordingAsyncAgent:
         deps=None,
         tool_approval=None,
         thinking=None,
+        events=None,
     ):
         self.model_client = model_client
         self.system_message = system_message
@@ -56,6 +58,7 @@ class _RecordingAsyncAgent:
         self.deps = deps
         self.tool_approval = tool_approval
         self.thinking = thinking
+        self.events = events
         self.enter = None
         self.exit = None
         _RecordingAsyncAgent.instances.append(self)
@@ -555,3 +558,49 @@ def test_fresh_client_builds_a_real_client_for_an_endpoint_string():
     # only place the resolved host is readable back; the SDK exposes no accessor for it.
     httpx_client = client._client._client._client
     assert str(httpx_client.base_url).rstrip("/") == "http://example.local:11434"
+
+
+# ---------------------------------------------------------------------------
+# events forwarding
+# ---------------------------------------------------------------------------
+
+
+async def test_spawn_forwards_events_to_the_child_agents_sink(monkeypatch):
+    """A spawned sub-agent's model turns reach the caller's sink.
+
+    The spawn tool builds its own client, which is deliberately outside the family a scoped
+    per-run override reaches, so without an explicit events= a delegated run reports nothing
+    and a caller measuring a turn's cost silently under-counts every delegation. The fakes this
+    module patches in above don't emit turn events at all, so this test swaps in the real Agent
+    and a real (mocked) model client to exercise the genuine reporting path.
+    """
+    from aimu.events import ModelTurnFinished
+    from tests.helpers_aio import MockAsyncModelClient
+
+    # _RealAsyncAgent was imported at module load, before the autouse fixture above replaced the
+    # attribute with the fake; importing it fresh here would just re-fetch the fake.
+    monkeypatch.setattr("aimu.aio.agent.Agent", _RealAsyncAgent)
+    monkeypatch.setattr(
+        "aimu.aio.tools.builtin._fresh_async_subagent_client",
+        lambda model: MockAsyncModelClient(["done"]),
+    )
+
+    seen = []
+    spawn = make_async_subagent_tool(
+        MODEL,
+        agent_types={"worker": {"system_message": "you are a worker", "tools": []}},
+        events=seen.append,
+    )
+    await spawn("worker", "do the thing")
+
+    finished = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert finished, "the child's model turn should have reported to the caller's sink"
+
+
+async def test_spawn_without_events_reports_nowhere():
+    """The parameter is opt-in: omitting it leaves the child reporting to its own client only."""
+    spawn = make_async_subagent_tool(
+        MODEL,
+        agent_types={"worker": {"system_message": "you are a worker", "tools": []}},
+    )
+    await spawn("worker", "do the thing")  # must not raise

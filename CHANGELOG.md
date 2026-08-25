@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.25.0 (2026-08-25): a spawned sub-agent that can report to its caller's sink
+
+### Tools
+
+- **New** **`make_subagent_tool` and `make_async_subagent_tool` take an `events=` parameter.** A
+  spawn tool builds a fresh client per call so that concurrent spawns share no state, and that
+  same freshness is what keeps it outside the client family a run's scoped `events=` override
+  reaches (see [docs/how-to/observe-a-run.md](docs/how-to/observe-a-run.md)'s "shared client
+  under concurrent workers" section): a spawned child's model turns went unreported to any
+  caller-attached sink, with nothing raised anywhere to say so. A caller measuring what a whole
+  turn cost (in tokens, in requests, in wall time) silently under-counted every delegation.
+  The new parameter is forwarded onto each spawned child's `Agent.events` field, which is what
+  `run()` already falls back to when its own per-call `events=` is left at `None` (both surfaces
+  already had this field; this factory just wasn't setting it), so no change was needed to
+  either factory's dispatch call site, and it covers the streamed/observed spawn path on the
+  async surface too, since that path calls `run()` internally. It also threads through the
+  recursive `make_async_subagent_tool` / `make_subagent_tool` call each factory makes for its
+  own nested spawn tool (the `max_depth` mechanism), so a worker that spawns its own worker
+  reports to the same sink its caller does. Opt-in: omitting it leaves a spawned child reporting
+  nowhere, exactly as before.
+  Tests: `tests/test_aio_subagent_tools.py::test_spawn_forwards_events_to_the_child_agents_sink`
+  / `test_spawn_without_events_reports_nowhere` (sync mirrors in `tests/test_subagent_tools.py`).
+
 ## v0.24.0 (2026-08-25): a command tool that shares the supervisor execute_python earned
 
 ### Tools

@@ -255,6 +255,21 @@ override winning regardless of which client is asking — an earlier version of 
 had exactly that bug, folding a sub-agent's turns into its parent's sink under the parent's
 name while the sub-agent's own `RunStarted`/`RunFinished` never appeared).
 
+**`make_subagent_tool` and `make_async_subagent_tool` take that explicit `events=` directly,**
+so a delegated run's usage doesn't have to stay invisible:
+
+```python
+from aimu.tools.builtin import make_subagent_tool
+
+spawn = make_subagent_tool("anthropic:claude-sonnet-4-6", events=my_sink)
+```
+
+The factory sets it on every spawned child's `Agent.events` field (not passed to that child's
+`run`, which is what makes it cover a streamed spawn too). Leave it out and a spawn reports
+nowhere: its fresh client has no family membership to fall back on and no `self.events` of its
+own either, so a caller measuring a whole turn's cost would otherwise silently under-count every
+delegation.
+
 **The one case that still depends on the surface** is a tool that calls the **same** client
 the run's override was installed for (e.g. a tool that reuses `ctx.deps` holding that client).
 Sync dispatches a concurrent tool via a plain `ThreadPoolExecutor.submit()` (no context copy),

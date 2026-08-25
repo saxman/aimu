@@ -10,6 +10,9 @@ import time
 
 import pytest
 
+# Captured at module load, before the autouse fixture below replaces the attribute with a
+# recording fake; importing it fresh inside a test would just re-fetch the fake.
+from aimu.agents.agent import Agent as _RealAgent
 from aimu.tools.builtin import make_subagent_tool
 
 
@@ -43,6 +46,7 @@ class _RecordingAgent:
         deps=None,
         tool_approval=None,
         thinking=None,
+        events=None,
     ):
         self.model_client = model_client
         self.system_message = system_message
@@ -53,6 +57,7 @@ class _RecordingAgent:
         self.deps = deps
         self.tool_approval = tool_approval
         self.thinking = thinking
+        self.events = events
         self.enter = None
         self.exit = None
         _RecordingAgent.instances.append(self)
@@ -381,3 +386,48 @@ def test_typed_dispatch_leaves_thinking_unset_when_the_spec_omits_it():
     spawn = make_subagent_tool(MODEL, agent_types={"plain": {"system_message": "Plain."}})
     spawn("plain", "task")
     assert _RecordingAgent.instances[-1].thinking is None
+
+
+# ---------------------------------------------------------------------------
+# events forwarding
+# ---------------------------------------------------------------------------
+
+
+def test_spawn_forwards_events_to_the_child_agents_sink(monkeypatch):
+    """A spawned sub-agent's model turns reach the caller's sink.
+
+    The spawn tool builds its own client, which is deliberately outside the family a scoped
+    per-run override reaches, so without an explicit events= a delegated run reports nothing
+    and a caller measuring a turn's cost silently under-counts every delegation. The fake Agent
+    and ModelClient this module patches in above don't emit turn events at all, so this test
+    swaps in the real Agent and a real (mocked) model client to exercise the genuine path.
+    """
+    from aimu.events import ModelTurnFinished
+    from tests.helpers import MockModelClient
+
+    # _RealAgent was imported at module load, before the autouse fixture above replaced the
+    # attribute with the fake; importing it fresh here would just re-fetch the fake. The client
+    # side doesn't need the same trick: this test replaces ModelClient with a factory of its own
+    # rather than restoring the real one.
+    monkeypatch.setattr("aimu.agents.agent.Agent", _RealAgent)
+    monkeypatch.setattr("aimu.models.model_client.ModelClient", lambda m: MockModelClient(["done"]))
+
+    seen = []
+    spawn = make_subagent_tool(
+        MODEL,
+        agent_types={"worker": {"system_message": "you are a worker", "tools": []}},
+        events=seen.append,
+    )
+    spawn("worker", "do the thing")
+
+    finished = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert finished, "the child's model turn should have reported to the caller's sink"
+
+
+def test_spawn_without_events_reports_nowhere():
+    """The parameter is opt-in: omitting it leaves the child reporting to its own client only."""
+    spawn = make_subagent_tool(
+        MODEL,
+        agent_types={"worker": {"system_message": "you are a worker", "tools": []}},
+    )
+    spawn("worker", "do the thing")  # must not raise

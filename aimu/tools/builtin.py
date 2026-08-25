@@ -23,6 +23,8 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import requests
 from dotenv import load_dotenv
 
+from aimu.events import EventSink
+
 from . import _execute_python_worker
 from .decorator import tool
 
@@ -1865,6 +1867,7 @@ def make_subagent_tool(
     deps: Any = None,
     tool_approval: Optional[Callable] = None,
     tool_name: str = "spawn_subagent",
+    events: Optional[EventSink] = None,
 ) -> Callable:
     """Build a ``spawn_subagent`` tool that delegates subtasks to fresh, isolated sub-agents.
 
@@ -1923,6 +1926,11 @@ def make_subagent_tool(
             the sub-agent's tool calls; returning False appends a refusal instead of executing the tool.
             Matches :class:`~aimu.agents.Agent`/:meth:`~aimu.agents.Agent.run`'s ``tool_approval`` semantics.
         tool_name: Name of the produced tool (mint several differently-named spawn tools on one agent).
+        events: The sink each spawned child reports to. It has to be passed explicitly: a spawn
+            builds a fresh client per call, which is outside the client family a caller's scoped
+            per-run override reaches, so a delegated run is otherwise invisible to a caller
+            measuring the whole turn. Set on the child :class:`~aimu.agents.Agent` (its own
+            ``events`` field), not passed to its ``run``.
 
     Example::
 
@@ -1966,6 +1974,7 @@ def make_subagent_tool(
                     deps=deps,
                     tool_approval=tool_approval,
                     tool_name=tool_name,
+                    events=events,
                 )
             )
         client = ModelClient(m)
@@ -1983,6 +1992,7 @@ def make_subagent_tool(
             deps=deps,
             tool_approval=tool_approval,
             thinking=thinking,
+            events=events,
         )
 
     if agent_types is None:
