@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.23.0 (unreleased): channels that relay the whole loop by default, reasoning that is read, and tool calls that survive the round trip
+## v0.23.0 (2026-08-25): channels that relay the whole loop by default, reasoning that is read, and tool calls that survive the round trip
 
 Renumbered from v0.22.1: the channel rename below is a breaking change, which cannot ride a patch
 release. Breaking changes are free before 1.0 and expensive after, so it ships now.
