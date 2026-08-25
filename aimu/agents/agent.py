@@ -91,17 +91,23 @@ class Agent(_AgentLoopMixin, Runner):
     tool_approval: Optional[Callable] = None
     thinking: Optional[Union[bool, str]] = None
     # Delivered for the run's duration via a scoped ContextVar override (see
-    # BaseModelClient.events / _events_override), not a mutation of model_client.events --
-    # so this is safe even when this agent's model_client is shared with another concurrently
-    # running agent (e.g. every worker Agent in a Parallel built via Parallel.from_client): each
-    # OS thread gets its own independent context, so one agent's override can't leak into
-    # another's. What is NOT isolated on this (sync) surface: concurrent_tool_calls=True
-    # dispatches tools via a plain ThreadPoolExecutor.submit() with no context copy, so a client
-    # called from *inside* such a tool runs in a fresh thread and does not see the run's
-    # override there -- it falls back to that client's own self.events. (The async surface's
-    # equivalent is the opposite -- see aio.Agent.events -- because asyncio.TaskGroup.create_task
-    # always copies the current context.) Pass events= explicitly to a client built inside a
-    # tool if it needs to report to a particular sink.
+    # BaseModelClient.events / _events_override / _effective_sink), not a mutation of
+    # model_client.events -- so this is safe even when this agent's model_client is shared
+    # with another concurrently running agent (e.g. every worker Agent in a Parallel built via
+    # Parallel.from_client): each OS thread gets its own independent context, so one agent's
+    # override can't leak into another's. The override is also scoped to this client (and
+    # whatever it delegates to or from -- see _client_family), not to "any client called while
+    # the scope is open": a *different* client called from inside a tool (e.g. a fresh client
+    # the tool builds for itself, as make_subagent_tool does) never receives this run's sink,
+    # on either surface and regardless of concurrent_tool_calls -- it falls back to its own
+    # self.events, so give it an explicit events= if it needs to report anywhere. The one case
+    # that still depends on the surface is a tool that calls the *same* client (e.g. reusing
+    # ctx.deps): concurrent_tool_calls=True dispatches sync tools via a plain
+    # ThreadPoolExecutor.submit() with no context copy, so that thread's empty context makes
+    # the override invisible there even though the client matches; async's equivalent case is
+    # the opposite -- see aio.Agent.events -- because asyncio.TaskGroup.create_task always
+    # copies the current context. Sequential tool dispatch (the default) sees it on both
+    # surfaces, since no thread/task boundary is crossed.
     events: Optional[EventSink] = None
     # None (default): the loop never rewrites model_client.messages on its own -- an agent that
     # doesn't opt in behaves exactly as it did before this field existed. Set to a callable such
@@ -186,14 +192,20 @@ class Agent(_AgentLoopMixin, Runner):
         (e.g. every worker ``Agent`` in a :class:`~aimu.agents.Parallel` built via
         ``Parallel.from_client``): the override lives in a per-execution-context ``ContextVar``,
         not a mutation of the client, so each concurrently-running agent's OS thread gets its
-        own independent copy and cannot clobber another's. The one case this does *not* cover on
-        this (sync) surface: ``concurrent_tool_calls=True`` dispatches tools via a plain
-        ``ThreadPoolExecutor.submit()`` with no context copy, so a client called from **inside**
-        such a tool runs in a fresh thread and does not inherit the run's override there -- it
-        falls back to that client's own ``self.events``. (``aio.Agent.run(events=...)``'s
-        equivalent case behaves oppositely, since ``asyncio.TaskGroup.create_task`` always
-        copies the current context -- see its docstring.) Pass ``events=`` explicitly to a
-        client constructed inside a tool if it needs to report to a particular sink.
+        own independent copy and cannot clobber another's. It is also scoped to this specific
+        client (and whatever it delegates to or from), not to any client called while the scope
+        is open: a **different** client called from inside a tool (e.g. a fresh client the tool
+        builds for itself, as ``make_subagent_tool`` does) never receives this run's sink, on
+        either surface and regardless of ``concurrent_tool_calls`` -- it falls back to its own
+        ``self.events``, so give it an explicit ``events=`` if it needs to report anywhere. The
+        one case that still depends on the surface is a tool that calls the **same** client
+        (e.g. reusing ``ctx.deps``): ``concurrent_tool_calls=True`` dispatches sync tools via a
+        plain ``ThreadPoolExecutor.submit()`` with no context copy, so that thread's empty
+        context makes the override invisible there even though the client matches;
+        ``aio.Agent.run(events=...)``'s equivalent case is the opposite, since
+        ``asyncio.TaskGroup.create_task`` always copies the current context -- see its
+        docstring. Sequential tool dispatch (the default) sees it on both surfaces, since no
+        thread/task boundary is crossed.
 
         ``compaction`` is a per-run override of the agent's ``self.compaction`` field: a
         callable applied to the conversation before every model turn the run makes (see

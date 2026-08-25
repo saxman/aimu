@@ -34,7 +34,65 @@ logger = logging.getLogger(__name__)
 # _events_override below), and each asyncio Task gets its own copy of the context it was created
 # in, by construction. `self.events` on the client remains the durable, always-shared setting;
 # only the temporary per-run override moves off the client.
-_ACTIVE_EVENT_SINK: ContextVar[Optional[Any]] = ContextVar("aimu_active_event_sink", default=None)
+#
+# The ContextVar's payload is `(sink, family)`, not a bare sink: a module-level ContextVar is
+# necessarily client-agnostic, so a bare sink would reach *any* client called while the scope is
+# open -- including a wholly unrelated client a tool happens to call (e.g. make_subagent_tool's
+# fresh per-call ModelClient), stamping that client's turns with the calling agent's name and
+# swallowing the callee's own RunStarted/RunFinished. `family` is the set of client objects this
+# override is actually *for* -- see `_client_family` -- and `_effective_sink` only returns the
+# override when the client asking is a member of it.
+_ACTIVE_EVENT_SINK: ContextVar[Optional[tuple]] = ContextVar("aimu_active_event_sink", default=None)
+
+# Attribute names used across this codebase's client wrappers to hold the inner client(s) they
+# delegate mutable state to (self.events, self.messages, ...). Duck-typed on attribute name
+# rather than isinstance, so this low-level module -- inherited by every base client -- never
+# has to import the higher-level wrapper classes that define them: ModelClient / AsyncModelClient
+# (`_client`), _AsyncInProcessClient and its HuggingFace/llamacpp subclasses (`_sync`), and
+# _AgenticView / _AsyncAgenticView (`_inner_client`).
+_DELEGATE_ATTRS = ("_client", "_sync", "_inner_client")
+# Same idea for a wrapper delegating to *several* clients: FallbackClient / AsyncFallbackClient
+# (`clients`), which tries each in turn by calling each inner client's own public chat()/generate().
+_DELEGATE_LIST_ATTRS = ("clients",)
+
+
+def _client_family(client: Any) -> list:
+    """``client`` plus every inner client it (transitively) delegates state to.
+
+    A scoped override is installed on whatever object the caller holds as ``model_client`` --
+    but the object whose own code actually runs a given emit site can be a *different* one.
+    ``BaseModelClient.chat()`` (inherited by a wrapper that doesn't override it) calls
+    ``self._emit_turn_started()`` / ``self._emit_turn_finished()`` with ``self`` bound to
+    whatever object ``chat()`` was called on; a delegating wrapper's own ``_chat()`` then hands
+    off to an inner client's *raw* ``_chat()`` (not its public ``chat()``), so
+    ``self._record_request(...)`` inside that call runs with ``self`` bound to the *inner*
+    client instead. Both must resolve to the same override, so ``_events_override`` records the
+    whole family (this function) rather than just the object it was called on.
+
+    Traversal is iterative with an explicit stack (not recursion) and a ``seen`` set keyed on
+    ``id()`` purely to avoid revisiting a node in a cyclic or diamond delegation graph within
+    this one call -- every object visited is held live in ``family`` for the call's duration,
+    so there is no id-reuse hazard here (contrast the *membership test* in ``_effective_sink``,
+    which must compare by identity against long-lived references for the same reason).
+    """
+    family = [client]
+    seen = {id(client)}
+    stack = [client]
+    while stack:
+        current = stack.pop()
+        for attr in _DELEGATE_ATTRS:
+            inner = getattr(current, attr, None)
+            if inner is not None and id(inner) not in seen:
+                family.append(inner)
+                seen.add(id(inner))
+                stack.append(inner)
+        for attr in _DELEGATE_LIST_ATTRS:
+            for inner in getattr(current, attr, None) or ():
+                if id(inner) not in seen:
+                    family.append(inner)
+                    seen.add(id(inner))
+                    stack.append(inner)
+    return family
 
 
 def _effective_sink(client: Any) -> Optional[Any]:
@@ -42,29 +100,38 @@ def _effective_sink(client: Any) -> Optional[Any]:
 
     Every emit site on both the sync and async client bases calls this instead of reading
     ``client.events`` directly, so a scoped override (see ``_ChatStateMixin._events_override``)
-    reaches only the execution context that installed it.
+    reaches only ``client`` and the family it was installed for (see ``_client_family``) -- not
+    every client that happens to run any code while the scope is open. Membership is checked by
+    identity against the family's held object references (``is``, never a bare ``id()``
+    comparison or a set keyed by ``__eq__``/``__hash__``), which is what makes this safe even if
+    some other object were later allocated at a reused address: the family list itself keeps
+    every one of its members alive for the scope's duration, so no id it holds can be reused
+    while the scope is open.
 
-    A tool called under ``concurrent_tool_calls=True`` behaves *differently* on the two
-    surfaces here, verified rather than assumed -- see ``tests/test_events.py``'s
-    concurrent-tool-dispatch tests:
+    A tool that calls a *different* client than the one the run's override was installed for
+    (e.g. ``make_subagent_tool``'s fresh per-call ``ModelClient``, or any client built inside a
+    tool) never matches this family, on either surface and regardless of
+    ``concurrent_tool_calls`` -- it falls back to that client's own ``self.events``, so passing
+    ``events=`` explicitly to such a client is both necessary and sufficient for it to report
+    reliably to a particular sink.
 
-    * **Sync**: the tool-loop engine dispatches via ``concurrent.futures.ThreadPoolExecutor``,
-      a plain ``.submit()`` with no ``contextvars.copy_context()``. Each OS thread starts with
-      its own independent default ``Context``, so a client called from inside such a tool does
-      **not** see the run's active override there; it falls back to its own ``self.events``.
-    * **Async**: the tool-loop engine dispatches via ``asyncio.TaskGroup.create_task()``, which
-      *always* copies the current ``Context`` into the new task (standard ``asyncio`` behaviour,
-      not something this module opts into). Since dispatch happens while the run's
-      ``_events_override`` scope is still open, a client called from inside a concurrently
-      dispatched async tool **does** inherit that override -- and, because the attribution
-      wrapper (``_attributing`` in ``aimu.agents._tool_loop`` / ``aimu.aio._tool_loop``) stamps
-      *any* event lacking its own ``agent``, that inner client's turn events land in the outer
-      run's sink attributed to the *calling* agent, not to whatever produced them.
-
-    Either way, pass ``events=`` explicitly to a client constructed inside a tool if it needs
-    reliable, correctly-attributed delivery to a particular sink.
+    The one case that still depends on the surface is a tool that calls the *same* client the
+    run's override was installed for (the ordinary, intended case -- e.g. every worker `Agent`
+    in a `Parallel` sharing one `model_client`, or a tool that reuses `ctx.deps` holding that
+    client): sync dispatches a concurrent tool via a plain ``ThreadPoolExecutor.submit()`` with
+    no ``contextvars.copy_context()``, so that thread's empty ``Context`` means the override is
+    invisible there even though the client matches the family; async's
+    ``asyncio.TaskGroup.create_task()`` always copies the current context, so it *is* visible
+    there. See ``tests/test_events.py`` / ``tests/test_aio_events.py``'s
+    concurrent-tool-dispatch tests for both the same-client and different-client cases,
+    verified rather than assumed.
     """
-    return _ACTIVE_EVENT_SINK.get() or getattr(client, "events", None)
+    active = _ACTIVE_EVENT_SINK.get()
+    if active is not None:
+        sink, family = active
+        if any(client is member for member in family):
+            return sink
+    return getattr(client, "events", None)
 
 
 class _ChatStateMixin:
@@ -285,24 +352,29 @@ class _ChatStateMixin:
 
     @contextmanager
     def _events_override(self, events: Optional[object]) -> Iterator[None]:
-        """Temporarily install ``events`` as the active sink for this execution context.
+        """Temporarily install ``events`` as the active sink for ``self``'s client family.
 
         ``events=None`` is a no-op: whatever the current effective sink is (the
-        ``_ACTIVE_EVENT_SINK`` ContextVar if one is already active, else ``self.events``)
-        is left alone. An ``Agent`` uses this to make its per-run event sink reach the
-        client's own turn events (``ModelTurnStarted`` / ``ModelTurnFinished`` /
-        ``RequestPrepared``, all read via ``_effective_sink``) for the duration of the run.
+        ``_ACTIVE_EVENT_SINK`` ContextVar if one is already active *and ``self`` is a member
+        of the family it was installed for*, else ``self.events``) is left alone. An ``Agent``
+        uses this to make its per-run event sink reach the client's own turn events
+        (``ModelTurnStarted`` / ``ModelTurnFinished`` / ``RequestPrepared``, all read via
+        ``_effective_sink``) for the duration of the run.
 
         Unlike ``_tools_override`` (a genuine mutation of ``self.tools``, since request-spec
         building has to read a plain attribute), this does **not** touch ``self.events`` --
-        it sets a module-level ``ContextVar`` and resets its token in a ``finally``, so the
-        override is visible only within the execution context (OS thread / asyncio Task)
-        that entered it. That is what makes it safe for two concurrently-running agents to
-        share one ``model_client`` (e.g. every worker ``Agent`` in a ``Parallel`` built via
-        ``Parallel.from_client``): each worker's thread gets its own independent copy of the
-        ContextVar, so one worker's override can never clobber another's. See
-        ``_ACTIVE_EVENT_SINK`` / ``_effective_sink`` above for the mechanism, and
-        ``tests/test_workflow_parallel.py``'s concurrent-workers test for the proof.
+        it sets a module-level ``ContextVar`` to ``(events, _client_family(self))`` and resets
+        its token in a ``finally``, so the override is visible only within the execution
+        context (OS thread / asyncio Task) that entered it, and only to ``self`` and whatever
+        it delegates state to or from (see ``_client_family``) -- not to an unrelated client a
+        tool happens to call while the scope is open. That combination is what makes it safe
+        for two concurrently-running agents to share one ``model_client`` (e.g. every worker
+        ``Agent`` in a ``Parallel`` built via ``Parallel.from_client``): each worker's thread
+        gets its own independent copy of the ContextVar, so one worker's override can never
+        clobber another's, *and* a worker's override can never leak onto a client outside its
+        own family. See ``_ACTIVE_EVENT_SINK`` / ``_client_family`` / ``_effective_sink`` above
+        for the mechanism, and ``tests/test_workflow_parallel.py``'s concurrent-workers test
+        for the proof.
 
         ``self.events`` set directly on a shared client (rather than through this scoped
         override) is still genuinely shared -- that assignment has no execution-context
@@ -311,7 +383,7 @@ class _ChatStateMixin:
         if events is None:
             yield
             return
-        token = _ACTIVE_EVENT_SINK.set(events)
+        token = _ACTIVE_EVENT_SINK.set((events, _client_family(self)))
         try:
             yield
         finally:

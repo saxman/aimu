@@ -101,7 +101,10 @@ class _RacingMockAsyncModelClient(MockAsyncModelClient):
         async with self._arrival_lock:
             arrival = self._next_arrival
             self._next_arrival += 1
-        await self._barrier.wait()
+        # Timeout matches the sync twin's `barrier.wait(timeout=5)`: if a future regression
+        # makes one worker never reach this point, fail the test instead of hanging the suite.
+        async with asyncio.timeout(5):
+            await self._barrier.wait()
         await asyncio.sleep(self._delays[arrival])
         return await super()._chat(*args, **kwargs)
 

@@ -595,6 +595,47 @@ async def test_async_run_finished_iteration_matches_the_forced_wrap_up_turn():
     assert finished.iteration == turn_finished[-1].iteration == 2
 
 
+async def test_async_scoped_override_wins_over_a_durable_events_attribute():
+    """Async mirror of ``test_events.py::test_scoped_override_wins_over_a_durable_events_attribute``."""
+    from aimu.aio.agent import Agent
+
+    durable_seen = []
+    scoped_seen = []
+    client = MockAsyncModelClient(["reply"])
+    client.events = durable_seen.append
+
+    agent = Agent(client, events=scoped_seen.append)
+    await agent.run("hi")
+
+    assert durable_seen == []
+    assert len(scoped_seen) > 0
+
+
+async def test_async_a_client_given_its_own_explicit_sink_inside_a_tool_receives_its_events():
+    """Async mirror of ``test_events.py
+    ::test_a_client_given_its_own_explicit_sink_inside_a_tool_receives_its_events``."""
+    from aimu.aio.agent import Agent
+    from aimu.tools import tool
+
+    inner_seen = []
+
+    @tool
+    async def spawn_sub() -> str:
+        """Build a fresh client with its own explicit sink, as the docs recommend."""
+        sub_client = MockAsyncModelClient(["sub reply"])
+        sub_client.events = inner_seen.append
+        return await sub_client.chat("sub task")
+
+    outer_seen = []
+    outer = MockAsyncModelClient([{"tool": "spawn_sub"}, "final answer"])
+    agent = Agent(outer, tools=[spawn_sub], events=outer_seen.append)
+    await agent.run("do it")
+
+    assert any(type(e).__name__ == "ModelTurnStarted" for e in inner_seen)
+    assert not any(type(e).__name__ in ("RunStarted", "RunFinished") for e in inner_seen)
+    assert inner_seen and all(e not in outer_seen for e in inner_seen)
+
+
 async def test_async_a_denied_tool_emits_ToolDenied_not_ToolCalled():
     from aimu.aio.agent import Agent
     from aimu.events import ToolCalled, ToolDenied
@@ -649,6 +690,39 @@ async def test_async_streaming_tool_emits_tool_called():
     assert len(called) == 1
     assert called[0].name == "progress_tool"
     assert called[0].result == "6"
+
+
+async def test_async_streamed_run_via_agent_events_emits_turn_finished_with_usage():
+    """Regression guard for ``_emit_when_drained`` specifically (the async streamed
+    ``ModelTurnFinished`` emit site, ``aimu/aio/_base.py``). Its only other coverage
+    (``test_async_agentic_view_streamed_chat_emits_exactly_one_pair`` above) sets
+    ``client.events`` directly -- the durable attribute -- which ``_effective_sink`` and a
+    bare ``getattr`` resolve identically when no scoped override is active, so a regression
+    at that one line (reverting ``_effective_sink(self)`` back to
+    ``getattr(self, "events", None)``) would leave the rest of the suite green. This drives
+    the same emit through ``Agent.run(events=..., stream=True)`` instead -- the scoped
+    ContextVar-override path -- and checks the reported ``usage``, so it also confirms
+    ``last_usage`` threads through correctly on the streamed drain path.
+    """
+    from aimu.aio.agent import Agent
+    from aimu.events import ModelTurnFinished
+
+    client = MockAsyncModelClient(["streamed answer"])
+    client.model.supports_tools = False
+    # Simulates a provider that has reported usage by the time the stream drains (the mock
+    # itself never populates last_usage, unlike a real provider's _chat_streamed).
+    client.last_usage = {"input_tokens": 3, "output_tokens": 5, "total_tokens": 8}
+
+    seen = []
+    agent = Agent(client, events=seen.append)
+
+    stream = await agent.run("hi", stream=True)
+    chunks = [c async for c in stream]
+    assert chunks
+
+    finished = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert len(finished) == 1
+    assert finished[0].usage == {"input_tokens": 3, "output_tokens": 5, "total_tokens": 8}
 
 
 async def test_async_run_finished_carries_the_error_when_a_run_raises():
@@ -706,20 +780,19 @@ async def test_async_concurrent_tool_dispatch_emits_exactly_one_tool_called_each
     assert results == ["3", "7"]
 
 
-async def test_async_concurrent_tool_dispatch_leaks_the_run_sink_to_a_different_client():
+async def test_async_concurrent_tool_dispatch_does_not_leak_the_run_sink_to_a_different_client():
     """Async mirror of ``test_events.py
-    ::test_concurrent_tool_dispatch_does_not_leak_the_run_sink_to_a_different_client`` --
-    but the outcome is the *opposite* of sync, verified rather than assumed.
-    ``asyncio.TaskGroup.create_task`` always copies the current ``contextvars.Context`` into
-    the new task, and tool dispatch happens while the run's scoped event-sink override is
-    still active, so a *different* client called from inside a concurrently dispatched async
-    tool inherits that override. Its own turn events land in the outer run's sink, attributed
-    to the calling agent (the attribution wrapper stamps any event without its own ``agent``)
-    -- not dropped, and not attributed to whatever produced them. Two tool calls are required
-    to actually exercise ``asyncio.TaskGroup``: a single call takes the sequential fallback.
+    ::test_concurrent_tool_dispatch_does_not_leak_the_run_sink_to_a_different_client`` -- and,
+    after the ``_client_family`` fix, the outcome now *matches* sync rather than differing from
+    it: a *different* client called from inside a tool never receives the outer run's scoped
+    sink, regardless of ``asyncio.TaskGroup.create_task`` copying the current context, because
+    ``_effective_sink`` checks family membership before returning the override, and this inner
+    client was never part of the outer run's family. Two tool calls are required to actually
+    exercise ``asyncio.TaskGroup``: a single call takes the sequential fallback. Contrast with
+    ``test_async_concurrent_tool_dispatch_of_the_same_client_is_visible_under_taskgroup`` below,
+    where the client *is* the same object and the two surfaces genuinely differ.
     """
     from aimu.aio.agent import Agent
-    from aimu.events import ModelTurnFinished, ModelTurnStarted
     from aimu.tools import tool
 
     inner_client = MockAsyncModelClient(["inner reply a"])
@@ -735,27 +808,68 @@ async def test_async_concurrent_tool_dispatch_leaks_the_run_sink_to_a_different_
         """Call a separate client's own chat(), relying on the ambient sink."""
         return await other_inner_client.chat("inner task b")
 
-    seen = []
-    outer_client = MockAsyncModelClient(
-        [{"tools": [{"name": "call_inner_a"}, {"name": "call_inner_b"}]}, "final answer"]
-    )
-    agent = Agent(outer_client, tools=[call_inner_a, call_inner_b], concurrent_tool_calls=True, events=seen.append)
-    await agent.run("do it")
+    for concurrent in (False, True):
+        inner_client._call_count = 0
+        other_inner_client._call_count = 0
+        seen = []
+        outer_client = MockAsyncModelClient(
+            [{"tools": [{"name": "call_inner_a"}, {"name": "call_inner_b"}]}, "final answer"]
+        )
+        agent = Agent(
+            outer_client, tools=[call_inner_a, call_inner_b], concurrent_tool_calls=concurrent, events=seen.append
+        )
+        await agent.run("do it")
 
-    # The inner clients' own ModelTurnStarted/Finished pairs leak into the outer sink too:
-    # 1 RunStarted + 2 ModelTurnStarted/Finished pairs (outer) + 2 pairs (inner_a, inner_b) +
-    # 2 ToolCalled + 1 RunFinished = 12. On sync this stays at 8 (no leak) -- see the mirror.
-    assert len(seen) == 12, [type(e).__name__ for e in seen]
-    # Every event -- including the two leaked pairs -- is attributed to the *outer* agent,
-    # since the attribution wrapper stamps any event that arrives without its own `agent`.
-    assert all(e.agent == agent.name for e in seen if e.agent is not None)
-    turn_started_count = sum(1 for e in seen if isinstance(e, ModelTurnStarted))
-    turn_finished_count = sum(1 for e in seen if isinstance(e, ModelTurnFinished))
-    assert turn_started_count == 4  # outer's 2 turns + inner_a's 1 turn + inner_b's 1 turn
-    assert turn_finished_count == 4
-    # The inner clients' own `events` attribute (their durable setting) was never touched.
-    assert inner_client.events is None
-    assert other_inner_client.events is None
+        # Only the outer client's own turns are reported: 1 RunStarted + 2 ModelTurnStarted +
+        # 2 ModelTurnFinished + 2 ToolCalled + 1 RunFinished = 8, whether dispatch is
+        # sequential or concurrent.
+        assert len(seen) == 8, (concurrent, [type(e).__name__ for e in seen])
+        assert all(getattr(e, "agent", None) in (None, agent.name) for e in seen)
+        assert inner_client.events is None
+        assert other_inner_client.events is None
+
+
+async def test_async_concurrent_tool_dispatch_of_the_same_client_is_visible_under_taskgroup():
+    """The one case that genuinely differs by surface: a tool that calls the *same* client
+    the run's override was installed for. On async, ``asyncio.TaskGroup.create_task`` always
+    copies the current context, so the reentrant call sees the override whether dispatch is
+    sequential or concurrent -- unlike sync, where a concurrently dispatched
+    ``ThreadPoolExecutor`` thread starts with an empty context. See the sync mirror,
+    ``test_events.py::test_concurrent_tool_dispatch_of_the_same_client_is_invisible_under_threadpool``.
+    """
+    from aimu.aio.agent import Agent
+    from aimu.tools import tool
+
+    def make_agent(concurrent):
+        outer = MockAsyncModelClient(
+            [
+                {"tools": [{"name": "reentrant_a"}, {"name": "reentrant_b"}]},
+                "reentrant-a-reply",
+                "reentrant-b-reply",
+                "final answer",
+            ]
+        )
+
+        @tool
+        async def reentrant_a() -> str:
+            return await outer.chat("extra turn a", use_tools=False)
+
+        @tool
+        async def reentrant_b() -> str:
+            return await outer.chat("extra turn b", use_tools=False)
+
+        seen = []
+        agent = Agent(outer, tools=[reentrant_a, reentrant_b], concurrent_tool_calls=concurrent, events=seen.append)
+        return agent, seen
+
+    sequential_agent, sequential_seen = make_agent(concurrent=False)
+    await sequential_agent.run("do it")
+    assert len(sequential_seen) == 12, [type(e).__name__ for e in sequential_seen]
+
+    concurrent_agent, concurrent_seen = make_agent(concurrent=True)
+    await concurrent_agent.run("do it")
+    # Unlike sync, the reentrant turns' events ARE present: still 12.
+    assert len(concurrent_seen) == 12, [type(e).__name__ for e in concurrent_seen]
 
 
 async def test_async_skill_agent_run_emits_run_and_tool_events(tmp_path):

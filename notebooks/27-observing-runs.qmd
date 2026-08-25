@@ -403,80 +403,76 @@ rely on unconditionally.
 ## H - A shared client under concurrent workers
 
 `events=` is delivered by installing the resolved sink as the *active* sink for the run's
-execution context, not by mutating `model_client.events` — a `contextvars.ContextVar`
-override (`_ACTIVE_EVENT_SINK` / `_effective_sink` in `aimu.models._internal.chat_state`),
-unlike `tools=`, which genuinely does swap `model_client.tools` (request-spec building has
-to read a plain attribute there). `Parallel.from_client(...)` builds every worker `Agent`
-over **one shared `model_client`**, and `Parallel.run()` really does execute those workers
-concurrently via `ThreadPoolExecutor` — but each worker's own OS thread gets its own
-independent copy of the ContextVar, so one worker's override cannot clobber another's.
+execution context and client, not by mutating `model_client.events` — a
+`contextvars.ContextVar` override, unlike `tools=`, which genuinely does swap
+`model_client.tools` (request-spec building has to read a plain attribute there).
+`Parallel.from_client(...)` builds every worker `Agent` over **one shared `model_client`**,
+and `Parallel.run()` really does execute those workers concurrently via `ThreadPoolExecutor`
+— but each worker's own OS thread gets its own independent copy of the ContextVar, so one
+worker's override cannot clobber another's, and the override only ever answers for the
+specific client (and whatever it delegates to) it was installed for — not for some other
+client a sibling worker happens to be using.
 
 This used to be a known gap: an earlier implementation delivered the override by mutating
 `model_client.events` directly, a plain object attribute visible to every thread sharing the
-client, so two overlapping worker scopes could clobber each other's sink. Reproduced below
-using real threads (a `threading.Barrier`-style stagger isn't needed for two workers — a
-short `time.sleep` while a scope is open is enough to force the overlap) so the transcript
-below is the real, verified outcome, not a hypothetical:
+client, so two overlapping worker scopes could clobber each other's sink. Below, two workers
+share one client (the shape `Parallel.from_client` builds) and each keeps its own sink —
+this is a real run against `MODEL`, not a simulation, so the transcript is the verified
+outcome:
 
 ```{python}
-import threading
-import time
-from concurrent.futures import ThreadPoolExecutor
+from aimu.agents import Agent, Parallel
 
-from aimu.events import RunFinished, emit
-from aimu.models._internal.chat_state import _effective_sink
-
-isolated_client = aimu.client(MODEL)
+shared_client = aimu.client(MODEL)
 seen_a: list = []
 seen_b: list = []
-sink_a, sink_b = seen_a.append, seen_b.append
 
-
-def run_as_worker(sink, label, delay):
-    # Each call's `with` scope stands in for one worker Agent.run() -- entering it is what
-    # Agent.run(events=...) does at the start of a run, on whichever thread runs it.
-    with isolated_client._events_override(sink):
-        time.sleep(delay)  # stand in for an in-flight model call
-        emit(_effective_sink(isolated_client), RunFinished(result=f"{label}'s own turn"))
-
-
-with ThreadPoolExecutor(max_workers=2) as ex:
-    # worker-a's scope opens first and stays open (sleeping) while worker-b's scope opens,
-    # runs to completion, and closes -- the crossing overlap that broke the old attribute-swap
-    # mechanism (worker-b's close would have restored the client's shared `events` attribute
-    # to whatever it saw on entry, silently displacing worker-a's still-open sink).
-    f_a = ex.submit(run_as_worker, sink_a, "worker-a", 0.1)
-    f_b = ex.submit(run_as_worker, sink_b, "worker-b", 0.0)
-    f_a.result()
-    f_b.result()
-
-print("seen_a:", seen_a)
-print("seen_b:", seen_b)
+parallel = Parallel(
+    workers=[
+        Agent(
+            shared_client,
+            "Reply with exactly one word: wood",
+            name="worker-a",
+            reset_messages_on_run=True,
+            events=seen_a.append,
+        ),
+        Agent(
+            shared_client,
+            "Reply with exactly one word: metal",
+            name="worker-b",
+            reset_messages_on_run=True,
+            events=seen_b.append,
+        ),
+    ]
+)
+result = parallel.run("Go.")
+print("worker-a's own events:", [type(e).__name__ for e in seen_a])
+print("worker-b's own events:", [type(e).__name__ for e in seen_b])
 ```
 
 ```
-seen_a: [RunFinished(agent=None, iteration=0, result="worker-a's own turn", error=None)]
-seen_b: [RunFinished(agent=None, iteration=0, result="worker-b's own turn", error=None)]
+worker-a's own events: ['RunStarted', 'ModelTurnStarted', 'RequestPrepared', 'ModelTurnFinished', 'RunFinished']
+worker-b's own events: ['RunStarted', 'ModelTurnStarted', 'RequestPrepared', 'ModelTurnFinished', 'RunFinished']
 ```
 
-Both sinks see their own event, and only their own — the isolation holds even though
-worker-b's whole scope opened and closed while worker-a's was still open. A real
-`Parallel.from_client(...)` run with concurrent workers on a shared client behaves the same
-way; see `tests/test_workflow_parallel.py`'s
+Each sink sees a complete, correctly-attributed bracket for its own worker and nothing from
+the other, even though both workers ran concurrently on the same client object. See
+`tests/test_workflow_parallel.py`'s
 `test_parallel_from_client_shared_events_sink_survives_concurrent_workers` (async mirror in
-`tests/test_aio_workflow_parallel.py`), which replaced the test that pinned the old gap.
+`tests/test_aio_workflow_parallel.py`), which replaced the test that pinned the old gap, for
+the version of this that deliberately forces a worst-case overlap.
 
-**What is *not* isolated this way:** a client called from **inside** a tool dispatched under
-`concurrent_tool_calls=True` is a genuinely different case on each surface, because it isn't
-covered by *this* mechanism at all. Sync dispatches such tools via a plain
-`ThreadPoolExecutor.submit()` with no context copy, so a client called from inside one runs
-in a fresh thread and does **not** see the run's override — it falls back to that client's
-own `self.events`. Async dispatches via `asyncio.TaskGroup.create_task`, which *always*
-copies the current context, so a client called from inside a concurrently dispatched async
-tool **does** inherit the run's override, and its events land there attributed to the
-calling agent (the attribution wrapper stamps any event that arrives without its own
-`agent`) rather than to whatever produced them. Pass `events=` explicitly to a client
-constructed inside a tool if it needs reliable, correctly-attributed delivery.
+**A client that is not part of the run's family never receives its sink**, on either surface
+and regardless of `concurrent_tool_calls` — for instance a fresh client a tool builds for
+itself (the `make_subagent_tool` shape). That client's own turns stay off the run's sink and,
+if it's given its own `events=`, land correctly on that one instead. The one case that
+genuinely differs by surface is a tool that calls the *same* client the run's override was
+installed for (e.g. a tool that reuses `ctx.deps` holding that client): sync dispatches a
+concurrent tool via a plain `ThreadPoolExecutor.submit()` with no context copy, so that
+thread's empty context means the override is invisible there even though the client
+matches; async's `asyncio.TaskGroup.create_task` always copies the current context, so it
+*is* visible there. Sequential tool dispatch (the default, `concurrent_tool_calls=False`)
+sees it on both surfaces, since no thread/task boundary is crossed at all.
 
 `client.events` set directly (rather than through an `Agent`'s scoped `events=`) is still
 genuinely shared by design — there's no execution-context boundary to isolate a plain
@@ -519,6 +515,6 @@ only the inner model-turn pair that is missing on this path.
 ## Clean up
 
 ```{python}
-del client, agent, chain_client, tally_client, denied_client, otel_client, isolated_client, schema_client
+del client, agent, chain_client, tally_client, denied_client, otel_client, shared_client, schema_client
 print("Cleaned up.")
 ```

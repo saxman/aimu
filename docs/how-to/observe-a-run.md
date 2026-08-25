@@ -232,28 +232,39 @@ itself.
 ## A shared client under concurrent workers
 
 `events=` is delivered by installing the resolved sink as the active sink for the run's
-execution context — a scoped `contextvars.ContextVar` override, not a mutation of
-`model_client.events` (unlike `tools=`, which genuinely does swap `model_client.tools`, since
-request-spec building has to read a plain attribute). `Parallel.from_client(...)` builds every
-worker `Agent` over **one shared `model_client`**, and `Parallel.run()` really does execute
-those workers concurrently — but each worker's own OS thread (or, on the async surface,
-`asyncio.Task`) gets its own independent copy of the ContextVar, so one worker's override
-cannot clobber another's. Concurrent workers on a shared client now deliver every event,
-correctly attributed and in causal order; see
+execution context *and* client — a scoped `contextvars.ContextVar` override, not a mutation
+of `model_client.events` (unlike `tools=`, which genuinely does swap `model_client.tools`,
+since request-spec building has to read a plain attribute). `Parallel.from_client(...)` builds
+every worker `Agent` over **one shared `model_client`**, and `Parallel.run()` really does
+execute those workers concurrently — but each worker's own OS thread (or, on the async
+surface, `asyncio.Task`) gets its own independent copy of the ContextVar, so one worker's
+override cannot clobber another's, and the override only ever answers for the specific client
+(and whatever it delegates to or from — see `_client_family`) it was installed for. Concurrent
+workers on a shared client deliver every event, correctly attributed and in causal order; see
 `tests/test_workflow_parallel.py::test_parallel_from_client_shared_events_sink_survives_concurrent_workers`
 (async mirror in `tests/test_aio_workflow_parallel.py`), which replaced an earlier test that
 pinned this as a known gap.
 
-**What is *not* isolated:** a client called from **inside** a tool dispatched under
-`concurrent_tool_calls=True` is a genuinely different case on each surface. Sync dispatches
-such tools via a plain `ThreadPoolExecutor.submit()` (no context copy), so a client called
-from inside one runs in a fresh thread and does **not** see the run's override — it falls back
-to that client's own `self.events`. Async dispatches via `asyncio.TaskGroup.create_task`,
-which *always* copies the current context, so a client called from inside a concurrently
-dispatched async tool **does** inherit the run's override — and its events land in that sink,
-attributed to the calling agent (the attribution wrapper stamps any event that arrives without
-its own `agent`), not to whatever produced them. Pass `events=` explicitly to a client
-constructed inside a tool if it needs reliable, correctly-attributed delivery.
+**A client that is not part of the run's family never receives its sink**, on either surface
+and regardless of `concurrent_tool_calls` — for instance a fresh client a tool builds for
+itself (the `make_subagent_tool` shape). Its own turns stay off the run's sink, and an
+explicit `events=` given to that client is delivered correctly (`_effective_sink` falls back
+to that client's own `self.events` once family membership fails, rather than an ambient
+override winning regardless of which client is asking — an earlier version of this mechanism
+had exactly that bug, folding a sub-agent's turns into its parent's sink under the parent's
+name while the sub-agent's own `RunStarted`/`RunFinished` never appeared).
+
+**The one case that still depends on the surface** is a tool that calls the **same** client
+the run's override was installed for (e.g. a tool that reuses `ctx.deps` holding that client).
+Sync dispatches a concurrent tool via a plain `ThreadPoolExecutor.submit()` (no context copy),
+so that thread's empty context makes the override invisible there even though the client
+matches — it falls back to that client's own `self.events`. Async dispatches via
+`asyncio.TaskGroup.create_task`, which *always* copies the current context, so a reentrant
+call to the same client from inside a concurrently dispatched async tool **does** see the
+override there, attributed to the calling agent (the attribution wrapper stamps any event
+that arrives without its own `agent`). Sequential tool dispatch (the default,
+`concurrent_tool_calls=False`) sees it on both surfaces, since no thread/task boundary is
+crossed at all.
 
 `self.events` set directly on a client (rather than through an `Agent`'s scoped `events=`)
 remains genuinely shared by design — there is no execution-context boundary to isolate a plain
