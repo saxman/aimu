@@ -1003,10 +1003,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#known-gap-a-shared-client-under-concurrent-workers-drops-events" class="md-nav__link">
+  <a href="#a-shared-client-under-concurrent-workers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Known gap: a shared client under concurrent workers drops events
+        A shared client under concurrent workers
       
     </span>
   </a>
@@ -3281,10 +3281,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#known-gap-a-shared-client-under-concurrent-workers-drops-events" class="md-nav__link">
+  <a href="#a-shared-client-under-concurrent-workers" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Known gap: a shared client under concurrent workers drops events
+        A shared client under concurrent workers
       
     </span>
   </a>
@@ -3513,18 +3513,58 @@ from "the model tried this and a policy said no":</p>
 (<code>"Tool 'delete_everything' was not approved."</code>); the event is the same fact, structured for a
 sink instead of the transcript. See <a href="../gate-tool-calls/">gate tool calls</a> for the approval hook
 itself.</p>
-<h2 id="known-gap-a-shared-client-under-concurrent-workers-drops-events">Known gap: a shared client under concurrent workers drops events<a class="headerlink" href="#known-gap-a-shared-client-under-concurrent-workers-drops-events" title="Permanent link">&para;</a></h2>
-<p><code>events=</code> is delivered by mutating <code>model_client.events</code> for the span of a call (the same
-scoped-swap idiom <code>tools=</code> already uses, and the same idiom that's already "not safe across
-concurrent <code>chat()</code> calls on a shared client"). <code>Parallel.from_client(...)</code> builds every worker
-<code>Agent</code> over <strong>one shared <code>model_client</code></strong>, and <code>Parallel.run()</code> executes those workers
-concurrently. Two workers whose runs overlap on that one client can clobber each other's sink —
-events get dropped and misattributed, even though each worker <code>Agent</code> was given its own <code>events=</code>.</p>
-<p>This is pinned as a known gap, not a bug waiting to be fixed on this pass:
-<code>tests/test_workflow_parallel.py::test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events</code>
-reproduces it deterministically. If you need reliable per-worker events out of a <code>Parallel</code>, build
-each worker over its <strong>own</strong> <code>model_client</code> (skip <code>Parallel.from_client</code> and construct the
-<code>Parallel(workers=[...])</code> directly) rather than sharing one.</p>
+<h2 id="a-shared-client-under-concurrent-workers">A shared client under concurrent workers<a class="headerlink" href="#a-shared-client-under-concurrent-workers" title="Permanent link">&para;</a></h2>
+<p><code>events=</code> is delivered by installing the resolved sink as the active sink for the run's
+execution context <em>and</em> client — a scoped <code>contextvars.ContextVar</code> override, not a mutation
+of <code>model_client.events</code> (unlike <code>tools=</code>, which genuinely does swap <code>model_client.tools</code>,
+since request-spec building has to read a plain attribute). <code>Parallel.from_client(...)</code> builds
+every worker <code>Agent</code> over <strong>one shared <code>model_client</code></strong>, and <code>Parallel.run()</code> really does
+execute those workers concurrently — but each worker's own OS thread (or, on the async
+surface, <code>asyncio.Task</code>) gets its own independent copy of the ContextVar, so one worker's
+override cannot clobber another's, and the override only ever answers for the specific client
+(and whatever it delegates to or from — see <code>_client_family</code>) it was installed for. Concurrent
+workers on a shared client deliver every event, correctly attributed and in causal order; see
+<code>tests/test_workflow_parallel.py::test_parallel_from_client_shared_events_sink_survives_concurrent_workers</code>
+(async mirror in <code>tests/test_aio_workflow_parallel.py</code>), which replaced an earlier test that
+pinned this as a known gap.</p>
+<p><strong>A client that is not part of the run's family never receives its sink</strong>, on either surface
+and regardless of <code>concurrent_tool_calls</code> — for instance a fresh client a tool builds for
+itself (the <code>make_subagent_tool</code> shape). Its own turns stay off the run's sink, and an
+explicit <code>events=</code> given to that client is delivered correctly (<code>_effective_sink</code> falls back
+to that client's own <code>self.events</code> once family membership fails, rather than an ambient
+override winning regardless of which client is asking — an earlier version of this mechanism
+had exactly that bug, folding a sub-agent's turns into its parent's sink under the parent's
+name while the sub-agent's own <code>RunStarted</code>/<code>RunFinished</code> never appeared).</p>
+<p><strong>The one case that still depends on the surface</strong> is a tool that calls the <strong>same</strong> client
+the run's override was installed for (e.g. a tool that reuses <code>ctx.deps</code> holding that client).
+Sync dispatches a concurrent tool via a plain <code>ThreadPoolExecutor.submit()</code> (no context copy),
+so that thread's empty context makes the override invisible there even though the client
+matches — it falls back to that client's own <code>self.events</code>. Async dispatches via
+<code>asyncio.TaskGroup.create_task</code>, which <em>always</em> copies the current context, so a reentrant
+call to the same client from inside a concurrently dispatched async tool <strong>does</strong> see the
+override there, attributed to the calling agent (the attribution wrapper stamps any event
+that arrives without its own <code>agent</code>). Sequential tool dispatch (the default,
+<code>concurrent_tool_calls=False</code>) sees it on both surfaces, since no thread/task boundary is
+crossed at all.</p>
+<p><code>self.events</code> set directly on a client (rather than through an <code>Agent</code>'s scoped <code>events=</code>)
+remains genuinely shared by design — there is no execution-context boundary to isolate a plain
+attribute assignment by.</p>
+<p><strong>Abandoning a streamed run: close it.</strong> <code>run(stream=True, events=sink)</code> holds the scope open
+across the generator's yields, so the scope is torn down when the generator finishes <em>or is
+closed</em>. A consumer that stops early — a UI's stop button — should close it:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">stream</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"..."</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">events</span><span class="o">=</span><span class="n">sink</span><span class="p">)</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="k">async</span> <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="k">if</span> <span class="n">user_pressed_stop</span><span class="p">:</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>        <span class="k">break</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="k">await</span> <span class="n">stream</span><span class="o">.</span><span class="n">aclose</span><span class="p">()</span>          <span class="c1"># or: async with aclosing(stream) as stream: ...</span>
+</span></code></pre></div>
+<p><code>aclose()</code> (sync: <code>stream.close()</code>, or just letting the generator go out of scope, which
+CPython finalizes immediately on the same thread) tears the scope down synchronously, right
+there. Merely <em>dropping</em> an async generator without closing it hands finalization to the event
+loop's asyncgen finalizer, which runs a few loop iterations later in a separate task — until it
+does, the abandoned run's sink is still the active one, so a call issued in that window is
+reported to it. The window is bounded and self-healing (it is not the permanent leak a
+<code>Token</code>-based teardown produced), but <code>aclose()</code> removes it entirely.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../manage-context/">Manage context</a> — <code>ContextCompacted</code> is the event this page didn't cover;

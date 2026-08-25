@@ -382,7 +382,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </blockquote>
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
-<div id="7d788367" class="cell" data-execution_count="1">
+<div id="0efdc926" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>MODEL <span class="op">=</span> <span class="st">"ollama:qwen3:8b"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
@@ -391,7 +391,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a---count-tokens-an-honest-estimate" class="level2">
 <h2 class="anchored" data-anchor-id="a---count-tokens-an-honest-estimate">A - Count tokens: an honest estimate</h2>
 <p><code>count_tokens</code> estimates a message list’s size. The default counter is <code>len(text) // 4</code> over each message JSON-serialized, with AIMU’s own inert bookkeeping keys (<code>timestamp</code>, <code>thinking</code>, <code>provenance</code>) stripped first — a provider never sees those, but the structural overhead of <code>role</code>/<code>tool_calls</code>/JSON punctuation does ride along in the real request:</p>
-<div id="868d9a67" class="cell" data-execution_count="2">
+<div id="616456da" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>messages <span class="op">=</span> [{<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"hello there"</span>}]</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(aimu.count_tokens(messages))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
@@ -402,7 +402,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="b---trim-to-a-budget-trim_messages" class="level2">
 <h2 class="anchored" data-anchor-id="b---trim-to-a-budget-trim_messages">B - Trim to a budget: <code>trim_messages</code></h2>
 <p><code>trim_messages</code> drops the oldest messages until the conversation fits <code>max_tokens</code> (per <code>count_tokens</code>), and returns a new list — the input is never mutated:</p>
-<div id="b22cbf7e" class="cell" data-execution_count="3">
+<div id="840842e3" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>budget_messages <span class="op">=</span> [{<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: <span class="st">"You are a assistant."</span>}]</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">6</span>):</span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    budget_messages.append({<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="ss">f"This is user message number </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">, with some extra padding."</span>})</span>
@@ -418,7 +418,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 ['system', 'assistant', 'user', 'assistant']</code></pre>
 <p>Four messages kept, not the two <code>keep_last=2</code> might suggest — see section C for why.</p>
 <p><strong>The invariant that justifies this over a hand-written <code>messages[-n:]</code> slice</strong>: trimming never orphans a <code>tool</code> message from the <code>assistant</code> message carrying the <code>tool_calls</code> it’s answering. Every provider rejects that shape, and it’s exactly what a naive slice produces. <code>trim_messages</code> treats an <code>assistant</code>-with-<code>tool_calls</code> message and every <code>tool</code> message answering it as one indivisible unit — dropped together, kept together, never split. On a real two-turn tool-using conversation (built the same way <a href="./07-agents.html">notebook 07</a> does — note the system prompt lives on the <em>client</em>, not the agent, so both <code>run()</code> calls accumulate onto one history rather than resetting; see <a href="./25-sessions.html">notebook 25</a>’s gotcha for why):</p>
-<div id="0a4b08d2" class="cell" data-execution_count="4">
+<div id="1cf4763f" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> tool</span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -446,7 +446,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="c---keep_last-counts-messages-not-exchanges" class="level2">
 <h2 class="anchored" data-anchor-id="c---keep_last-counts-messages-not-exchanges">C - <code>keep_last</code> counts messages, not exchanges</h2>
 <p>A “turn” is ambiguous: a plain back-and-forth is 2 messages (user + assistant), but an agentic turn can be 5+ (user, assistant-with-tool_calls, one or more tool results, final assistant answer). <code>keep_last=2</code> on section B’s tool-using conversation protects only the last 2 <em>messages</em> — here, <code>tool</code> and the final <code>assistant</code> — not the whole last exchange:</p>
-<div id="5470bf05" class="cell" data-execution_count="5">
+<div id="ad19c220" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>([m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> aimu.trim_messages(tool_client.messages, max_tokens<span class="op">=</span><span class="dv">10_000</span>, keep_last<span class="op">=</span><span class="dv">2</span>)])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <pre><code>['system', 'user', 'assistant', 'tool', 'assistant', 'user', 'assistant', 'tool', 'assistant']</code></pre>
@@ -455,7 +455,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="d---summarize-instead-of-dropping-summarize_messages" class="level2">
 <h2 class="anchored" data-anchor-id="d---summarize-instead-of-dropping-summarize_messages">D - Summarize instead of dropping: <code>summarize_messages</code></h2>
 <p><code>trim_messages</code> discards the oldest turns outright. <code>summarize_messages</code> replaces them with one LLM-generated summary instead, so the conversation keeps <em>some</em> memory of what came before rather than none:</p>
-<div id="4f386266" class="cell" data-execution_count="6">
+<div id="62d852e9" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>summary_client <span class="op">=</span> aimu.client(MODEL)</span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>plain_messages <span class="op">=</span> [</span>
 <span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"My favorite color is blue."</span>},</span>
@@ -476,7 +476,7 @@ assistant : 4</code></pre>
 <section id="e---automate-it-agentcompaction" class="level2">
 <h2 class="anchored" data-anchor-id="e---automate-it-agentcompaction">E - Automate it: <code>Agent(compaction=)</code></h2>
 <p>Both functions above are things you call by hand. <code>Agent(compaction=...)</code> (and the per-run <code>agent.run(compaction=...)</code> override) runs a callable of your choice — <code>list[dict] -&gt; list[dict]</code> — right before every model turn in the loop:</p>
-<div id="c292876d" class="cell" data-execution_count="7">
+<div id="568c0ca2" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> logging</span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>logging.basicConfig(level<span class="op">=</span>logging.WARNING, <span class="bu">format</span><span class="op">=</span><span class="st">"</span><span class="sc">%(levelname)s</span><span class="st"> </span><span class="sc">%(message)s</span><span class="st">"</span>)</span>
@@ -551,7 +551,7 @@ dropped roles: ['user', 'assistant'] | before: 106 | after: 62</code></pre>
 </section>
 <section id="clean-up" class="level2">
 <h2 class="anchored" data-anchor-id="clean-up">Clean up</h2>
-<div id="42ab8a43" class="cell" data-execution_count="8">
+<div id="7675ff62" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> tool_client, tool_agent, summary_client, compaction_client, compaction_agent</span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Cleaned up."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>

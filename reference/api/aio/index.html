@@ -5393,7 +5393,12 @@ it <code>__tool_is_async__ = True</code> and the async agent loop awaits it dire
 
         <p>Async equivalent of :class:<code>aimu.agents.Agent</code>.</p>
 <p>Calls <code>await model_client.chat()</code> repeatedly until the model produces a turn
-without invoking tools, or <code>max_iterations</code> is reached.</p>
+without invoking tools, or <code>max_iterations</code> real model calls have been made by the
+loop. On exhausting that cap with a tool call still pending, one forced wrap-up turn
+(tools disabled) runs <em>after</em> the cap to guarantee a final answer -- see
+<code>aimu.agents.Agent</code>'s docstring for the full degenerate-turn handling this driver
+shares byte-for-byte with the sync one. That wrap-up call is the one exception: it is
+never counted against <code>max_iterations</code>.</p>
 <p>Quick start::</p>
 <div class="language-text highlight"><pre><span></span><code>from aimu.tools import tool
 from aimu import aio
@@ -5449,6 +5454,12 @@ print(await agent.run("Fetch example.com"))
     <div class="doc doc-contents ">
 
         <p>Run the async agentic loop. <code>images</code> attach only to the initial turn.</p>
+<p>The loop makes at most <code>self.max_iterations</code> real model calls (the initial turn
+plus every continuation/tool-follow-up turn), then, if a tool call is still pending
+at that cap, one additional forced wrap-up call (tools disabled) to guarantee a
+final answer -- that one call is deliberately not counted against
+<code>max_iterations</code>. Identical to the sync driver's definition; see
+:meth:<code>aimu.agents.Agent.run</code>.</p>
 <p><code>tools</code> is a per-run override of the agent's configured <code>self.tools</code>; <code>deps</code> is a
 per-run override of the agent's <code>self.deps</code> (injected as <code>ctx.deps</code> into tools that
 declare a :class:<code>~aimu.tools.ToolContext</code> parameter); <code>tool_approval</code> is a per-run
@@ -5457,12 +5468,25 @@ override of <code>self.tool_approval</code> (the gate run before each tool call,
 the run a single structured-output turn returning a validated instance; <code>thinking</code> is a
 per-run override of <code>self.thinking</code> (the portable reasoning control), applied to every
 model turn the run makes; <code>events</code> is a per-run override of <code>self.events</code> (a callable
-taking one :class:<code>~aimu.events.RunEvent</code>), attached to <code>model_client.events</code> for the
-run's duration. <strong>Not safe across agents that share a <code>model_client</code> and run
-concurrently</strong> (e.g. every worker <code>Agent</code> in a :class:<code>~aimu.agents.Parallel</code> built via
-<code>Parallel.from_client</code>): attaching a sink mutates shared state rather than passing a
-per-call argument, so concurrent runs will drop and misorder events. Give each
-concurrently-running agent its own <code>model_client</code> if you need reliable delivery.
+taking one :class:<code>~aimu.events.RunEvent</code>), installed as the active sink for the run's
+duration via a scoped <code>contextvars.ContextVar</code> override. <strong>Safe across agents that
+share a <code>model_client</code> and run concurrently</strong> (e.g. every worker <code>Agent</code> in a
+:class:<code>~aimu.agents.Parallel</code> built via <code>Parallel.from_client</code>): each concurrently
+running agent's <code>asyncio.Task</code> gets its own independent copy of the ContextVar, so one
+cannot clobber another's. It is also scoped to this specific client (and whatever it
+delegates to or from), not to any client called while the scope is open: a <strong>different</strong>
+client called from inside a tool (e.g. a fresh client the tool builds for itself, as
+<code>make_subagent_tool</code> does) never receives this run's sink, on either surface and
+regardless of <code>concurrent_tool_calls</code> -- it falls back to its own <code>self.events</code>, so
+give it an explicit <code>events=</code> if it needs to report anywhere. The one case that still
+depends on the surface is a tool that calls the <strong>same</strong> client (e.g. reusing
+<code>ctx.deps</code>): unlike sync, <code>concurrent_tool_calls=True</code> dispatches async tools via
+<code>asyncio.TaskGroup.create_task</code>, which always copies the current context, so that
+reentrant call sees the override (attributed to this agent, since the attribution
+wrapper stamps any event that arrives without its own) -- sync's equivalent case (a
+fresh <code>ThreadPoolExecutor</code> thread with an empty context) does not -- see
+<code>aimu.agents.Agent.run</code>'s docstring. Sequential tool dispatch (the default) sees it
+on both surfaces, since no thread/task boundary is crossed.
 <code>compaction</code> is a per-run override of <code>self.compaction</code> (a callable applied to the
 conversation before every model turn the run makes; see :mod:<code>aimu.context</code>), not used
 by the <code>schema=</code> structured-output path. See the sync :meth:<code>aimu.agents.Agent.run</code>
@@ -5979,14 +6003,16 @@ and an <code>ExceptionGroup</code> surfaces with all errors.</p>
 
         <p>Build a Parallel using <code>client</code> for all workers (and aggregator).</p>
 <p><code>events</code> is passed to every worker (and the aggregator, if any) this factory
-constructs. <strong>Known gap</strong>: every worker here shares one <code>client</code>, and workers run
-concurrently under <code>asyncio.TaskGroup</code> -- an event sink is delivered by
-scoped-swapping <code>client.events</code> for the duration of each call, so concurrent
-delivery from multiple workers will drop and misorder events (see the caveat on
-<code>Agent.events</code> / <code>AsyncBaseModelClient.events</code> and the sync
-<code>test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events</code>, whose
-reasoning applies identically here). Give each worker its own client if you need
-reliable per-worker events.</p>
+constructs. Every worker here shares one <code>client</code>, and workers run concurrently
+under <code>asyncio.TaskGroup</code> -- each worker's per-run sink is delivered through a
+scoped <code>contextvars.ContextVar</code> override (<code>AsyncBaseModelClient._events_override</code>
+/ <code>_effective_sink</code>), not a mutation of <code>client.events</code>, so each worker's own
+<code>asyncio.Task</code> gets its own independent copy of the context it was created in and
+concurrent delivery is correctly attributed and ordered per worker (see
+<code>tests/test_aio_workflow_parallel.py</code>'s concurrent-workers test, the async mirror of
+the sync one). A <em>different</em> client called from inside a worker's tool never receives
+that worker's sink, on either surface and regardless of <code>concurrent_tool_calls</code>; see
+<code>aio.Agent.events</code> for the one residual that does depend on the surface.</p>
 
 
     </div>

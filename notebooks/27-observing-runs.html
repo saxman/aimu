@@ -351,7 +351,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#e---a-custom-sink-tally-tokens-across-a-run" id="toc-e---a-custom-sink-tally-tokens-across-a-run" class="nav-link" data-scroll-target="#e---a-custom-sink-tally-tokens-across-a-run">E - A custom sink: tally tokens across a run</a></li>
   <li><a href="#f---gated-tools-tooldenied" id="toc-f---gated-tools-tooldenied" class="nav-link" data-scroll-target="#f---gated-tools-tooldenied">F - Gated tools: <code>ToolDenied</code></a></li>
   <li><a href="#g---a-worked-example-an-opentelemetry-shaped-sink" id="toc-g---a-worked-example-an-opentelemetry-shaped-sink" class="nav-link" data-scroll-target="#g---a-worked-example-an-opentelemetry-shaped-sink">G - A worked example: an OpenTelemetry-shaped sink</a></li>
-  <li><a href="#h---known-limitation-a-shared-client-under-concurrent-workers" id="toc-h---known-limitation-a-shared-client-under-concurrent-workers" class="nav-link" data-scroll-target="#h---known-limitation-a-shared-client-under-concurrent-workers">H - Known limitation: a shared client under concurrent workers</a></li>
+  <li><a href="#h---a-shared-client-under-concurrent-workers" id="toc-h---a-shared-client-under-concurrent-workers" class="nav-link" data-scroll-target="#h---a-shared-client-under-concurrent-workers">H - A shared client under concurrent workers</a></li>
   <li><a href="#i---known-limitation-schema-only-emits-requestprepared" id="toc-i---known-limitation-schema-only-emits-requestprepared" class="nav-link" data-scroll-target="#i---known-limitation-schema-only-emits-requestprepared">I - Known limitation: <code>schema=</code> only emits <code>RequestPrepared</code></a></li>
   <li><a href="#clean-up" id="toc-clean-up" class="nav-link" data-scroll-target="#clean-up">Clean up</a></li>
   </ul>
@@ -387,7 +387,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </blockquote>
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
-<div id="2a5988d3" class="cell" data-execution_count="1">
+<div id="0492679a" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> logging</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>logging.basicConfig(level<span class="op">=</span>logging.INFO, <span class="bu">format</span><span class="op">=</span><span class="st">"</span><span class="sc">%(message)s</span><span class="st">"</span>)</span>
@@ -399,7 +399,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a---log_events-attach-and-watch" class="level2">
 <h2 class="anchored" data-anchor-id="a---log_events-attach-and-watch">A - <code>log_events</code>: attach and watch</h2>
 <p><code>aimu.events.log_events(logger)</code> is a sink that writes one line per event. Attach it to a bare <code>aimu.chat()</code> call — no agent, no tool loop — and it is already observable:</p>
-<div id="896d9400" class="cell" data-execution_count="2">
+<div id="ff8ccbff" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> log_events</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -420,7 +420,7 @@ reply: OK</code></pre>
 <section id="b---the-event-vocabulary-on-an-agents-tool-loop" class="level2">
 <h2 class="anchored" data-anchor-id="b---the-event-vocabulary-on-an-agents-tool-loop">B - The event vocabulary, on an agent’s tool loop</h2>
 <p>Point the same sink at an <code>Agent</code> and the tool loop reports itself too. Every event carries <code>agent</code> and <code>iteration</code> — the same two fields <code>StreamChunk</code> carries — so one sink attached to a nested workflow can still tell events apart by who emitted them.</p>
-<div id="2eb0fc32" class="cell" data-execution_count="3">
+<div id="6c1a610c" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> tool</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -459,7 +459,7 @@ result: ...</code></pre>
 <section id="c---last_request-did-the-library-do-this-or-the-model" class="level2">
 <h2 class="anchored" data-anchor-id="c---last_request-did-the-library-do-this-or-the-model">C - <code>last_request</code>: did the library do this, or the model?</h2>
 <p><code>RequestPrepared</code> carries the same payload the client stores on <code>client.last_request</code> — the request exactly as sent, after AIMU’s own generate_kwargs merge (four tiers), the <code>GENERATE_KWARG_SUPPORT</code> renames and drops, thinking-effort resolution, <code>strip_inert_keys</code> (AIMU’s own <code>timestamp</code>/<code>thinking</code>/<code>provenance</code> bookkeeping never reaches a provider), and provider format adaptation. It is the answer to a question that otherwise takes source-reading: when a model’s behavior looks surprising, is the surprise something the model did, or something AIMU changed on the way out?</p>
-<div id="4faeea02" class="cell" data-execution_count="4">
+<div id="33b67efb" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>plain_client <span class="op">=</span> aimu.client(MODEL)</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>plain_client.chat(<span class="st">"Hello"</span>)</span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(plain_client.last_request)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
@@ -470,7 +470,7 @@ result: ...</code></pre>
 <section id="d---agent-and-workflow-wiring" class="level2">
 <h2 class="anchored" data-anchor-id="d---agent-and-workflow-wiring">D - Agent and workflow wiring</h2>
 <p><code>Agent(events=)</code> is a field, with a matching <code>agent.run(events=...)</code> per-run override (<code>None</code> uses the field). <code>Chain.from_client(...)</code>, <code>Router.from_client(...)</code>, <code>Parallel.from_client(...)</code>, and <code>PlanExecuteEvaluator.from_client(...)</code> all take <code>events=</code> and forward it to every step/handler/worker they build, tagging each with its own <code>agent</code> name so one sink still tells them apart:</p>
-<div id="ee91c50a" class="cell" data-execution_count="5">
+<div id="8948514e" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Chain</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> RunEvent</span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -504,7 +504,7 @@ step-1 RequestPrepared
 step-1 ModelTurnFinished
 step-1 RunFinished</code></pre>
 <p><code>OrchestratorAgent.assemble(events=...)</code> forwards the sink to the inner orchestrating <code>Agent</code> — the only way to reach it, since that agent is private. It covers the orchestrator’s own turns and its worker-dispatch tool calls; a worker’s <em>internal</em> turns reach the sink only if that worker <code>Agent</code> was given its own <code>events=</code> too (the same “each layer opts in independently” rule as everywhere else in AIMU):</p>
-<div id="147c26ac" class="cell" data-execution_count="6">
+<div id="67e3d630" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> OrchestratorAgent</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>orch_client <span class="op">=</span> aimu.client(MODEL)</span>
@@ -533,7 +533,7 @@ agent names seen: {'orchestrator'}</code></pre>
 <section id="e---a-custom-sink-tally-tokens-across-a-run" class="level2">
 <h2 class="anchored" data-anchor-id="e---a-custom-sink-tally-tokens-across-a-run">E - A custom sink: tally tokens across a run</h2>
 <p>A sink is a plain callable — nothing says it has to log. This one accumulates token usage from every <code>ModelTurnFinished</code> in a run:</p>
-<div id="30a5f7f0" class="cell" data-execution_count="7">
+<div id="0c5f3a26" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> ModelTurnFinished</span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -560,7 +560,7 @@ agent names seen: {'orchestrator'}</code></pre>
 <section id="f---gated-tools-tooldenied" class="level2">
 <h2 class="anchored" data-anchor-id="f---gated-tools-tooldenied">F - Gated tools: <code>ToolDenied</code></h2>
 <p>A <code>tool_approval</code> policy that refuses a call emits <code>ToolDenied</code> (name + the model’s raw arguments) instead of <code>ToolCalled</code>, so a sink can distinguish “the model tried this and it ran” from “the model tried this and a policy said no”:</p>
-<div id="c7ec5552" class="cell" data-execution_count="8">
+<div id="27460f8c" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="at">@aimu.tool</span></span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> delete_everything() <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Delete everything."""</span></span>
@@ -591,7 +591,7 @@ RunFinished RunFinished(agent='agent-975fd0', iteration=1, result=..., error=Non
 <section id="g---a-worked-example-an-opentelemetry-shaped-sink" class="level2">
 <h2 class="anchored" data-anchor-id="g---a-worked-example-an-opentelemetry-shaped-sink">G - A worked example: an OpenTelemetry-shaped sink</h2>
 <p>Events are plain data, so mapping them onto spans in an observability system is a dispatch function. This is a worked example, not a dependency — AIMU does not import <code>opentelemetry</code>. The stand-in tracer below is what makes the cell runnable without one installed; swap it for <code>opentelemetry.trace.get_tracer(__name__)</code> and the mapping is unchanged:</p>
-<div id="bda611b4" class="cell" data-execution_count="9">
+<div id="2d513f63" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> ModelTurnFinished, ModelTurnStarted, RunFinished, RunStarted, ToolCalled</span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -644,43 +644,49 @@ agent.run.finished {'agent': 'agent-d80160', 'result': ...}</code></pre>
 <p><strong>If your sink goes quiet, check the log before you assume no events fired.</strong> <code>emit()</code> catches an exception a sink raises, logs it at <code>WARNING</code>, and keeps the run going — observation must never break the thing it’s observing. The cost is that a broken sink fails silently <em>to you</em>: no traceback at the call site, just fewer spans/lines than expected. This example’s first draft did exactly that — <code>make_otel_sink</code> referenced <code>ModelTurnStarted</code> without importing it, so every event except <code>RunStarted</code> raised <code>NameError</code> inside the sink, and the only visible symptom was <code>tracer.spans</code> ending up with one entry instead of four. There was no traceback to follow; the fix was reading the <code>WARNING</code>-level log AIMU had been emitting the whole time.</p>
 </blockquote>
 </section>
-<section id="h---known-limitation-a-shared-client-under-concurrent-workers" class="level2">
-<h2 class="anchored" data-anchor-id="h---known-limitation-a-shared-client-under-concurrent-workers">H - Known limitation: a shared client under concurrent workers</h2>
-<p><code>events=</code> is delivered by mutating <code>model_client.events</code> for the span of a call — the same scoped-swap idiom <code>tools=</code> already uses, and already documented as “not safe across concurrent <code>chat()</code> calls on a shared client.” <code>Parallel.from_client(...)</code> builds every worker <code>Agent</code> over <strong>one shared <code>model_client</code></strong>, and <code>Parallel.run()</code> executes those workers concurrently. Two workers whose runs overlap on that one client can clobber each other’s sink — events get dropped and misattributed, even though each worker <code>Agent</code> was given its own <code>events=</code>.</p>
-<p>This is reproduced deterministically below by manually interleaving two scopes on one client, in the order two concurrent workers can land in (not real threads, so this isn’t timing-dependent — it pins the mechanism, the same way <code>tests/test_workflow_parallel.py::test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events</code> does):</p>
-<div id="88bbb080" class="cell" data-execution_count="10">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> emit</span>
+<section id="h---a-shared-client-under-concurrent-workers" class="level2">
+<h2 class="anchored" data-anchor-id="h---a-shared-client-under-concurrent-workers">H - A shared client under concurrent workers</h2>
+<p><code>events=</code> is delivered by installing the resolved sink as the <em>active</em> sink for the run’s execution context and client, not by mutating <code>model_client.events</code> — a <code>contextvars.ContextVar</code> override, unlike <code>tools=</code>, which genuinely does swap <code>model_client.tools</code> (request-spec building has to read a plain attribute there). <code>Parallel.from_client(...)</code> builds every worker <code>Agent</code> over <strong>one shared <code>model_client</code></strong>, and <code>Parallel.run()</code> really does execute those workers concurrently via <code>ThreadPoolExecutor</code> — but each worker’s own OS thread gets its own independent copy of the ContextVar, so one worker’s override cannot clobber another’s, and the override only ever answers for the specific client (and whatever it delegates to) it was installed for — not for some other client a sibling worker happens to be using.</p>
+<p>This used to be a known gap: an earlier implementation delivered the override by mutating <code>model_client.events</code> directly, a plain object attribute visible to every thread sharing the client, so two overlapping worker scopes could clobber each other’s sink. Below, two workers share one client (the shape <code>Parallel.from_client</code> builds) and each keeps its own sink — this is a real run against <code>MODEL</code>, not a simulation, so the transcript is the verified outcome:</p>
+<div id="515e38be" class="cell" data-execution_count="10">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent, Parallel</span>
 <span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>gap_client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>shared_client <span class="op">=</span> aimu.client(MODEL)</span>
 <span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>seen_a: <span class="bu">list</span> <span class="op">=</span> []</span>
 <span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>seen_b: <span class="bu">list</span> <span class="op">=</span> []</span>
-<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>sink_a, sink_b <span class="op">=</span> seen_a.append, seen_b.append</span>
-<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a><span class="co"># worker-a's Agent.run() enters its events scope first...</span></span>
-<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>scope_a <span class="op">=</span> gap_client._events_override(sink_a)</span>
-<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>scope_a.<span class="fu">__enter__</span>()</span>
-<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"client.events is sink_a:"</span>, gap_client.events <span class="kw">is</span> sink_a)</span>
-<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a><span class="co"># ...but before worker-a's run finishes, worker-b's Agent.run() (a different thread, same</span></span>
-<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a><span class="co"># shared client) enters its own scope and clobbers the live sink.</span></span>
-<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>scope_b <span class="op">=</span> gap_client._events_override(sink_b)</span>
-<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>scope_b.<span class="fu">__enter__</span>()</span>
-<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"client.events is sink_b:"</span>, gap_client.events <span class="kw">is</span> sink_b)</span>
-<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a>emit(gap_client.events, RunFinished(result<span class="op">=</span><span class="st">"worker-b's own turn"</span>))</span>
-<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"seen_a:"</span>, seen_a)</span>
-<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"seen_b:"</span>, seen_b)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>parallel <span class="op">=</span> Parallel(</span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>    workers<span class="op">=</span>[</span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>        Agent(</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>            shared_client,</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>            <span class="st">"Reply with exactly one word: wood"</span>,</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>            name<span class="op">=</span><span class="st">"worker-a"</span>,</span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>            reset_messages_on_run<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>            events<span class="op">=</span>seen_a.append,</span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>        ),</span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>        Agent(</span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a>            shared_client,</span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a>            <span class="st">"Reply with exactly one word: metal"</span>,</span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a>            name<span class="op">=</span><span class="st">"worker-b"</span>,</span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a>            reset_messages_on_run<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a>            events<span class="op">=</span>seen_b.append,</span>
+<span id="cb18-22"><a href="#cb18-22" aria-hidden="true" tabindex="-1"></a>        ),</span>
+<span id="cb18-23"><a href="#cb18-23" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb18-24"><a href="#cb18-24" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb18-25"><a href="#cb18-25" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> parallel.run(<span class="st">"Go."</span>)</span>
+<span id="cb18-26"><a href="#cb18-26" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"worker-a's own events:"</span>, [<span class="bu">type</span>(e).<span class="va">__name__</span> <span class="cf">for</span> e <span class="kw">in</span> seen_a])</span>
+<span id="cb18-27"><a href="#cb18-27" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"worker-b's own events:"</span>, [<span class="bu">type</span>(e).<span class="va">__name__</span> <span class="cf">for</span> e <span class="kw">in</span> seen_b])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<pre><code>client.events is sink_a: True
-client.events is sink_b: True
-seen_a: []
-seen_b: [RunFinished(agent=None, iteration=0, result="worker-b's own turn", error=None)]</code></pre>
-<p>worker-a’s sink never sees the event at all — it was silently displaced. This is pinned as a known gap, not a bug waiting to be fixed on this pass. If you need reliable per-worker events out of a <code>Parallel</code>, build each worker over its <strong>own</strong> <code>model_client</code> (skip <code>Parallel.from_client</code> and construct <code>Parallel(workers=[...])</code> directly) rather than sharing one.</p>
+<pre><code>worker-a's own events: ['RunStarted', 'ModelTurnStarted', 'RequestPrepared', 'ModelTurnFinished', 'RunFinished']
+worker-b's own events: ['RunStarted', 'ModelTurnStarted', 'RequestPrepared', 'ModelTurnFinished', 'RunFinished']</code></pre>
+<p>Each sink sees a complete, correctly-attributed bracket for its own worker and nothing from the other, even though both workers ran concurrently on the same client object. See <code>tests/test_workflow_parallel.py</code>’s <code>test_parallel_from_client_shared_events_sink_survives_concurrent_workers</code> (async mirror in <code>tests/test_aio_workflow_parallel.py</code>), which replaced the test that pinned the old gap, for the version of this that deliberately forces a worst-case overlap.</p>
+<p><strong>A client that is not part of the run’s family never receives its sink</strong>, on either surface and regardless of <code>concurrent_tool_calls</code> — for instance a fresh client a tool builds for itself (the <code>make_subagent_tool</code> shape). That client’s own turns stay off the run’s sink and, if it’s given its own <code>events=</code>, land correctly on that one instead. The one case that genuinely differs by surface is a tool that calls the <em>same</em> client the run’s override was installed for (e.g.&nbsp;a tool that reuses <code>ctx.deps</code> holding that client): sync dispatches a concurrent tool via a plain <code>ThreadPoolExecutor.submit()</code> with no context copy, so that thread’s empty context means the override is invisible there even though the client matches; async’s <code>asyncio.TaskGroup.create_task</code> always copies the current context, so it <em>is</em> visible there. Sequential tool dispatch (the default, <code>concurrent_tool_calls=False</code>) sees it on both surfaces, since no thread/task boundary is crossed at all.</p>
+<p><code>client.events</code> set directly (rather than through an <code>Agent</code>’s scoped <code>events=</code>) is still genuinely shared by design — there’s no execution-context boundary to isolate a plain attribute assignment by.</p>
 </section>
 <section id="i---known-limitation-schema-only-emits-requestprepared" class="level2">
 <h2 class="anchored" data-anchor-id="i---known-limitation-schema-only-emits-requestprepared">I - Known limitation: <code>schema=</code> only emits <code>RequestPrepared</code></h2>
 <p><code>client.chat(schema=...)</code> (and <code>generate(schema=...)</code>) makes exactly one call and returns before <code>ModelTurnStarted</code> fires, so the structured-output path never emits <code>ModelTurnStarted</code>/<code>ModelTurnFinished</code> — only <code>RequestPrepared</code>:</p>
-<div id="fb738550" class="cell" data-execution_count="11">
+<div id="39f656fc" class="cell" data-execution_count="11">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> dataclasses</span>
 <span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -703,8 +709,8 @@ events: ['RequestPrepared']</code></pre>
 </section>
 <section id="clean-up" class="level2">
 <h2 class="anchored" data-anchor-id="clean-up">Clean up</h2>
-<div id="5201fb28" class="cell" data-execution_count="12">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> client, agent, chain_client, tally_client, denied_client, otel_client, gap_client, schema_client</span>
+<div id="86111277" class="cell" data-execution_count="12">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> client, agent, chain_client, tally_client, denied_client, otel_client, shared_client, schema_client</span>
 <span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Cleaned up."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 
@@ -1579,99 +1585,124 @@ events: ['RequestPrepared']</code></pre>
 <span id="cb23-418"><a href="#cb23-418" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; with one entry instead of four. There was no traceback to follow; the fix was reading the</span></span>
 <span id="cb23-419"><a href="#cb23-419" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; </span><span class="in">`WARNING`</span><span class="at">-level log AIMU had been emitting the whole time.</span></span>
 <span id="cb23-420"><a href="#cb23-420" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-421"><a href="#cb23-421" aria-hidden="true" tabindex="-1"></a><span class="fu">## H - Known limitation: a shared client under concurrent workers</span></span>
+<span id="cb23-421"><a href="#cb23-421" aria-hidden="true" tabindex="-1"></a><span class="fu">## H - A shared client under concurrent workers</span></span>
 <span id="cb23-422"><a href="#cb23-422" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-423"><a href="#cb23-423" aria-hidden="true" tabindex="-1"></a><span class="in">`events=`</span> is delivered by mutating <span class="in">`model_client.events`</span> for the span of a call — the same</span>
-<span id="cb23-424"><a href="#cb23-424" aria-hidden="true" tabindex="-1"></a>scoped-swap idiom <span class="in">`tools=`</span> already uses, and already documented as "not safe across</span>
-<span id="cb23-425"><a href="#cb23-425" aria-hidden="true" tabindex="-1"></a>concurrent <span class="in">`chat()`</span> calls on a shared client." <span class="in">`Parallel.from_client(...)`</span> builds every</span>
-<span id="cb23-426"><a href="#cb23-426" aria-hidden="true" tabindex="-1"></a>worker <span class="in">`Agent`</span> over **one shared `model_client`**, and <span class="in">`Parallel.run()`</span> executes those</span>
-<span id="cb23-427"><a href="#cb23-427" aria-hidden="true" tabindex="-1"></a>workers concurrently. Two workers whose runs overlap on that one client can clobber each</span>
-<span id="cb23-428"><a href="#cb23-428" aria-hidden="true" tabindex="-1"></a>other's sink — events get dropped and misattributed, even though each worker <span class="in">`Agent`</span> was</span>
-<span id="cb23-429"><a href="#cb23-429" aria-hidden="true" tabindex="-1"></a>given its own <span class="in">`events=`</span>.</span>
-<span id="cb23-430"><a href="#cb23-430" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-431"><a href="#cb23-431" aria-hidden="true" tabindex="-1"></a>This is reproduced deterministically below by manually interleaving two scopes on one</span>
-<span id="cb23-432"><a href="#cb23-432" aria-hidden="true" tabindex="-1"></a>client, in the order two concurrent workers can land in (not real threads, so this isn't</span>
-<span id="cb23-433"><a href="#cb23-433" aria-hidden="true" tabindex="-1"></a>timing-dependent — it pins the mechanism, the same way</span>
-<span id="cb23-434"><a href="#cb23-434" aria-hidden="true" tabindex="-1"></a><span class="in">`tests/test_workflow_parallel.py::test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events`</span></span>
-<span id="cb23-435"><a href="#cb23-435" aria-hidden="true" tabindex="-1"></a>does):</span>
-<span id="cb23-436"><a href="#cb23-436" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-439"><a href="#cb23-439" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb23-440"><a href="#cb23-440" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> emit</span>
-<span id="cb23-441"><a href="#cb23-441" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-442"><a href="#cb23-442" aria-hidden="true" tabindex="-1"></a>gap_client <span class="op">=</span> aimu.client(MODEL)</span>
-<span id="cb23-443"><a href="#cb23-443" aria-hidden="true" tabindex="-1"></a>seen_a: <span class="bu">list</span> <span class="op">=</span> []</span>
-<span id="cb23-444"><a href="#cb23-444" aria-hidden="true" tabindex="-1"></a>seen_b: <span class="bu">list</span> <span class="op">=</span> []</span>
-<span id="cb23-445"><a href="#cb23-445" aria-hidden="true" tabindex="-1"></a>sink_a, sink_b <span class="op">=</span> seen_a.append, seen_b.append</span>
-<span id="cb23-446"><a href="#cb23-446" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-447"><a href="#cb23-447" aria-hidden="true" tabindex="-1"></a><span class="co"># worker-a's Agent.run() enters its events scope first...</span></span>
-<span id="cb23-448"><a href="#cb23-448" aria-hidden="true" tabindex="-1"></a>scope_a <span class="op">=</span> gap_client._events_override(sink_a)</span>
-<span id="cb23-449"><a href="#cb23-449" aria-hidden="true" tabindex="-1"></a>scope_a.<span class="fu">__enter__</span>()</span>
-<span id="cb23-450"><a href="#cb23-450" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"client.events is sink_a:"</span>, gap_client.events <span class="kw">is</span> sink_a)</span>
-<span id="cb23-451"><a href="#cb23-451" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-452"><a href="#cb23-452" aria-hidden="true" tabindex="-1"></a><span class="co"># ...but before worker-a's run finishes, worker-b's Agent.run() (a different thread, same</span></span>
-<span id="cb23-453"><a href="#cb23-453" aria-hidden="true" tabindex="-1"></a><span class="co"># shared client) enters its own scope and clobbers the live sink.</span></span>
-<span id="cb23-454"><a href="#cb23-454" aria-hidden="true" tabindex="-1"></a>scope_b <span class="op">=</span> gap_client._events_override(sink_b)</span>
-<span id="cb23-455"><a href="#cb23-455" aria-hidden="true" tabindex="-1"></a>scope_b.<span class="fu">__enter__</span>()</span>
-<span id="cb23-456"><a href="#cb23-456" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"client.events is sink_b:"</span>, gap_client.events <span class="kw">is</span> sink_b)</span>
-<span id="cb23-457"><a href="#cb23-457" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-458"><a href="#cb23-458" aria-hidden="true" tabindex="-1"></a>emit(gap_client.events, RunFinished(result<span class="op">=</span><span class="st">"worker-b's own turn"</span>))</span>
-<span id="cb23-459"><a href="#cb23-459" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"seen_a:"</span>, seen_a)</span>
-<span id="cb23-460"><a href="#cb23-460" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"seen_b:"</span>, seen_b)</span>
-<span id="cb23-461"><a href="#cb23-461" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb23-462"><a href="#cb23-462" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-463"><a href="#cb23-463" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb23-464"><a href="#cb23-464" aria-hidden="true" tabindex="-1"></a><span class="in">client.events is sink_a: True</span></span>
-<span id="cb23-465"><a href="#cb23-465" aria-hidden="true" tabindex="-1"></a><span class="in">client.events is sink_b: True</span></span>
-<span id="cb23-466"><a href="#cb23-466" aria-hidden="true" tabindex="-1"></a><span class="in">seen_a: []</span></span>
-<span id="cb23-467"><a href="#cb23-467" aria-hidden="true" tabindex="-1"></a><span class="in">seen_b: [RunFinished(agent=None, iteration=0, result="worker-b's own turn", error=None)]</span></span>
-<span id="cb23-468"><a href="#cb23-468" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb23-469"><a href="#cb23-469" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-470"><a href="#cb23-470" aria-hidden="true" tabindex="-1"></a>worker-a's sink never sees the event at all — it was silently displaced. This is pinned as a</span>
-<span id="cb23-471"><a href="#cb23-471" aria-hidden="true" tabindex="-1"></a>known gap, not a bug waiting to be fixed on this pass. If you need reliable per-worker</span>
-<span id="cb23-472"><a href="#cb23-472" aria-hidden="true" tabindex="-1"></a>events out of a <span class="in">`Parallel`</span>, build each worker over its **own** <span class="in">`model_client`</span> (skip</span>
-<span id="cb23-473"><a href="#cb23-473" aria-hidden="true" tabindex="-1"></a><span class="in">`Parallel.from_client`</span> and construct <span class="in">`Parallel(workers=[...])`</span> directly) rather than</span>
-<span id="cb23-474"><a href="#cb23-474" aria-hidden="true" tabindex="-1"></a>sharing one.</span>
-<span id="cb23-475"><a href="#cb23-475" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-476"><a href="#cb23-476" aria-hidden="true" tabindex="-1"></a><span class="fu">## I - Known limitation: `schema=` only emits `RequestPrepared`</span></span>
+<span id="cb23-423"><a href="#cb23-423" aria-hidden="true" tabindex="-1"></a><span class="in">`events=`</span> is delivered by installing the resolved sink as the *active* sink for the run's</span>
+<span id="cb23-424"><a href="#cb23-424" aria-hidden="true" tabindex="-1"></a>execution context and client, not by mutating <span class="in">`model_client.events`</span> — a</span>
+<span id="cb23-425"><a href="#cb23-425" aria-hidden="true" tabindex="-1"></a><span class="in">`contextvars.ContextVar`</span> override, unlike <span class="in">`tools=`</span>, which genuinely does swap</span>
+<span id="cb23-426"><a href="#cb23-426" aria-hidden="true" tabindex="-1"></a><span class="in">`model_client.tools`</span> (request-spec building has to read a plain attribute there).</span>
+<span id="cb23-427"><a href="#cb23-427" aria-hidden="true" tabindex="-1"></a><span class="in">`Parallel.from_client(...)`</span> builds every worker <span class="in">`Agent`</span> over **one shared `model_client`**,</span>
+<span id="cb23-428"><a href="#cb23-428" aria-hidden="true" tabindex="-1"></a>and <span class="in">`Parallel.run()`</span> really does execute those workers concurrently via <span class="in">`ThreadPoolExecutor`</span></span>
+<span id="cb23-429"><a href="#cb23-429" aria-hidden="true" tabindex="-1"></a>— but each worker's own OS thread gets its own independent copy of the ContextVar, so one</span>
+<span id="cb23-430"><a href="#cb23-430" aria-hidden="true" tabindex="-1"></a>worker's override cannot clobber another's, and the override only ever answers for the</span>
+<span id="cb23-431"><a href="#cb23-431" aria-hidden="true" tabindex="-1"></a>specific client (and whatever it delegates to) it was installed for — not for some other</span>
+<span id="cb23-432"><a href="#cb23-432" aria-hidden="true" tabindex="-1"></a>client a sibling worker happens to be using.</span>
+<span id="cb23-433"><a href="#cb23-433" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-434"><a href="#cb23-434" aria-hidden="true" tabindex="-1"></a>This used to be a known gap: an earlier implementation delivered the override by mutating</span>
+<span id="cb23-435"><a href="#cb23-435" aria-hidden="true" tabindex="-1"></a><span class="in">`model_client.events`</span> directly, a plain object attribute visible to every thread sharing the</span>
+<span id="cb23-436"><a href="#cb23-436" aria-hidden="true" tabindex="-1"></a>client, so two overlapping worker scopes could clobber each other's sink. Below, two workers</span>
+<span id="cb23-437"><a href="#cb23-437" aria-hidden="true" tabindex="-1"></a>share one client (the shape <span class="in">`Parallel.from_client`</span> builds) and each keeps its own sink —</span>
+<span id="cb23-438"><a href="#cb23-438" aria-hidden="true" tabindex="-1"></a>this is a real run against <span class="in">`MODEL`</span>, not a simulation, so the transcript is the verified</span>
+<span id="cb23-439"><a href="#cb23-439" aria-hidden="true" tabindex="-1"></a>outcome:</span>
+<span id="cb23-440"><a href="#cb23-440" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-443"><a href="#cb23-443" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb23-444"><a href="#cb23-444" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent, Parallel</span>
+<span id="cb23-445"><a href="#cb23-445" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-446"><a href="#cb23-446" aria-hidden="true" tabindex="-1"></a>shared_client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb23-447"><a href="#cb23-447" aria-hidden="true" tabindex="-1"></a>seen_a: <span class="bu">list</span> <span class="op">=</span> []</span>
+<span id="cb23-448"><a href="#cb23-448" aria-hidden="true" tabindex="-1"></a>seen_b: <span class="bu">list</span> <span class="op">=</span> []</span>
+<span id="cb23-449"><a href="#cb23-449" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-450"><a href="#cb23-450" aria-hidden="true" tabindex="-1"></a>parallel <span class="op">=</span> Parallel(</span>
+<span id="cb23-451"><a href="#cb23-451" aria-hidden="true" tabindex="-1"></a>    workers<span class="op">=</span>[</span>
+<span id="cb23-452"><a href="#cb23-452" aria-hidden="true" tabindex="-1"></a>        Agent(</span>
+<span id="cb23-453"><a href="#cb23-453" aria-hidden="true" tabindex="-1"></a>            shared_client,</span>
+<span id="cb23-454"><a href="#cb23-454" aria-hidden="true" tabindex="-1"></a>            <span class="st">"Reply with exactly one word: wood"</span>,</span>
+<span id="cb23-455"><a href="#cb23-455" aria-hidden="true" tabindex="-1"></a>            name<span class="op">=</span><span class="st">"worker-a"</span>,</span>
+<span id="cb23-456"><a href="#cb23-456" aria-hidden="true" tabindex="-1"></a>            reset_messages_on_run<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb23-457"><a href="#cb23-457" aria-hidden="true" tabindex="-1"></a>            events<span class="op">=</span>seen_a.append,</span>
+<span id="cb23-458"><a href="#cb23-458" aria-hidden="true" tabindex="-1"></a>        ),</span>
+<span id="cb23-459"><a href="#cb23-459" aria-hidden="true" tabindex="-1"></a>        Agent(</span>
+<span id="cb23-460"><a href="#cb23-460" aria-hidden="true" tabindex="-1"></a>            shared_client,</span>
+<span id="cb23-461"><a href="#cb23-461" aria-hidden="true" tabindex="-1"></a>            <span class="st">"Reply with exactly one word: metal"</span>,</span>
+<span id="cb23-462"><a href="#cb23-462" aria-hidden="true" tabindex="-1"></a>            name<span class="op">=</span><span class="st">"worker-b"</span>,</span>
+<span id="cb23-463"><a href="#cb23-463" aria-hidden="true" tabindex="-1"></a>            reset_messages_on_run<span class="op">=</span><span class="va">True</span>,</span>
+<span id="cb23-464"><a href="#cb23-464" aria-hidden="true" tabindex="-1"></a>            events<span class="op">=</span>seen_b.append,</span>
+<span id="cb23-465"><a href="#cb23-465" aria-hidden="true" tabindex="-1"></a>        ),</span>
+<span id="cb23-466"><a href="#cb23-466" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb23-467"><a href="#cb23-467" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb23-468"><a href="#cb23-468" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> parallel.run(<span class="st">"Go."</span>)</span>
+<span id="cb23-469"><a href="#cb23-469" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"worker-a's own events:"</span>, [<span class="bu">type</span>(e).<span class="va">__name__</span> <span class="cf">for</span> e <span class="kw">in</span> seen_a])</span>
+<span id="cb23-470"><a href="#cb23-470" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"worker-b's own events:"</span>, [<span class="bu">type</span>(e).<span class="va">__name__</span> <span class="cf">for</span> e <span class="kw">in</span> seen_b])</span>
+<span id="cb23-471"><a href="#cb23-471" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-472"><a href="#cb23-472" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-473"><a href="#cb23-473" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-474"><a href="#cb23-474" aria-hidden="true" tabindex="-1"></a><span class="in">worker-a's own events: ['RunStarted', 'ModelTurnStarted', 'RequestPrepared', 'ModelTurnFinished', 'RunFinished']</span></span>
+<span id="cb23-475"><a href="#cb23-475" aria-hidden="true" tabindex="-1"></a><span class="in">worker-b's own events: ['RunStarted', 'ModelTurnStarted', 'RequestPrepared', 'ModelTurnFinished', 'RunFinished']</span></span>
+<span id="cb23-476"><a href="#cb23-476" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb23-477"><a href="#cb23-477" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-478"><a href="#cb23-478" aria-hidden="true" tabindex="-1"></a><span class="in">`client.chat(schema=...)`</span> (and <span class="in">`generate(schema=...)`</span>) makes exactly one call and returns</span>
-<span id="cb23-479"><a href="#cb23-479" aria-hidden="true" tabindex="-1"></a>before <span class="in">`ModelTurnStarted`</span> fires, so the structured-output path never emits</span>
-<span id="cb23-480"><a href="#cb23-480" aria-hidden="true" tabindex="-1"></a><span class="in">`ModelTurnStarted`</span>/<span class="in">`ModelTurnFinished`</span> — only <span class="in">`RequestPrepared`</span>:</span>
-<span id="cb23-481"><a href="#cb23-481" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-484"><a href="#cb23-484" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb23-485"><a href="#cb23-485" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> dataclasses</span>
-<span id="cb23-486"><a href="#cb23-486" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-487"><a href="#cb23-487" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-488"><a href="#cb23-488" aria-hidden="true" tabindex="-1"></a><span class="at">@dataclasses.dataclass</span></span>
-<span id="cb23-489"><a href="#cb23-489" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Answer:</span>
-<span id="cb23-490"><a href="#cb23-490" aria-hidden="true" tabindex="-1"></a>    value: <span class="bu">int</span></span>
-<span id="cb23-491"><a href="#cb23-491" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-492"><a href="#cb23-492" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-493"><a href="#cb23-493" aria-hidden="true" tabindex="-1"></a>schema_client <span class="op">=</span> aimu.client(MODEL)</span>
-<span id="cb23-494"><a href="#cb23-494" aria-hidden="true" tabindex="-1"></a>schema_seen: <span class="bu">list</span> <span class="op">=</span> []</span>
-<span id="cb23-495"><a href="#cb23-495" aria-hidden="true" tabindex="-1"></a>schema_client.events <span class="op">=</span> schema_seen.append</span>
+<span id="cb23-478"><a href="#cb23-478" aria-hidden="true" tabindex="-1"></a>Each sink sees a complete, correctly-attributed bracket for its own worker and nothing from</span>
+<span id="cb23-479"><a href="#cb23-479" aria-hidden="true" tabindex="-1"></a>the other, even though both workers ran concurrently on the same client object. See</span>
+<span id="cb23-480"><a href="#cb23-480" aria-hidden="true" tabindex="-1"></a><span class="in">`tests/test_workflow_parallel.py`</span>'s</span>
+<span id="cb23-481"><a href="#cb23-481" aria-hidden="true" tabindex="-1"></a><span class="in">`test_parallel_from_client_shared_events_sink_survives_concurrent_workers`</span> (async mirror in</span>
+<span id="cb23-482"><a href="#cb23-482" aria-hidden="true" tabindex="-1"></a><span class="in">`tests/test_aio_workflow_parallel.py`</span>), which replaced the test that pinned the old gap, for</span>
+<span id="cb23-483"><a href="#cb23-483" aria-hidden="true" tabindex="-1"></a>the version of this that deliberately forces a worst-case overlap.</span>
+<span id="cb23-484"><a href="#cb23-484" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-485"><a href="#cb23-485" aria-hidden="true" tabindex="-1"></a>**A client that is not part of the run's family never receives its sink**, on either surface</span>
+<span id="cb23-486"><a href="#cb23-486" aria-hidden="true" tabindex="-1"></a>and regardless of <span class="in">`concurrent_tool_calls`</span> — for instance a fresh client a tool builds for</span>
+<span id="cb23-487"><a href="#cb23-487" aria-hidden="true" tabindex="-1"></a>itself (the <span class="in">`make_subagent_tool`</span> shape). That client's own turns stay off the run's sink and,</span>
+<span id="cb23-488"><a href="#cb23-488" aria-hidden="true" tabindex="-1"></a>if it's given its own <span class="in">`events=`</span>, land correctly on that one instead. The one case that</span>
+<span id="cb23-489"><a href="#cb23-489" aria-hidden="true" tabindex="-1"></a>genuinely differs by surface is a tool that calls the *same* client the run's override was</span>
+<span id="cb23-490"><a href="#cb23-490" aria-hidden="true" tabindex="-1"></a>installed for (e.g. a tool that reuses <span class="in">`ctx.deps`</span> holding that client): sync dispatches a</span>
+<span id="cb23-491"><a href="#cb23-491" aria-hidden="true" tabindex="-1"></a>concurrent tool via a plain <span class="in">`ThreadPoolExecutor.submit()`</span> with no context copy, so that</span>
+<span id="cb23-492"><a href="#cb23-492" aria-hidden="true" tabindex="-1"></a>thread's empty context means the override is invisible there even though the client</span>
+<span id="cb23-493"><a href="#cb23-493" aria-hidden="true" tabindex="-1"></a>matches; async's <span class="in">`asyncio.TaskGroup.create_task`</span> always copies the current context, so it</span>
+<span id="cb23-494"><a href="#cb23-494" aria-hidden="true" tabindex="-1"></a>*is* visible there. Sequential tool dispatch (the default, <span class="in">`concurrent_tool_calls=False`</span>)</span>
+<span id="cb23-495"><a href="#cb23-495" aria-hidden="true" tabindex="-1"></a>sees it on both surfaces, since no thread/task boundary is crossed at all.</span>
 <span id="cb23-496"><a href="#cb23-496" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-497"><a href="#cb23-497" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> schema_client.chat(<span class="st">"What is 2+2? Reply with just the number."</span>, schema<span class="op">=</span>Answer)</span>
-<span id="cb23-498"><a href="#cb23-498" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"result:"</span>, result)</span>
-<span id="cb23-499"><a href="#cb23-499" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"events:"</span>, [<span class="bu">type</span>(e).<span class="va">__name__</span> <span class="cf">for</span> e <span class="kw">in</span> schema_seen])</span>
-<span id="cb23-500"><a href="#cb23-500" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb23-501"><a href="#cb23-501" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-502"><a href="#cb23-502" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb23-503"><a href="#cb23-503" aria-hidden="true" tabindex="-1"></a><span class="in">result: Answer(value=4)</span></span>
-<span id="cb23-504"><a href="#cb23-504" aria-hidden="true" tabindex="-1"></a><span class="in">events: ['RequestPrepared']</span></span>
-<span id="cb23-505"><a href="#cb23-505" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-497"><a href="#cb23-497" aria-hidden="true" tabindex="-1"></a><span class="in">`client.events`</span> set directly (rather than through an <span class="in">`Agent`</span>'s scoped <span class="in">`events=`</span>) is still</span>
+<span id="cb23-498"><a href="#cb23-498" aria-hidden="true" tabindex="-1"></a>genuinely shared by design — there's no execution-context boundary to isolate a plain</span>
+<span id="cb23-499"><a href="#cb23-499" aria-hidden="true" tabindex="-1"></a>attribute assignment by.</span>
+<span id="cb23-500"><a href="#cb23-500" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-501"><a href="#cb23-501" aria-hidden="true" tabindex="-1"></a><span class="fu">## I - Known limitation: `schema=` only emits `RequestPrepared`</span></span>
+<span id="cb23-502"><a href="#cb23-502" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-503"><a href="#cb23-503" aria-hidden="true" tabindex="-1"></a><span class="in">`client.chat(schema=...)`</span> (and <span class="in">`generate(schema=...)`</span>) makes exactly one call and returns</span>
+<span id="cb23-504"><a href="#cb23-504" aria-hidden="true" tabindex="-1"></a>before <span class="in">`ModelTurnStarted`</span> fires, so the structured-output path never emits</span>
+<span id="cb23-505"><a href="#cb23-505" aria-hidden="true" tabindex="-1"></a><span class="in">`ModelTurnStarted`</span>/<span class="in">`ModelTurnFinished`</span> — only <span class="in">`RequestPrepared`</span>:</span>
 <span id="cb23-506"><a href="#cb23-506" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-507"><a href="#cb23-507" aria-hidden="true" tabindex="-1"></a>Inside an <span class="in">`Agent.run(schema=...)`</span>, the run is still bracketed by <span class="in">`RunStarted`</span>/<span class="in">`RunFinished`</span></span>
-<span id="cb23-508"><a href="#cb23-508" aria-hidden="true" tabindex="-1"></a>(section D's <span class="in">`RunFinished.result`</span> is <span class="in">`None`</span> here too, since the result is a typed object,</span>
-<span id="cb23-509"><a href="#cb23-509" aria-hidden="true" tabindex="-1"></a>not a string — it's the return value, and also lands on <span class="in">`client.last_structured`</span>); it is</span>
-<span id="cb23-510"><a href="#cb23-510" aria-hidden="true" tabindex="-1"></a>only the inner model-turn pair that is missing on this path.</span>
+<span id="cb23-509"><a href="#cb23-509" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb23-510"><a href="#cb23-510" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> dataclasses</span>
 <span id="cb23-511"><a href="#cb23-511" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-512"><a href="#cb23-512" aria-hidden="true" tabindex="-1"></a><span class="fu">## Clean up</span></span>
-<span id="cb23-513"><a href="#cb23-513" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb23-516"><a href="#cb23-516" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb23-517"><a href="#cb23-517" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> client, agent, chain_client, tally_client, denied_client, otel_client, gap_client, schema_client</span>
-<span id="cb23-518"><a href="#cb23-518" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Cleaned up."</span>)</span>
-<span id="cb23-519"><a href="#cb23-519" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-512"><a href="#cb23-512" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-513"><a href="#cb23-513" aria-hidden="true" tabindex="-1"></a><span class="at">@dataclasses.dataclass</span></span>
+<span id="cb23-514"><a href="#cb23-514" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Answer:</span>
+<span id="cb23-515"><a href="#cb23-515" aria-hidden="true" tabindex="-1"></a>    value: <span class="bu">int</span></span>
+<span id="cb23-516"><a href="#cb23-516" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-517"><a href="#cb23-517" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-518"><a href="#cb23-518" aria-hidden="true" tabindex="-1"></a>schema_client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb23-519"><a href="#cb23-519" aria-hidden="true" tabindex="-1"></a>schema_seen: <span class="bu">list</span> <span class="op">=</span> []</span>
+<span id="cb23-520"><a href="#cb23-520" aria-hidden="true" tabindex="-1"></a>schema_client.events <span class="op">=</span> schema_seen.append</span>
+<span id="cb23-521"><a href="#cb23-521" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-522"><a href="#cb23-522" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> schema_client.chat(<span class="st">"What is 2+2? Reply with just the number."</span>, schema<span class="op">=</span>Answer)</span>
+<span id="cb23-523"><a href="#cb23-523" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"result:"</span>, result)</span>
+<span id="cb23-524"><a href="#cb23-524" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"events:"</span>, [<span class="bu">type</span>(e).<span class="va">__name__</span> <span class="cf">for</span> e <span class="kw">in</span> schema_seen])</span>
+<span id="cb23-525"><a href="#cb23-525" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-526"><a href="#cb23-526" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-527"><a href="#cb23-527" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-528"><a href="#cb23-528" aria-hidden="true" tabindex="-1"></a><span class="in">result: Answer(value=4)</span></span>
+<span id="cb23-529"><a href="#cb23-529" aria-hidden="true" tabindex="-1"></a><span class="in">events: ['RequestPrepared']</span></span>
+<span id="cb23-530"><a href="#cb23-530" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb23-531"><a href="#cb23-531" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-532"><a href="#cb23-532" aria-hidden="true" tabindex="-1"></a>Inside an <span class="in">`Agent.run(schema=...)`</span>, the run is still bracketed by <span class="in">`RunStarted`</span>/<span class="in">`RunFinished`</span></span>
+<span id="cb23-533"><a href="#cb23-533" aria-hidden="true" tabindex="-1"></a>(section D's <span class="in">`RunFinished.result`</span> is <span class="in">`None`</span> here too, since the result is a typed object,</span>
+<span id="cb23-534"><a href="#cb23-534" aria-hidden="true" tabindex="-1"></a>not a string — it's the return value, and also lands on <span class="in">`client.last_structured`</span>); it is</span>
+<span id="cb23-535"><a href="#cb23-535" aria-hidden="true" tabindex="-1"></a>only the inner model-turn pair that is missing on this path.</span>
+<span id="cb23-536"><a href="#cb23-536" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-537"><a href="#cb23-537" aria-hidden="true" tabindex="-1"></a><span class="fu">## Clean up</span></span>
+<span id="cb23-538"><a href="#cb23-538" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-541"><a href="#cb23-541" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb23-542"><a href="#cb23-542" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> client, agent, chain_client, tally_client, denied_client, otel_client, shared_client, schema_client</span>
+<span id="cb23-543"><a href="#cb23-543" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Cleaned up."</span>)</span>
+<span id="cb23-544"><a href="#cb23-544" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 </code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->

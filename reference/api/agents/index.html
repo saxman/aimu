@@ -4521,8 +4521,12 @@ an :class:<code>OrchestratorAgent</code>'s worker list. Works for every concrete
 <p><code>model_client.chat()</code> is a single turn: it issues one model request and, if the model
 requests tools, executes them and returns. This agent is the loop over that: it calls
 <code>chat(task)</code> and then <code>chat()</code> (no user message — a continuation turn on the current
-messages) until a turn makes no tool calls, or <code>max_iterations</code> turns are reached. No
-synthetic "continue" prompt is injected between successful tool rounds.</p>
+messages) until a turn makes no tool calls, or the loop has made <code>max_iterations</code> real
+model calls. <code>max_iterations</code> counts every call the bounded loop itself makes (the
+initial turn plus each continuation/tool-follow-up turn); the forced wrap-up call below
+is the one exception, since it runs after this cap and exists specifically to guarantee
+an answer once the cap is hit. No synthetic "continue" prompt is injected between
+successful tool rounds.</p>
 <p>Tools are plain callables in <code>tools=</code>: functions decorated with
 <code>@aimu.tools.tool</code> for in-process tools, and/or <code>MCPClient(...).as_tools()</code> for
 cross-process FastMCP tools (each MCP tool becomes a callable). Mix them freely in
@@ -4593,6 +4597,11 @@ print(agent.run("How many r's in strawberry?"))
     <div class="doc doc-contents ">
 
         <p>Run the agentic loop. <code>images</code> attach only to the initial turn.</p>
+<p>The loop makes at most <code>self.max_iterations</code> real model calls (the initial turn
+plus every continuation/tool-follow-up turn), then, if a tool call is still pending
+at that cap, one additional forced wrap-up call (tools disabled) to guarantee a
+final answer -- that one call is deliberately not counted against
+<code>max_iterations</code>. See the class docstring's "Cap with tools pending" note.</p>
 <p><code>tools</code> is a per-run override of the agent's configured <code>self.tools</code>: <code>None</code>
 (default) uses them, any other value (including <code>[]</code> to disable Python tools for
 this run) replaces them for every <code>chat()</code> call in the loop and is restored
@@ -4616,15 +4625,29 @@ across the run. It is the public argument, so the model client validates it and 
 once if its model cannot honour it; the agent itself makes no capability decisions.</p>
 <p><code>events</code> is a per-run override of the agent's <code>self.events</code> field: a callable taking
 one :class:<code>~aimu.events.RunEvent</code> (see :mod:<code>aimu.events</code>). <code>None</code> (default) uses the
-field. The resolved sink is attached to <code>model_client.events</code> for the duration of the
-run (restored afterward, even if the run raises), so the client's own turn events reach
-it alongside the loop's own :class:<code>~aimu.events.RunStarted</code> / :class:<code>RunFinished</code> /
-:class:<code>ToolCalled</code> / :class:<code>ToolDenied</code>, every one stamped with this agent's name and
-the current loop iteration. <strong>Not safe across agents that share a <code>model_client</code> and
-run concurrently</strong> (e.g. every worker <code>Agent</code> in a :class:<code>~aimu.agents.Parallel</code> built
-via <code>Parallel.from_client</code>): attaching a sink is a mutation of shared state, not a
-per-call argument, so concurrent runs will drop and misorder events. Give each
-concurrently-running agent its own <code>model_client</code> if you need reliable delivery.</p>
+field. The resolved sink is installed as the <em>active</em> sink for the run's duration via a
+scoped <code>contextvars.ContextVar</code> override (restored afterward, even if the run raises),
+so the client's own turn events reach it alongside the loop's own
+:class:<code>~aimu.events.RunStarted</code> / :class:<code>RunFinished</code> / :class:<code>ToolCalled</code> /
+:class:<code>ToolDenied</code>, every one stamped with this agent's name and the current loop
+iteration. <strong>Safe across agents that share a <code>model_client</code> and run concurrently</strong>
+(e.g. every worker <code>Agent</code> in a :class:<code>~aimu.agents.Parallel</code> built via
+<code>Parallel.from_client</code>): the override lives in a per-execution-context <code>ContextVar</code>,
+not a mutation of the client, so each concurrently-running agent's OS thread gets its
+own independent copy and cannot clobber another's. It is also scoped to this specific
+client (and whatever it delegates to or from), not to any client called while the scope
+is open: a <strong>different</strong> client called from inside a tool (e.g. a fresh client the tool
+builds for itself, as <code>make_subagent_tool</code> does) never receives this run's sink, on
+either surface and regardless of <code>concurrent_tool_calls</code> -- it falls back to its own
+<code>self.events</code>, so give it an explicit <code>events=</code> if it needs to report anywhere. The
+one case that still depends on the surface is a tool that calls the <strong>same</strong> client
+(e.g. reusing <code>ctx.deps</code>): <code>concurrent_tool_calls=True</code> dispatches sync tools via a
+plain <code>ThreadPoolExecutor.submit()</code> with no context copy, so that thread's empty
+context makes the override invisible there even though the client matches;
+<code>aio.Agent.run(events=...)</code>'s equivalent case is the opposite, since
+<code>asyncio.TaskGroup.create_task</code> always copies the current context -- see its
+docstring. Sequential tool dispatch (the default) sees it on both surfaces, since no
+thread/task boundary is crossed.</p>
 <p><code>compaction</code> is a per-run override of the agent's <code>self.compaction</code> field: a
 callable applied to the conversation before every model turn the run makes (see
 :mod:<code>aimu.context</code> for <code>trim_messages</code> / <code>summarize_messages</code>). <code>None</code>
@@ -5364,12 +5387,16 @@ submission order. Workers may be any :class:<code>Runner</code>.</p>
 
         <p>Build a Parallel using <code>client</code> for all workers (and aggregator).</p>
 <p><code>events</code> is passed to every worker (and the aggregator, if any) this factory
-constructs. <strong>Known gap</strong>: every worker here shares one <code>client</code>, and workers run
-concurrently -- an event sink is delivered by scoped-swapping <code>client.events</code> for
-the duration of each call, so concurrent delivery from multiple workers will drop
-and misorder events (see the caveat on <code>Agent.events</code> / <code>BaseModelClient.events</code>
-and <code>test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events</code>). Give
-each worker its own client if you need reliable per-worker events.</p>
+constructs. Every worker here shares one <code>client</code>, and workers run concurrently via
+<code>ThreadPoolExecutor</code> (<code>Parallel._run_workers</code>) -- each worker's per-run sink is
+delivered through a scoped <code>contextvars.ContextVar</code> override
+(<code>BaseModelClient._events_override</code> / <code>_effective_sink</code>), not a mutation of
+<code>client.events</code>, so each worker's own OS thread gets its own independent copy and
+concurrent delivery is correctly attributed and ordered per worker (see
+<code>tests/test_workflow_parallel.py</code>'s concurrent-workers test). A <em>different</em> client
+called from inside a worker's tool never receives that worker's sink, on either surface
+and regardless of <code>concurrent_tool_calls</code>; see <code>Agent.events</code> for the one residual
+that does depend on the surface.</p>
 
 
     </div>
