@@ -8,6 +8,7 @@ For every provider, the answer stored in `self.messages` is the **clean** answer
 
 - Local `<think>`-tag providers (HuggingFace, llama-cpp, OpenAI-compat local servers) parse the tags with `_split_thinking` / `_ThinkingParser` ([aimu/models/providers/_thinking.py](https://github.com/saxman/aimu/blob/main/aimu/models/providers/_thinking.py)).
 - Native-thinking providers (Anthropic, Ollama) read the reasoning from a dedicated response field.
+- An OpenAI-compatible server that strips the tags *itself* returns the reasoning in a field of its own, and the family has never agreed on that field's name: llama-server, vLLM and SGLang use `reasoning_content` (the DeepSeek spelling), while mlx-lm and OpenRouter use `reasoning`. Both are extra fields on an otherwise standard message, so neither is detectable any way but by name, and reading only one drops a model's whole reasoning block with nothing raised. AIMU reads either (`_reasoning_text`), preferring `reasoning_content` when a server sends both.
 
 The most recent turn's reasoning is always available on `client.last_thinking` (the canonical, uniform surface). In addition, every provider attaches the reasoning to the assistant message it just appended, under a non-standard `"thinking"` key:
 

@@ -541,3 +541,140 @@ async def test_aio_openai_compat_chat_streamed_reads_reasoning_content_field():
     assert thinking == "think more"
     assert generating == "the answer"
     assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "the answer", "thinking": "think more"}
+
+
+# ---------------------------------------------------------------------------
+# Async twins of the `reasoning` alias tests: mlx-lm and OpenRouter name the
+# field `reasoning`, where llama-server / vLLM / SGLang name it
+# `reasoning_content`.
+# ---------------------------------------------------------------------------
+
+
+async def test_aio_openai_compat_chat_reads_reasoning_field_alias():
+    """Async: the non-streaming path must read the alias, not drop the reasoning block."""
+    import types
+
+    from aimu.aio.providers.openai_compat import AsyncOpenAICompatClient
+
+    msg = types.SimpleNamespace(content="the answer", tool_calls=None, reasoning="my reasoning")
+    response = types.SimpleNamespace(choices=[types.SimpleNamespace(message=msg)])
+
+    async def _chat_setup(*a, **k):
+        return {}, []
+
+    async def _create(**kw):
+        return response
+
+    fake = types.SimpleNamespace(
+        _chat_setup=_chat_setup,
+        _client=types.SimpleNamespace(chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_create))),
+        model=types.SimpleNamespace(value="fake-model"),
+        is_thinking_model=True,
+        last_usage=None,
+        messages=[],
+    )
+    _bind_append(fake)
+
+    result = await AsyncOpenAICompatClient._chat(fake, "hi")
+
+    assert result == "the answer"
+    assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "the answer", "thinking": "my reasoning"}
+
+
+async def test_aio_openai_compat_chat_streamed_reads_reasoning_field_alias():
+    """Async streaming: alias deltas must still produce THINKING chunks (this is the path a
+    web front end renders reasoning from)."""
+    import types
+
+    from aimu.aio.providers.openai_compat import AsyncOpenAICompatClient
+
+    def _delta(content=None, reasoning=None):
+        d = types.SimpleNamespace(content=content, tool_calls=None, reasoning=reasoning)
+        return types.SimpleNamespace(usage=None, choices=[types.SimpleNamespace(delta=d)])
+
+    async def _astream(items):
+        for it in items:
+            yield it
+
+    items = [_delta(reasoning="think "), _delta(reasoning="more"), _delta(content="the answer")]
+    streams = iter([_astream(items)])
+
+    async def _create(**kw):
+        return next(streams)
+
+    fake = types.SimpleNamespace(
+        _client=types.SimpleNamespace(chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_create))),
+        model=types.SimpleNamespace(value="fake-model"),
+        is_thinking_model=True,
+        last_thinking="",
+        last_usage=None,
+        messages=[],
+    )
+    _bind_append(fake)
+
+    chunks = []
+    async for c in AsyncOpenAICompatClient._chat_streamed(fake, {}, []):
+        chunks.append(c)
+
+    thinking = "".join(c.content for c in chunks if c.phase == StreamingContentType.THINKING)
+    generating = "".join(c.content for c in chunks if c.phase == StreamingContentType.GENERATING)
+    assert thinking == "think more"
+    assert generating == "the answer"
+    assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "the answer", "thinking": "think more"}
+
+
+async def test_aio_openai_compat_generate_reads_reasoning_field_alias():
+    """Async: the stateless single-turn path reads the same field as _chat."""
+    import types
+
+    from aimu.aio.providers.openai_compat import AsyncOpenAICompatClient
+
+    msg = types.SimpleNamespace(content="the answer", tool_calls=None, reasoning="my reasoning")
+    response = types.SimpleNamespace(choices=[types.SimpleNamespace(message=msg)])
+
+    async def _create(**kw):
+        return response
+
+    fake = types.SimpleNamespace(
+        _resolve_generate_kwargs=lambda gk: gk or {},
+        _client=types.SimpleNamespace(chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_create))),
+        model=types.SimpleNamespace(value="fake-model"),
+        is_thinking_model=True,
+        last_usage=None,
+        last_thinking="",
+        _record_request=lambda *a, **k: None,
+    )
+
+    result = await AsyncOpenAICompatClient._generate(fake, "hi", {"max_tokens": 5})
+
+    assert result == "the answer"
+    assert fake.last_thinking == "my reasoning"
+
+
+async def test_aio_openai_compat_iter_stream_reads_reasoning_field_alias():
+    """Async: _iter_stream is the seam _generate_streamed uses, and reads the field itself."""
+    import types
+
+    from aimu.aio.providers.openai_compat import AsyncOpenAICompatClient
+
+    def _delta(content=None, reasoning=None):
+        d = types.SimpleNamespace(content=content, tool_calls=None, reasoning=reasoning)
+        return types.SimpleNamespace(usage=None, choices=[types.SimpleNamespace(delta=d)])
+
+    async def _astream(items):
+        for it in items:
+            yield it
+
+    fake = types.SimpleNamespace(is_thinking_model=True, last_thinking="", last_usage=None)
+
+    chunks = []
+    async for c in AsyncOpenAICompatClient._iter_stream(
+        fake, _astream([_delta(reasoning="think"), _delta(content="ok")])
+    ):
+        chunks.append(c)
+
+    assert [(c.phase, c.content) for c in chunks] == [
+        (StreamingContentType.THINKING, "think"),
+        (StreamingContentType.GENERATING, "ok"),
+    ]
+    assert fake.last_thinking == "think"

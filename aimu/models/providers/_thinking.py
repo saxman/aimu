@@ -1,6 +1,32 @@
 import re
+from collections.abc import Mapping
+from typing import Any, Optional
 
 from ..base import StreamingContentType
+
+
+def _reasoning_text(message_or_delta: Any) -> Optional[str]:
+    """The server-side-stripped reasoning on an OpenAI-shaped message or delta, if any.
+
+    Servers that parse reasoning out of the content disagree on what to call the field they
+    put it in: llama-server, vLLM and SGLang use ``reasoning_content`` (the DeepSeek spelling),
+    while mlx-lm and OpenRouter use ``reasoning``. Both are extra fields on an otherwise
+    standard message, so neither can be detected any way but by name, and reading only one of
+    them drops a model's entire reasoning block with nothing raised.
+
+    ``reasoning_content`` wins when a server sends both, so a gateway that echoes the same text
+    into an alias cannot have it counted twice. A non-text value (a summary object, a list of
+    parts) is not reasoning this can surface: callers concatenate the result, so returning one
+    would raise mid-stream.
+
+    Takes a mapping as well as an attribute-bearing object, because llama.cpp hands back plain
+    dicts where the OpenAI SDK hands back models, and the field names are the same either way.
+    """
+    if isinstance(message_or_delta, Mapping):
+        text = message_or_delta.get("reasoning_content") or message_or_delta.get("reasoning")
+    else:
+        text = getattr(message_or_delta, "reasoning_content", None) or getattr(message_or_delta, "reasoning", None)
+    return text if isinstance(text, str) else None
 
 
 def _split_thinking(content: str) -> tuple[str, str]:

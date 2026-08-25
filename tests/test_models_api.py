@@ -1261,6 +1261,244 @@ def test_openai_compat_chat_streamed_reads_reasoning_content_field():
 
 
 # ---------------------------------------------------------------------------
+# The same reasoning under the other spelling: mlx-lm and OpenRouter name the
+# field `reasoning`, where llama-server / vLLM / SGLang name it
+# `reasoning_content`. Both must be surfaced as thinking.
+# ---------------------------------------------------------------------------
+
+
+def test_reasoning_text_prefers_reasoning_content_over_the_alias():
+    """A server sending both spellings must not have its reasoning counted twice: the
+    DeepSeek-style reasoning_content is the one read, and the alias is ignored."""
+    import types
+
+    from aimu.models.providers._thinking import _reasoning_text
+
+    both = types.SimpleNamespace(reasoning_content="the real one", reasoning="the alias")
+
+    assert _reasoning_text(both) == "the real one"
+
+
+def test_reasoning_text_reads_a_mapping_message():
+    """llama.cpp hands back plain dicts rather than SDK objects, and the same two spellings
+    apply there, so the helper reads a mapping too (reasoning_content still wins)."""
+    from aimu.models.providers._thinking import _reasoning_text
+
+    assert _reasoning_text({"reasoning": "the alias"}) == "the alias"
+    assert _reasoning_text({"reasoning_content": "the real one", "reasoning": "x"}) == "the real one"
+    assert _reasoning_text({"content": "no reasoning here"}) is None
+
+
+def test_llamacpp_chat_reads_reasoning_field_alias():
+    """A GGUF served behind a reasoning parser that uses the alias must not lose its reasoning."""
+    import types
+
+    from aimu.models.providers.llamacpp import LlamaCppClient
+
+    response = {"choices": [{"message": {"content": "the answer", "reasoning": "my reasoning"}}]}
+    fake = types.SimpleNamespace(
+        _chat_setup=lambda *a, **k: ({}, []),
+        _llm=types.SimpleNamespace(create_chat_completion=lambda **kw: response),
+        is_thinking_model=True,
+        last_thinking="",
+        messages=[],
+    )
+    _bind_append(fake)
+
+    result = LlamaCppClient._chat(fake, "hi")
+
+    assert result == "the answer"
+    assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "the answer", "thinking": "my reasoning"}
+
+
+def test_llamacpp_chat_streamed_reads_reasoning_field_alias():
+    """Streaming twin for llama.cpp's dict deltas."""
+    import types
+
+    from aimu.models.providers.llamacpp import LlamaCppClient
+
+    deltas = [
+        {"choices": [{"delta": {"reasoning": "think "}}]},
+        {"choices": [{"delta": {"reasoning": "more"}}]},
+        {"choices": [{"delta": {"content": "the answer"}}]},
+    ]
+    fake = types.SimpleNamespace(
+        _llm=types.SimpleNamespace(create_chat_completion=lambda **kw: iter(deltas)),
+        is_thinking_model=True,
+        last_thinking="",
+        messages=[],
+    )
+    _bind_append(fake)
+
+    chunks = list(LlamaCppClient._chat_streamed(fake, {}, []))
+
+    thinking = "".join(c.content for c in chunks if c.phase == StreamingContentType.THINKING)
+    generating = "".join(c.content for c in chunks if c.phase == StreamingContentType.GENERATING)
+    assert thinking == "think more"
+    assert generating == "the answer"
+    assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "the answer", "thinking": "think more"}
+
+
+def test_llamacpp_generate_reads_reasoning_field_alias():
+    """llama.cpp's stateless single-turn path reads the same field as _chat."""
+    import types
+
+    from aimu.models.providers.llamacpp import LlamaCppClient
+
+    response = {"choices": [{"message": {"content": "the answer", "reasoning": "my reasoning"}}]}
+    fake = types.SimpleNamespace(
+        _resolve_generate_kwargs=lambda gk: gk or {},
+        _llm=types.SimpleNamespace(create_chat_completion=lambda **kw: response),
+        is_thinking_model=True,
+        last_thinking="",
+        _record_request=lambda *a, **k: None,
+    )
+
+    result = LlamaCppClient._generate(fake, "hi", {"max_tokens": 5})
+
+    assert result == "the answer"
+    assert fake.last_thinking == "my reasoning"
+
+
+def test_llamacpp_iter_stream_reads_reasoning_field_alias():
+    """_iter_stream is the seam _generate_streamed uses, and reads the field itself."""
+    import types
+
+    from aimu.models.providers.llamacpp import LlamaCppClient
+
+    deltas = [{"choices": [{"delta": {"reasoning": "think"}}]}, {"choices": [{"delta": {"content": "ok"}}]}]
+    fake = types.SimpleNamespace(is_thinking_model=True, last_thinking="")
+
+    chunks = list(LlamaCppClient._iter_stream(fake, iter(deltas)))
+
+    assert [(c.phase, c.content) for c in chunks] == [
+        (StreamingContentType.THINKING, "think"),
+        (StreamingContentType.GENERATING, "ok"),
+    ]
+    assert fake.last_thinking == "think"
+
+
+def test_reasoning_text_ignores_a_non_text_reasoning_field():
+    """Some gateways put a structured object under `reasoning` (a summary block, a list of
+    parts). Appending one to last_thinking would raise mid-stream, so only text counts."""
+    import types
+
+    from aimu.models.providers._thinking import _reasoning_text
+
+    structured = types.SimpleNamespace(reasoning={"summary": "not text"})
+
+    assert _reasoning_text(structured) is None
+
+
+def test_openai_compat_chat_reads_reasoning_field_alias():
+    """mlx-lm's server returns the stripped reasoning under `reasoning`. Reading only
+    `reasoning_content` there drops the model's entire reasoning block silently."""
+    import types
+
+    from aimu.models.providers.openai_compat import OpenAICompatClient
+
+    msg = types.SimpleNamespace(content="the answer", tool_calls=None, reasoning="my reasoning")
+    response = types.SimpleNamespace(choices=[types.SimpleNamespace(message=msg)])
+    fake = types.SimpleNamespace(
+        _chat_setup=lambda *a, **k: ({}, []),
+        _with_response_format=lambda gk, rf: gk,
+        _client=types.SimpleNamespace(
+            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=lambda **kw: response))
+        ),
+        model=types.SimpleNamespace(value="fake-model"),
+        is_thinking_model=True,
+        last_usage=None,
+        messages=[],
+    )
+    _bind_append(fake)
+
+    result = OpenAICompatClient._chat(fake, "hi")
+
+    assert result == "the answer"
+    assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "the answer", "thinking": "my reasoning"}
+
+
+def test_openai_compat_chat_streamed_reads_reasoning_field_alias():
+    """Streaming twin: mlx-lm's deltas carry the alias, so the THINKING phase must still fire."""
+    import types
+
+    from aimu.models.providers.openai_compat import OpenAICompatClient
+
+    def _delta(content=None, reasoning=None):
+        d = types.SimpleNamespace(tool_calls=None, content=content, reasoning=reasoning)
+        return types.SimpleNamespace(usage=None, choices=[types.SimpleNamespace(delta=d)])
+
+    deltas = [_delta(reasoning="think "), _delta(reasoning="more"), _delta(content="the answer")]
+    fake = types.SimpleNamespace(
+        _client=types.SimpleNamespace(
+            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=lambda **kw: iter(deltas)))
+        ),
+        model=types.SimpleNamespace(value="fake-model"),
+        is_thinking_model=True,
+        last_thinking="",
+        last_usage=None,
+        messages=[],
+    )
+    _bind_append(fake)
+
+    chunks = list(OpenAICompatClient._chat_streamed(fake, {}, []))
+
+    thinking = "".join(c.content for c in chunks if c.phase == StreamingContentType.THINKING)
+    generating = "".join(c.content for c in chunks if c.phase == StreamingContentType.GENERATING)
+    assert thinking == "think more"
+    assert generating == "the answer"
+    assert _without_ts(fake.messages[-1]) == {"role": "assistant", "content": "the answer", "thinking": "think more"}
+
+
+def test_openai_compat_generate_reads_reasoning_field_alias():
+    """The stateless single-turn path reads the same field as _chat."""
+    import types
+
+    from aimu.models.providers.openai_compat import OpenAICompatClient
+
+    msg = types.SimpleNamespace(content="the answer", tool_calls=None, reasoning="my reasoning")
+    response = types.SimpleNamespace(choices=[types.SimpleNamespace(message=msg)])
+    fake = types.SimpleNamespace(
+        _resolve_generate_kwargs=lambda gk: gk or {},
+        _with_response_format=lambda gk, rf: gk,
+        _client=types.SimpleNamespace(
+            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=lambda **kw: response))
+        ),
+        model=types.SimpleNamespace(value="fake-model"),
+        is_thinking_model=True,
+        last_usage=None,
+        last_thinking="",
+        _record_request=lambda *a, **k: None,
+    )
+
+    result = OpenAICompatClient._generate(fake, "hi", {"max_tokens": 5})
+
+    assert result == "the answer"
+    assert fake.last_thinking == "my reasoning"
+
+
+def test_openai_compat_iter_stream_reads_reasoning_field_alias():
+    """_iter_stream is the streaming seam _generate_streamed uses, and reads the field itself."""
+    import types
+
+    from aimu.models.providers.openai_compat import OpenAICompatClient
+
+    def _delta(content=None, reasoning=None):
+        d = types.SimpleNamespace(tool_calls=None, content=content, reasoning=reasoning)
+        return types.SimpleNamespace(usage=None, choices=[types.SimpleNamespace(delta=d)])
+
+    fake = types.SimpleNamespace(is_thinking_model=True, last_thinking="", last_usage=None)
+
+    chunks = list(OpenAICompatClient._iter_stream(fake, iter([_delta(reasoning="think"), _delta(content="ok")])))
+
+    assert [(c.phase, c.content) for c in chunks] == [
+        (StreamingContentType.THINKING, "think"),
+        (StreamingContentType.GENERATING, "ok"),
+    ]
+    assert fake.last_thinking == "think"
+
+
+# ---------------------------------------------------------------------------
 # Tool-call turn reasoning is preserved on the assistant tool-call message
 # (llama-cpp + OpenAI-compat; HuggingFace and Ollama already did this).
 # ---------------------------------------------------------------------------

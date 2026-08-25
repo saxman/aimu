@@ -20,7 +20,7 @@ from aimu.models._internal.image_input import _build_user_content_blocks
 from aimu.models._internal.message_meta import strip_inert_keys
 from aimu.models._internal.sdk_config import sdk_client_kwargs
 from aimu.models._internal.usage import usage_from_openai
-from aimu.models.providers._thinking import _ThinkingParser, _split_thinking
+from aimu.models.providers._thinking import _reasoning_text, _ThinkingParser, _split_thinking
 from aimu.models.base import Model, ModelConnectionError, StreamChunk, StreamingContentType, classproperty
 from aimu.models.providers.openai_compat import (
     LLAMASERVER_OPENAI_GENERATE_KWARGS,
@@ -141,7 +141,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
             if not chunk.choices:  # terminal usage chunk (empty choices) or keep-alive
                 continue
             delta = chunk.choices[0].delta
-            reasoning = getattr(delta, "reasoning_content", None)
+            reasoning = _reasoning_text(delta)
             if reasoning:
                 self.last_thinking += reasoning
                 yield StreamChunk(StreamingContentType.THINKING, reasoning)
@@ -190,7 +190,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         content = msg.content or ""
 
         self.last_thinking = ""
-        reasoning = getattr(msg, "reasoning_content", None)
+        reasoning = _reasoning_text(msg)
         if reasoning:
             self.last_thinking = reasoning
         elif self.is_thinking_model:
@@ -252,10 +252,10 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
         msg = response.choices[0].message
         self.last_usage = usage_from_openai(response)
         self.last_thinking = ""
-        # Servers that strip <think> tags server-side (llama-server, vLLM/SGLang reasoning parsers)
-        # return reasoning in a separate reasoning_content field; prefer it when present, else fall
-        # back to parsing inline tags out of content.
-        reasoning = getattr(msg, "reasoning_content", None)
+        # Servers that strip <think> tags server-side (llama-server, vLLM/SGLang, mlx-lm) return
+        # reasoning in a field of its own, under either of two names; prefer that when present, else
+        # fall back to parsing inline tags out of content.
+        reasoning = _reasoning_text(msg)
 
         # Single turn: if the model called tools, execute them and return. The model's response
         # to the tool results comes on the next chat() call (the loop lives in Agent).
@@ -311,7 +311,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
             if not chunk.choices:  # terminal usage chunk (empty choices) or keep-alive
                 continue
             delta = chunk.choices[0].delta
-            reasoning = getattr(delta, "reasoning_content", None)
+            reasoning = _reasoning_text(delta)
             if reasoning:
                 self.last_thinking += reasoning
                 yield StreamChunk(StreamingContentType.THINKING, reasoning)

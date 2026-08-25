@@ -13,7 +13,7 @@ from .._catalog import Wire
 from .._internal.generate_kwargs import Unsupported
 from .._internal.image_input import _build_user_content_blocks
 from .._internal.thinking import pop_thinking
-from ._thinking import _split_thinking, _ThinkingParser
+from ._thinking import _reasoning_text, _split_thinking, _ThinkingParser
 
 logger = logging.getLogger(__name__)
 
@@ -223,7 +223,7 @@ class LlamaCppClient(BaseModelClient):
 
         for chunk in stream:
             delta = chunk["choices"][0]["delta"]
-            reasoning = delta.get("reasoning_content")
+            reasoning = _reasoning_text(delta)
             if reasoning:
                 self.last_thinking += reasoning
                 yield StreamChunk(StreamingContentType.THINKING, reasoning)
@@ -267,7 +267,7 @@ class LlamaCppClient(BaseModelClient):
         content = msg["content"] or ""
 
         self.last_thinking = ""
-        reasoning = msg.get("reasoning_content")
+        reasoning = _reasoning_text(msg)
         if reasoning:
             self.last_thinking = reasoning
         elif self.is_thinking_model:
@@ -318,8 +318,8 @@ class LlamaCppClient(BaseModelClient):
         msg = response["choices"][0]["message"]
 
         self.last_thinking = ""
-        # Prefer a server-provided reasoning_content field over parsing inline <think> tags.
-        reasoning = msg.get("reasoning_content")
+        # Prefer a server-provided reasoning field over parsing inline <think> tags.
+        reasoning = _reasoning_text(msg)
 
         # Single turn: if the model called tools, execute them and return. The model's response
         # to the tool results comes on the next chat() call (the loop lives in Agent).
@@ -374,7 +374,7 @@ class LlamaCppClient(BaseModelClient):
         for chunk in stream:
             delta = chunk["choices"][0]["delta"]
             logger.debug("LLM raw chunk: %s", chunk)
-            reasoning = delta.get("reasoning_content")
+            reasoning = _reasoning_text(delta)
             if reasoning:
                 self.last_thinking += reasoning
                 yield StreamChunk(StreamingContentType.THINKING, reasoning)
