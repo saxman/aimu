@@ -733,12 +733,14 @@ def test_the_command_child_cannot_see_the_parents_api_keys(monkeypatch):
 def test_a_timeout_kills_a_backgrounded_grandchild_too(tmp_path):
     """The property _run_supervised exists for, asserted through this tool: SIGKILL reaches
     the whole process group, so a command that backgrounds something and hangs does not
-    leave that something running after the timeout.
+    leave that something running after the timeout. The grandchild writes its marker at
+    t=2 and the parent is killed at t=1, so the marker appears only if the kill failed to
+    reach the group; a kill of the direct child alone would let it survive and write.
     """
     marker = tmp_path / "grandchild.txt"
-    out = builtin.run_command(f"(sleep 30; echo alive > {marker}) & sleep 30", timeout=1)
+    out = builtin.run_command(f"(sleep 2; echo alive > {marker}) & sleep 30", timeout=1)
     assert "timed out" in out.lower()
-    time.sleep(2)
+    time.sleep(4)
     assert not marker.exists()
 
 
