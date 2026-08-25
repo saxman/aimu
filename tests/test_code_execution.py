@@ -331,7 +331,7 @@ def test_kill_process_group_also_kills_a_grandchild():
     try:
         grandchild_pid = int(proc.stdout.readline().strip())
     finally:
-        builtin._kill_execute_python_process_group(proc)
+        builtin._kill_process_group(proc)
         proc.wait(timeout=5)
 
     for _ in range(50):
@@ -384,7 +384,7 @@ def test_timeout_kills_the_whole_process_group_including_a_backgrounded_grandchi
 
 def test_kill_process_group_falls_back_to_proc_kill_without_killpg(monkeypatch):
     """Regression: `os.killpg`/`os.getpgid` don't exist on Windows. Before the
-    fallback, `_kill_execute_python_process_group` raised `AttributeError` on a
+    fallback, `_kill_process_group` raised `AttributeError` on a
     platform lacking them instead of killing anything -- proved here by removing both
     attributes (simulating Windows without needing one) and confirming the direct
     child is still killed via `proc.kill()` rather than the call raising.
@@ -397,7 +397,7 @@ def test_kill_process_group_falls_back_to_proc_kill_without_killpg(monkeypatch):
         start_new_session=True,
     )
     try:
-        builtin._kill_execute_python_process_group(proc)
+        builtin._kill_process_group(proc)
         proc.wait(timeout=5)
     finally:
         if proc.poll() is None:

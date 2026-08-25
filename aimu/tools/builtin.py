@@ -16,7 +16,7 @@ import sys
 import tempfile
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, NamedTuple, Optional
 from urllib.parse import quote, urljoin
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -473,12 +473,12 @@ def _strip_memory_cap_marker(stderr_text: str) -> str:
     return stderr_text
 
 
-def _kill_execute_python_process_group(proc: subprocess.Popen) -> None:
+def _kill_process_group(proc: subprocess.Popen) -> None:
     """Kill *proc* and every process in its process group.
 
-    `execute_python` launches with `start_new_session=True`, making the child the
-    leader of a new process group; anything it spawns (e.g. a backgrounded process the
-    snippet itself launches and does not wait for) inherits that same group unless it
+    `_run_supervised` launches every child with `start_new_session=True`, making it the
+    leader of a new process group; anything it spawns (a backgrounded process a snippet
+    or a shell command starts and does not wait for) inherits that same group unless it
     detaches into a session of its own. A plain `proc.kill()` reaches only the direct
     child, which is exactly how a "hard timeout" used to leave a backgrounded
     grandchild running indefinitely. SIGKILL is uncatchable, so this can't race the
@@ -487,9 +487,9 @@ def _kill_execute_python_process_group(proc: subprocess.Popen) -> None:
     `os.killpg`/`os.getpgid` don't exist on Windows, so this falls back to killing just
     the direct child there: worse than a real process-group kill (a backgrounded
     grandchild can still be left running), but it's the same guarantee
-    `subprocess.run(timeout=...)` gave before this tool moved to a hand-rolled `Popen`,
-    and it keeps this function returning a string rather than raising `AttributeError`
-    partway through the timeout/cleanup path.
+    `subprocess.run(timeout=...)` gave before this moved to a hand-rolled `Popen`, and
+    it keeps the timeout/cleanup path returning rather than raising `AttributeError`
+    partway through.
     """
     killpg = getattr(os, "killpg", None)
     getpgid = getattr(os, "getpgid", None)
@@ -532,6 +532,106 @@ def _read_capped(path: str, limit_bytes: int) -> str:
     return text
 
 
+class _SupervisedRun(NamedTuple):
+    """What `_run_supervised` learned about one child: how it ended, and what it wrote."""
+
+    exit_code: int
+    stdout: str
+    stderr: str
+    timed_out: bool
+
+
+def _run_supervised(
+    argv: list[str],
+    *,
+    stdin_data: Optional[bytes],
+    cwd: Optional[str],
+    env: dict,
+    timeout_s: float,
+    output_limit_bytes: int,
+) -> _SupervisedRun:
+    """Run *argv* as a supervised child, and return how it ended plus what it wrote.
+
+    Shared by `execute_python` and `run_command` so the properties that were expensive
+    to get right hold identically for both, rather than being reimplemented once per
+    tool and drifting:
+
+    - **No path out leaves the child alive.** Normal return, timeout, and any
+      interruption (`KeyboardInterrupt`, a `CancelledError` surfacing through a
+      RunHandle) all kill the process group and reap before leaving.
+    - **Output goes to files, not pipes.** `wait()` depends only on the direct child's
+      exit, never on every process holding a copy of the stdout/stderr fds closing
+      them, so a backgrounded grandchild inheriting those fds cannot hold a fast,
+      successful run hostage.
+    - **Bounded parent memory,** since only a capped prefix of each file is ever read.
+
+    *cwd* of None means the runner's own temp directory. That is what `execute_python`
+    wants (a throwaway working directory the snippet cannot pollute) and never what
+    `run_command` wants, which resolves its own default to `os.getcwd()` before calling
+    here. Each caller's absent value therefore means its own thing, and neither has to
+    know the other's.
+
+    *stdin_data* of None gives the child `DEVNULL` rather than an open pipe, so a
+    command that reads stdin sees EOF at once instead of blocking until the timeout.
+    """
+    with tempfile.TemporaryDirectory(prefix="aimu-supervised-") as tmpdir:
+        stdout_path = os.path.join(tmpdir, "stdout.txt")
+        stderr_path = os.path.join(tmpdir, "stderr.txt")
+        timed_out = False
+
+        with (
+            open(stdout_path, "wb") as stdout_f,
+            open(stderr_path, "wb") as stderr_f,
+            subprocess.Popen(  # noqa: S603
+                argv,
+                stdin=subprocess.PIPE if stdin_data is not None else subprocess.DEVNULL,
+                stdout=stdout_f,
+                stderr=stderr_f,
+                cwd=tmpdir if cwd is None else cwd,
+                env=env,
+                start_new_session=True,
+            ) as proc,
+        ):
+            # Everything from here to the end of the `with` runs under one guard: once the
+            # child exists, no path out of this block -- normal, exceptional, or
+            # interrupted -- may leave it alive. Feeding stdin is inside it too, because an
+            # interruption during the write or the close is just as capable of orphaning a
+            # child that is already running (and `Popen.__exit__` will not save us: its
+            # KeyboardInterrupt branch waits only ~0.25s on the assumption the SIGINT
+            # already reached the child, which is false once the child has its own group).
+            try:
+                if stdin_data is not None:
+                    try:
+                        proc.stdin.write(stdin_data)
+                    except BrokenPipeError:
+                        # The child exited before reading its input. Not an interruption:
+                        # fall through to the normal path, where its output and exit code
+                        # explain why.
+                        pass
+                    finally:
+                        proc.stdin.close()
+                proc.wait(timeout=timeout_s)
+            except subprocess.TimeoutExpired:
+                _kill_process_group(proc)
+                proc.wait()
+                timed_out = True
+            except BaseException:
+                # Kill, then reap, then re-raise: a kill without the wait leaves a zombie.
+                # Deliberately BaseException, not Exception: KeyboardInterrupt and
+                # CancelledError are exactly the cases this exists for.
+                _kill_process_group(proc)
+                proc.wait()
+                raise
+
+        # stdout_f/stderr_f are closed by the `with` above and the child has exited, so
+        # its writes are guaranteed flushed to disk. Read on the timeout path too: what a
+        # command printed before it hung is usually the most useful thing about it.
+        stdout_text = _read_capped(stdout_path, output_limit_bytes)
+        stderr_text = _read_capped(stderr_path, output_limit_bytes)
+
+    return _SupervisedRun(proc.returncode, stdout_text, stderr_text, timed_out)
+
+
 @tool
 def execute_python(code: str) -> str:
     """Execute Python code in a fresh subprocess and return its output.
@@ -570,78 +670,23 @@ def execute_python(code: str) -> str:
     Args:
         code: Python code to execute.
     """
-    with tempfile.TemporaryDirectory(prefix="aimu-execute-python-") as tmpdir:
-        stdout_path = os.path.join(tmpdir, "stdout.txt")
-        stderr_path = os.path.join(tmpdir, "stderr.txt")
+    run = _run_supervised(
+        [sys.executable, "-c", _EXECUTE_PYTHON_WORKER_SOURCE],
+        stdin_data=code.encode("utf-8"),
+        cwd=None,  # the runner's temp directory: a throwaway cwd for the snippet
+        env=_execute_python_env(),
+        timeout_s=_EXECUTE_PYTHON_TIMEOUT_S,
+        output_limit_bytes=_EXECUTE_PYTHON_OUTPUT_LIMIT_BYTES,
+    )
+    if run.timed_out:
+        return f"Error: execution timed out after {_EXECUTE_PYTHON_TIMEOUT_S}s"
 
-        with (
-            open(stdout_path, "wb") as stdout_f,
-            open(stderr_path, "wb") as stderr_f,
-            subprocess.Popen(  # noqa: S603
-                [sys.executable, "-c", _EXECUTE_PYTHON_WORKER_SOURCE],
-                stdin=subprocess.PIPE,
-                stdout=stdout_f,
-                stderr=stderr_f,
-                cwd=tmpdir,
-                env=_execute_python_env(),
-                start_new_session=True,
-            ) as proc,
-        ):
-            # Everything from here to the end of the `with` runs under one guard: once the
-            # child exists, no path out of this block -- normal, exceptional, or
-            # interrupted -- may leave it alive. Feeding stdin is inside it too, because an
-            # interruption during the write or the close is just as capable of orphaning a
-            # child that is already running (and `Popen.__exit__` will not save us; see the
-            # `except BaseException` note below).
-            try:
-                try:
-                    proc.stdin.write(code.encode("utf-8"))
-                except BrokenPipeError:
-                    # The child exited before reading its input. Not an interruption: fall
-                    # through to the normal path, where its output and exit code explain why.
-                    pass
-                finally:
-                    proc.stdin.close()
-
-                # wait(), unlike communicate(), never depends on the stdout/stderr fds
-                # being closed by every process holding a copy of them -- only on the
-                # direct child's own exit. A backgrounded grandchild inheriting those
-                # fds therefore can't hold a fast, successful run hostage the way it
-                # could when output was captured through a pipe.
-                proc.wait(timeout=_EXECUTE_PYTHON_TIMEOUT_S)
-            except subprocess.TimeoutExpired:
-                _kill_execute_python_process_group(proc)
-                proc.wait()
-                return f"Error: execution timed out after {_EXECUTE_PYTHON_TIMEOUT_S}s"
-            except BaseException:
-                # Anything else escaping this block -- KeyboardInterrupt, asyncio.CancelledError
-                # surfacing through a RunHandle, or any other interruption -- must still
-                # kill the child before propagating. start_new_session=True (needed so a
-                # SIGKILL can reach a backgrounded grandchild too) has the side effect of
-                # detaching the child from this process's controlling terminal, so a Ctrl-C
-                # does NOT reach it for free the way it would a foreground child; without
-                # this handler an interrupted run leaves the child (and any grandchild)
-                # orphaned and running indefinitely. Deliberately `except BaseException`,
-                # not `Exception`: KeyboardInterrupt and CancelledError are exactly the
-                # cases this exists for, and Popen's own context-manager __exit__ is no
-                # backstop -- its KeyboardInterrupt branch waits only ~0.25s on the
-                # assumption that the SIGINT already reached the child, which is false once
-                # the child has its own process group. Kill, then reap, then re-raise: a
-                # kill without the wait would leave a zombie.
-                _kill_execute_python_process_group(proc)
-                proc.wait()
-                raise
-
-        # stdout_f/stderr_f are closed by the `with` above, and the child has already
-        # exited (proc.wait() returned), so its writes are guaranteed flushed to disk.
-        stdout_text = _read_capped(stdout_path, _EXECUTE_PYTHON_OUTPUT_LIMIT_BYTES)
-        stderr_text = _strip_memory_cap_marker(_read_capped(stderr_path, _EXECUTE_PYTHON_OUTPUT_LIMIT_BYTES))
-
-    if proc.returncode != 0:
-        detail = stderr_text.strip() or f"exit code {proc.returncode}"
+    stderr_text = _strip_memory_cap_marker(run.stderr)
+    if run.exit_code != 0:
+        detail = stderr_text.strip() or f"exit code {run.exit_code}"
         return f"Error: subprocess exited abnormally ({detail})"
 
-    return stdout_text
+    return run.stdout
 
 
 class _TextExtractor(HTMLParser):
