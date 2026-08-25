@@ -585,9 +585,13 @@ def _run_supervised(
     to get right hold identically for both, rather than being reimplemented once per
     tool and drifting:
 
-    - **No path out leaves the child alive.** Normal return, timeout, and any
-      interruption (`KeyboardInterrupt`, a `CancelledError` surfacing through a
-      RunHandle) all kill the process group and reap before leaving.
+    - **No path out leaves the direct child alive.** `Popen.__exit__` reaps it on a normal
+      return; timeout and any interruption (`KeyboardInterrupt`, a `CancelledError`
+      surfacing through a RunHandle) additionally SIGKILL the whole process group before
+      reaping, since a normal return gives the child every chance to exit on its own but a
+      timeout and an interruption do not. A grandchild the child backgrounded is deliberately
+      exempt on the normal-return path: see the "Output goes to files" bullet below, and
+      `test_a_fast_command_that_backgrounds_something_is_not_a_false_timeout`.
     - **Output goes to files, not pipes.** `wait()` depends only on the direct child's
       exit, never on every process holding a copy of the stdout/stderr fds closing
       them, so a backgrounded grandchild inheriting those fds cannot hold a fast,
@@ -723,6 +727,10 @@ _COMMAND_TIMEOUT_DEFAULT_S = 30
 # ask for four minutes, and no model can ask for forever. 10s (execute_python's constant)
 # would make the obvious use of this tool impossible.
 _COMMAND_TIMEOUT_MAX_S = 600
+# Same value as execute_python's cap today, kept under its own name so the two tiers can
+# diverge later without a rename: this is the combined budget across stdout and stderr
+# (see _cap_combined_output), where execute_python's is a per-stream one.
+_COMMAND_OUTPUT_LIMIT_BYTES = _EXECUTE_PYTHON_OUTPUT_LIMIT_BYTES
 
 
 def _shell_argv(command: str) -> list[str]:
@@ -739,19 +747,70 @@ def _shell_argv(command: str) -> list[str]:
     return ["/bin/sh", "-c", command]
 
 
-def _format_command_result(run: _SupervisedRun, timeout_s: float) -> str:
+def _truncate_text_to_bytes(text: str, encoded: bytes, budget: int) -> str:
+    """Cut *text* (already available as *encoded*) to *budget* bytes, marking it if it shrank.
+
+    Decodes with ``errors="replace"`` because *budget* can land mid-codepoint; the marker
+    matches ``_read_capped``'s wording so a reader sees one consistent shape for "there was
+    more than this" regardless of which cap produced it.
+    """
+    if len(encoded) <= budget:
+        return text
+    kept = encoded[:budget].decode("utf-8", errors="replace")
+    return f"{kept}\n[... truncated {len(encoded) - budget} more bytes]"
+
+
+def _cap_combined_output(stdout: str, stderr: str, limit_bytes: int) -> tuple[str, str]:
+    """Trim *stdout* and *stderr* together to one shared byte budget.
+
+    `_run_supervised` caps each stream independently (a property `execute_python` depends on
+    and this function does not touch), so a command that writes near the cap to both streams
+    can return roughly twice the documented limit. This is the other side of that call, where
+    only `run_command` is affected: `execute_python` never reaches this function, since it
+    returns stdout alone on success and capped stderr alone on failure.
+
+    The budget splits evenly, except a stream that needs less than its half hands the
+    difference to the other: a one-line stderr should not cost a talkative stdout half the
+    budget, and a large stdout must not be able to push stderr out of the result entirely.
+    """
+    stdout_bytes = stdout.encode("utf-8")
+    stderr_bytes = stderr.encode("utf-8")
+    if len(stdout_bytes) + len(stderr_bytes) <= limit_bytes:
+        return stdout, stderr
+
+    half = limit_bytes // 2
+    if len(stdout_bytes) <= half:
+        stdout_budget, stderr_budget = len(stdout_bytes), limit_bytes - len(stdout_bytes)
+    elif len(stderr_bytes) <= half:
+        stderr_budget, stdout_budget = len(stderr_bytes), limit_bytes - len(stderr_bytes)
+    else:
+        stdout_budget = stderr_budget = half
+
+    return (
+        _truncate_text_to_bytes(stdout, stdout_bytes, stdout_budget),
+        _truncate_text_to_bytes(stderr, stderr_bytes, stderr_budget),
+    )
+
+
+def _format_command_result(run: _SupervisedRun, timeout_s: float, limit_bytes: int) -> str:
     """Render a finished command for a model: how it ended, then what it wrote.
 
     The first line is always present, so the shape a model parses does not change with the
     outcome. Empty streams are omitted rather than shown as empty sections, and a command
     that wrote nothing at all says so, because a bare exit line reads like truncation.
+
+    *limit_bytes* bounds stdout and stderr combined, via `_cap_combined_output`, rather than
+    each stream separately: `_run_supervised` already caps each stream at *limit_bytes* on its
+    own, so without this step a command writing near that cap to both streams would return
+    close to double it.
     """
     header = f"Error: command timed out after {timeout_s:g}s" if run.timed_out else f"exit {run.exit_code}"
+    stdout_text, stderr_text = _cap_combined_output(run.stdout, run.stderr, limit_bytes)
     sections = [header]
-    if run.stdout.strip():
-        sections.append(f"--- stdout ---\n{run.stdout.rstrip()}")
-    if run.stderr.strip():
-        sections.append(f"--- stderr ---\n{run.stderr.rstrip()}")
+    if stdout_text.strip():
+        sections.append(f"--- stdout ---\n{stdout_text.rstrip()}")
+    if stderr_text.strip():
+        sections.append(f"--- stderr ---\n{stderr_text.rstrip()}")
     if len(sections) == 1:
         sections.append("(no output)")
     return "\n".join(sections)
@@ -805,6 +864,15 @@ def make_command_tool(*, env_passthrough: tuple[str, ...] = ()) -> Callable:
         there is a diff". Output is capped, stdout and stderr are labelled separately, and a
         command killed by its timeout still returns whatever it printed first.
 
+        A command that backgrounds something returns as soon as the shell itself exits, not
+        when the backgrounded work finishes: `run_command("./build.sh > log 2>&1 &")` can
+        report `exit 0` and `(no output)` within milliseconds while the build keeps running.
+        Only a run still alive at the timeout gets its whole process group killed; a fast
+        return neither waits for nor cleans up anything left running in the background, and if
+        that background process did not redirect its own output somewhere durable, it was
+        inheriting this call's capture files, in a temp directory already deleted by the time
+        you read the answer.
+
         Args:
             command: The command line to run. Interpreted by /bin/sh, so pipes, redirects,
                 globs, and && work.
@@ -821,9 +889,9 @@ def make_command_tool(*, env_passthrough: tuple[str, ...] = ()) -> Callable:
             cwd=cwd or os.getcwd(),
             env=_command_env(tuple(env_passthrough)),
             timeout_s=timeout_s,
-            output_limit_bytes=_EXECUTE_PYTHON_OUTPUT_LIMIT_BYTES,
+            output_limit_bytes=_COMMAND_OUTPUT_LIMIT_BYTES,
         )
-        return _format_command_result(result, timeout_s)
+        return _format_command_result(result, timeout_s, _COMMAND_OUTPUT_LIMIT_BYTES)
 
     return run_command
 

@@ -635,9 +635,17 @@ def test_a_silent_command_says_so_rather_than_returning_a_bare_exit_line():
 def test_shell_features_work():
     """The reason the tool takes a shell string at all. If a pipe does not work, a model
     writes `sh -c` itself and lands back here with an extra layer.
+
+    Keyed off the stdout section specifically, and checking equality rather than substring
+    membership, because `"a" in out` also passes for a bare `printf` that never reached the
+    pipe (its unsorted output still contains the letter "a") and for a broken pipeline whose
+    error message happens to contain the word "command".
     """
     out = builtin.run_command("printf 'b\\na\\n' | sort | head -1")
-    assert "a" in out
+    assert "exit 0" in out
+    assert "--- stdout ---" in out
+    stdout_section = out.split("--- stdout ---", 1)[1]
+    assert stdout_section.strip() == "a"
 
 
 def test_a_command_reading_stdin_gets_eof_instead_of_hanging():
@@ -717,9 +725,16 @@ def test_a_nonpositive_timeout_becomes_one_second_rather_than_an_immediate_kill(
 
 
 def test_command_output_is_capped():
-    out = builtin.run_command(f"printf 'x%.0s' $(seq 1 {builtin._EXECUTE_PYTHON_OUTPUT_LIMIT_BYTES * 2})")
+    """The cap is combined across both streams, not per stream: a test that only wrote to
+    stdout would pass even if stderr doubled the return size on top of it, which is exactly
+    the gap that let a two-stream command return roughly twice the documented limit.
+    """
+    limit = builtin._COMMAND_OUTPUT_LIMIT_BYTES
+    out = builtin.run_command(f"printf 'o%.0s' $(seq 1 {limit}); printf 'e%.0s' $(seq 1 {limit}) 1>&2")
     assert "truncated" in out
-    assert len(out) < builtin._EXECUTE_PYTHON_OUTPUT_LIMIT_BYTES * 2
+    assert "--- stdout ---" in out
+    assert "--- stderr ---" in out
+    assert len(out) < limit + 500
 
 
 def test_the_command_child_cannot_see_the_parents_api_keys(monkeypatch):
