@@ -118,7 +118,12 @@ shared `_ChatStateMixin` ([`_internal/chat_state.py`](../reference/api/models.md
 both the sync and async bases.
 
 Providers that need a different wire format (Anthropic blocks, Ollama image fields, HF PIL images)
-adapt at request time and never mutate `self.messages`. See
+adapt at request time and never mutate `self.messages`. The OpenAI-format paths adapt one field of
+their own: a tool call's `arguments` is stored parsed, which is what Ollama and Anthropic want on the
+wire, while OpenAI's schema types it as a JSON *string*, so those paths call
+`encode_tool_call_arguments()` alongside `strip_inert_keys()`. A server rendering its chat template
+calls `json.loads` on that field, so sending the dict does not merely deviate from the schema, it
+fails the request. See
 [System message lifecycle](system-message-lifecycle.md) and
 [Thinking and context](thinking-and-context.md) for how history and reasoning are managed.
 

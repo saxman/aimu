@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.22.1 (2026-08-24): reasoning from a server that calls the field `reasoning`
+## v0.22.1 (2026-08-24): reasoning that is read, and tool calls that survive the round trip
 
 ### Models
 
@@ -9,9 +9,17 @@
   Twelve call sites now share one helper: `_iter_stream`, `_generate`, `_chat` and `_chat_streamed` in each of `providers/openai_compat.py`, `aio/providers/openai_compat.py`, and `providers/llamacpp.py` (async llama.cpp wraps the sync client, so there is no fourth set). `reasoning_content` wins when a server sends both, so a gateway echoing the same text into an alias cannot have it counted twice. A non-text value under either name (a summary object, a list of parts) is ignored rather than surfaced, since callers concatenate the result and a dict would raise mid-stream. The helper takes a mapping as well as an attribute-bearing object, because llama.cpp hands back plain dicts where the OpenAI SDK hands back models.
   Tests: `tests/test_models_api.py` and `tests/test_aio_models_api.py` (fifteen new, one per call site plus the helper's precedence, non-text and mapping rules). The four existing `reasoning_content` tests are unchanged and still pass, so the DeepSeek spelling keeps its behavior exactly.
 
+- **Fix** **A tool call's `arguments` now reach an OpenAI-compatible server as a JSON string rather than a dict** (`encode_tool_call_arguments` in `aimu.models._internal.message_meta`, called at all four openai-compat request sites: `_chat` and `_chat_streamed` in each of `providers/openai_compat.py` and `aio/providers/openai_compat.py`). `self.messages` stores a tool call's arguments parsed, which is what Ollama's and Anthropic's request paths want on the wire and what a UI or a transcript reads, but OpenAI's schema types `tool_calls[].function.arguments` as a *string* and nothing re-serialized it at the request boundary. Sending the dict is not merely off-schema, it raises server-side: a server rendering its chat template calls `json.loads` on that field, so mlx-lm answered `404 {'error': 'the JSON object must be str, bytes or bytearray, not dict'}`. Measured against `mlx-community/Qwen3.8-27B-8bit` on mlx-lm, an `aio.Agent` holding a single tool failed every run; it now completes, as does a parent agent delegating through `spawn_subagent` to a sub-agent that calls `web_search`.
+  **The failure landed one request later than its cause**, which is what made it look like a routing problem rather than a payload problem. The round that *requests* a tool succeeds, and only the next request, the one carrying the tool result back, is rejected; so the first tool call of a conversation appeared to work and the turn died immediately after it. The status code compounds it: a 404 whose body is a Python `TypeError` message names neither the field nor the message that carried it.
+  **Ollama and Anthropic were never affected**, since both want the parsed object, and that is precisely why this could not be fixed by changing what the store holds. Every provider sharing the OpenAI-format request paths was affected, cloud OpenAI and Gemini included (`AsyncOpenAIClient` and `AsyncGeminiClient` subclass the compat client and override neither method), so the fix reaches them too; it is verified against a local mlx-lm server, not against those APIs.
+  **Deliberately not folded into `strip_inert_keys`**, which Ollama's request path also calls: a dict is correct there, so encoding for every caller would have moved the bug rather than fixed it. A value that is already a string passes through, so history a caller hand-built in OpenAI's own shape is not double-encoded, and a tool call carrying no `arguments` key does not acquire one. `encode_tool_call_arguments` is exported alongside its sibling for the reason its sibling is: a caller writing a custom OpenAI-format request path needs it, and `tests/test_public_surface.py` records the name entering the surface as a deliberate edit.
+  Tests: `tests/test_request_legibility.py` (five new: one per request path, plus a guard that Ollama's path still receives the parsed dict, which is the half of this reasoning a later refactor is most likely to lose).
+
 ### Documentation
 
 - **Docs** [docs/explanation/thinking-and-context.md](docs/explanation/thinking-and-context.md) names both spellings where it lists how each provider family separates reasoning from the answer. The page previously described only two routes (inline `<think>` tags, and a dedicated field on the native-thinking providers), which left the case above undocumented as well as unhandled.
+
+- **Docs** [docs/explanation/architecture.md](docs/explanation/architecture.md) and [docs/how-to/observe-a-run.md](docs/how-to/observe-a-run.md) name the tool-call `arguments` adaptation where each already lists what changes between `chat()` and the wire. The architecture page's list of request-time adaptations covered only providers needing a *different* wire format (Anthropic blocks, Ollama image fields, HF PIL images), which read as though the OpenAI-format paths adapt nothing.
 
 ## v0.22.0 (2026-08-24): one meaning for `max_iterations`, and a sink that survives concurrency
 

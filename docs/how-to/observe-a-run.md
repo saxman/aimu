@@ -119,9 +119,10 @@ Two contracts worth knowing before you write one:
 `RequestPrepared` carries the same payload the client stores on `client.last_request` — the
 request exactly as sent, after AIMU's own generate_kwargs merge (four tiers), the
 `GENERATE_KWARG_SUPPORT` renames and drops, thinking-effort resolution, `strip_inert_keys`
-(AIMU's own `timestamp`/`thinking`/`provenance` bookkeeping never reaches a provider), and
-provider format adaptation (OpenAI-format `messages` rewritten to Anthropic's block shape, and so
-on). It answers a question that otherwise takes source-reading to answer: when a model's behavior
+(AIMU's own `timestamp`/`thinking`/`provenance` bookkeeping never reaches a provider),
+`encode_tool_call_arguments` on the OpenAI-format paths (a tool call's `arguments` is stored parsed
+and OpenAI's schema types it as a JSON string), and provider format adaptation (OpenAI-format
+`messages` rewritten to Anthropic's block shape, and so on). It answers a question that otherwise takes source-reading to answer: when a model's behavior
 looks surprising, is the surprise something the model did, or something AIMU changed on the way
 out?
 

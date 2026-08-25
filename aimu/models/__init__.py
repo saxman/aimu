@@ -43,6 +43,7 @@ from ._internal.message_meta import (
     PROVENANCE_FINAL_ANSWER,
     PROVENANCE_KEY,
     PROVENANCE_PROACTIVE,
+    encode_tool_call_arguments,
     strip_inert_keys,
 )
 from ._internal.model_defaults import (
@@ -249,6 +250,7 @@ __all__ = [
     "PROVENANCE_CONTINUATION",
     "PROVENANCE_FINAL_ANSWER",
     "PROVENANCE_PROACTIVE",
+    "encode_tool_call_arguments",
     "strip_inert_keys",
     "available_audio_clients",
     "available_audio_models",

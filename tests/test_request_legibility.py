@@ -9,6 +9,7 @@ payload would be worse than none, so each transformation gets its own assertion.
 
 from __future__ import annotations
 
+import json
 import types
 
 import pytest
@@ -425,7 +426,7 @@ async def _async_openai_compat_create(**kw):
     return types.SimpleNamespace(choices=[types.SimpleNamespace(message=message)], usage=None)
 
 
-def _drive_ollama(client_cls, monkeypatch, method, stream):
+def _drive_ollama(client_cls, monkeypatch, method, stream, prepare=None):
     import ollama as ollama_sdk
 
     import aimu.models.providers.ollama as ollama_mod
@@ -443,6 +444,8 @@ def _drive_ollama(client_cls, monkeypatch, method, stream):
     monkeypatch.setattr(ollama_mod, "truncated_from_ollama", lambda *a, **k: False)
     model = next(iter(client_cls.MODELS))
     client = client_cls(model)
+    if prepare:
+        prepare(client)
     result = getattr(client, method)("hi", stream=stream)
     if stream:
         list(result)
@@ -523,7 +526,7 @@ async def _drive_async_anthropic(client_cls, monkeypatch, method, stream):
     return client
 
 
-def _drive_openai_compat(client_cls, monkeypatch, method, stream):
+def _drive_openai_compat(client_cls, monkeypatch, method, stream, prepare=None):
     import openai as openai_sdk
 
     monkeypatch.setattr(
@@ -535,13 +538,15 @@ def _drive_openai_compat(client_cls, monkeypatch, method, stream):
     )
     model = next(iter(client_cls.MODELS))
     client = client_cls(model)
+    if prepare:
+        prepare(client)
     result = getattr(client, method)("hi", stream=stream)
     if stream:
         list(result)
     return client
 
 
-async def _drive_async_openai_compat(client_cls, monkeypatch, method, stream):
+async def _drive_async_openai_compat(client_cls, monkeypatch, method, stream, prepare=None):
     import openai as openai_sdk
 
     monkeypatch.setattr(
@@ -553,6 +558,8 @@ async def _drive_async_openai_compat(client_cls, monkeypatch, method, stream):
     )
     model = next(iter(client_cls.MODELS))
     client = client_cls(model)
+    if prepare:
+        prepare(client)
     result = await getattr(client, method)("hi", stream=stream)
     if stream:
         async for _ in result:
@@ -658,3 +665,81 @@ async def test_every_client_records_its_request(client_cls, method, stream, monk
         )
 
     assert client.last_request is not None, f"{name}.{method}(stream={stream}) recorded nothing on last_request"
+
+
+# ---------------------------------------------------------------------------
+# Tool-call arguments: a dict in self.messages, a JSON string on the wire.
+#
+# Placed after the drivers above because it reuses them: the seam is the same four
+# openai-compat request paths, and a second copy of the SDK-stubbing wiring would be one
+# more thing to keep in step.
+# ---------------------------------------------------------------------------
+
+_TOOL_ARGUMENTS = {"query": "aimu", "num_results": 5}
+
+
+def _seed_completed_tool_round(client) -> None:
+    """Put a finished tool round in history the way a provider's tool-call path does.
+
+    Goes through the real ``_record_tool_calls`` rather than hand-writing the assistant
+    message, so the test pins the shape the store actually holds rather than one it invented.
+    """
+    client._record_tool_calls([{"name": "web_search", "arguments": dict(_TOOL_ARGUMENTS)}])
+    tool_call = client.messages[-1]["tool_calls"][0]
+    assert isinstance(tool_call["function"]["arguments"], dict), "the store no longer holds the parsed form"
+    client.messages.append({"role": "tool", "tool_call_id": tool_call["id"], "content": "1. a result"})
+
+
+def _assert_arguments_left_as_json_text(client) -> None:
+    sent = [tc for message in client.last_request["messages"] for tc in message.get("tool_calls", ())]
+    assert sent, "the seeded tool round never reached the payload"
+    for tool_call in sent:
+        arguments = tool_call["function"]["arguments"]
+        assert isinstance(arguments, str), f"OpenAI's schema types this as a string, got {type(arguments).__name__}"
+        assert json.loads(arguments) == _TOOL_ARGUMENTS
+    stored = next(message for message in client.messages if message.get("tool_calls"))
+    assert stored["tool_calls"][0]["function"]["arguments"] == _TOOL_ARGUMENTS, "the adaptation leaked into the store"
+
+
+@pytest.mark.parametrize("stream", [False, True], ids=["non-stream", "stream"])
+def test_tool_call_arguments_reach_the_wire_as_json_text(monkeypatch, stream):
+    """OpenAI's schema types ``tool_calls[].function.arguments`` as a string, and a server
+    rendering its chat template calls ``json.loads`` on it, so sending the parsed dict does
+    not merely deviate from the schema, it raises server-side: mlx-lm answers
+    ``404 {'error': 'the JSON object must be str, bytes or bytearray, not dict'}``. That
+    failed every turn which had called a tool, on the request *after* the tool result, so
+    the first round of any tool-using conversation looked fine and the second died.
+
+    The store keeps the parsed dict either way, which is what Ollama's and Anthropic's
+    request paths want and what a UI or transcript reads; this is adaptation at request
+    time, per the plain-data principle.
+    """
+    from aimu.models.providers.openai_compat import LMStudioOpenAIClient
+
+    client = _drive_openai_compat(LMStudioOpenAIClient, monkeypatch, "chat", stream, prepare=_seed_completed_tool_round)
+    _assert_arguments_left_as_json_text(client)
+
+
+@pytest.mark.parametrize("stream", [False, True], ids=["non-stream", "stream"])
+async def test_async_tool_call_arguments_reach_the_wire_as_json_text(monkeypatch, stream):
+    """The async twin of the test above. Four request paths carry this payload (``_chat`` and
+    ``_chat_streamed`` on each surface) and each builds its own ``messages`` argument, so a
+    fix applied to one is not applied to the others."""
+    from aimu.aio.providers.openai_compat import AsyncLMStudioOpenAIClient
+
+    client = await _drive_async_openai_compat(
+        AsyncLMStudioOpenAIClient, monkeypatch, "chat", stream, prepare=_seed_completed_tool_round
+    )
+    _assert_arguments_left_as_json_text(client)
+
+
+def test_ollama_keeps_tool_call_arguments_parsed_on_the_wire(monkeypatch):
+    """The other half of the reason this adaptation cannot live in ``strip_inert_keys``:
+    Ollama's request path calls that too, and its API wants an object here, not a string.
+    Encoding for everyone would move the bug rather than fix it."""
+    from aimu.models.providers.ollama import OllamaClient
+
+    client = _drive_ollama(OllamaClient, monkeypatch, "chat", False, prepare=_seed_completed_tool_round)
+    sent = [tc for message in client.last_request["messages"] for tc in message.get("tool_calls", ())]
+    assert sent, "the seeded tool round never reached the payload"
+    assert sent[0]["function"]["arguments"] == _TOOL_ARGUMENTS

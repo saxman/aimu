@@ -31,7 +31,7 @@ from .._catalog import Wire
 from .._internal.audio_input import _build_audio_content_blocks
 from .._internal.generate_kwargs import Unsupported
 from .._internal.image_input import _build_user_content_blocks
-from .._internal.message_meta import strip_inert_keys
+from .._internal.message_meta import encode_tool_call_arguments, strip_inert_keys
 from .._internal.sdk_config import sdk_client_kwargs
 from .._internal.thinking import QWEN_REASONING_EFFORT, pop_thinking
 from .._internal.usage import usage_from_openai
@@ -378,7 +378,7 @@ class OpenAICompatClient(BaseModelClient):
             self,
             self._client,
             model=self.model.value,
-            messages=strip_inert_keys(self.messages),
+            messages=encode_tool_call_arguments(strip_inert_keys(self.messages)),
             tools=tools if tools else openai.NOT_GIVEN,
             **generate_kwargs,
         )
@@ -425,7 +425,7 @@ class OpenAICompatClient(BaseModelClient):
                 self,
                 self._client,
                 model=self.model.value,
-                messages=strip_inert_keys(self.messages),
+                messages=encode_tool_call_arguments(strip_inert_keys(self.messages)),
                 stream=True,
                 stream_options={"include_usage": True},
                 tools=tools if tools else openai.NOT_GIVEN,
