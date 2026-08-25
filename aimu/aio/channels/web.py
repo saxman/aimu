@@ -14,10 +14,10 @@ JSON frame protocol (server -> browser, the contract with any page):
 - ``{"type": "message", "text": str, "proactive": bool}`` -- a finished, non-streamed message. ``proactive``
   is true when there is no ``reply_to`` (e.g. a scheduler push), so the page can flag it.
 - ``{"type": "token", "text": str}`` -- one chunk of a streamed answer (``GENERATING``).
-- ``{"type": "thinking", "text": str}`` -- one chunk of reasoning (``THINKING``); emitted only when
-  ``show_thinking`` is set.
+- ``{"type": "thinking", "text": str}`` -- one chunk of reasoning (``THINKING``); emitted unless
+  ``stream_thinking`` is off.
 - ``{"type": "tool", "name": str, "arguments": dict, "response": str | None}`` -- a tool call
-  (``TOOL_CALLING``); emitted only when ``show_tools`` is set. A ``TOOL_CALLING`` chunk is yielded after the
+  (``TOOL_CALLING``); emitted unless ``stream_tools`` is off. A ``TOOL_CALLING`` chunk is yielded after the
   call has been dispatched, so ``response`` carries the tool result (including an error or not-approved
   notice, which are results too). It is ``None`` only for a chunk that omits it.
 - ``{"type": "done"}`` -- terminates a streamed reply.
@@ -45,13 +45,13 @@ class WebChannel(Channel):
 
     name = "web"
 
-    def __init__(self, websocket: Any, *, show_thinking: bool = False, show_tools: bool = False):
+    def __init__(self, websocket: Any, *, stream_thinking: bool = True, stream_tools: bool = True):
         # websocket is duck-typed (async send_json / close). Tests pass a fake.
         self._ws = websocket
         self._inbound: asyncio.Queue[Optional[str]] = asyncio.Queue()
         self._closed = False
-        self.show_thinking = show_thinking
-        self.show_tools = show_tools
+        self.stream_thinking = stream_thinking
+        self.stream_tools = stream_tools
 
     async def feed(self, text: Optional[str]) -> None:
         """Enqueue an inbound frame; ``None`` is the end-of-stream sentinel."""
@@ -78,9 +78,9 @@ class WebChannel(Channel):
         async for chunk in content:
             if chunk.phase == StreamingContentType.GENERATING and chunk.content:
                 await self.send_frame({"type": "token", "text": chunk.content})
-            elif chunk.phase == StreamingContentType.THINKING and self.show_thinking and chunk.content:
+            elif chunk.phase == StreamingContentType.THINKING and self.stream_thinking and chunk.content:
                 await self.send_frame({"type": "thinking", "text": chunk.content})
-            elif chunk.phase == StreamingContentType.TOOL_CALLING and self.show_tools:
+            elif chunk.phase == StreamingContentType.TOOL_CALLING and self.stream_tools:
                 call = chunk.content if isinstance(chunk.content, dict) else {}
                 await self.send_frame(
                     {

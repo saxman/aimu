@@ -67,9 +67,6 @@ class AssistantConfig:
     history_path: str = field(default_factory=lambda: str(DEFAULT_OUTPUT_DIR / "history.json"))
     reminder_seconds: Optional[float] = None
     reminder_text: str = DEFAULT_REMINDER_TEXT
-    # Surface the model's reasoning and tool calls in the channel, not just the final answer.
-    show_thinking: bool = True
-    show_tools: bool = True
 
 
 class Assistant:

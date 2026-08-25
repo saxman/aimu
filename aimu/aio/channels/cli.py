@@ -33,17 +33,17 @@ class CLIChannel(Channel):
     """Read user input from stdin and write replies to stdout.
 
     Single local user, so ``send(reply_to=...)`` is accepted and ignored. Streaming replies
-    are written token-by-token as they arrive. ``show_thinking`` / ``show_tools`` (both off by
-    default, to keep the bare channel minimal) surface the model's reasoning and tool calls as
-    labelled lines alongside the answer.
+    are written token-by-token as they arrive. ``stream_thinking`` / ``stream_tools`` (both on by
+    default) relay the model's reasoning and tool calls as labelled lines alongside the answer;
+    set either False to drop that content before it reaches the terminal.
     """
 
     name = "cli"
 
-    def __init__(self, *, prompt: str = "> ", show_thinking: bool = False, show_tools: bool = False):
+    def __init__(self, *, prompt: str = "> ", stream_thinking: bool = True, stream_tools: bool = True):
         self.prompt = prompt
-        self.show_thinking = show_thinking
-        self.show_tools = show_tools
+        self.stream_thinking = stream_thinking
+        self.stream_tools = stream_tools
 
     async def receive(self) -> AsyncIterator[ChannelMessage]:
         while True:
@@ -73,7 +73,7 @@ class CLIChannel(Channel):
         section = None
         async for chunk in content:
             if chunk.phase == StreamingContentType.THINKING:
-                if not self.show_thinking or not chunk.content:
+                if not self.stream_thinking or not chunk.content:
                     continue
                 if section != "thinking":
                     sys.stdout.write("\n[thinking] ")
@@ -81,7 +81,7 @@ class CLIChannel(Channel):
                 sys.stdout.write(chunk.content)
                 sys.stdout.flush()
             elif chunk.phase == StreamingContentType.TOOL_CALLING:
-                if not self.show_tools:
+                if not self.stream_tools:
                     continue
                 sys.stdout.write(("\n" if section else "") + f"[tool] {_format_tool_call(chunk.content)}\n")
                 sys.stdout.flush()

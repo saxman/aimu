@@ -53,7 +53,7 @@ def build_app(config: AssistantConfig, *, client=None) -> Starlette:
             await websocket.close()
             return
         busy["active"] = True
-        channel = WebChannel(websocket, show_thinking=config.show_thinking, show_tools=config.show_tools)
+        channel = WebChannel(websocket)
         assistant = await Assistant.create(config, channel, client=client)
 
         async def pump() -> None:

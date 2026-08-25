@@ -249,11 +249,12 @@ Because the server owns the scheduler via `assistant.run()`, proactive messages 
 unprompted, the property a request/response UI (Streamlit/Gradio) can't provide without polling.
 
 The agent's stream carries `THINKING` and `TOOL_CALLING` chunks alongside `GENERATING`, so both
-channels can surface the model's reasoning and tool calls, not just the final answer. `CLIChannel`
-takes opt-in `show_thinking` / `show_tools` flags (off by default to keep the library channel
-minimal); `WebChannel` (same flags) emits `thinking` / `tool` frames the page renders as distinct
-blocks. The personal-assistant example turns both on, threading `AssistantConfig.show_thinking` /
-`show_tools` into each channel.
+channels relay the model's reasoning and tool calls, not just the final answer. `CLIChannel` takes
+`stream_thinking` / `stream_tools` flags, both on by default, and writes those chunks as labelled
+lines; `WebChannel` (same flags) emits `thinking` / `tool` frames the page renders as distinct
+blocks. The flags decide what reaches the transport, not how a front end draws it: a page is free
+to collapse or hide a frame it received. Set either to `False` to drop that content upstream of the
+channel entirely.
 
 ```bash
 pip install aimu[web]

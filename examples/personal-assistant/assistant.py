@@ -97,7 +97,7 @@ async def _amain(config: AssistantConfig) -> None:
         "Type /stop on its own line to interrupt the current reply.",
         file=sys.stderr,
     )
-    channel = CLIChannel(show_thinking=config.show_thinking, show_tools=config.show_tools)
+    channel = CLIChannel()
     assistant = await Assistant.create(config, channel, tool_approval=_confirm_in_terminal)
     await assistant.run()
 

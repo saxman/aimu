@@ -65,9 +65,9 @@ async def test_web_channel_send_stream_emits_tokens_then_done():
     ]
 
 
-async def test_web_channel_emits_thinking_and_tool_frames_when_enabled():
+async def test_web_channel_emits_thinking_and_tool_frames_by_default():
     ws = _FakeWS()
-    channel = WebChannel(ws, show_thinking=True, show_tools=True)
+    channel = WebChannel(ws)
 
     async def gen():
         yield StreamChunk(StreamingContentType.THINKING, "hmm")
@@ -98,9 +98,9 @@ async def test_web_channel_skips_empty_generating_chunks():
     assert ws.frames == [{"type": "token", "text": "hi"}, {"type": "done"}]
 
 
-async def test_web_channel_omits_thinking_and_tool_frames_by_default():
+async def test_web_channel_omits_thinking_and_tool_frames_when_the_flags_are_off():
     ws = _FakeWS()
-    channel = WebChannel(ws)  # defaults: show_thinking / show_tools off
+    channel = WebChannel(ws, stream_thinking=False, stream_tools=False)
 
     async def gen():
         yield StreamChunk(StreamingContentType.THINKING, "hmm")

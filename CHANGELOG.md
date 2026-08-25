@@ -1,6 +1,18 @@
 # Changelog
 
-## v0.22.1 (unreleased): reasoning that is read, and tool calls that survive the round trip
+## v0.23.0 (unreleased): channels that relay the whole loop by default, reasoning that is read, and tool calls that survive the round trip
+
+Renumbered from v0.22.1: the channel rename below is a breaking change, which cannot ride a patch
+release. Breaking changes are free before 1.0 and expensive after, so it ships now.
+
+### Channels
+
+- **Change (breaking)** **`show_thinking` / `show_tools` are now `stream_thinking` / `stream_tools`, and both default to `True`** (`aio.CLIChannel`, `aio.WebChannel`). The rename fixes a name that claimed a decision the channel does not make. A channel is a transport: the flag decides whether `THINKING` and `TOOL_CALLING` content *reaches* the far side, not whether the far side draws it. A page that received a `thinking` frame is free to collapse it, fold it behind a header, or drop it, and routinely does; a channel that never emitted one has taken that choice away from the front end and left it nothing to decide with. `show_` read as a display policy set two layers below the display.
+  **The default flip follows from the same reading.** Off-by-default meant the legible path was the one you had to know two keyword arguments existed to ask for, while the default hid the two chunk phases that show what the model actually did. Making a model's real behavior legible is the reason the library exists, so relaying those phases is now what a bare channel does, and suppressing them is the opt-in.
+  **The break is loud, not silent.** Both are keyword-only, so a caller still passing `show_thinking=` / `show_tools=` gets a `TypeError` at construction naming the argument. A subclass that reads `self.show_thinking` while streaming (an overridden `send`, a replay path) raises `AttributeError` on the first stream rather than quietly treating the frames as suppressed. Rename the arguments at the construction site; a caller that was passing `True` can drop them.
+  **`aimu.pretty_print` deliberately keeps `show_thinking` / `show_tools`.** It writes to a `TextIO` and so *is* the display: there is no transport and no front end downstream of it to decide anything, which is exactly the case the channel flags do not describe. The two spellings now mark a real difference rather than an inconsistency.
+  `examples/personal-assistant` drops `AssistantConfig.show_thinking` / `show_tools` and constructs both channels bare, since those fields only ever carried the value that is now the default.
+  Tests: `tests/test_aio_channels.py` and `tests/test_aio_web_channel.py` (the two "by default" tests invert: the frames are asserted present with no arguments, and absent only when the flags are explicitly off), plus `examples/personal-assistant/tests/test_web_assistant.py`.
 
 ### Models
 
