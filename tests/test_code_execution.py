@@ -592,3 +592,218 @@ def test_command_env_omits_a_named_variable_that_is_unset(monkeypatch):
     """
     monkeypatch.delenv("SSH_AUTH_SOCK", raising=False)
     assert "SSH_AUTH_SOCK" not in builtin._command_env(("SSH_AUTH_SOCK",))
+
+
+def test_run_command_returns_stdout_and_the_exit_code():
+    """The ordinary case. The exit line is always present, not only on failure, so the
+    format a model has to parse is the same every time.
+    """
+    out = builtin.run_command("echo hello")
+    assert "hello" in out
+    assert "exit 0" in out
+
+
+def test_a_nonzero_exit_returns_the_output_rather_than_an_error_string():
+    """The deliberate divergence from execute_python, which collapses a nonzero exit into
+    "Error: subprocess exited abnormally" and discards the output. `pytest` exits 1 with
+    the answer on stdout, and `git diff --exit-code` exits 1 to mean "yes, there is a
+    diff", so a nonzero exit here is information rather than a fault.
+    """
+    out = builtin.run_command("echo before; exit 3")
+    assert "before" in out
+    assert "exit 3" in out
+    assert "exited abnormally" not in out
+
+
+def test_stderr_comes_back_labelled_separately():
+    """A command's diagnostics are worth having and worth distinguishing: a model that
+    cannot tell them apart cannot tell a warning from an answer.
+    """
+    out = builtin.run_command("echo out; echo err 1>&2")
+    assert "--- stdout ---" in out
+    assert "--- stderr ---" in out
+    assert out.index("--- stdout ---") < out.index("--- stderr ---")
+
+
+def test_a_silent_command_says_so_rather_than_returning_a_bare_exit_line():
+    out = builtin.run_command("true")
+    assert "exit 0" in out
+    assert "no output" in out
+
+
+def test_shell_features_work():
+    """The reason the tool takes a shell string at all. If a pipe does not work, a model
+    writes `sh -c` itself and lands back here with an extra layer.
+    """
+    out = builtin.run_command("printf 'b\\na\\n' | sort | head -1")
+    assert "a" in out
+
+
+def test_a_command_reading_stdin_gets_eof_instead_of_hanging():
+    """stdin is DEVNULL, not an open pipe. A command that reads it sees EOF at once; an
+    open pipe nobody writes to would block until the timeout and report a hang.
+    """
+    start = time.monotonic()
+    out = builtin.run_command("cat", timeout=5)
+    assert time.monotonic() - start < 5
+    assert "exit 0" in out
+
+
+def test_cwd_is_honored():
+    out = builtin.run_command("pwd", cwd="/tmp")
+    assert "/tmp" in out or "/private/tmp" in out  # macOS resolves /tmp through a symlink
+
+
+def test_cwd_defaults_to_the_process_working_directory(tmp_path, monkeypatch):
+    """The default is the shell a user would have had, not execute_python's throwaway temp
+    directory: `ls` and `git status` in an empty temp dir are useless.
+    """
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "marker.txt").write_text("here")
+    assert "marker.txt" in builtin.run_command("ls")
+
+
+def test_a_nonexistent_cwd_returns_a_message_naming_the_path():
+    """Popen raises FileNotFoundError for a missing cwd, and a model passing a path that
+    does not exist is a routine mistake rather than a program fault: it should be told,
+    so it can correct itself, not have an exception surface through tool dispatch.
+    """
+    out = builtin.run_command("pwd", cwd="/no/such/directory")
+    assert "/no/such/directory" in out
+    assert "does not exist" in out
+
+
+def test_a_hanging_command_is_killed_by_its_timeout():
+    start = time.monotonic()
+    out = builtin.run_command("sleep 30", timeout=1)
+    assert time.monotonic() - start < 15
+    assert "timed out" in out.lower()
+
+
+def test_a_timed_out_command_still_returns_what_it_printed_first():
+    """The second deliberate divergence from execute_python, which discards the output on
+    timeout. A test run killed at its ceiling has usually already printed the failure that
+    mattered, and the file-based capture has it on disk at that point, so returning it is
+    free.
+    """
+    out = builtin.run_command("echo progress; sleep 30", timeout=1)
+    assert "timed out" in out.lower()
+    assert "progress" in out
+
+
+def test_a_timeout_above_the_ceiling_clamps(monkeypatch):
+    """A model can ask for four minutes when it knows it needs four minutes, and cannot
+    ask for forever.
+
+    The real ceiling is 600s, which this test cannot wait out, so it lowers the ceiling
+    itself: the property under test is that the *reported* number is the ceiling, not the
+    requested value, and that holds at any ceiling.
+    """
+    monkeypatch.setattr(builtin, "_COMMAND_TIMEOUT_MAX_S", 2)
+    start = time.monotonic()
+    out = builtin.run_command("sleep 30", timeout=10_000)
+    assert time.monotonic() - start < 15
+    assert "timed out" in out.lower()
+    assert str(builtin._COMMAND_TIMEOUT_MAX_S) in out
+
+
+def test_a_nonpositive_timeout_becomes_one_second_rather_than_an_immediate_kill():
+    """timeout=0 read literally kills the child before it can run, which reports a hang
+    for a command that never had a chance. One second is the smallest honest floor.
+    """
+    out = builtin.run_command("echo quick", timeout=0)
+    assert "quick" in out
+
+
+def test_command_output_is_capped():
+    out = builtin.run_command(f"printf 'x%.0s' $(seq 1 {builtin._EXECUTE_PYTHON_OUTPUT_LIMIT_BYTES * 2})")
+    assert "truncated" in out
+    assert len(out) < builtin._EXECUTE_PYTHON_OUTPUT_LIMIT_BYTES * 2
+
+
+def test_the_command_child_cannot_see_the_parents_api_keys(monkeypatch):
+    """Task 3 asserts the policy on the mapping; this asserts the tool actually applies it,
+    which is the half a wiring mistake would break.
+    """
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-should-not-leak")
+    out = builtin.run_command("printenv ANTHROPIC_API_KEY")
+    assert "sk-should-not-leak" not in out
+
+
+def test_a_timeout_kills_a_backgrounded_grandchild_too(tmp_path):
+    """The property _run_supervised exists for, asserted through this tool: SIGKILL reaches
+    the whole process group, so a command that backgrounds something and hangs does not
+    leave that something running after the timeout.
+    """
+    marker = tmp_path / "grandchild.txt"
+    out = builtin.run_command(f"(sleep 30; echo alive > {marker}) & sleep 30", timeout=1)
+    assert "timed out" in out.lower()
+    time.sleep(2)
+    assert not marker.exists()
+
+
+def test_a_fast_command_that_backgrounds_something_is_not_a_false_timeout():
+    """The mirror of the test above, and the reason output goes to files rather than pipes:
+    wait() depends only on the direct child's exit, so a grandchild holding the inherited
+    fds cannot make a run that finished in milliseconds report a hang.
+    """
+    start = time.monotonic()
+    out = builtin.run_command("(sleep 20) & echo done", timeout=5)
+    assert time.monotonic() - start < 5
+    assert "done" in out
+    assert "timed out" not in out.lower()
+
+
+def test_make_command_tool_admits_a_named_variable(monkeypatch):
+    """The factory is how a host turns the passthrough into a real setting: the tool a model
+    sees takes only the arguments a model should choose, so a config-driven allowance needs
+    a closure.
+    """
+    monkeypatch.setenv("GH_TOKEN", "ghp-deliberate")
+    tool_fn = builtin.make_command_tool(env_passthrough=("GH_TOKEN",))
+    assert "ghp-deliberate" in tool_fn("printenv GH_TOKEN")
+
+
+def test_make_command_tool_admits_nothing_by_default(monkeypatch):
+    monkeypatch.setenv("GH_TOKEN", "ghp-not-asked-for")
+    assert "ghp-not-asked-for" not in builtin.make_command_tool()("printenv GH_TOKEN")
+
+
+def test_the_module_level_tool_admits_nothing(monkeypatch):
+    """`run_command` is `make_command_tool()` with no arguments, and AIMU's other consumers
+    take it from `builtin.compute` without ever calling the factory, so the default has to be
+    the safe one.
+    """
+    monkeypatch.setenv("GH_TOKEN", "ghp-not-asked-for")
+    assert "ghp-not-asked-for" not in builtin.run_command("printenv GH_TOKEN")
+
+
+def test_every_built_tool_keeps_the_name_and_the_description_a_model_reads():
+    """@tool parses the docstring at decoration time and freezes it into __tool_spec__, so a
+    closure with no docstring reaches a model as a tool with an empty description, and a
+    __doc__ assigned afterwards never lands. A wrong __name__ is worse than cosmetic too: an
+    approval gate keyed on "run_command" stops matching a tool called "wrapper".
+    """
+    for tool_fn in (builtin.run_command, builtin.make_command_tool(env_passthrough=("GH_TOKEN",))):
+        assert tool_fn.__name__ == "run_command"
+        assert tool_fn.__tool_spec__["function"]["name"] == "run_command"
+        assert "NOT A SECURITY BOUNDARY" in tool_fn.__tool_spec__["function"]["description"]
+
+
+def test_the_run_command_docstring_refuses_to_claim_containment():
+    """The same standard execute_python's docstring is held to. A shell string reaches the
+    filesystem, the network, and other processes as the calling user, and the docstring is
+    where a caller finds that out.
+    """
+    doc = builtin.run_command.__doc__
+    assert "NOT A SECURITY BOUNDARY" in doc
+    assert "container" in doc.lower()
+
+
+def test_the_run_command_docstring_names_the_credential_and_signalling_limits():
+    """Two specifics that are easy to omit and expensive to discover: credentials sitting in
+    files are readable, and process signalling is unconfined.
+    """
+    doc = builtin.run_command.__doc__.lower()
+    assert ".env" in doc
+    assert "signal" in doc

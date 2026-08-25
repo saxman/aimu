@@ -718,6 +718,121 @@ def execute_python(code: str) -> str:
     return run.stdout
 
 
+_COMMAND_TIMEOUT_DEFAULT_S = 30
+# A ceiling rather than a fixed duration: a model that knows it is running a test suite can
+# ask for four minutes, and no model can ask for forever. 10s (execute_python's constant)
+# would make the obvious use of this tool impossible.
+_COMMAND_TIMEOUT_MAX_S = 600
+
+
+def _shell_argv(command: str) -> list[str]:
+    """The argv that hands *command* to a shell.
+
+    Spelled out rather than passing `shell=True`, which would do this platform dispatch in
+    less code: which shell interpreted a command decides what `&&`, quoting, and `$VAR`
+    meant, so it is worth being able to read it here rather than inferring it from
+    `subprocess`'s own rules. `/bin/sh` specifically, not `$SHELL`: a tool whose behavior
+    changed with the user's login shell would be reproducible nowhere.
+    """
+    if os.name == "nt":
+        return [os.environ.get("COMSPEC", "cmd.exe"), "/c", command]
+    return ["/bin/sh", "-c", command]
+
+
+def _format_command_result(run: _SupervisedRun, timeout_s: float) -> str:
+    """Render a finished command for a model: how it ended, then what it wrote.
+
+    The first line is always present, so the shape a model parses does not change with the
+    outcome. Empty streams are omitted rather than shown as empty sections, and a command
+    that wrote nothing at all says so, because a bare exit line reads like truncation.
+    """
+    header = f"Error: command timed out after {timeout_s:g}s" if run.timed_out else f"exit {run.exit_code}"
+    sections = [header]
+    if run.stdout.strip():
+        sections.append(f"--- stdout ---\n{run.stdout.rstrip()}")
+    if run.stderr.strip():
+        sections.append(f"--- stderr ---\n{run.stderr.rstrip()}")
+    if len(sections) == 1:
+        sections.append("(no output)")
+    return "\n".join(sections)
+
+
+def make_command_tool(*, env_passthrough: tuple[str, ...] = ()) -> Callable:
+    """Build a `run_command` whose child also sees the named environment variables.
+
+    *env_passthrough* is what keeps the capability real without the default being unsafe.
+    The child's environment is an allowlist with no API keys in it, which is what stops
+    `run_command("env")` lifting a credential into a model's context, and which also makes
+    `gh`, `ssh`, and `git push` over ssh fail. A host that wants one of those working names
+    the variable it needs, typically from its own configuration, so the allowance is the
+    user's to grant rather than this library's to assume.
+
+    `builtin.compute`'s `run_command` is this factory called with no arguments, rather than
+    a separately defined twin. `@tool` freezes the docstring into `__tool_spec__` at
+    decoration time, so a closure with no docstring reaches a model with an empty
+    description and a `__doc__` assigned afterwards never lands; one definition is the only
+    way to keep one security disclosure.
+    """
+
+    @tool
+    def run_command(command: str, cwd: str = "", timeout: int = _COMMAND_TIMEOUT_DEFAULT_S) -> str:
+        """Run a unix command through a shell and return its exit code and output.
+
+        NOT A SECURITY BOUNDARY: this is isolation, not containment, in exactly the sense
+        `execute_python`'s docstring means it, and with one fewer step in between. The command
+        runs as the same user this process does, so it reads, writes, and makes network
+        requests exactly as this process can. A `.env` file, `~/.aws/credentials`, or
+        `~/.config/gh/hosts.yml` is as readable to it as to this user's own account. Process
+        signalling is not confined either: `kill -9` against this process's own pid is one
+        command away. Treat anything reaching this tool as a command you have chosen to run,
+        gate it with `tool_approval` for untrusted callers, and reach for a container when you
+        need real containment.
+
+        What the subprocess does buy: a hard timeout, so a hung command cannot hang this
+        process; a process-group kill, so a command that backgrounds something does not leave
+        it running after that timeout; crash isolation; and no access to this process's
+        environment variables, so `ANTHROPIC_API_KEY` and anything else set there is invisible
+        unless a host passed the name through deliberately (see `make_command_tool`). Note what
+        that last one is not: it is about environment variables specifically, not credentials
+        in general, which is what the paragraph above is about.
+
+        Unlike `execute_python`, there is no memory cap. A 512 MB address-space limit would
+        break compilers and test suites, and imposing one on a shell child needs `preexec_fn`,
+        which is neither portable nor safe alongside threads.
+
+        A nonzero exit is reported, not treated as a failure to be summarized away: `pytest`
+        exits 1 with the answer on stdout, and `git diff --exit-code` exits 1 to mean "yes,
+        there is a diff". Output is capped, stdout and stderr are labelled separately, and a
+        command killed by its timeout still returns whatever it printed first.
+
+        Args:
+            command: The command line to run. Interpreted by /bin/sh, so pipes, redirects,
+                globs, and && work.
+            cwd: Directory to run in. Defaults to this process's working directory.
+            timeout: Seconds to allow, clamped to 600.
+        """
+        if cwd and not os.path.isdir(cwd):
+            return f"Error: working directory does not exist: {cwd}"
+
+        timeout_s = max(1, min(int(timeout), _COMMAND_TIMEOUT_MAX_S))
+        result = _run_supervised(
+            _shell_argv(command),
+            stdin_data=None,
+            cwd=cwd or os.getcwd(),
+            env=_command_env(tuple(env_passthrough)),
+            timeout_s=timeout_s,
+            output_limit_bytes=_EXECUTE_PYTHON_OUTPUT_LIMIT_BYTES,
+        )
+        return _format_command_result(result, timeout_s)
+
+    return run_command
+
+
+#: The command tool AIMU's own groups carry: no environment passthrough, so nothing beyond the
+#: allowlist reaches a command. A host wanting more calls `make_command_tool` itself.
+run_command = make_command_tool()
+
+
 class _TextExtractor(HTMLParser):
     """Strips HTML tags and decodes entities, collecting visible text."""
 
