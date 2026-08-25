@@ -1284,3 +1284,50 @@ def test_abandoning_a_streamed_run_leaves_no_stale_sink():
 
     assert seen == []
 
+
+def test_scoped_override_wins_over_a_durable_events_attribute_on_a_fallback_client():
+    """The ``FallbackClient`` shape of
+    ``test_scoped_override_wins_over_a_durable_events_attribute``.
+
+    ``FallbackClient`` propagates its own sink to whichever inner client it delegates to,
+    since that inner client's ``chat()`` is the sole emitter of the turn events. It used to
+    propagate the *durable* ``self.events`` attribute, which was correct while a per-run
+    ``events=`` override was implemented as a swap of that attribute. It no longer is (the
+    override lives in a ContextVar keyed on the client family), so reading the attribute
+    installed the durable sink as a *narrower* override on the inner client and shadowed the
+    run's: the durable sink captured the turn events and the scoped sink saw only its own
+    ``RunStarted`` / ``RunFinished``. It now propagates ``_effective_sink(self)``."""
+    from aimu.agents.agent import Agent
+    from aimu.models.fallback import FallbackClient
+
+    durable_seen, scoped_seen = [], []
+    inner = RecordingModelClient(["final"])
+    inner.model.supports_tools = False
+    wrapper = FallbackClient([inner])
+    wrapper.events = durable_seen.append
+
+    Agent(wrapper, events=scoped_seen.append).run("task")
+
+    assert durable_seen == []
+    _assert_both_halves(scoped_seen)
+
+
+def test_a_durable_events_attribute_on_a_fallback_client_still_reaches_the_inner_client():
+    """The other half of the precedence rule, and the reason ``_scoped_events`` still exists.
+
+    With no run-scoped override active, ``fb.events`` is the effective sink -- and nothing but
+    this propagation carries it to the inner client whose ``chat()`` actually emits. Family
+    membership covers the *override* case only, so deleting ``_scoped_events`` outright would
+    silence a durable sink on a ``FallbackClient`` entirely."""
+    from aimu.models.fallback import FallbackClient
+
+    durable_seen = []
+    inner = RecordingModelClient(["final"])
+    inner.model.supports_tools = False
+    wrapper = FallbackClient([inner])
+    wrapper.events = durable_seen.append
+
+    wrapper.chat("task")
+
+    _assert_both_halves(durable_seen)
+    assert inner.events is None  # propagated by scope, never by mutating the inner client

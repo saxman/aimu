@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 from typing import Any, AsyncIterator, Iterable, Optional, Union
 
+from aimu.models._internal.chat_state import _effective_sink
 from aimu.models.base import StreamChunk, StreamingContentType
 from aimu.models.fallback import _FallbackStateMixin, _label, _scoped_events
 
@@ -50,7 +51,7 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
         for client in self.clients:
             self._load_state(client)
             try:
-                with _scoped_events(client, self.events):
+                with _scoped_events(client, _effective_sink(self)):
                     result = await client.chat(
                         user_message,
                         generate_kwargs,
@@ -85,10 +86,11 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
         errors: list[tuple[Any, BaseException]] = []
         for client in self.clients:
             self._load_state(client)
-            # The override stays live across lazy iteration, so the inner client's turn
-            # events reach this FallbackClient's sink for the whole stream, and its own
-            # sink is restored when the generator finishes or is abandoned.
-            with _scoped_events(client, self.events):
+            # The scope stays live across lazy iteration, so the inner client's turn events
+            # reach this FallbackClient's sink for the whole stream, and it is torn down when
+            # this generator finishes, is closed, or is finalized -- leaving the inner client's
+            # own durable ``events`` attribute untouched throughout.
+            with _scoped_events(client, _effective_sink(self)):
                 stream = await client.chat(
                     user_message,
                     generate_kwargs,
@@ -140,7 +142,7 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
             client.last_structured = None
             client.last_request = None
             try:
-                with _scoped_events(client, self.events):
+                with _scoped_events(client, _effective_sink(self)):
                     result = await client.generate(
                         prompt,
                         generate_kwargs,
@@ -174,7 +176,7 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
             client.last_usage = None
             client.last_structured = None
             client.last_request = None
-            with _scoped_events(client, self.events):
+            with _scoped_events(client, _effective_sink(self)):
                 stream = await client.generate(
                     prompt,
                     generate_kwargs,

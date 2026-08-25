@@ -1183,3 +1183,43 @@ async def test_dropping_a_streamed_run_without_aclose_frees_its_sink_once_finali
     assert seen == []
     assert [scope for scope in _ACTIVE_EVENT_SINK.get() if scope.active] == []
 
+
+async def test_scoped_override_wins_over_a_durable_events_attribute_on_a_fallback_client():
+    """Async mirror of ``tests/test_events.py
+    ::test_scoped_override_wins_over_a_durable_events_attribute_on_a_fallback_client``.
+
+    ``AsyncFallbackClient`` shares ``_scoped_events`` with the sync class, so it had the same
+    bug: propagating the *durable* ``self.events`` attribute installed a narrower override on
+    the inner client that shadowed the run's scoped sink. It now propagates
+    ``_effective_sink(self)``."""
+    from aimu.aio import Agent
+    from aimu.aio.fallback import AsyncFallbackClient
+
+    durable_seen, scoped_seen = [], []
+    inner = RecordingAsyncModelClient(["final"])
+    inner.model.supports_tools = False
+    wrapper = AsyncFallbackClient([inner])
+    wrapper.events = durable_seen.append
+
+    await Agent(wrapper, events=scoped_seen.append).run("task")
+
+    assert durable_seen == []
+    _assert_both_halves(scoped_seen)
+
+
+async def test_a_durable_events_attribute_on_a_fallback_client_still_reaches_the_inner_client():
+    """Async mirror: with no run-scoped override active, ``fb.events`` is the effective sink,
+    and only ``_scoped_events`` carries it to the inner client that actually emits. This is
+    what makes deleting ``_scoped_events`` the wrong fix for the precedence bug above."""
+    from aimu.aio.fallback import AsyncFallbackClient
+
+    durable_seen = []
+    inner = RecordingAsyncModelClient(["final"])
+    inner.model.supports_tools = False
+    wrapper = AsyncFallbackClient([inner])
+    wrapper.events = durable_seen.append
+
+    await wrapper.chat("task")
+
+    _assert_both_halves(durable_seen)
+    assert inner.events is None  # propagated by scope, never by mutating the inner client

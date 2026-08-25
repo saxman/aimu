@@ -22,6 +22,7 @@ import logging
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Iterable, Iterator, Optional, Union
 
+from ._internal.chat_state import _effective_sink
 from .base import BaseModelClient, StreamChunk, StreamingContentType
 
 if TYPE_CHECKING:
@@ -34,14 +35,26 @@ logger = logging.getLogger(__name__)
 def _scoped_events(client, events: Optional["EventSink"]) -> Iterator[None]:
     """Attach ``events`` to ``client`` for one delegated call, then restore.
 
+    Callers pass ``_effective_sink(self)`` -- the sink *this* fallback client currently
+    reports to -- never the bare ``self.events`` attribute. The distinction matters because
+    a per-run ``events=`` override no longer lives on the attribute: it lives in a
+    ContextVar scoped to a client family (see ``aimu.models._internal.chat_state``). Family
+    membership already carries that override through to each inner client, so for the
+    scoped case this is redundant; what it is still *needed* for is the durable case, where
+    ``fb.events`` is set and no override is active, and nothing else would carry that sink
+    to the inner client whose ``chat()`` actually emits the turn events. Reading the
+    attribute directly instead would install the durable sink as a narrower override and
+    shadow the run's scoped one.
+
     ``events`` is *configuration*, not an output slot: an inner client may have been
     constructed with a sink of its own, and overwriting it would silently destroy it.
-    ``events=None`` is therefore a no-op, and a sink set on the fallback client is
-    restored away afterwards.
+    ``events=None`` is therefore a no-op, and a sink installed for one delegated call is
+    scoped away afterwards.
 
     Prefers the client's own ``_events_override`` seam (every ``BaseModelClient`` has it,
-    and on a ``ModelClient`` wrapper it propagates to the inner client); falls back to
-    save/restore for a duck-typed client that only implements the public surface.
+    and on a ``ModelClient`` wrapper it reaches the inner client through that client's own
+    family); falls back to save/restore for a duck-typed client that only implements the
+    public surface.
     """
     if events is None:
         yield
@@ -119,9 +132,9 @@ class _FallbackStateMixin:
         client.last_structured = None
         client.last_request = None
         # ``events`` is configuration, not an output slot: an inner client may have been
-        # constructed with its own sink. It is scoped per delegated call via
-        # ``_events_override`` (a no-op when this FallbackClient has no sink of its own),
-        # never overwritten here.
+        # constructed with its own sink. The sink this FallbackClient reports to is scoped
+        # per delegated call via ``_scoped_events`` (a no-op when there is none), never
+        # overwritten here.
 
     def _adopt_state(self, client: BaseModelClient) -> None:
         """Adopt the winning client's resulting state as the canonical conversation."""
@@ -202,7 +215,7 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
         for client in self.clients:
             self._load_state(client)
             try:
-                with _scoped_events(client, self.events):
+                with _scoped_events(client, _effective_sink(self)):
                     result = client.chat(
                         user_message,
                         generate_kwargs,
@@ -237,10 +250,11 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
         errors: list[tuple[BaseModelClient, BaseException]] = []
         for client in self.clients:
             self._load_state(client)
-            # The override stays live across lazy iteration, so the inner client's turn
-            # events reach this FallbackClient's sink for the whole stream, and its own
-            # sink is restored when the generator finishes or is abandoned.
-            with _scoped_events(client, self.events):
+            # The scope stays live across lazy iteration, so the inner client's turn events
+            # reach this FallbackClient's sink for the whole stream, and it is torn down when
+            # this generator finishes, is closed, or is finalized -- leaving the inner client's
+            # own durable ``events`` attribute untouched throughout.
+            with _scoped_events(client, _effective_sink(self)):
                 stream = client.chat(
                     user_message,
                     generate_kwargs,
@@ -292,7 +306,7 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
             client.last_structured = None
             client.last_request = None
             try:
-                with _scoped_events(client, self.events):
+                with _scoped_events(client, _effective_sink(self)):
                     result = client.generate(
                         prompt,
                         generate_kwargs,
@@ -326,7 +340,7 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
             client.last_usage = None
             client.last_structured = None
             client.last_request = None
-            with _scoped_events(client, self.events):
+            with _scoped_events(client, _effective_sink(self)):
                 stream = client.generate(
                     prompt,
                     generate_kwargs,
