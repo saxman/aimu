@@ -13,12 +13,58 @@ import logging
 import random
 import string
 from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime
-from typing import Iterator, Optional, Union
+from typing import Any, Iterator, Optional, Union
 
 from .thinking import THINKING_KWARG, ResolvedThinking, resolve_thinking
 
 logger = logging.getLogger(__name__)
+
+# The scoped event-sink override, held per execution context rather than on the client.
+#
+# A client can be shared by agents running concurrently -- Parallel.from_client builds every
+# worker Agent over one -- and a plain attribute swap (the original implementation) is visible
+# to all of them: two workers' overlapping swap/restore sequences interleave and clobber each
+# other's sink (dropped and misattributed events; see tests/test_workflow_parallel.py's
+# concurrent-workers test, which replaced a test that pinned this as a known gap).
+#
+# A ContextVar isolates by *execution context*, not by client instance: each OS thread gets its
+# own independent Context (nothing to copy at submit time -- see the isolation note on
+# _events_override below), and each asyncio Task gets its own copy of the context it was created
+# in, by construction. `self.events` on the client remains the durable, always-shared setting;
+# only the temporary per-run override moves off the client.
+_ACTIVE_EVENT_SINK: ContextVar[Optional[Any]] = ContextVar("aimu_active_event_sink", default=None)
+
+
+def _effective_sink(client: Any) -> Optional[Any]:
+    """The event sink for the current execution context, else the client's own.
+
+    Every emit site on both the sync and async client bases calls this instead of reading
+    ``client.events`` directly, so a scoped override (see ``_ChatStateMixin._events_override``)
+    reaches only the execution context that installed it.
+
+    A tool called under ``concurrent_tool_calls=True`` behaves *differently* on the two
+    surfaces here, verified rather than assumed -- see ``tests/test_events.py``'s
+    concurrent-tool-dispatch tests:
+
+    * **Sync**: the tool-loop engine dispatches via ``concurrent.futures.ThreadPoolExecutor``,
+      a plain ``.submit()`` with no ``contextvars.copy_context()``. Each OS thread starts with
+      its own independent default ``Context``, so a client called from inside such a tool does
+      **not** see the run's active override there; it falls back to its own ``self.events``.
+    * **Async**: the tool-loop engine dispatches via ``asyncio.TaskGroup.create_task()``, which
+      *always* copies the current ``Context`` into the new task (standard ``asyncio`` behaviour,
+      not something this module opts into). Since dispatch happens while the run's
+      ``_events_override`` scope is still open, a client called from inside a concurrently
+      dispatched async tool **does** inherit that override -- and, because the attribution
+      wrapper (``_attributing`` in ``aimu.agents._tool_loop`` / ``aimu.aio._tool_loop``) stamps
+      *any* event lacking its own ``agent``, that inner client's turn events land in the outer
+      run's sink attributed to the *calling* agent, not to whatever produced them.
+
+    Either way, pass ``events=`` explicitly to a client constructed inside a tool if it needs
+    reliable, correctly-attributed delivery to a particular sink.
+    """
+    return _ACTIVE_EVENT_SINK.get() or getattr(client, "events", None)
 
 
 class _ChatStateMixin:
@@ -239,24 +285,37 @@ class _ChatStateMixin:
 
     @contextmanager
     def _events_override(self, events: Optional[object]) -> Iterator[None]:
-        """Temporarily replace ``self.events`` for the span of a run.
+        """Temporarily install ``events`` as the active sink for this execution context.
 
-        Mirrors ``_tools_override``. ``events=None`` is a no-op: whatever ``self.events``
-        already holds (unset, or set directly by a caller) is left alone. An ``Agent``
-        uses this to make its per-run event sink reach the client's own turn events
-        (``ModelTurnStarted`` / ``ModelTurnFinished`` / ``RequestPrepared``) for the
-        duration of the run, restoring the prior value in a ``finally`` so a raising run
-        does not leave the sink attached.
+        ``events=None`` is a no-op: whatever the current effective sink is (the
+        ``_ACTIVE_EVENT_SINK`` ContextVar if one is already active, else ``self.events``)
+        is left alone. An ``Agent`` uses this to make its per-run event sink reach the
+        client's own turn events (``ModelTurnStarted`` / ``ModelTurnFinished`` /
+        ``RequestPrepared``, all read via ``_effective_sink``) for the duration of the run.
+
+        Unlike ``_tools_override`` (a genuine mutation of ``self.tools``, since request-spec
+        building has to read a plain attribute), this does **not** touch ``self.events`` --
+        it sets a module-level ``ContextVar`` and resets its token in a ``finally``, so the
+        override is visible only within the execution context (OS thread / asyncio Task)
+        that entered it. That is what makes it safe for two concurrently-running agents to
+        share one ``model_client`` (e.g. every worker ``Agent`` in a ``Parallel`` built via
+        ``Parallel.from_client``): each worker's thread gets its own independent copy of the
+        ContextVar, so one worker's override can never clobber another's. See
+        ``_ACTIVE_EVENT_SINK`` / ``_effective_sink`` above for the mechanism, and
+        ``tests/test_workflow_parallel.py``'s concurrent-workers test for the proof.
+
+        ``self.events`` set directly on a shared client (rather than through this scoped
+        override) is still genuinely shared -- that assignment has no execution-context
+        boundary to isolate by, and is documented as such on ``events`` itself.
         """
         if events is None:
             yield
             return
-        saved = self.events
-        self.events = events
+        token = _ACTIVE_EVENT_SINK.set(events)
         try:
             yield
         finally:
-            self.events = saved
+            _ACTIVE_EVENT_SINK.reset(token)
 
     def _collect_python_tool_specs(self) -> list[dict]:
         """Collect ``__tool_spec__`` dicts from every registered Python tool callable.

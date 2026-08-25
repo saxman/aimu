@@ -52,14 +52,17 @@ class Parallel(AsyncRunner):
         """Build a Parallel using ``client`` for all workers (and aggregator).
 
         ``events`` is passed to every worker (and the aggregator, if any) this factory
-        constructs. **Known gap**: every worker here shares one ``client``, and workers run
-        concurrently under ``asyncio.TaskGroup`` -- an event sink is delivered by
-        scoped-swapping ``client.events`` for the duration of each call, so concurrent
-        delivery from multiple workers will drop and misorder events (see the caveat on
-        ``Agent.events`` / ``AsyncBaseModelClient.events`` and the sync
-        ``test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events``, whose
-        reasoning applies identically here). Give each worker its own client if you need
-        reliable per-worker events.
+        constructs. Every worker here shares one ``client``, and workers run concurrently
+        under ``asyncio.TaskGroup`` -- each worker's per-run sink is delivered through a
+        scoped ``contextvars.ContextVar`` override (``AsyncBaseModelClient._events_override``
+        / ``_effective_sink``), not a mutation of ``client.events``, so each worker's own
+        ``asyncio.Task`` gets its own independent copy of the context it was created in and
+        concurrent delivery is correctly attributed and ordered per worker (see
+        ``tests/test_aio_workflow_parallel.py``'s concurrent-workers test, the async mirror of
+        the sync one). See ``aio.Agent.events`` for the one case that is not isolated on this
+        surface (a client called from inside a tool dispatched under
+        ``concurrent_tool_calls=True`` -- the opposite hazard from the sync surface, since
+        ``asyncio.TaskGroup.create_task`` copies the current context).
         """
         from ..agent import Agent
 

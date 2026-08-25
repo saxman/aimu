@@ -687,6 +687,47 @@ def test_concurrent_tool_dispatch_emits_exactly_one_tool_called_each():
     assert results == ["3", "7"]
 
 
+def test_concurrent_tool_dispatch_does_not_leak_the_run_sink_to_a_different_client():
+    """A client called from *inside* a tool dispatched under ``concurrent_tool_calls=True``
+    runs in a fresh ``ThreadPoolExecutor`` thread with no copied context, so it does not see
+    the outer run's scoped event-sink override -- unlike the async surface, where
+    ``asyncio.TaskGroup.create_task`` copies the current context and the inner client's
+    events *do* leak into the outer sink (see
+    ``test_aio_events.py::test_async_concurrent_tool_dispatch_leaks_the_run_sink_to_a_different_client``).
+    Two tool calls are required to actually exercise ``ThreadPoolExecutor``: a single call
+    takes the sequential fallback and runs on the same thread, which would not test this.
+    """
+    from aimu.agents.agent import Agent
+    from aimu.tools import tool
+
+    inner_client = MockModelClient(["inner reply a"])
+    other_inner_client = MockModelClient(["inner reply b"])
+
+    @tool
+    def call_inner_a() -> str:
+        """Call a separate client's own chat(), relying on the ambient sink."""
+        return inner_client.chat("inner task a")
+
+    @tool
+    def call_inner_b() -> str:
+        """Call a separate client's own chat(), relying on the ambient sink."""
+        return other_inner_client.chat("inner task b")
+
+    seen = []
+    outer_client = MockModelClient([{"tools": [{"name": "call_inner_a"}, {"name": "call_inner_b"}]}, "final answer"])
+    agent = Agent(outer_client, tools=[call_inner_a, call_inner_b], concurrent_tool_calls=True, events=seen.append)
+    agent.run("do it")
+
+    # Only the outer client's own turns are reported: 1 RunStarted + 2 ModelTurnStarted +
+    # 2 ModelTurnFinished + 2 ToolCalled + 1 RunFinished = 8. If the inner clients' turns
+    # leaked in, this would be 12 (their own ModelTurnStarted/Finished pairs included).
+    assert len(seen) == 8, [type(e).__name__ for e in seen]
+    assert all(getattr(e, "agent", None) in (None, agent.name) for e in seen)
+    # The inner clients' own `events` attribute (their durable setting) was never touched.
+    assert inner_client.events is None
+    assert other_inner_client.events is None
+
+
 def test_a_hallucinated_tool_name_emits_ToolCalled_with_the_error():
     """A model inventing a tool name is exactly what a sink wants to see. The transcript
     records the "not found" tool message; telemetry must not stay silent about it."""
@@ -836,14 +877,15 @@ def test_fallback_client_streamed_chat_emits_exactly_one_pair():
 # supplied pre-built by the caller), so there is nothing for this workflow to forward: the
 # caller already holds the Agent instances and can pass `events=` to them directly.
 #
-# `Parallel.from_client()` is deliberately not exercised here for reliable concurrent
-# delivery: it builds every worker over one shared client, and `Parallel.run()` executes
-# them concurrently, which drops and misorders events per the documented gap (see
-# `Parallel.from_client`'s docstring and
-# `test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events` in
-# tests/test_workflow_parallel.py). The test below only checks that the sink is wired onto
-# each worker/aggregator Agent at construction time, not that delivery survives a real
-# concurrent run.
+# `Parallel.from_client()`'s reliable-concurrent-delivery case has its own dedicated test
+# exercising a real concurrent run: `test_workflow_parallel.py
+# ::test_parallel_from_client_shared_events_sink_survives_concurrent_workers` (async mirror
+# in `test_aio_workflow_parallel.py`). Those tests replaced
+# `test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events`, which pinned the
+# pre-fix bug (a scoped sink delivered by mutating the client's `events` attribute, clobbered
+# by overlapping concurrent workers). The test below only checks that the sink is wired onto
+# each worker/aggregator Agent at construction time; it doesn't need a real concurrent run to
+# prove that.
 # ---------------------------------------------------------------------------
 
 

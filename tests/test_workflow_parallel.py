@@ -4,6 +4,9 @@ Tests for aimu.agents.Parallel: the Parallelization workflow pattern.
 All tests use MockModelClient from helpers (deterministic, no backend needed).
 """
 
+import threading
+import time
+
 from aimu.agents import Agent, Parallel, Runner
 from aimu.models import StreamChunk, StreamingContentType
 from helpers import MockModelClient
@@ -148,59 +151,77 @@ def test_parallel_from_client_with_aggregator_prompt():
     assert result == "synthesized"
 
 
-def test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events():
-    """PINS A KNOWN GAP -- documents current (broken) behaviour, not a desired contract.
-    See the concurrency caveat on ``Agent.events`` / ``BaseModelClient.events``.
+class _RacingMockModelClient(MockModelClient):
+    """A ``MockModelClient`` whose ``_chat()`` forces genuine cross-thread overlap between
+    concurrent ``_events_override`` scopes on one shared client, instead of relying on
+    incidental OS thread-scheduling timing (which would make a real-concurrency test flaky).
 
-    ``Parallel.from_client`` builds every worker ``Agent`` over one shared ``model_client``
-    (see ``from_client`` above) and, in real use, ``Parallel.run()`` executes them
-    concurrently via a ``ThreadPoolExecutor``. ``_events_override`` delivers a sink by
-    mutating ``client.events`` -- the identical shared-mutable-state idiom
-    ``_tools_override`` already carries for ``tools=`` and already documents as "not safe
-    across concurrent chat() calls on a shared client". Two workers whose runs overlap on
-    that one client can clobber each other's sink, so a caller who attaches ``events=`` to
-    each worker Agent still loses and misorders events.
-
-    Reproduced deterministically here by manually interleaving two ``_events_override``
-    scopes on one client in the exact order concurrent workers can land in -- not via real
-    threads, so this is not a timing-dependent/flaky test, just a pin of the mechanism.
-    Delete this test (don't "fix" it in place) the day sink delivery stops being a mutation
-    of shared client state -- see the coordinator's design note on why that fix is deferred.
+    A lock-protected counter assigns each call an arrival index the moment it reaches
+    ``_chat()`` (before any sleep, so this reflects the order calls actually entered their
+    ``_events_override`` scope). A ``threading.Barrier`` then holds every caller until *all*
+    of them have arrived -- guaranteeing every worker's scope is open before any of them can
+    close -- and each caller then sleeps for a duration keyed by its arrival index, chosen so
+    the scopes close in a *different* order than they opened: a "crossing" (non-nested)
+    overlap, the exact pattern that corrupts a plain shared-attribute swap (nested
+    enter/exit restores correctly; crossing enter/exit does not).
     """
-    from aimu.events import RunFinished, emit
 
-    client = MockModelClient([])
-    seen_a: list = []
-    seen_b: list = []
-    sink_a = seen_a.append
-    sink_b = seen_b.append
+    def __init__(self, responses: list, *, barrier: threading.Barrier, delays: dict[int, float]):
+        super().__init__(responses)
+        self._barrier = barrier
+        self._delays = delays
+        self._arrival_lock = threading.Lock()
+        self._next_arrival = 0
 
-    # worker-a's Agent.run() enters its _events_override scope first...
-    scope_a = client._events_override(sink_a)
-    scope_b = client._events_override(sink_b)
-    scope_a.__enter__()
-    assert client.events is sink_a
+    def _chat(self, *args, **kwargs):
+        with self._arrival_lock:
+            arrival = self._next_arrival
+            self._next_arrival += 1
+        self._barrier.wait(timeout=5)
+        time.sleep(self._delays[arrival])
+        return super()._chat(*args, **kwargs)
 
-    # ...but before worker-a's run finishes, worker-b's Agent.run() (a different thread, same
-    # shared client) enters its own scope and clobbers the live sink.
-    scope_b.__enter__()
-    assert client.events is sink_b
 
-    emit(client.events, RunFinished(result="worker-b's own turn"))
-    assert seen_b == [RunFinished(result="worker-b's own turn")]
+def test_parallel_from_client_shared_events_sink_survives_concurrent_workers():
+    """Isolation now holds for a sink shared across concurrent workers on one client.
 
-    # worker-a finishes first and restores *its own* saved value (None, what it saw on
-    # entry) -- not worker-b's, because _events_override has no idea another scope is
-    # still open on the same client.
-    scope_a.__exit__(None, None, None)
-    assert client.events is None  # <- the gap: worker-b's scope is still open, sink is gone
+    Replaces ``test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events``
+    (removed), which pinned the bug this test now proves fixed: delivering a scoped event
+    sink via a ``contextvars.ContextVar`` (``aimu.models._internal.chat_state
+    ._ACTIVE_EVENT_SINK`` / ``_effective_sink``) rather than a mutation of the client's own
+    ``self.events`` attribute. See the (corrected) concurrency notes on ``Agent.events`` /
+    ``BaseModelClient.events``.
 
-    # Any event worker-b's still-running turn tries to report now silently drops (this is
-    # the coordinator's reproduction: 11 of an expected 12 events observed).
-    emit(client.events, RunFinished(result="dropped"))
-    assert seen_b == [RunFinished(result="worker-b's own turn")]  # the second event never arrived
+    ``Parallel.from_client`` builds every worker ``Agent`` over one shared ``model_client``,
+    and ``Parallel.run()`` really does execute them concurrently via ``ThreadPoolExecutor``
+    (``Parallel._run_workers``) -- this test exercises that real path, not a hand-simulated
+    interleaving, using ``_RacingMockModelClient`` above to force the three workers'
+    ``_events_override`` scopes to overlap in a crossing (non-nested) pattern on separate OS
+    threads. Every worker's ``RunStarted`` / ``ModelTurnStarted`` / ``ModelTurnFinished`` /
+    ``RunFinished`` must still arrive, attributed to the right worker, in causal order --
+    under the old attribute-swap mechanism this reliably reproduced misattribution and
+    out-of-order delivery (a worker's ``RunFinished`` landing before its own
+    ``ModelTurnFinished``, matching the bug reported during v0.21.0's review).
+    """
+    barrier = threading.Barrier(3)
+    # Arrival order need not match worker order (whichever OS thread reaches _chat() first
+    # gets arrival 0); what matters is that the scopes close out of the order they opened.
+    delays = {0: 0.15, 1: 0.05, 2: 0.10}
+    client = _RacingMockModelClient(["A", "B", "C"], barrier=barrier, delays=delays)
 
-    # worker-b finishes and restores *its* saved value -- worker-a's sink, not the true
-    # original -- leaving the client's events attribute wrong even after both runs "finished".
-    scope_b.__exit__(None, None, None)
-    assert client.events is sink_a  # <- also wrong: not the pre-run None
+    seen: list = []
+    parallel = Parallel.from_client(
+        client,
+        worker_prompts=["Do A.", "Do B.", "Do C."],
+        events=seen.append,
+    )
+    parallel.run("task")
+
+    by_agent: dict[str, list[str]] = {}
+    for event in seen:
+        by_agent.setdefault(event.agent, []).append(type(event).__name__)
+
+    assert set(by_agent) == {"worker-0", "worker-1", "worker-2"}, by_agent
+    expected_sequence = ["RunStarted", "ModelTurnStarted", "ModelTurnFinished", "RunFinished"]
+    for name, sequence in by_agent.items():
+        assert sequence == expected_sequence, f"{name}: {sequence}"

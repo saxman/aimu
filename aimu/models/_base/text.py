@@ -14,7 +14,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Iterable, Iterator, Optional, Union
 
 from ...events import EventSink, ModelTurnFinished, ModelTurnStarted, RequestPrepared, emit
-from .._internal.chat_state import _ChatStateMixin
+from .._internal.chat_state import _ChatStateMixin, _effective_sink
 from .._internal.generate_kwargs import _GenerateKwargsMixin
 from .._internal.streaming import filter_chunks as _filter_chunks_fn
 from .._internal.streaming import resolve_include as _resolve_include_fn
@@ -180,12 +180,18 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         self.last_output_truncated = False
         self.last_structured = None
         self.last_request = None
-        # Delivered the same way ``tools=`` is (a plain attribute mutation, not a per-call
-        # argument): a client shared by concurrently running callers (e.g. every worker Agent
-        # in a Parallel built via ``Parallel.from_client``) will drop and misorder events under
-        # concurrent access, the same hazard ``_tools_override`` already documents for ``tools``.
-        # Give each concurrently-running agent its own model_client if you need reliable
-        # per-agent event delivery.
+        # This is the durable, always-shared setting: an assignment here (or `client.events =
+        # ...` directly) has no execution-context boundary to isolate by, so it genuinely is
+        # visible to every caller of this client, concurrent or not -- unlike `tools`, which is
+        # swapped per call via `_tools_override`. A run's *scoped* per-call override (Agent's
+        # `events=`) does not touch this attribute at all; it lives in the module-level
+        # `_ACTIVE_EVENT_SINK` ContextVar (see `aimu.models._internal.chat_state`), read via
+        # `_effective_sink()` at every emit site, which is what makes a scoped override safe to
+        # use even when this client is shared by concurrently running agents (e.g. every worker
+        # Agent in a Parallel built via `Parallel.from_client`): each OS thread / asyncio Task
+        # gets its own independent context, so one agent's scoped override cannot leak into
+        # another's. See `Agent.events` for the one case that is not isolated (a client called
+        # from inside a tool dispatched under `concurrent_tool_calls=True`).
         self.events = events
 
     def _record_request(self, payload: Any) -> None:
@@ -201,7 +207,7 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         """
         self.last_request = payload
         emit(
-            getattr(self, "events", None),
+            _effective_sink(self),
             RequestPrepared(
                 provider=type(self).__name__,
                 model=str(getattr(self.model, "value", self.model)),
@@ -626,7 +632,7 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         started = time.monotonic()
         message_count = 1 if stateless else self._pending_message_count(pending_user_message)
         emit(
-            getattr(self, "events", None),
+            _effective_sink(self),
             ModelTurnStarted(
                 model=model_id,
                 message_count=message_count,
@@ -652,7 +658,7 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         is paired with a ``ModelTurnFinished``, so a sink can close its span either way.
         """
         emit(
-            getattr(self, "events", None),
+            _effective_sink(self),
             ModelTurnFinished(
                 model=model_id,
                 text=result if isinstance(result, str) else None,
@@ -674,7 +680,7 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         ``is_text()``/``phase`` inspection, so a client whose streaming contract this call
         never actually needs to honour (no one is listening) can't be broken by it either.
         """
-        sink = getattr(self, "events", None)
+        sink = _effective_sink(self)
         if sink is None:
             yield from chunks
             return

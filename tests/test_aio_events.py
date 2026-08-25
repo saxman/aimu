@@ -706,6 +706,58 @@ async def test_async_concurrent_tool_dispatch_emits_exactly_one_tool_called_each
     assert results == ["3", "7"]
 
 
+async def test_async_concurrent_tool_dispatch_leaks_the_run_sink_to_a_different_client():
+    """Async mirror of ``test_events.py
+    ::test_concurrent_tool_dispatch_does_not_leak_the_run_sink_to_a_different_client`` --
+    but the outcome is the *opposite* of sync, verified rather than assumed.
+    ``asyncio.TaskGroup.create_task`` always copies the current ``contextvars.Context`` into
+    the new task, and tool dispatch happens while the run's scoped event-sink override is
+    still active, so a *different* client called from inside a concurrently dispatched async
+    tool inherits that override. Its own turn events land in the outer run's sink, attributed
+    to the calling agent (the attribution wrapper stamps any event without its own ``agent``)
+    -- not dropped, and not attributed to whatever produced them. Two tool calls are required
+    to actually exercise ``asyncio.TaskGroup``: a single call takes the sequential fallback.
+    """
+    from aimu.aio.agent import Agent
+    from aimu.events import ModelTurnFinished, ModelTurnStarted
+    from aimu.tools import tool
+
+    inner_client = MockAsyncModelClient(["inner reply a"])
+    other_inner_client = MockAsyncModelClient(["inner reply b"])
+
+    @tool
+    async def call_inner_a() -> str:
+        """Call a separate client's own chat(), relying on the ambient sink."""
+        return await inner_client.chat("inner task a")
+
+    @tool
+    async def call_inner_b() -> str:
+        """Call a separate client's own chat(), relying on the ambient sink."""
+        return await other_inner_client.chat("inner task b")
+
+    seen = []
+    outer_client = MockAsyncModelClient(
+        [{"tools": [{"name": "call_inner_a"}, {"name": "call_inner_b"}]}, "final answer"]
+    )
+    agent = Agent(outer_client, tools=[call_inner_a, call_inner_b], concurrent_tool_calls=True, events=seen.append)
+    await agent.run("do it")
+
+    # The inner clients' own ModelTurnStarted/Finished pairs leak into the outer sink too:
+    # 1 RunStarted + 2 ModelTurnStarted/Finished pairs (outer) + 2 pairs (inner_a, inner_b) +
+    # 2 ToolCalled + 1 RunFinished = 12. On sync this stays at 8 (no leak) -- see the mirror.
+    assert len(seen) == 12, [type(e).__name__ for e in seen]
+    # Every event -- including the two leaked pairs -- is attributed to the *outer* agent,
+    # since the attribution wrapper stamps any event that arrives without its own `agent`.
+    assert all(e.agent == agent.name for e in seen if e.agent is not None)
+    turn_started_count = sum(1 for e in seen if isinstance(e, ModelTurnStarted))
+    turn_finished_count = sum(1 for e in seen if isinstance(e, ModelTurnFinished))
+    assert turn_started_count == 4  # outer's 2 turns + inner_a's 1 turn + inner_b's 1 turn
+    assert turn_finished_count == 4
+    # The inner clients' own `events` attribute (their durable setting) was never touched.
+    assert inner_client.events is None
+    assert other_inner_client.events is None
+
+
 async def test_async_skill_agent_run_emits_run_and_tool_events(tmp_path):
     """aio.SkillAgent fully overrides run() (it needs async skill setup before the loop), so
     its events= threading is verified directly rather than assumed to fall out of inheritance

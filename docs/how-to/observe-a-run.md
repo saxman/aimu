@@ -229,20 +229,35 @@ The tool message the model sees is the same text `gate-tool-calls.md` documents
 sink instead of the transcript. See [gate tool calls](gate-tool-calls.md) for the approval hook
 itself.
 
-## Known gap: a shared client under concurrent workers drops events
+## A shared client under concurrent workers
 
-`events=` is delivered by mutating `model_client.events` for the span of a call (the same
-scoped-swap idiom `tools=` already uses, and the same idiom that's already "not safe across
-concurrent `chat()` calls on a shared client"). `Parallel.from_client(...)` builds every worker
-`Agent` over **one shared `model_client`**, and `Parallel.run()` executes those workers
-concurrently. Two workers whose runs overlap on that one client can clobber each other's sink —
-events get dropped and misattributed, even though each worker `Agent` was given its own `events=`.
+`events=` is delivered by installing the resolved sink as the active sink for the run's
+execution context — a scoped `contextvars.ContextVar` override, not a mutation of
+`model_client.events` (unlike `tools=`, which genuinely does swap `model_client.tools`, since
+request-spec building has to read a plain attribute). `Parallel.from_client(...)` builds every
+worker `Agent` over **one shared `model_client`**, and `Parallel.run()` really does execute
+those workers concurrently — but each worker's own OS thread (or, on the async surface,
+`asyncio.Task`) gets its own independent copy of the ContextVar, so one worker's override
+cannot clobber another's. Concurrent workers on a shared client now deliver every event,
+correctly attributed and in causal order; see
+`tests/test_workflow_parallel.py::test_parallel_from_client_shared_events_sink_survives_concurrent_workers`
+(async mirror in `tests/test_aio_workflow_parallel.py`), which replaced an earlier test that
+pinned this as a known gap.
 
-This is pinned as a known gap, not a bug waiting to be fixed on this pass:
-`tests/test_workflow_parallel.py::test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events`
-reproduces it deterministically. If you need reliable per-worker events out of a `Parallel`, build
-each worker over its **own** `model_client` (skip `Parallel.from_client` and construct the
-`Parallel(workers=[...])` directly) rather than sharing one.
+**What is *not* isolated:** a client called from **inside** a tool dispatched under
+`concurrent_tool_calls=True` is a genuinely different case on each surface. Sync dispatches
+such tools via a plain `ThreadPoolExecutor.submit()` (no context copy), so a client called
+from inside one runs in a fresh thread and does **not** see the run's override — it falls back
+to that client's own `self.events`. Async dispatches via `asyncio.TaskGroup.create_task`,
+which *always* copies the current context, so a client called from inside a concurrently
+dispatched async tool **does** inherit the run's override — and its events land in that sink,
+attributed to the calling agent (the attribution wrapper stamps any event that arrives without
+its own `agent`), not to whatever produced them. Pass `events=` explicitly to a client
+constructed inside a tool if it needs reliable, correctly-attributed delivery.
+
+`self.events` set directly on a client (rather than through an `Agent`'s scoped `events=`)
+remains genuinely shared by design — there is no execution-context boundary to isolate a plain
+attribute assignment by.
 
 ## See also
 

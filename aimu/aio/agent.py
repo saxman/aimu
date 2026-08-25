@@ -108,10 +108,18 @@ class Agent(_AgentLoopMixin, AsyncRunner):
     deps: Optional[Any] = None
     tool_approval: Optional[Callable] = None
     thinking: Optional[Union[bool, str]] = None
-    # Delivered by mutating model_client.events for the run's duration (see AsyncBaseModelClient.
-    # events); not safe if this agent's model_client is shared with another concurrently running
-    # agent (e.g. every worker Agent in a Parallel built via Parallel.from_client) -- events will
-    # drop and misorder. Give each concurrently-running agent its own model_client if that matters.
+    # Delivered for the run's duration via a scoped ContextVar override (see
+    # AsyncBaseModelClient.events / _events_override), not a mutation of model_client.events --
+    # so this is safe even when this agent's model_client is shared with another concurrently
+    # running agent (e.g. every worker Agent in a Parallel built via Parallel.from_client): each
+    # asyncio Task gets its own copy of the context it was created in, so one agent's override
+    # can't leak into another's. What is NOT isolated on this (async) surface: unlike sync,
+    # concurrent_tool_calls=True dispatches tools via asyncio.TaskGroup.create_task, which
+    # copies the *current* context into the new task -- so a client called from *inside* such a
+    # tool DOES inherit the run's override there (and, since the attribution wrapper stamps any
+    # un-attributed event, that inner client's turn events land in this run's sink attributed to
+    # this agent, not to whatever produced them). Pass events= explicitly to a client built
+    # inside a tool if it needs its own, correctly-attributed delivery.
     events: Optional[EventSink] = None
     # None (default): the loop never rewrites model_client.messages on its own -- an agent that
     # doesn't opt in behaves exactly as it did before this field existed. Set to a callable such
@@ -166,12 +174,18 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         the run a single structured-output turn returning a validated instance; ``thinking`` is a
         per-run override of ``self.thinking`` (the portable reasoning control), applied to every
         model turn the run makes; ``events`` is a per-run override of ``self.events`` (a callable
-        taking one :class:`~aimu.events.RunEvent`), attached to ``model_client.events`` for the
-        run's duration. **Not safe across agents that share a ``model_client`` and run
-        concurrently** (e.g. every worker ``Agent`` in a :class:`~aimu.agents.Parallel` built via
-        ``Parallel.from_client``): attaching a sink mutates shared state rather than passing a
-        per-call argument, so concurrent runs will drop and misorder events. Give each
-        concurrently-running agent its own ``model_client`` if you need reliable delivery.
+        taking one :class:`~aimu.events.RunEvent`), installed as the active sink for the run's
+        duration via a scoped ``contextvars.ContextVar`` override. **Safe across agents that
+        share a ``model_client`` and run concurrently** (e.g. every worker ``Agent`` in a
+        :class:`~aimu.agents.Parallel` built via ``Parallel.from_client``): each concurrently
+        running agent's ``asyncio.Task`` gets its own independent copy of the ContextVar, so one
+        cannot clobber another's. The one case this does *not* cover on this (async) surface:
+        ``concurrent_tool_calls=True`` dispatches tools via ``asyncio.TaskGroup.create_task``,
+        which copies the *current* context -- so a client called from **inside** such a tool
+        inherits this run's override (and its events land here, attributed to this agent, since
+        the attribution wrapper stamps any event that arrives without its own). This is the
+        opposite of the sync surface's equivalent case -- see ``aimu.agents.Agent.run``'s
+        docstring, where a pool-thread-dispatched tool's client does *not* inherit the override.
         ``compaction`` is a per-run override of ``self.compaction`` (a callable applied to the
         conversation before every model turn the run makes; see :mod:`aimu.context`), not used
         by the ``schema=`` structured-output path. See the sync :meth:`aimu.agents.Agent.run`

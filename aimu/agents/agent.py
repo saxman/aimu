@@ -90,10 +90,18 @@ class Agent(_AgentLoopMixin, Runner):
     deps: Optional[Any] = None
     tool_approval: Optional[Callable] = None
     thinking: Optional[Union[bool, str]] = None
-    # Delivered by mutating model_client.events for the run's duration (see BaseModelClient.events);
-    # not safe if this agent's model_client is shared with another concurrently running agent (e.g.
-    # every worker Agent in a Parallel built via Parallel.from_client) -- events will drop and
-    # misorder. Give each concurrently-running agent its own model_client if that matters.
+    # Delivered for the run's duration via a scoped ContextVar override (see
+    # BaseModelClient.events / _events_override), not a mutation of model_client.events --
+    # so this is safe even when this agent's model_client is shared with another concurrently
+    # running agent (e.g. every worker Agent in a Parallel built via Parallel.from_client): each
+    # OS thread gets its own independent context, so one agent's override can't leak into
+    # another's. What is NOT isolated on this (sync) surface: concurrent_tool_calls=True
+    # dispatches tools via a plain ThreadPoolExecutor.submit() with no context copy, so a client
+    # called from *inside* such a tool runs in a fresh thread and does not see the run's
+    # override there -- it falls back to that client's own self.events. (The async surface's
+    # equivalent is the opposite -- see aio.Agent.events -- because asyncio.TaskGroup.create_task
+    # always copies the current context.) Pass events= explicitly to a client built inside a
+    # tool if it needs to report to a particular sink.
     events: Optional[EventSink] = None
     # None (default): the loop never rewrites model_client.messages on its own -- an agent that
     # doesn't opt in behaves exactly as it did before this field existed. Set to a callable such
@@ -169,15 +177,23 @@ class Agent(_AgentLoopMixin, Runner):
 
         ``events`` is a per-run override of the agent's ``self.events`` field: a callable taking
         one :class:`~aimu.events.RunEvent` (see :mod:`aimu.events`). ``None`` (default) uses the
-        field. The resolved sink is attached to ``model_client.events`` for the duration of the
-        run (restored afterward, even if the run raises), so the client's own turn events reach
-        it alongside the loop's own :class:`~aimu.events.RunStarted` / :class:`RunFinished` /
-        :class:`ToolCalled` / :class:`ToolDenied`, every one stamped with this agent's name and
-        the current loop iteration. **Not safe across agents that share a ``model_client`` and
-        run concurrently** (e.g. every worker ``Agent`` in a :class:`~aimu.agents.Parallel` built
-        via ``Parallel.from_client``): attaching a sink is a mutation of shared state, not a
-        per-call argument, so concurrent runs will drop and misorder events. Give each
-        concurrently-running agent its own ``model_client`` if you need reliable delivery.
+        field. The resolved sink is installed as the *active* sink for the run's duration via a
+        scoped ``contextvars.ContextVar`` override (restored afterward, even if the run raises),
+        so the client's own turn events reach it alongside the loop's own
+        :class:`~aimu.events.RunStarted` / :class:`RunFinished` / :class:`ToolCalled` /
+        :class:`ToolDenied`, every one stamped with this agent's name and the current loop
+        iteration. **Safe across agents that share a ``model_client`` and run concurrently**
+        (e.g. every worker ``Agent`` in a :class:`~aimu.agents.Parallel` built via
+        ``Parallel.from_client``): the override lives in a per-execution-context ``ContextVar``,
+        not a mutation of the client, so each concurrently-running agent's OS thread gets its
+        own independent copy and cannot clobber another's. The one case this does *not* cover on
+        this (sync) surface: ``concurrent_tool_calls=True`` dispatches tools via a plain
+        ``ThreadPoolExecutor.submit()`` with no context copy, so a client called from **inside**
+        such a tool runs in a fresh thread and does not inherit the run's override there -- it
+        falls back to that client's own ``self.events``. (``aio.Agent.run(events=...)``'s
+        equivalent case behaves oppositely, since ``asyncio.TaskGroup.create_task`` always
+        copies the current context -- see its docstring.) Pass ``events=`` explicitly to a
+        client constructed inside a tool if it needs to report to a particular sink.
 
         ``compaction`` is a per-run override of the agent's ``self.compaction`` field: a
         callable applied to the conversation before every model turn the run makes (see

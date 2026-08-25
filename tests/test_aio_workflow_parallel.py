@@ -76,3 +76,68 @@ async def test_parallel_with_aggregator():
     parallel = Parallel(workers=workers, aggregator=agg)
     result = await parallel.run("task")
     assert result == "combined"
+
+
+class _RacingMockAsyncModelClient(MockAsyncModelClient):
+    """Async twin of ``tests/test_workflow_parallel.py``'s ``_RacingMockModelClient``.
+
+    Forces genuine cross-task overlap between concurrent ``_events_override`` scopes on one
+    shared client: an ``asyncio.Lock``-protected counter assigns each call an arrival index
+    the moment it reaches ``_chat()`` (before any sleep, reflecting the order calls entered
+    their scope), an ``asyncio.Barrier`` holds every caller until all three have arrived, and
+    each then sleeps a duration keyed by its arrival index so the scopes close in a different
+    order than they opened -- the same crossing (non-nested) overlap the sync test forces via
+    threads, driven here by ``asyncio.TaskGroup`` instead.
+    """
+
+    def __init__(self, responses: list, *, barrier: "asyncio.Barrier", delays: dict[int, float]):
+        super().__init__(responses)
+        self._barrier = barrier
+        self._delays = delays
+        self._arrival_lock = asyncio.Lock()
+        self._next_arrival = 0
+
+    async def _chat(self, *args, **kwargs):
+        async with self._arrival_lock:
+            arrival = self._next_arrival
+            self._next_arrival += 1
+        await self._barrier.wait()
+        await asyncio.sleep(self._delays[arrival])
+        return await super()._chat(*args, **kwargs)
+
+
+async def test_parallel_from_client_shared_events_sink_survives_concurrent_workers():
+    """Async mirror of the sync isolation test in ``tests/test_workflow_parallel.py``.
+
+    That test replaced ``test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events``
+    (removed), which pinned the pre-fix bug: a scoped event sink delivered by mutating the
+    client's own ``self.events`` attribute is visible to every concurrently-running worker on
+    a shared client, so overlapping swap/restore sequences clobber each other's sink. Here the
+    overlap is real ``asyncio.TaskGroup`` concurrency (``aimu.aio.workflows.parallel.Parallel``
+    docstring calls out the identical hazard for the async surface) rather than
+    ``ThreadPoolExecutor`` threads, which the fix (a ``contextvars.ContextVar`` scoped
+    override) closes "by construction" for asyncio: each ``Task`` gets its own copy of the
+    context it was created in, so one task's override can never leak into another's. Every
+    worker's ``RunStarted``/``ModelTurnStarted``/``ModelTurnFinished``/``RunFinished`` must
+    still arrive, attributed to the right worker, in causal order.
+    """
+    barrier = asyncio.Barrier(3)
+    delays = {0: 0.15, 1: 0.05, 2: 0.10}
+    client = _RacingMockAsyncModelClient(["A", "B", "C"], barrier=barrier, delays=delays)
+
+    seen: list = []
+    parallel = Parallel.from_client(
+        client,
+        worker_prompts=["Do A.", "Do B.", "Do C."],
+        events=seen.append,
+    )
+    await parallel.run("task")
+
+    by_agent: dict[str, list[str]] = {}
+    for event in seen:
+        by_agent.setdefault(event.agent, []).append(type(event).__name__)
+
+    assert set(by_agent) == {"worker-0", "worker-1", "worker-2"}, by_agent
+    expected_sequence = ["RunStarted", "ModelTurnStarted", "ModelTurnFinished", "RunFinished"]
+    for name, sequence in by_agent.items():
+        assert sequence == expected_sequence, f"{name}: {sequence}"
