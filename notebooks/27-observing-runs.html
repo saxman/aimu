@@ -387,7 +387,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </blockquote>
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
-<div id="0492679a" class="cell" data-execution_count="1">
+<div id="21c0e6ac" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> logging</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>logging.basicConfig(level<span class="op">=</span>logging.INFO, <span class="bu">format</span><span class="op">=</span><span class="st">"</span><span class="sc">%(message)s</span><span class="st">"</span>)</span>
@@ -399,7 +399,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a---log_events-attach-and-watch" class="level2">
 <h2 class="anchored" data-anchor-id="a---log_events-attach-and-watch">A - <code>log_events</code>: attach and watch</h2>
 <p><code>aimu.events.log_events(logger)</code> is a sink that writes one line per event. Attach it to a bare <code>aimu.chat()</code> call — no agent, no tool loop — and it is already observable:</p>
-<div id="ff8ccbff" class="cell" data-execution_count="2">
+<div id="a2e47a83" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> log_events</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -420,7 +420,7 @@ reply: OK</code></pre>
 <section id="b---the-event-vocabulary-on-an-agents-tool-loop" class="level2">
 <h2 class="anchored" data-anchor-id="b---the-event-vocabulary-on-an-agents-tool-loop">B - The event vocabulary, on an agent’s tool loop</h2>
 <p>Point the same sink at an <code>Agent</code> and the tool loop reports itself too. Every event carries <code>agent</code> and <code>iteration</code> — the same two fields <code>StreamChunk</code> carries — so one sink attached to a nested workflow can still tell events apart by who emitted them.</p>
-<div id="6c1a610c" class="cell" data-execution_count="3">
+<div id="ce9121a8" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> tool</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -459,7 +459,7 @@ result: ...</code></pre>
 <section id="c---last_request-did-the-library-do-this-or-the-model" class="level2">
 <h2 class="anchored" data-anchor-id="c---last_request-did-the-library-do-this-or-the-model">C - <code>last_request</code>: did the library do this, or the model?</h2>
 <p><code>RequestPrepared</code> carries the same payload the client stores on <code>client.last_request</code> — the request exactly as sent, after AIMU’s own generate_kwargs merge (four tiers), the <code>GENERATE_KWARG_SUPPORT</code> renames and drops, thinking-effort resolution, <code>strip_inert_keys</code> (AIMU’s own <code>timestamp</code>/<code>thinking</code>/<code>provenance</code> bookkeeping never reaches a provider), and provider format adaptation. It is the answer to a question that otherwise takes source-reading: when a model’s behavior looks surprising, is the surprise something the model did, or something AIMU changed on the way out?</p>
-<div id="33b67efb" class="cell" data-execution_count="4">
+<div id="d5ec20ff" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>plain_client <span class="op">=</span> aimu.client(MODEL)</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>plain_client.chat(<span class="st">"Hello"</span>)</span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(plain_client.last_request)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
@@ -470,7 +470,7 @@ result: ...</code></pre>
 <section id="d---agent-and-workflow-wiring" class="level2">
 <h2 class="anchored" data-anchor-id="d---agent-and-workflow-wiring">D - Agent and workflow wiring</h2>
 <p><code>Agent(events=)</code> is a field, with a matching <code>agent.run(events=...)</code> per-run override (<code>None</code> uses the field). <code>Chain.from_client(...)</code>, <code>Router.from_client(...)</code>, <code>Parallel.from_client(...)</code>, and <code>PlanExecuteEvaluator.from_client(...)</code> all take <code>events=</code> and forward it to every step/handler/worker they build, tagging each with its own <code>agent</code> name so one sink still tells them apart:</p>
-<div id="8948514e" class="cell" data-execution_count="5">
+<div id="bf25f393" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Chain</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> RunEvent</span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -504,7 +504,7 @@ step-1 RequestPrepared
 step-1 ModelTurnFinished
 step-1 RunFinished</code></pre>
 <p><code>OrchestratorAgent.assemble(events=...)</code> forwards the sink to the inner orchestrating <code>Agent</code> — the only way to reach it, since that agent is private. It covers the orchestrator’s own turns and its worker-dispatch tool calls; a worker’s <em>internal</em> turns reach the sink only if that worker <code>Agent</code> was given its own <code>events=</code> too (the same “each layer opts in independently” rule as everywhere else in AIMU):</p>
-<div id="67e3d630" class="cell" data-execution_count="6">
+<div id="c3a9fd48" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> OrchestratorAgent</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>orch_client <span class="op">=</span> aimu.client(MODEL)</span>
@@ -533,7 +533,7 @@ agent names seen: {'orchestrator'}</code></pre>
 <section id="e---a-custom-sink-tally-tokens-across-a-run" class="level2">
 <h2 class="anchored" data-anchor-id="e---a-custom-sink-tally-tokens-across-a-run">E - A custom sink: tally tokens across a run</h2>
 <p>A sink is a plain callable — nothing says it has to log. This one accumulates token usage from every <code>ModelTurnFinished</code> in a run:</p>
-<div id="0c5f3a26" class="cell" data-execution_count="7">
+<div id="32df5e93" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> ModelTurnFinished</span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -560,7 +560,7 @@ agent names seen: {'orchestrator'}</code></pre>
 <section id="f---gated-tools-tooldenied" class="level2">
 <h2 class="anchored" data-anchor-id="f---gated-tools-tooldenied">F - Gated tools: <code>ToolDenied</code></h2>
 <p>A <code>tool_approval</code> policy that refuses a call emits <code>ToolDenied</code> (name + the model’s raw arguments) instead of <code>ToolCalled</code>, so a sink can distinguish “the model tried this and it ran” from “the model tried this and a policy said no”:</p>
-<div id="27460f8c" class="cell" data-execution_count="8">
+<div id="215a1e3d" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="at">@aimu.tool</span></span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> delete_everything() <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Delete everything."""</span></span>
@@ -591,7 +591,7 @@ RunFinished RunFinished(agent='agent-975fd0', iteration=1, result=..., error=Non
 <section id="g---a-worked-example-an-opentelemetry-shaped-sink" class="level2">
 <h2 class="anchored" data-anchor-id="g---a-worked-example-an-opentelemetry-shaped-sink">G - A worked example: an OpenTelemetry-shaped sink</h2>
 <p>Events are plain data, so mapping them onto spans in an observability system is a dispatch function. This is a worked example, not a dependency — AIMU does not import <code>opentelemetry</code>. The stand-in tracer below is what makes the cell runnable without one installed; swap it for <code>opentelemetry.trace.get_tracer(__name__)</code> and the mapping is unchanged:</p>
-<div id="2d513f63" class="cell" data-execution_count="9">
+<div id="d7ac9ccb" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> ModelTurnFinished, ModelTurnStarted, RunFinished, RunStarted, ToolCalled</span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -648,7 +648,7 @@ agent.run.finished {'agent': 'agent-d80160', 'result': ...}</code></pre>
 <h2 class="anchored" data-anchor-id="h---a-shared-client-under-concurrent-workers">H - A shared client under concurrent workers</h2>
 <p><code>events=</code> is delivered by installing the resolved sink as the <em>active</em> sink for the run’s execution context and client, not by mutating <code>model_client.events</code> — a <code>contextvars.ContextVar</code> override, unlike <code>tools=</code>, which genuinely does swap <code>model_client.tools</code> (request-spec building has to read a plain attribute there). <code>Parallel.from_client(...)</code> builds every worker <code>Agent</code> over <strong>one shared <code>model_client</code></strong>, and <code>Parallel.run()</code> really does execute those workers concurrently via <code>ThreadPoolExecutor</code> — but each worker’s own OS thread gets its own independent copy of the ContextVar, so one worker’s override cannot clobber another’s, and the override only ever answers for the specific client (and whatever it delegates to) it was installed for — not for some other client a sibling worker happens to be using.</p>
 <p>This used to be a known gap: an earlier implementation delivered the override by mutating <code>model_client.events</code> directly, a plain object attribute visible to every thread sharing the client, so two overlapping worker scopes could clobber each other’s sink. Below, two workers share one client (the shape <code>Parallel.from_client</code> builds) and each keeps its own sink — this is a real run against <code>MODEL</code>, not a simulation, so the transcript is the verified outcome:</p>
-<div id="515e38be" class="cell" data-execution_count="10">
+<div id="e4906371" class="cell" data-execution_count="10">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent, Parallel</span>
 <span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>shared_client <span class="op">=</span> aimu.client(MODEL)</span>
@@ -686,7 +686,7 @@ worker-b's own events: ['RunStarted', 'ModelTurnStarted', 'RequestPrepared', 'Mo
 <section id="i---known-limitation-schema-only-emits-requestprepared" class="level2">
 <h2 class="anchored" data-anchor-id="i---known-limitation-schema-only-emits-requestprepared">I - Known limitation: <code>schema=</code> only emits <code>RequestPrepared</code></h2>
 <p><code>client.chat(schema=...)</code> (and <code>generate(schema=...)</code>) makes exactly one call and returns before <code>ModelTurnStarted</code> fires, so the structured-output path never emits <code>ModelTurnStarted</code>/<code>ModelTurnFinished</code> — only <code>RequestPrepared</code>:</p>
-<div id="39f656fc" class="cell" data-execution_count="11">
+<div id="44b68721" class="cell" data-execution_count="11">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> dataclasses</span>
 <span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -709,7 +709,7 @@ events: ['RequestPrepared']</code></pre>
 </section>
 <section id="clean-up" class="level2">
 <h2 class="anchored" data-anchor-id="clean-up">Clean up</h2>
-<div id="86111277" class="cell" data-execution_count="12">
+<div id="9126a786" class="cell" data-execution_count="12">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> client, agent, chain_client, tally_client, denied_client, otel_client, shared_client, schema_client</span>
 <span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Cleaned up."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
