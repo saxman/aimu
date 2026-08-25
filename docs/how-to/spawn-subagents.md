@@ -73,7 +73,7 @@ The nested tool is rebuilt with a decremented depth, so recursion always termina
 from aimu.tools.builtin import make_subagent_tool, web, compute
 
 def approve(name, arguments):
-    return name != "execute_python"   # let sub-agents look things up, but not run code unattended
+    return name not in ("execute_python", "run_command")   # let sub-agents look things up, but not run code unattended
 
 spawn = make_subagent_tool("anthropic:claude-sonnet-4-6", tools=[*web, *compute], tool_approval=approve)
 ```

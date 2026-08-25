@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.24.0 (2026-08-25): a command tool that shares the supervisor execute_python earned
+
+### Tools
+
+- **New** **`run_command`**, in `builtin.compute`. Runs a command line through `/bin/sh -c` (`COMSPEC /c` on Windows) and returns its exit code with stdout and stderr labelled separately. `run_command(command, cwd="", timeout=30)`, with the timeout clamped to 600 seconds.
+  **It shares `execute_python`'s supervision rather than reimplementing it.** The new `_run_supervised` owns what was expensive to get right in that tool: output captured to files rather than pipes, so a backgrounded grandchild holding the inherited fds cannot keep a finished run hostage; `start_new_session=True` with a process-group SIGKILL on timeout *and* on any interruption, so a cancelled turn cannot orphan a child or a grandchild; capped reads, so an output bomb cannot inflate the parent's RSS. `execute_python`'s behavior is unchanged, and its existing tests are the proof.
+  **Three deliberate divergences, where a snippet and a command genuinely differ.** A nonzero exit returns the output instead of `"Error: subprocess exited abnormally"`, because `pytest` exits 1 with the answer on stdout and `git diff --exit-code` exits 1 to mean "yes, there is a diff". A timed-out command returns whatever it printed first, which the file-based capture already has on disk, because a test run killed at its ceiling has usually already printed the failure that mattered. And there is no memory cap: 512 MB of address space breaks compilers and test suites, and imposing one on a shell child needs `preexec_fn`, which is neither portable nor safe alongside threads.
+  **The same disclosure, sharpened.** This is isolation and not containment, with one fewer step in between than `execute_python` has: the command reaches credentials sitting in files (`.env`, `~/.aws/credentials`) as the calling user, and process signalling is unconfined, so `kill -9` against the host process is one command away. Gate it with `tool_approval` for untrusted callers and reach for a container when you need real containment.
+- **New** **`make_command_tool(env_passthrough=...)`**. The child's environment is an allowlist (`execute_python`'s, plus `SHELL`, `TERM`, `TZ`, `USER`, `LOGNAME`), so no API key in this process reaches a command and `run_command("env")` cannot lift a credential into a model's context. That default also makes `gh`, `ssh`, and `git push` over ssh fail, which is a policy rather than a bug, so this factory lets a host name the variables it wants admitted. An allowlist rather than a denylist of secret-looking names, and a name that is unset produces no key rather than an empty-string value, since `SSH_AUTH_SOCK=""` misleads ssh in a way a missing variable does not.
+  Tests: `tests/test_code_execution.py`.
+
+### Internal
+
+- **Change** **`_kill_execute_python_process_group` is now `_kill_process_group`**, since both tools launch through the shared supervisor. Private, so no caller outside this package is affected.
+
 ## v0.23.0 (2026-08-25): channels that relay the whole loop by default, reasoning that is read, and tool calls that survive the round trip
 
 Renumbered from v0.22.1: the channel rename below is a breaking change, which cannot ride a patch
