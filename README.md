@@ -30,7 +30,7 @@ Composition happens by passing objects to constructors. Conversation state is a 
 
 ## Why AIMU
 
-Most of the difficulty in learning what these models can do is the layer between you and them. AIMU tries to be the thinnest useful one: swapping providers is a string change, so the difference you observe is the models' and not your harness's; a streamed run is labelled by phase, so you can watch reasoning, tool calls, and output separately; conversation state is a `list[dict]` you can print; and a capability the library can't deliver raises instead of quietly doing something else. When a model surprises you, the surprise should be the model's.
+Most of the difficulty in learning what these models can do is the layer between you and them. AIMU tries to be the thinnest useful one. Swapping providers is a string change, so the difference you observe is the models' and not your harness's. A streamed run is labelled by phase, so you can watch reasoning, tool calls, and output separately. Conversation state is a `list[dict]` you can print. A capability the library can't deliver raises instead of quietly doing something else. When a model surprises you, the surprise should be the model's.
 
 Six principles get it there: plain Python, plain data (OpenAI message dicts only), composability through uniform interfaces, progressive disclosure of capabilities, direct paths for common tasks, and apparent failures. The reasoning behind each, and the patterns each one excludes, lives on the [design principles](https://saxman.github.io/aimu/explanation/design-principles/) page.
 
