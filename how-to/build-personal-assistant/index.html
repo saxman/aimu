@@ -3568,11 +3568,12 @@ that ends <code>receive()</code>, stops the scheduler, and tears down cleanly.</
 <p>Because the server owns the scheduler via <code>assistant.run()</code>, proactive messages reach the browser
 unprompted, the property a request/response UI (Streamlit/Gradio) can't provide without polling.</p>
 <p>The agent's stream carries <code>THINKING</code> and <code>TOOL_CALLING</code> chunks alongside <code>GENERATING</code>, so both
-channels can surface the model's reasoning and tool calls, not just the final answer. <code>CLIChannel</code>
-takes opt-in <code>show_thinking</code> / <code>show_tools</code> flags (off by default to keep the library channel
-minimal); <code>WebChannel</code> (same flags) emits <code>thinking</code> / <code>tool</code> frames the page renders as distinct
-blocks. The personal-assistant example turns both on, threading <code>AssistantConfig.show_thinking</code> /
-<code>show_tools</code> into each channel.</p>
+channels relay the model's reasoning and tool calls, not just the final answer. <code>CLIChannel</code> takes
+<code>stream_thinking</code> / <code>stream_tools</code> flags, both on by default, and writes those chunks as labelled
+lines; <code>WebChannel</code> (same flags) emits <code>thinking</code> / <code>tool</code> frames the page renders as distinct
+blocks. The flags decide what reaches the transport, not how a front end draws it: a page is free
+to collapse or hide a frame it received. Set either to <code>False</code> to drop that content upstream of the
+channel entirely.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>pip<span class="w"> </span>install<span class="w"> </span>aimu<span class="o">[</span>web<span class="o">]</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>python<span class="w"> </span>examples/personal-assistant/web_assistant.py<span class="w"> </span>--model<span class="w"> </span>ollama:qwen3:8b<span class="w"> </span>--reminder-seconds<span class="w"> </span><span class="m">20</span>
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1"># open http://127.0.0.1:8000</span>

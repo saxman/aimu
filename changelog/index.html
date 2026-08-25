@@ -3105,16 +3105,27 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#v0221-unreleased-reasoning-that-is-read-and-tool-calls-that-survive-the-round-trip" class="md-nav__link">
+  <a href="#v0230-2026-08-25-channels-that-relay-the-whole-loop-by-default-reasoning-that-is-read-and-tool-calls-that-survive-the-round-trip" class="md-nav__link">
     <span class="md-ellipsis">
       
-        v0.22.1 (unreleased): reasoning that is read, and tool calls that survive the round trip
+        v0.23.0 (2026-08-25): channels that relay the whole loop by default, reasoning that is read, and tool calls that survive the round trip
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="v0.22.1 (unreleased): reasoning that is read, and tool calls that survive the round trip">
+    <nav class="md-nav" aria-label="v0.23.0 (2026-08-25): channels that relay the whole loop by default, reasoning that is read, and tool calls that survive the round trip">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#channels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Channels
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#models" class="md-nav__link">
@@ -3718,7 +3729,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#channels" class="md-nav__link">
+  <a href="#channels_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Channels
@@ -4786,16 +4797,27 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#v0221-unreleased-reasoning-that-is-read-and-tool-calls-that-survive-the-round-trip" class="md-nav__link">
+  <a href="#v0230-2026-08-25-channels-that-relay-the-whole-loop-by-default-reasoning-that-is-read-and-tool-calls-that-survive-the-round-trip" class="md-nav__link">
     <span class="md-ellipsis">
       
-        v0.22.1 (unreleased): reasoning that is read, and tool calls that survive the round trip
+        v0.23.0 (2026-08-25): channels that relay the whole loop by default, reasoning that is read, and tool calls that survive the round trip
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="v0.22.1 (unreleased): reasoning that is read, and tool calls that survive the round trip">
+    <nav class="md-nav" aria-label="v0.23.0 (2026-08-25): channels that relay the whole loop by default, reasoning that is read, and tool calls that survive the round trip">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#channels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Channels
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#models" class="md-nav__link">
@@ -5399,7 +5421,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#channels" class="md-nav__link">
+  <a href="#channels_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Channels
@@ -6432,7 +6454,18 @@ not this stub.
 -->
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
-<h2 id="v0221-unreleased-reasoning-that-is-read-and-tool-calls-that-survive-the-round-trip">v0.22.1 (unreleased): reasoning that is read, and tool calls that survive the round trip<a class="headerlink" href="#v0221-unreleased-reasoning-that-is-read-and-tool-calls-that-survive-the-round-trip" title="Permanent link">&para;</a></h2>
+<h2 id="v0230-2026-08-25-channels-that-relay-the-whole-loop-by-default-reasoning-that-is-read-and-tool-calls-that-survive-the-round-trip">v0.23.0 (2026-08-25): channels that relay the whole loop by default, reasoning that is read, and tool calls that survive the round trip<a class="headerlink" href="#v0230-2026-08-25-channels-that-relay-the-whole-loop-by-default-reasoning-that-is-read-and-tool-calls-that-survive-the-round-trip" title="Permanent link">&para;</a></h2>
+<p>Renumbered from v0.22.1: the channel rename below is a breaking change, which cannot ride a patch
+release. Breaking changes are free before 1.0 and expensive after, so it ships now.</p>
+<h3 id="channels">Channels<a class="headerlink" href="#channels" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Change (breaking)</strong> <strong><code>show_thinking</code> / <code>show_tools</code> are now <code>stream_thinking</code> / <code>stream_tools</code>, and both default to <code>True</code></strong> (<code>aio.CLIChannel</code>, <code>aio.WebChannel</code>). The rename fixes a name that claimed a decision the channel does not make. A channel is a transport: the flag decides whether <code>THINKING</code> and <code>TOOL_CALLING</code> content <em>reaches</em> the far side, not whether the far side draws it. A page that received a <code>thinking</code> frame is free to collapse it, fold it behind a header, or drop it, and routinely does; a channel that never emitted one has taken that choice away from the front end and left it nothing to decide with. <code>show_</code> read as a display policy set two layers below the display.
+  <strong>The default flip follows from the same reading.</strong> Off-by-default meant the legible path was the one you had to know two keyword arguments existed to ask for, while the default hid the two chunk phases that show what the model actually did. Making a model's real behavior legible is the reason the library exists, so relaying those phases is now what a bare channel does, and suppressing them is the opt-in.
+  <strong>The break is loud, not silent.</strong> Both are keyword-only, so a caller still passing <code>show_thinking=</code> / <code>show_tools=</code> gets a <code>TypeError</code> at construction naming the argument. A subclass that reads <code>self.show_thinking</code> while streaming (an overridden <code>send</code>, a replay path) raises <code>AttributeError</code> on the first stream rather than quietly treating the frames as suppressed. Rename the arguments at the construction site; a caller that was passing <code>True</code> can drop them.
+  <strong><code>aimu.pretty_print</code> deliberately keeps <code>show_thinking</code> / <code>show_tools</code>.</strong> It writes to a <code>TextIO</code> and so <em>is</em> the display: there is no transport and no front end downstream of it to decide anything, which is exactly the case the channel flags do not describe. The two spellings now mark a real difference rather than an inconsistency.
+  <code>examples/personal-assistant</code> drops <code>AssistantConfig.show_thinking</code> / <code>show_tools</code> and constructs both channels bare, since those fields only ever carried the value that is now the default.
+  Tests: <code>tests/test_aio_channels.py</code> and <code>tests/test_aio_web_channel.py</code> (the two "by default" tests invert: the frames are asserted present with no arguments, and absent only when the flags are explicitly off), plus <code>examples/personal-assistant/tests/test_web_assistant.py</code>.</li>
+</ul>
 <h3 id="models">Models<a class="headerlink" href="#models" title="Permanent link">&para;</a></h3>
 <ul>
 <li>
@@ -6798,7 +6831,7 @@ not this stub.
 <ul>
 <li><strong>Fix</strong> <strong><code>--client=llamaserver_openai</code> and <code>--client=sglang_openai</code> silently tested Ollama</strong> (<code>tests/helpers.py::_resolve_client</code>, <code>tests/helpers_aio.py::_resolve_async_client_for_type</code>). Both resolvers ended in <code>return OllamaClient  # default</code>, and neither had a branch for these two options, so the invocations documented in CLAUDE.md ran the <em>Ollama</em> catalog against Ollama and reported a pass -- the worst kind of green. A real member of either catalog would then have died in <code>create_real_model_client</code> with <code>ValueError: Unknown model</code>. Both options now resolve to <code>LlamaServerOpenAIClient</code> / <code>SGLangOpenAIClient</code>, both catalogs construct in the live-client fixtures (sync and async), and both are included in the <code>--client=all</code> matrix so it matches its "full cross-provider" docstring. The silent fallback itself is gone: <code>ollama</code> is now an explicit branch and an unrecognised value <strong>raises</strong> with the list of valid options, mirroring the existing <code>_resolve_image_client_cls</code>. So a typo (<code>--client=sglang</code> rather than <code>sglang_openai</code>) fails loudly instead of quietly measuring the wrong provider. Tests: <code>tests/test_client_option_dispatch.py</code> (every documented option resolves to its own class; near-miss values raise).</li>
 </ul>
-<h3 id="channels">Channels<a class="headerlink" href="#channels" title="Permanent link">&para;</a></h3>
+<h3 id="channels_1">Channels<a class="headerlink" href="#channels_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <strong>The web <code>tool</code> frame carries the call's result</strong> (<code>aimu.aio.channels.web.WebChannel.send</code>). The frame is now <code>{"type": "tool", "name", "arguments", "response"}</code>. A <code>TOOL_CALLING</code> chunk is yielded <em>after</em> the call has been dispatched and already carries the tool result on <code>content["response"]</code> (see <code>aimu.aio._tool_loop._dispatch_streamed</code>), so the channel was dropping information a page needs: what the call returned, not only what it was asked to do. An error, an argument-binding failure, and a denied approval are results too and arrive on the same key, so a page needs no separate failure path. <code>response</code> is <code>None</code> only for a chunk that omits it (a provider or a test that builds <code>TOOL_CALLING</code> content by hand). Additive and backwards-compatible on the wire: a page that ignores the key renders as before. <code>CLIChannel</code> is unchanged and still shows the call alone. Tests: <code>tests/test_aio_web_channel.py</code>.</li>
 </ul>
