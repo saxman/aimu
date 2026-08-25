@@ -14,7 +14,7 @@
 
 </div>
 
-AIMU is a comprehensive generative AI framework that makes it easy to find out what generative AI models and systems are capable of, and to understand how they work while you use them. It gives you a single provider-agnostic interface across text, images, audio, and speech, autonomous agents and code-controlled workflows, and small composable utilities for tools, memory, prompt tuning, evaluations, and benchmarking. All of it in plain Python you can read, so nothing a model does is hidden behind the library.
+AIMU is a comprehensive generative AI framework that makes it easy to understand what AI models and systems are capable of, and to learn how they work while you use them. It gives you a single provider-agnostic interface across text, images, audio, and speech, autonomous agents and code-controlled workflows, and small composable utilities for tools, memory, prompt tuning, evaluations, and benchmarking. All of it in plain Python you can read, so nothing a model does is hidden behind the library.
 
 Whether you need vision input, autonomous tool use, image generation, audio generation, or text-to-speech, the call is one line:
 ```python
@@ -34,7 +34,7 @@ Most of the difficulty in learning what these models can do is the layer between
 
 Six principles get it there: plain Python, plain data (OpenAI message dicts only), composability through uniform interfaces, progressive disclosure of capabilities, direct paths for common tasks, and apparent failures. The reasoning behind each, and the patterns each one excludes, lives on the [design principles](https://saxman.github.io/aimu/explanation/design-principles/) page.
 
-A curated model catalog, capturing model capabilities and nuances, is part of that design: every `"provider:model_id"` string must name a model AIMU ships a spec for. An unknown id raises rather than running with guessed capabilities. To use a one-off custom model, build the spec and pass it directly (`aimu.image_client(HuggingFaceImageSpec(...))`). For an OpenAI-compatible server, the text model string also carries connection and capability details inline: `"provider:model_id@http://host:8080/v1"` overrides the endpoint, and an id not in the catalog is allowed when you declare its capabilities with `;flags` (from `tools,thinking,vision,audio,structured`), e.g. `"llamaserver:my-model.gguf@http://gpu-box:8080/v1;tools,thinking"` or the generic `"openai-compat:my-model@http://gpu-box:9000/v1;tools"`.
+A [curated model catalog](https://saxman.github.io/aimu/reference/model-matrix/) is part of that design. Every model AIMU ships knows what it can do: whether it calls tools, reasons, accepts images or audio, and enforces structured output, along with the sampling profile its model card specifies, declared once and shared across every provider that serves those weights. Naming a model AIMU has no spec for raises rather than running on guessed capabilities, since a wrong guess surfaces later as a confusing runtime failure. A model outside the catalog is still reachable: [build its spec](https://saxman.github.io/aimu/how-to/add-new-model/#custom-models) and pass it directly, or, for an OpenAI-compatible server, [declare the capabilities inline](https://saxman.github.io/aimu/how-to/switch-providers/#run-a-model-not-in-the-catalog) in the model string, which can also carry a [custom endpoint](https://saxman.github.io/aimu/how-to/switch-providers/#point-at-a-remote-server).
 
 ## Install
 
