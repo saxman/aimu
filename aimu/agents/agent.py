@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import closing
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterator, Optional, Union
 
@@ -108,6 +109,12 @@ class Agent(_AgentLoopMixin, Runner):
     # the opposite -- see aio.Agent.events -- because asyncio.TaskGroup.create_task always
     # copies the current context. Sequential tool dispatch (the default) sees it on both
     # surfaces, since no thread/task boundary is crossed.
+    # One residual on the streamed path: this scope is held open across the run generator's
+    # yields, so it is torn down when that generator finishes or is *closed*. A consumer that
+    # abandons a streamed run should close it (aclose()/close(), or contextlib.aclosing);
+    # dropping an async generator without closing defers finalization to the event loop's
+    # asyncgen hook a few loop iterations later, and until then this sink is still the active
+    # one. Bounded and self-healing, never permanent -- see docs/how-to/observe-a-run.md.
     events: Optional[EventSink] = None
     # None (default): the loop never rewrites model_client.messages on its own -- an agent that
     # doesn't opt in behaves exactly as it did before this field existed. Set to a callable such
@@ -295,9 +302,16 @@ class Agent(_AgentLoopMixin, Runner):
     ) -> Iterator[StreamChunk]:
         self._prepare_run(deps, tool_approval)
         loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events, compaction)
+        # ``closing`` mirrors the ``aclosing`` in aio.Agent._run_loop_streamed, which is load-bearing
+        # there: the engine's generator holds the run's scoped event-sink override open across its
+        # yields, and on the async surface merely dropping it defers teardown to the event loop's
+        # asyncgen hook. Here CPython's refcounting already finalizes it the moment this frame is
+        # cleared, so this is explicitness and parity rather than a fix -- it just stops the
+        # teardown from depending on when the interpreter happens to collect the generator.
         try:
-            for chunk in loop.run_streamed(task, generate_kwargs=generate_kwargs, images=images):
-                yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=chunk.iteration)
+            with closing(loop.run_streamed(task, generate_kwargs=generate_kwargs, images=images)) as stream:
+                for chunk in stream:
+                    yield StreamChunk(chunk.phase, chunk.content, agent=self.name, iteration=chunk.iteration)
         finally:
             self._last_messages = list(self.model_client.messages)
 

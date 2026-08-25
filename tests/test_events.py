@@ -1219,3 +1219,68 @@ def test_plan_execute_evaluator_from_client_forwards_events_to_planner_and_execu
 
     agents = {e.agent for e in seen if e.agent}
     assert agents == {"planner", "executor"}
+
+
+def test_two_streamed_runs_drained_out_of_lifo_order_leave_no_stale_sink():
+    """Two streamed runs open on one execution context and drained out of LIFO order must
+    each still report to their own sink *and* leave nothing behind afterwards.
+
+    Independent generators may legally be drained in any order, so the ``_events_override``
+    scopes close out of order. Restoring the ContextVar with a ``Token`` cannot survive that:
+    ``reset()`` restores ``token.old_value``, so tearing down the *first* scope silently drops
+    the second, and the var ends up stuck holding the first run's payload. A later,
+    completely un-instrumented ``chat()`` on that run's client then reported to its
+    abandoned sink. Teardown flips ``_EventScope.active`` and rebuilds the stack instead;
+    see ``_ACTIVE_EVENT_SINK`` in ``aimu.models._internal.chat_state``."""
+    from aimu.agents.agent import Agent
+    from aimu.models._internal.chat_state import _ACTIVE_EVENT_SINK
+
+    seen_a, seen_b = [], []
+    client_a, client_b = MockModelClient(["answer A"]), MockModelClient(["answer B"])
+    client_a.model.supports_tools = False
+    client_b.model.supports_tools = False
+
+    stream_a = Agent(client_a, "sys").run("task A", stream=True, events=seen_a.append)
+    stream_b = Agent(client_b, "sys").run("task B", stream=True, events=seen_b.append)
+    next(stream_a)  # opens A's scope
+    next(stream_b)  # opens B's scope, nested inside A's
+    list(stream_a)  # closes A's scope first -- out of LIFO order
+    list(stream_b)
+
+    assert "ModelTurnStarted" in [type(e).__name__ for e in seen_a]
+    assert "ModelTurnStarted" in [type(e).__name__ for e in seen_b]
+
+    seen_a.clear()
+    seen_b.clear()
+    client_a.reset()
+    client_a._responses, client_a._call_count = ["later"], 0
+    client_a.chat("un-instrumented")
+
+    assert seen_a == []
+    assert seen_b == []
+    # Checked last, and separately from the behaviour above: no *active* scope survives either.
+    assert [scope for scope in _ACTIVE_EVENT_SINK.get() if scope.active] == []
+
+
+def test_abandoning_a_streamed_run_leaves_no_stale_sink():
+    """A sync streamed run whose consumer stops early must tear its scope down cleanly.
+
+    The generator is finalized on this same thread, so this shape was already correct; it is
+    pinned as the sync twin of the async abandon test, which was not."""
+    from aimu.agents.agent import Agent
+
+    seen = []
+    client = MockModelClient(["a longer streamed answer"])
+    client.model.supports_tools = False
+
+    stream = Agent(client, "sys").run("task", stream=True, events=seen.append)
+    next(stream)
+    stream.close()
+
+    seen.clear()
+    client.reset()
+    client._responses, client._call_count = ["later"], 0
+    client.chat("un-instrumented")
+
+    assert seen == []
+

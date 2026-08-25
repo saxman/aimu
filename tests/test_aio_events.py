@@ -1112,3 +1112,74 @@ async def test_async_plan_execute_evaluator_from_client_forwards_events_to_plann
 
     agents = {e.agent for e in seen if e.agent}
     assert agents == {"planner", "executor"}
+
+
+async def test_abandoning_a_streamed_run_leaves_no_stale_sink(caplog):
+    """A streamed async run whose consumer stops early must tear its scope down cleanly.
+
+    This is the stop-button shape: ``aio.Agent.run(stream=True, events=sink)`` consumed by a
+    UI that breaks out of the loop. ``_events_override`` brackets a ``yield`` inside two
+    nested async generators (``_AsyncToolLoop.run_streamed`` consumed by
+    ``Agent._run_loop_streamed``), and abandoning them hands finalization to the event loop's
+    asyncgen finalizer, which closes them in a *separate Task*. A ``Token``-based teardown
+    raised ``ValueError: <Token ...> was created in a different Context`` there (surfacing as
+    an unretrieved task exception) and left the override installed in this task forever, so a
+    later, wholly un-instrumented ``chat()`` still reported to the abandoned run's sink.
+    Teardown flips ``_EventScope.active`` instead; see ``_ACTIVE_EVENT_SINK`` in
+    ``aimu.models._internal.chat_state``."""
+    from aimu.aio import Agent
+    from aimu.models._internal.chat_state import _ACTIVE_EVENT_SINK
+
+    seen = []
+    client = MockAsyncModelClient(["a longer streamed answer"])
+    client.model.supports_tools = False
+
+    stream = await Agent(client, "sys").run("task", stream=True, events=seen.append)
+    async for _ in stream:
+        break
+    await stream.aclose()
+
+    seen.clear()
+    client.reset()
+    client._responses, client._call_count = ["later"], 0
+    await client.chat("un-instrumented")
+
+    assert seen == []
+    # No sleep: ``_run_loop_streamed``'s ``aclosing`` makes the teardown synchronous, so this
+    # holds on the very next statement rather than a few event-loop iterations later.
+    assert [scope for scope in _ACTIVE_EVENT_SINK.get() if scope.active] == []
+    assert "was created in a different Context" not in caplog.text
+
+
+async def test_dropping_a_streamed_run_without_aclose_frees_its_sink_once_finalized():
+    """The documented residual: a consumer that abandons a streamed run *without* closing it
+    leaves the generator to the event loop's asyncgen finalizer, so the run's sink stays
+    installed for a few loop iterations. It must not stay installed *permanently* -- flipping
+    ``_EventScope.active`` works from the finalizer's Context, where a ``Token`` reset raised.
+    The remedy for the window itself is ``aclose()`` (see the test above)."""
+    import asyncio
+    import gc
+
+    from aimu.aio import Agent
+    from aimu.models._internal.chat_state import _ACTIVE_EVENT_SINK
+
+    seen = []
+    client = MockAsyncModelClient(["a longer streamed answer"])
+    client.model.supports_tools = False
+
+    stream = await Agent(client, "sys").run("task", stream=True, events=seen.append)
+    async for _ in stream:
+        break
+    del stream
+    gc.collect()
+    for _ in range(3):
+        await asyncio.sleep(0)  # let the asyncgen finalizer Task run
+
+    seen.clear()
+    client.reset()
+    client._responses, client._call_count = ["later"], 0
+    await client.chat("un-instrumented")
+
+    assert seen == []
+    assert [scope for scope in _ACTIVE_EVENT_SINK.get() if scope.active] == []
+

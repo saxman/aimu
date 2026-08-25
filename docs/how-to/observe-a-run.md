@@ -270,6 +270,26 @@ crossed at all.
 remains genuinely shared by design — there is no execution-context boundary to isolate a plain
 attribute assignment by.
 
+**Abandoning a streamed run: close it.** `run(stream=True, events=sink)` holds the scope open
+across the generator's yields, so the scope is torn down when the generator finishes *or is
+closed*. A consumer that stops early — a UI's stop button — should close it:
+
+```python
+stream = await agent.run("...", stream=True, events=sink)
+async for chunk in stream:
+    if user_pressed_stop:
+        break
+await stream.aclose()          # or: async with aclosing(stream) as stream: ...
+```
+
+`aclose()` (sync: `stream.close()`, or just letting the generator go out of scope, which
+CPython finalizes immediately on the same thread) tears the scope down synchronously, right
+there. Merely *dropping* an async generator without closing it hands finalization to the event
+loop's asyncgen finalizer, which runs a few loop iterations later in a separate task — until it
+does, the abandoned run's sink is still the active one, so a call issued in that window is
+reported to it. The window is bounded and self-healing (it is not the permanent leak a
+`Token`-based teardown produced), but `aclose()` removes it entirely.
+
 ## See also
 
 - [Manage context](manage-context.md) — `ContextCompacted` is the event this page didn't cover;

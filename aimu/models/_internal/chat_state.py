@@ -35,14 +35,61 @@ logger = logging.getLogger(__name__)
 # in, by construction. `self.events` on the client remains the durable, always-shared setting;
 # only the temporary per-run override moves off the client.
 #
-# The ContextVar's payload is `(sink, family)`, not a bare sink: a module-level ContextVar is
-# necessarily client-agnostic, so a bare sink would reach *any* client called while the scope is
-# open -- including a wholly unrelated client a tool happens to call (e.g. make_subagent_tool's
-# fresh per-call ModelClient), stamping that client's turns with the calling agent's name and
+# An entry carries a `family`, not a bare sink: a module-level ContextVar is necessarily
+# client-agnostic, so a bare sink would reach *any* client called while the scope is open --
+# including a wholly unrelated client a tool happens to call (e.g. make_subagent_tool's fresh
+# per-call ModelClient), stamping that client's turns with the calling agent's name and
 # swallowing the callee's own RunStarted/RunFinished. `family` is the set of client objects this
-# override is actually *for* -- see `_client_family` -- and `_effective_sink` only returns the
-# override when the client asking is a member of it.
-_ACTIVE_EVENT_SINK: ContextVar[Optional[tuple]] = ContextVar("aimu_active_event_sink", default=None)
+# override is actually *for* -- see `_client_family` -- and `_effective_sink` only returns an
+# entry's sink when the client asking is a member of it.
+#
+# The payload is a *stack* of mutable `_EventScope` objects rather than one `(sink, family)`
+# tuple, and teardown flips `scope.active` rather than resetting a `Token`. A Token is the
+# obvious way to restore a ContextVar, and it is the wrong one here, for two measured reasons:
+#
+#   1. A Token can only be reset in the Context that created it. `_events_override` brackets a
+#      `yield` inside async generators (`_AsyncToolLoop.run_streamed` consumed by
+#      `aio.Agent._run_loop_streamed`), and a consumer that stops iterating early -- a UI's stop
+#      button on `run(stream=True, events=sink)` -- leaves those generators to the event loop's
+#      asyncgen finalizer, which closes them in a *separate Task*. `reset(token)` there raises
+#      `ValueError: <Token ...> was created in a different Context` and the caller's context
+#      keeps the entry forever, so a later, wholly un-instrumented `chat()` on that client still
+#      reports to the abandoned run's sink.
+#   2. Resetting out of LIFO order restores `token.old_value`, which silently *drops* any scope
+#      opened after it. Two streamed runs open on one execution context and drained
+#      out of order (legal: they are independent generators) end with the var stuck holding the
+#      first run's payload.
+#
+# Mutating a plain object, by contrast, is context-independent: the finalizer Task and the
+# caller share the same `_EventScope` instance, so `active = False` is always effective and
+# `_effective_sink` skips the entry no matter which context observes it. The stack is rebuilt
+# with `set()` (which never raises) on both push and pop, dropping inactive entries each time,
+# so ordinary nesting behaves exactly as a Token would while neither failure above can occur.
+_ACTIVE_EVENT_SINK: ContextVar[tuple] = ContextVar("aimu_active_event_sink", default=())
+
+
+class _EventScope:
+    """One open ``_events_override`` scope: which sink, for which clients, still live?
+
+    ``active`` is deliberately mutable and deliberately *not* a ContextVar: flipping it is the
+    one teardown operation that works from any execution context, including the asyncgen
+    finalizer Task that closes an abandoned streamed run. See ``_ACTIVE_EVENT_SINK`` above.
+
+    That reach is the point, and it cuts both ways: teardown is global, so a task still holding
+    a *copy* of a context in which this scope was open stops seeing the sink once the scope
+    closes, where a ``Token`` reset (visible only in the resetting context) would have left it
+    reporting into a finished run. Nothing in AIMU detaches such a task -- ``TaskGroup`` awaits
+    its children and ``RunHandle`` wraps the whole run -- and ending with the run is the
+    intended reading of a per-run sink either way.
+    """
+
+    __slots__ = ("sink", "family", "active")
+
+    def __init__(self, sink: Any, family: list):
+        self.sink = sink
+        self.family = family
+        self.active = True
+
 
 # Attribute names used across this codebase's client wrappers to hold the inner client(s) they
 # delegate mutable state to (self.events, self.messages, ...). Duck-typed on attribute name
@@ -125,12 +172,15 @@ def _effective_sink(client: Any) -> Optional[Any]:
     there. See ``tests/test_events.py`` / ``tests/test_aio_events.py``'s
     concurrent-tool-dispatch tests for both the same-client and different-client cases,
     verified rather than assumed.
+
+    The stack is scanned from the top down (innermost open scope first) and inactive entries are
+    skipped, so an abandoned run's entry -- which its finalizer marked inert but could not remove
+    from this context -- is passed over, and an outer scope stays reachable to the clients *it*
+    covers even while an inner, narrower one is open. See ``_ACTIVE_EVENT_SINK``.
     """
-    active = _ACTIVE_EVENT_SINK.get()
-    if active is not None:
-        sink, family = active
-        if any(client is member for member in family):
-            return sink
+    for scope in reversed(_ACTIVE_EVENT_SINK.get()):
+        if scope.active and any(client is member for member in scope.family):
+            return scope.sink
     return getattr(client, "events", None)
 
 
@@ -379,15 +429,27 @@ class _ChatStateMixin:
         ``self.events`` set directly on a shared client (rather than through this scoped
         override) is still genuinely shared -- that assignment has no execution-context
         boundary to isolate by, and is documented as such on ``events`` itself.
+
+        Teardown flips the scope's ``active`` flag and rebuilds the stack without it. It does
+        **not** reset a ``Token``, because this context manager brackets a ``yield`` inside async
+        generators: a consumer that abandons a streamed run leaves them to the event loop's
+        asyncgen finalizer, which runs in a different ``Context`` where a ``Token`` reset raises
+        and the entry would leak permanently. ``_ACTIVE_EVENT_SINK`` documents that measurement
+        and the out-of-LIFO-order case in full. Nothing here can raise, so nothing is swallowed:
+        the flag lives on an object both contexts share, and ``set()`` never fails.
         """
         if events is None:
             yield
             return
-        token = _ACTIVE_EVENT_SINK.set((events, _client_family(self)))
+        scope = _EventScope(events, _client_family(self))
+        # Drop any entry a cross-context teardown could only mark inert, so the stack stays
+        # bounded by the number of genuinely open scopes rather than growing per abandoned run.
+        _ACTIVE_EVENT_SINK.set(tuple(s for s in _ACTIVE_EVENT_SINK.get() if s.active) + (scope,))
         try:
             yield
         finally:
-            _ACTIVE_EVENT_SINK.reset(token)
+            scope.active = False
+            _ACTIVE_EVENT_SINK.set(tuple(s for s in _ACTIVE_EVENT_SINK.get() if s.active))
 
     def _collect_python_tool_specs(self) -> list[dict]:
         """Collect ``__tool_spec__`` dicts from every registered Python tool callable.
