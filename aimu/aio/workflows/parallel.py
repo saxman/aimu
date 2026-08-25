@@ -59,10 +59,9 @@ class Parallel(AsyncRunner):
         ``asyncio.Task`` gets its own independent copy of the context it was created in and
         concurrent delivery is correctly attributed and ordered per worker (see
         ``tests/test_aio_workflow_parallel.py``'s concurrent-workers test, the async mirror of
-        the sync one). See ``aio.Agent.events`` for the one case that is not isolated on this
-        surface (a client called from inside a tool dispatched under
-        ``concurrent_tool_calls=True`` -- the opposite hazard from the sync surface, since
-        ``asyncio.TaskGroup.create_task`` copies the current context).
+        the sync one). A *different* client called from inside a worker's tool never receives
+        that worker's sink, on either surface and regardless of ``concurrent_tool_calls``; see
+        ``aio.Agent.events`` for the one residual that does depend on the surface.
         """
         from ..agent import Agent
 

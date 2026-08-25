@@ -6,7 +6,7 @@ ModelTurnStarted / ModelTurnFinished emission points on aimu.aio.
 
 import pytest
 
-from tests.helpers_aio import MockAsyncModelClient
+from tests.helpers_aio import MockAsyncModelClient, RecordingAsyncModelClient
 
 
 async def test_async_client_emits_turn_events_with_no_agent():
@@ -475,6 +475,128 @@ async def test_async_fallback_client_chat_emits_exactly_one_pair():
     # The sink is scoped onto the winning attempt for the call and restored afterwards, so
     # a sink the inner client owns is never destroyed (see test_fallback_api.py).
     assert primary.events is None
+
+
+# ---------------------------------------------------------------------------
+# The client family: async mirror of the sync family tests in tests/test_events.py.
+#
+# Same contract, same failure mode: a scoped per-run override matches against the whole
+# family (`_client_family`, driven by the `_DELEGATE_ATTRS` / `_DELEGATE_LIST_ATTRS` name
+# tables), so each wrapper shape is pinned by asserting *both* halves of the run -- the turn
+# events emitted on the wrapper and the RequestPrepared emitted on the inner client. Every
+# test here was verified to fail with its entry deleted from the table.
+#
+# `_sync` (the in-process wrap) is async-only: the sync surface has no such wrapper.
+# ---------------------------------------------------------------------------
+
+
+async def _arun_with_scoped_sink(wrapper) -> list:
+    """One plain agent turn through ``wrapper``, collecting the run's scoped-override events."""
+    from aimu.aio import Agent
+
+    seen: list = []
+    await Agent(wrapper, events=seen.append).run("task")
+    return seen
+
+
+def _assert_both_halves(seen: list) -> None:
+    from aimu.events import ModelTurnFinished, ModelTurnStarted, RequestPrepared
+
+    kinds = [type(e).__name__ for e in seen]
+    assert any(isinstance(e, ModelTurnStarted) for e in seen), kinds
+    assert any(isinstance(e, ModelTurnFinished) for e in seen), kinds
+    assert any(isinstance(e, RequestPrepared) for e in seen), kinds
+
+
+async def test_async_family_reaches_the_inner_client_of_a_model_client():
+    """`_client`: AsyncModelClient is what `aio.client()` returns. Its inherited chat() emits
+    the turn events with self=the wrapper while the request seam fires on the inner client --
+    drop `_client` and the run keeps its turn bracket but loses RequestPrepared entirely."""
+    from aimu.aio._model_client import AsyncModelClient
+
+    inner = RecordingAsyncModelClient(["final"])
+    inner.model.supports_tools = False
+    wrapper = AsyncModelClient.__new__(AsyncModelClient)  # bypass provider dispatch
+    wrapper._client = inner
+    wrapper.model = inner.model
+    wrapper.model_kwargs = None
+
+    seen = await _arun_with_scoped_sink(wrapper)
+
+    _assert_both_halves(seen)
+    assert [type(e).__name__ for e in seen] == [
+        "RunStarted",
+        "ModelTurnStarted",
+        "RequestPrepared",
+        "ModelTurnFinished",
+        "RunFinished",
+    ]
+
+
+async def test_async_family_reaches_the_wrapped_sync_client_of_an_in_process_client():
+    """`_sync`: the in-process wrappers (AsyncHuggingFaceClient / AsyncLlamaCppClient) hand the
+    whole turn to a wrapped *sync* client via asyncio.to_thread, which copies the context -- so
+    the only thing standing between the run's sink and that client's request seam is the family
+    entry. Drop `_sync` and the run loses RequestPrepared."""
+    from aimu.aio.providers._inprocess import _AsyncInProcessClient
+    from tests.helpers import RecordingModelClient
+
+    class _WrapMock(_AsyncInProcessClient):
+        _SYNC_CLASS = RecordingModelClient
+        MODELS: list = []
+
+    inner = RecordingModelClient(["final"])
+    inner.model.supports_tools = False
+    wrapper = _WrapMock(inner)
+
+    seen = await _arun_with_scoped_sink(wrapper)
+
+    _assert_both_halves(seen)
+    assert [type(e).__name__ for e in seen] == [
+        "RunStarted",
+        "ModelTurnStarted",
+        "RequestPrepared",
+        "ModelTurnFinished",
+        "RunFinished",
+    ]
+
+
+async def test_async_family_reaches_every_inner_client_of_a_fallback_client():
+    """`clients`: AsyncFallbackClient overrides the *public* chat() and delegates to the winning
+    inner client's own public chat(), so the inner client is the sole emitter of both halves.
+    Drop `clients` and the run goes dark below the agent bracket, not merely quieter."""
+    from aimu.aio.fallback import AsyncFallbackClient
+
+    primary = RecordingAsyncModelClient(["final"])
+    primary.model.supports_tools = False
+    wrapper = AsyncFallbackClient([primary])
+
+    seen = await _arun_with_scoped_sink(wrapper)
+
+    _assert_both_halves(seen)
+    assert primary.events is None  # the sink arrived by scope, not by mutating the inner client
+
+
+async def test_async_family_reaches_the_inner_client_of_an_agentic_view():
+    """`_inner_client`: _AsyncAgenticView suppresses its own turn events by design (they would be
+    phantoms on top of the inner client's real request), so the inner client emits *both* halves
+    here. Drop `_inner_client` and the run reports only its own RunStarted/RunFinished."""
+    from aimu.aio import Agent
+
+    inner = RecordingAsyncModelClient(["final"])
+    inner.model.supports_tools = False
+    wrapper = Agent(inner).as_model_client()
+
+    seen = await _arun_with_scoped_sink(wrapper)
+
+    _assert_both_halves(seen)
+    assert [type(e).__name__ for e in seen] == [
+        "RunStarted",
+        "ModelTurnStarted",
+        "RequestPrepared",
+        "ModelTurnFinished",
+        "RunFinished",
+    ]
 
 
 # ---------------------------------------------------------------------------

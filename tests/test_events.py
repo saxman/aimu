@@ -23,7 +23,7 @@ from aimu.events import (
     emit,
     log_events,
 )
-from tests.helpers import MockModelClient
+from tests.helpers import MockModelClient, RecordingModelClient
 
 
 def test_events_are_frozen():
@@ -442,6 +442,103 @@ def test_fallback_client_chat_emits_exactly_one_pair():
     # The sink is scoped onto the winning attempt for the call and restored afterwards, so
     # a sink the inner client owns is never destroyed (see test_fallback_api.py).
     assert primary.events is None
+
+
+# ---------------------------------------------------------------------------
+# The client family: which inner clients a scoped override reaches.
+#
+# A scoped per-run override is installed on whatever object the caller handed the Agent as
+# `model_client`, but a wrapper's inherited `chat()` and the `_record_request()` seam run
+# with `self` bound to two *different* objects, so `_effective_sink` matches against the
+# whole family (`_client_family`, driven by the `_DELEGATE_ATTRS` / `_DELEGATE_LIST_ATTRS`
+# name tables in `aimu.models._internal.chat_state`).
+#
+# Each wrapper shape below is pinned by asserting *both* halves of the run: the turn events
+# emitted on the wrapper and the RequestPrepared emitted on the inner client. A missing
+# family entry silences exactly one half, so a bare total-count assertion would let a
+# regression through as "fewer events" without naming which emitter went dark. Every test
+# here was verified to fail with its entry deleted from the table.
+# ---------------------------------------------------------------------------
+
+
+def _run_with_scoped_sink(wrapper) -> list:
+    """One plain agent turn through ``wrapper``, collecting the run's scoped-override events."""
+    from aimu.agents.agent import Agent
+
+    seen: list = []
+    Agent(wrapper, events=seen.append).run("task")
+    return seen
+
+
+def _assert_both_halves(seen: list) -> None:
+    kinds = [type(e).__name__ for e in seen]
+    assert any(isinstance(e, ModelTurnStarted) for e in seen), kinds
+    assert any(isinstance(e, ModelTurnFinished) for e in seen), kinds
+    assert any(isinstance(e, RequestPrepared) for e in seen), kinds
+
+
+def test_family_reaches_the_inner_client_of_a_model_client():
+    """`_client`: ModelClient is what `aimu.client()` returns, so it is the wrapper most runs
+    go through. Its inherited chat() emits the turn events with self=the wrapper, while the
+    request seam fires on the inner client -- drop `_client` from the family and the run keeps
+    its turn bracket but loses RequestPrepared entirely."""
+    from aimu.models.model_client import ModelClient
+
+    inner = RecordingModelClient(["final"])
+    inner.model.supports_tools = False
+    wrapper = ModelClient.__new__(ModelClient)  # bypass provider dispatch; see test_tool_decorator.py
+    wrapper._client = inner
+    wrapper.model = inner.model
+    wrapper.model_kwargs = None
+
+    seen = _run_with_scoped_sink(wrapper)
+
+    _assert_both_halves(seen)
+    assert [type(e).__name__ for e in seen] == [
+        "RunStarted",
+        "ModelTurnStarted",
+        "RequestPrepared",
+        "ModelTurnFinished",
+        "RunFinished",
+    ]
+
+
+def test_family_reaches_every_inner_client_of_a_fallback_client():
+    """`clients`: FallbackClient overrides the *public* chat() and delegates to the winning
+    inner client's own public chat(), so the inner client is the sole emitter of both halves.
+    Drop `clients` and the run goes dark below the agent bracket, not merely quieter."""
+    from aimu.models.fallback import FallbackClient
+
+    primary = RecordingModelClient(["final"])
+    primary.model.supports_tools = False
+    wrapper = FallbackClient([primary])
+
+    seen = _run_with_scoped_sink(wrapper)
+
+    _assert_both_halves(seen)
+    assert primary.events is None  # the sink arrived by scope, not by mutating the inner client
+
+
+def test_family_reaches_the_inner_client_of_an_agentic_view():
+    """`_inner_client`: _AgenticView suppresses its own turn events by design (they would be
+    phantoms on top of the inner client's real request), so the inner client emits *both*
+    halves here. Drop `_inner_client` and the run reports only its own RunStarted/RunFinished."""
+    from aimu.agents.agent import Agent
+
+    inner = RecordingModelClient(["final"])
+    inner.model.supports_tools = False
+    wrapper = Agent(inner).as_model_client()
+
+    seen = _run_with_scoped_sink(wrapper)
+
+    _assert_both_halves(seen)
+    assert [type(e).__name__ for e in seen] == [
+        "RunStarted",
+        "ModelTurnStarted",
+        "RequestPrepared",
+        "ModelTurnFinished",
+        "RunFinished",
+    ]
 
 
 # ---------------------------------------------------------------------------

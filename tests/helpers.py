@@ -522,3 +522,21 @@ def client_stand_in(client_cls, model, default_generate_kwargs=None):
     fake._resolve_generate_kwargs = _GenerateKwargsMixin._resolve_generate_kwargs.__get__(fake)
     fake._warn_once = _ChatStateMixin._warn_once.__get__(fake)
     return fake
+
+
+class RecordingModelClient(MockModelClient):
+    """A mock whose request path calls the ``_record_request`` seam, as a real provider does.
+
+    ``MockModelClient`` skips the seam, so it emits no ``RequestPrepared``. That event is what
+    a wrapper's *inner* client contributes to a run (the wrapper's own inherited ``chat()``
+    contributes the turn bracket), so it is the half that goes silent when the client-family
+    table in ``aimu.models._internal.chat_state`` loses a delegation attribute -- see the
+    family tests in tests/test_events.py.
+    """
+
+    def _chat(self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
+        # Guarded on stream because the streamed path re-enters _chat non-streamed to build its
+        # response; recording in both would report one request twice.
+        if not stream:
+            self._record_request({"messages": list(self.messages)})
+        return super()._chat(user_message, generate_kwargs, use_tools, stream=stream, images=images, audio=audio)

@@ -62,9 +62,10 @@ class Parallel(Runner):
         (``BaseModelClient._events_override`` / ``_effective_sink``), not a mutation of
         ``client.events``, so each worker's own OS thread gets its own independent copy and
         concurrent delivery is correctly attributed and ordered per worker (see
-        ``tests/test_workflow_parallel.py``'s concurrent-workers test). See ``Agent.events``
-        for the one case that is not isolated (a client called from inside a tool dispatched
-        under ``concurrent_tool_calls=True``).
+        ``tests/test_workflow_parallel.py``'s concurrent-workers test). A *different* client
+        called from inside a worker's tool never receives that worker's sink, on either surface
+        and regardless of ``concurrent_tool_calls``; see ``Agent.events`` for the one residual
+        that does depend on the surface.
         """
         from aimu.agents.agent import Agent
 

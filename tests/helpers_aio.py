@@ -326,3 +326,24 @@ def create_real_async_model_client(request):
         raise ValueError(f"Unknown model: {model}")
 
     return client
+
+
+class RecordingAsyncModelClient(MockAsyncModelClient):
+    """Async mirror of :class:`tests.helpers.RecordingModelClient`.
+
+    Calls the ``_record_request`` seam so the inner client of a wrapper emits its own
+    ``RequestPrepared`` -- the half that goes silent when the client-family table in
+    ``aimu.models._internal.chat_state`` loses a delegation attribute (see the family tests
+    in tests/test_aio_events.py).
+    """
+
+    async def _chat(
+        self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None
+    ):
+        # Guarded on stream because the streamed path re-enters _chat non-streamed to build
+        # its response; recording in both would report one request twice.
+        if not stream:
+            self._record_request({"messages": list(self.messages)})
+        return await super()._chat(
+            user_message, generate_kwargs, use_tools=use_tools, stream=stream, images=images, audio=audio
+        )

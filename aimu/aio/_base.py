@@ -77,10 +77,11 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         # use even when this client is shared by concurrently running agents (e.g. every worker
         # Agent in a Parallel built via `Parallel.from_client`): each asyncio Task gets its own
         # copy of the context it was created in, so one agent's scoped override cannot leak into
-        # another's. See `aio.Agent.events` for the case that is NOT isolated on this (async)
-        # surface: unlike sync, a tool dispatched under `concurrent_tool_calls=True` runs via
-        # `asyncio.TaskGroup.create_task`, which copies the *current* context -- so a client
-        # called from inside such a tool DOES inherit the run's override there.
+        # another's. The override is scoped to this client's family too (see `_client_family`),
+        # so a *different* client called from inside a tool never receives the run's sink, on
+        # either surface and regardless of `concurrent_tool_calls`. See `aio.Agent.events` for the
+        # one residual that does depend on the surface: a tool calling a client already in the
+        # family.
         self.events = events
 
     def _record_request(self, payload: Any) -> None:
