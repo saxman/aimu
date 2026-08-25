@@ -29,6 +29,7 @@ import signal
 import subprocess
 import sys
 import time
+from types import SimpleNamespace
 
 import pytest
 
@@ -809,3 +810,30 @@ def test_the_run_command_docstring_names_the_credential_and_signalling_limits():
     doc = builtin.run_command.__doc__.lower()
     assert ".env" in doc
     assert "signal" in doc
+
+
+def test_run_command_is_in_the_compute_group():
+    """What Kokua's `compute` toolset and every other consumer of the group depend on. Note
+    this is a widening: a host already declaring `compute` gains a shell on upgrade.
+    """
+    assert builtin.run_command in builtin.compute
+
+
+def test_run_command_is_not_in_all_tools():
+    """Same reasoning that keeps execute_python out: this is isolation, not containment, so
+    it is opt-in rather than part of the default set.
+    """
+    assert builtin.run_command not in builtin.ALL_TOOLS
+
+
+def test_allow_code_execution_does_not_reach_the_shell_tool():
+    """`make_tools(allow_code_execution=True)` appends execute_python and deliberately not
+    this tool: the flag says *code* execution, and widening it would grant a shell to every
+    caller already passing it. `builtin.compute` is the one route in. Pinned so the
+    narrowness is on the record rather than incidental to how make_tools happens to be
+    written.
+    """
+    client = SimpleNamespace(model=SimpleNamespace(supports_vision=False))
+    tools = builtin.make_tools(client, allow_code_execution=True)
+    assert builtin.execute_python in tools
+    assert builtin.run_command not in tools

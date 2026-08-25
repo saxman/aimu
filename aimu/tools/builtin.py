@@ -2014,7 +2014,7 @@ def make_web_tools(
 # Curated subsets: pass one of these to ``tools=`` instead of importing every function.
 web = [get_weather, get_webpage, get_webpage_html, web_search, wikipedia]
 fs = [list_directory, read_file]
-compute = [calculate, execute_python]
+compute = [calculate, execute_python, run_command]
 # Grouped apart from ``misc`` because an agent almost always wants a clock regardless of its role: an
 # assistant scoped to filesystem work still has to resolve "by tomorrow morning". Bundled with ``echo``
 # it could only be granted alongside it.
@@ -2076,9 +2076,11 @@ def make_transcription_tool(client):
 
 transcription = [transcribe_audio]
 
-# execute_python (and its explicit in-process opt-in, execute_python_in_process) are
-# excluded from ALL_TOOLS: isolation, not containment, so they're opt-in via
-# builtin.compute or make_tools(allow_code_execution=True).
+# execute_python (and its explicit in-process opt-in, execute_python_in_process) and
+# run_command are excluded from ALL_TOOLS: isolation, not containment, so they're opt-in.
+# execute_python via builtin.compute or make_tools(allow_code_execution=True); run_command
+# via builtin.compute only, since that flag says *code* execution and widening it would
+# hand a shell to every caller already passing it.
 ALL_TOOLS = [
     *misc,
     *time,
