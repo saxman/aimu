@@ -438,6 +438,35 @@ def _execute_python_env() -> dict:
     return {name: value for name in _EXECUTE_PYTHON_ENV_ALLOWLIST if (value := os.environ.get(name)) is not None}
 
 
+# What a command's environment adds to execute_python's allowlist. A Python snippet needs
+# an interpreter to start; a command needs to look like it is running in a shell, which is
+# a slightly larger set and a deliberately small one. Still absent, and the reason this is
+# an allowlist rather than a denylist of secret-looking names: everything else in this
+# process's environment, API keys included. `run_command("env")` therefore cannot lift a
+# credential into a model's context.
+_COMMAND_ENV_ALLOWLIST = _EXECUTE_PYTHON_ENV_ALLOWLIST + (
+    "SHELL",
+    "TERM",
+    "TZ",
+    "USER",
+    "LOGNAME",
+)
+
+
+def _command_env(passthrough: tuple[str, ...] = ()) -> dict:
+    """The environment for a `run_command` child: the allowlist, plus names the host asked for.
+
+    *passthrough* is how a capability stays real without the default being unsafe. A host
+    that wants `gh` or `git push` over ssh to work names `GH_TOKEN` or `SSH_AUTH_SOCK`
+    itself (see `make_command_tool`); nothing here guesses that a variable is wanted, so
+    naming one does not admit its neighbors. A name that is unset produces no key at all,
+    rather than an empty-string value, since `SSH_AUTH_SOCK=""` misleads ssh in a way a
+    missing variable does not.
+    """
+    names = _COMMAND_ENV_ALLOWLIST + tuple(passthrough)
+    return {name: value for name in names if (value := os.environ.get(name)) is not None}
+
+
 _execute_python_warned: set = set()
 
 

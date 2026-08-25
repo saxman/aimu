@@ -545,3 +545,50 @@ def test_a_fast_backgrounding_snippet_returns_its_real_output_not_a_false_timeou
     out = execute_python(code)
     assert "done fast" in out
     assert "timed out" not in out.lower()
+
+
+def test_command_env_carries_no_parent_secrets(monkeypatch):
+    """The property the allowlist exists for: a credential in this process's environment
+    is absent from a command's, so `run_command("env")` cannot lift it into a model's
+    context. Asserted on the mapping directly rather than end to end, because that is
+    where the policy lives.
+    """
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-should-not-leak")
+    monkeypatch.setenv("KOKUA_EMAIL_PASSWORD", "should-not-leak-either")
+    env = builtin._command_env()
+    assert "ANTHROPIC_API_KEY" not in env
+    assert "KOKUA_EMAIL_PASSWORD" not in env
+
+
+def test_command_env_carries_the_variables_a_shell_needs(monkeypatch):
+    """PATH alone is not enough to be a usable shell environment: a command that renders
+    a table wants TERM, a timestamp wants TZ, and `whoami`-style output wants USER.
+    """
+    monkeypatch.setenv("PATH", "/usr/bin")
+    monkeypatch.setenv("TERM", "xterm-256color")
+    monkeypatch.setenv("TZ", "America/Los_Angeles")
+    monkeypatch.setenv("USER", "someone")
+    env = builtin._command_env()
+    assert env["PATH"] == "/usr/bin"
+    assert env["TERM"] == "xterm-256color"
+    assert env["TZ"] == "America/Los_Angeles"
+    assert env["USER"] == "someone"
+
+
+def test_command_env_passes_through_exactly_the_named_variables(monkeypatch):
+    """The opt-in half. A host that wants `gh` or `ssh` to work names the variable, and
+    naming one does not admit its neighbors.
+    """
+    monkeypatch.setenv("GH_TOKEN", "ghp-deliberate")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "not-asked-for")
+    env = builtin._command_env(("GH_TOKEN",))
+    assert env["GH_TOKEN"] == "ghp-deliberate"
+    assert "AWS_SECRET_ACCESS_KEY" not in env
+
+
+def test_command_env_omits_a_named_variable_that_is_unset(monkeypatch):
+    """A passthrough name with nothing behind it produces no key, rather than a key whose
+    value is the empty string: `SSH_AUTH_SOCK=""` is worse for ssh than no SSH_AUTH_SOCK.
+    """
+    monkeypatch.delenv("SSH_AUTH_SOCK", raising=False)
+    assert "SSH_AUTH_SOCK" not in builtin._command_env(("SSH_AUTH_SOCK",))
