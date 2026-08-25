@@ -1,4 +1,6 @@
-"""Tests for the subprocess-backed ``execute_python`` tool.
+"""Tests for the subprocess-backed ``execute_python`` tool, and for ``run_command`` /
+``make_command_tool``, which share its supervisor (``_run_supervised``) and account for
+28 of the tests below that exercise the shell tool specifically.
 
 ``execute_python`` used to run user code with ``exec()`` inside this process, behind
 restricted builtins and an import allowlist that were documented as a sandbox but never
@@ -651,10 +653,15 @@ def test_shell_features_work():
 def test_a_command_reading_stdin_gets_eof_instead_of_hanging():
     """stdin is DEVNULL, not an open pipe. A command that reads it sees EOF at once; an
     open pipe nobody writes to would block until the timeout and report a hang.
+
+    Bounded at 2s against a 5s timeout, not just under the timeout itself: the real failure
+    mode this guards against is stdin being inherited (or left as an open pipe) instead of
+    DEVNULL, which would make the run take the full 5s, so a bound of "under 5s" would still
+    pass with a full second to spare and catch nothing.
     """
     start = time.monotonic()
     out = builtin.run_command("cat", timeout=5)
-    assert time.monotonic() - start < 5
+    assert time.monotonic() - start < 2
     assert "exit 0" in out
 
 
@@ -738,8 +745,9 @@ def test_command_output_is_capped():
 
 
 def test_the_command_child_cannot_see_the_parents_api_keys(monkeypatch):
-    """Task 3 asserts the policy on the mapping; this asserts the tool actually applies it,
-    which is the half a wiring mistake would break.
+    """test_command_env_carries_no_parent_secrets asserts the allowlist policy on the mapping
+    ``_command_env`` builds; this asserts ``run_command`` actually uses that mapping, which is
+    the half a wiring mistake (a hardcoded ``os.environ`` slipped in instead) would break.
     """
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-should-not-leak")
     out = builtin.run_command("printenv ANTHROPIC_API_KEY")
@@ -780,6 +788,14 @@ def test_make_command_tool_admits_a_named_variable(monkeypatch):
     monkeypatch.setenv("GH_TOKEN", "ghp-deliberate")
     tool_fn = builtin.make_command_tool(env_passthrough=("GH_TOKEN",))
     assert "ghp-deliberate" in tool_fn("printenv GH_TOKEN")
+
+
+def test_make_command_tool_rejects_a_bare_string_for_env_passthrough():
+    """tuple("GH_TOKEN") is ('G', 'H', '_', ...), so a caller who passed a bare string meaning
+    one variable would otherwise get a tool that silently admits nothing.
+    """
+    with pytest.raises(TypeError, match="env_passthrough"):
+        builtin.make_command_tool(env_passthrough="GH_TOKEN")
 
 
 def test_make_command_tool_admits_nothing_by_default(monkeypatch):
@@ -825,6 +841,15 @@ def test_the_run_command_docstring_names_the_credential_and_signalling_limits():
     doc = builtin.run_command.__doc__.lower()
     assert ".env" in doc
     assert "signal" in doc
+
+
+def test_the_timeout_ceiling_the_docstring_states_matches_the_constant_that_enforces_it():
+    """The docstring's "clamped to 600" is a literal, frozen into __tool_spec__ at decoration
+    time; _COMMAND_TIMEOUT_MAX_S is the constant that actually enforces the clamp. Nothing
+    ties them together, so a change to one without the other would go unnoticed here.
+    """
+    assert builtin._COMMAND_TIMEOUT_MAX_S == 600
+    assert "600" in builtin.run_command.__doc__
 
 
 def test_run_command_is_in_the_compute_group():

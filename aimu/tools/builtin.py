@@ -832,6 +832,11 @@ def make_command_tool(*, env_passthrough: tuple[str, ...] = ()) -> Callable:
     description and a `__doc__` assigned afterwards never lands; one definition is the only
     way to keep one security disclosure.
     """
+    if isinstance(env_passthrough, str):
+        # tuple("GH_TOKEN") is ('G', 'H', '_', 'T', 'O', 'K', 'E', 'N'), none of which is set,
+        # so a caller who meant one variable and passed a bare string would get a tool that
+        # silently admits nothing rather than an error at the call that misconfigured it.
+        raise TypeError(f"env_passthrough must be a tuple of variable names, not a bare string: {env_passthrough!r}.")
 
     @tool
     def run_command(command: str, cwd: str = "", timeout: int = _COMMAND_TIMEOUT_DEFAULT_S) -> str:
@@ -875,7 +880,8 @@ def make_command_tool(*, env_passthrough: tuple[str, ...] = ()) -> Callable:
 
         Args:
             command: The command line to run. Interpreted by /bin/sh, so pipes, redirects,
-                globs, and && work.
+                globs, and && work (on Windows, by COMSPEC instead, where quoting and glob
+                rules differ).
             cwd: Directory to run in. Defaults to this process's working directory.
             timeout: Seconds to allow, clamped to 600.
         """
@@ -898,6 +904,10 @@ def make_command_tool(*, env_passthrough: tuple[str, ...] = ()) -> Callable:
 
 #: The command tool AIMU's own groups carry: no environment passthrough, so nothing beyond the
 #: allowlist reaches a command. A host wanting more calls `make_command_tool` itself.
+#: No `::: aimu.tools.builtin.run_command` directive in the API reference: this is a module
+#: attribute rather than a `def`, so griffe resolves it as `Kind.ATTRIBUTE` with no docstring,
+#: and the directive would render an empty stub. `docs/reference/api/tools.md` documents it
+#: through `make_command_tool`'s directive instead.
 run_command = make_command_tool()
 
 
