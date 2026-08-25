@@ -570,21 +570,22 @@ async def test_async_turn_events_are_attributed_to_the_named_agent():
 
 
 async def test_async_run_finished_iteration_matches_the_forced_wrap_up_turn():
-    """Async mirror of the sync forced-wrap-up test -- but the two engines count rounds
-    differently (sync's ``chats`` starts at 1, async's ``rounds`` starts at 0, both loop
-    ``< max_rounds``), so the *same* ``max_iterations=2`` that forces sync into a genuine
-    extra wrap-up call lets async's while loop consume all three scripted turns and reach
-    ``TERMINAL_HEALTHY`` *inside* the loop -- ``_forced_wrap_up`` then takes its
-    already-healthy early-return path, never issuing the extra call this bug is about, and
-    the test would pass whether or not the fix is present. ``max_iterations=1`` with two
-    pending-tool turns forces the loop to exit while still unhealthy, so the wrap-up must
-    make a genuine third call (see aimu/aio/_tool_loop.py's ``_forced_wrap_up``)."""
+    """Async mirror of the sync forced-wrap-up test. The two engines now share one
+    ``max_iterations`` convention (v0.22 aligned the async ``run``/``run_streamed`` while
+    conditions down to the sync ones, which were already correct -- see
+    ``tests/test_loop_iteration_parity.py``), so the same ``max_iterations=2`` and the same
+    scripted responses that force sync into a genuine extra wrap-up call do the same here:
+    two bounded-loop tool turns exhaust the cap while still pending tools, so the wrap-up
+    makes a genuine third call (see aimu/aio/_tool_loop.py's ``_forced_wrap_up``). Before
+    that alignment, async's off-by-one let its bounded loop consume all three scripted turns
+    and reach ``TERMINAL_HEALTHY`` *inside* the loop, so this needed ``max_iterations=1``
+    instead to force the same branch -- a different shape from the sync test it mirrors."""
     from aimu.aio.agent import Agent
     from aimu.events import ModelTurnFinished, RunFinished
 
     seen = []
     client = MockAsyncModelClient(["tool", "tool", "final answer"])
-    agent = Agent(client, max_iterations=1, events=seen.append)
+    agent = Agent(client, max_iterations=2, events=seen.append)
     result = await agent.run("go")
 
     assert result == "final answer"

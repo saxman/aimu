@@ -61,7 +61,12 @@ class _AsyncToolLoop(_BaseToolLoop):
                     thinking=self._thinking,
                 )
                 rounds = 0
-                while rounds < self._max_rounds:
+                # ``max_rounds`` caps the total number of real model calls the *bounded loop*
+                # makes (mirrors the sync engine's ``chats < self._max_rounds`` with
+                # ``chats`` counting from 1): the initial call above is the first of those,
+                # so the loop may run at most ``max_rounds - 1`` further times. The forced
+                # wrap-up below is the one deliberate call beyond this cap.
+                while rounds + 1 < self._max_rounds:
                     last_iteration = rounds
                     state = classify_terminal_turn(self._client.messages)
                     if state == TERMINAL_PENDING_TOOLS:
@@ -130,7 +135,11 @@ class _AsyncToolLoop(_BaseToolLoop):
                 )
                 async for chunk in stream:
                     yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
-                while iteration < self._max_rounds:
+                # Mirrors the sync engine's ``run_streamed`` (``iteration + 1 < self._max_rounds``):
+                # the initial stream above already made the first of ``max_rounds`` calls the
+                # bounded loop is permitted, so it may run at most ``max_rounds - 1`` further
+                # times. The forced wrap-up below is the one deliberate call beyond this cap.
+                while iteration + 1 < self._max_rounds:
                     state = classify_terminal_turn(self._client.messages)
                     if state == TERMINAL_PENDING_TOOLS:
                         async for chunk in self._dispatch_streamed(iteration):

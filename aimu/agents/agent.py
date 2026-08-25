@@ -28,8 +28,12 @@ class Agent(_AgentLoopMixin, Runner):
     ``model_client.chat()`` is a single turn: it issues one model request and, if the model
     requests tools, executes them and returns. This agent is the loop over that: it calls
     ``chat(task)`` and then ``chat()`` (no user message — a continuation turn on the current
-    messages) until a turn makes no tool calls, or ``max_iterations`` turns are reached. No
-    synthetic "continue" prompt is injected between successful tool rounds.
+    messages) until a turn makes no tool calls, or the loop has made ``max_iterations`` real
+    model calls. ``max_iterations`` counts every call the bounded loop itself makes (the
+    initial turn plus each continuation/tool-follow-up turn); the forced wrap-up call below
+    is the one exception, since it runs after this cap and exists specifically to guarantee
+    an answer once the cap is hit. No synthetic "continue" prompt is injected between
+    successful tool rounds.
 
     Tools are plain callables in ``tools=``: functions decorated with
     ``@aimu.tools.tool`` for in-process tools, and/or ``MCPClient(...).as_tools()`` for
@@ -73,6 +77,12 @@ class Agent(_AgentLoopMixin, Runner):
     system_message: Optional[str] = None
     name: Optional[str] = None
     tools: list[Callable] = field(default_factory=list)
+    # The maximum number of real model calls *the loop itself* makes: the initial turn plus
+    # every continuation/tool-follow-up turn the bounded loop drives. The one deliberate
+    # exception is the forced wrap-up turn below (see "Cap with tools pending" in the class
+    # docstring) -- it runs one call *after* this cap is reached and is never counted against
+    # it. Sync (aimu/agents/_tool_loop.py) and async (aimu/aio/_tool_loop.py) drivers both
+    # implement this definition identically; see tests/test_loop_iteration_parity.py.
     max_iterations: int = 10
     continuation_prompt: str = field(default=DEFAULT_CONTINUATION_PROMPT)
     reset_messages_on_run: bool = False
@@ -124,6 +134,12 @@ class Agent(_AgentLoopMixin, Runner):
         compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
     ) -> Union[str, Any, Iterator[StreamChunk]]:
         """Run the agentic loop. ``images`` attach only to the initial turn.
+
+        The loop makes at most ``self.max_iterations`` real model calls (the initial turn
+        plus every continuation/tool-follow-up turn), then, if a tool call is still pending
+        at that cap, one additional forced wrap-up call (tools disabled) to guarantee a
+        final answer -- that one call is deliberately not counted against
+        ``max_iterations``. See the class docstring's "Cap with tools pending" note.
 
         ``tools`` is a per-run override of the agent's configured ``self.tools``: ``None``
         (default) uses them, any other value (including ``[]`` to disable Python tools for

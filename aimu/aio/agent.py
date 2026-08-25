@@ -67,7 +67,12 @@ class Agent(_AgentLoopMixin, AsyncRunner):
     """Async equivalent of :class:`aimu.agents.Agent`.
 
     Calls ``await model_client.chat()`` repeatedly until the model produces a turn
-    without invoking tools, or ``max_iterations`` is reached.
+    without invoking tools, or ``max_iterations`` real model calls have been made by the
+    loop. On exhausting that cap with a tool call still pending, one forced wrap-up turn
+    (tools disabled) runs *after* the cap to guarantee a final answer -- see
+    ``aimu.agents.Agent``'s docstring for the full degenerate-turn handling this driver
+    shares byte-for-byte with the sync one. That wrap-up call is the one exception: it is
+    never counted against ``max_iterations``.
 
     Quick start::
 
@@ -90,6 +95,12 @@ class Agent(_AgentLoopMixin, AsyncRunner):
     system_message: Optional[str] = None
     name: Optional[str] = None
     tools: list[Callable] = field(default_factory=list)
+    # The maximum number of real model calls *the loop itself* makes: the initial turn plus
+    # every continuation/tool-follow-up turn the bounded loop drives. The one deliberate
+    # exception is the forced wrap-up turn (on exhausting this cap with a tool call still
+    # pending; see the sync ``aimu.agents.Agent`` docstring) -- it runs one call *after* this
+    # cap is reached and is never counted against it. This async driver implements the exact
+    # same definition as the sync one; see tests/test_loop_iteration_parity.py.
     max_iterations: int = 10
     continuation_prompt: str = field(default=DEFAULT_CONTINUATION_PROMPT)
     reset_messages_on_run: bool = False
@@ -139,6 +150,13 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
     ) -> Union[str, Any, AsyncIterator[StreamChunk]]:
         """Run the async agentic loop. ``images`` attach only to the initial turn.
+
+        The loop makes at most ``self.max_iterations`` real model calls (the initial turn
+        plus every continuation/tool-follow-up turn), then, if a tool call is still pending
+        at that cap, one additional forced wrap-up call (tools disabled) to guarantee a
+        final answer -- that one call is deliberately not counted against
+        ``max_iterations``. Identical to the sync driver's definition; see
+        :meth:`aimu.agents.Agent.run`.
 
         ``tools`` is a per-run override of the agent's configured ``self.tools``; ``deps`` is a
         per-run override of the agent's ``self.deps`` (injected as ``ctx.deps`` into tools that
