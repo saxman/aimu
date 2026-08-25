@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.22.1 (2026-08-24): reasoning that is read, and tool calls that survive the round trip
+## v0.22.1 (unreleased): reasoning that is read, and tool calls that survive the round trip
 
 ### Models
 
