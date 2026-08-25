@@ -3105,15 +3105,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#v0221-2026-08-24-reasoning-from-a-server-that-calls-the-field-reasoning" class="md-nav__link">
+  <a href="#v0221-2026-08-24-reasoning-that-is-read-and-tool-calls-that-survive-the-round-trip" class="md-nav__link">
     <span class="md-ellipsis">
       
-        v0.22.1 (2026-08-24): reasoning from a server that calls the field reasoning
+        v0.22.1 (2026-08-24): reasoning that is read, and tool calls that survive the round trip
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="v0.22.1 (2026-08-24): reasoning from a server that calls the field reasoning">
+    <nav class="md-nav" aria-label="v0.22.1 (2026-08-24): reasoning that is read, and tool calls that survive the round trip">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -4786,15 +4786,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#v0221-2026-08-24-reasoning-from-a-server-that-calls-the-field-reasoning" class="md-nav__link">
+  <a href="#v0221-2026-08-24-reasoning-that-is-read-and-tool-calls-that-survive-the-round-trip" class="md-nav__link">
     <span class="md-ellipsis">
       
-        v0.22.1 (2026-08-24): reasoning from a server that calls the field reasoning
+        v0.22.1 (2026-08-24): reasoning that is read, and tool calls that survive the round trip
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="v0.22.1 (2026-08-24): reasoning from a server that calls the field reasoning">
+    <nav class="md-nav" aria-label="v0.22.1 (2026-08-24): reasoning that is read, and tool calls that survive the round trip">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -6432,17 +6432,31 @@ not this stub.
 -->
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
-<h2 id="v0221-2026-08-24-reasoning-from-a-server-that-calls-the-field-reasoning">v0.22.1 (2026-08-24): reasoning from a server that calls the field <code>reasoning</code><a class="headerlink" href="#v0221-2026-08-24-reasoning-from-a-server-that-calls-the-field-reasoning" title="Permanent link">&para;</a></h2>
+<h2 id="v0221-2026-08-24-reasoning-that-is-read-and-tool-calls-that-survive-the-round-trip">v0.22.1 (2026-08-24): reasoning that is read, and tool calls that survive the round trip<a class="headerlink" href="#v0221-2026-08-24-reasoning-that-is-read-and-tool-calls-that-survive-the-round-trip" title="Permanent link">&para;</a></h2>
 <h3 id="models">Models<a class="headerlink" href="#models" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Fix</strong> <strong>Reasoning is no longer dropped when the server names the field <code>reasoning</code></strong> (<code>_reasoning_text</code> in <code>aimu.models.providers._thinking</code>, now read by every OpenAI-compatible client and by llama.cpp). A server that strips <code>&lt;think&gt;</code> tags itself returns the reasoning in a field of its own, and the family has never agreed on that field's name: llama-server, vLLM and SGLang use <code>reasoning_content</code> (the DeepSeek spelling), while mlx-lm and OpenRouter use <code>reasoning</code>. AIMU read only the first, so against an mlx-lm server every reasoning block vanished: <code>client.last_thinking</code> stayed empty, no <code>THINKING</code> chunks were yielded, no <code>"thinking"</code> key reached the assistant message, and nothing was raised anywhere. Measured against <code>mlx-community/Qwen3.8-27B-8bit</code> on mlx-lm 0.31.3, with the reasoning plainly present on the wire, a streamed turn produced <code>{'GENERATING': 3}</code> and no thinking at all; it now produces <code>{'THINKING': 14, 'GENERATING': 9}</code> for the same question.
+<li>
+<p><strong>Fix</strong> <strong>Reasoning is no longer dropped when the server names the field <code>reasoning</code></strong> (<code>_reasoning_text</code> in <code>aimu.models.providers._thinking</code>, now read by every OpenAI-compatible client and by llama.cpp). A server that strips <code>&lt;think&gt;</code> tags itself returns the reasoning in a field of its own, and the family has never agreed on that field's name: llama-server, vLLM and SGLang use <code>reasoning_content</code> (the DeepSeek spelling), while mlx-lm and OpenRouter use <code>reasoning</code>. AIMU read only the first, so against an mlx-lm server every reasoning block vanished: <code>client.last_thinking</code> stayed empty, no <code>THINKING</code> chunks were yielded, no <code>"thinking"</code> key reached the assistant message, and nothing was raised anywhere. Measured against <code>mlx-community/Qwen3.8-27B-8bit</code> on mlx-lm 0.31.3, with the reasoning plainly present on the wire, a streamed turn produced <code>{'GENERATING': 3}</code> and no thinking at all; it now produces <code>{'THINKING': 14, 'GENERATING': 9}</code> for the same question.
   <strong>The inline-tag fallback could not have covered this</strong>, which is why it went unnoticed: that path only fires when the tags are still in <code>content</code>, and a server doing its own parsing has already removed them. Both spellings are extra fields on an otherwise standard message, so neither is detectable any way but by name.
   Twelve call sites now share one helper: <code>_iter_stream</code>, <code>_generate</code>, <code>_chat</code> and <code>_chat_streamed</code> in each of <code>providers/openai_compat.py</code>, <code>aio/providers/openai_compat.py</code>, and <code>providers/llamacpp.py</code> (async llama.cpp wraps the sync client, so there is no fourth set). <code>reasoning_content</code> wins when a server sends both, so a gateway echoing the same text into an alias cannot have it counted twice. A non-text value under either name (a summary object, a list of parts) is ignored rather than surfaced, since callers concatenate the result and a dict would raise mid-stream. The helper takes a mapping as well as an attribute-bearing object, because llama.cpp hands back plain dicts where the OpenAI SDK hands back models.
-  Tests: <code>tests/test_models_api.py</code> and <code>tests/test_aio_models_api.py</code> (fifteen new, one per call site plus the helper's precedence, non-text and mapping rules). The four existing <code>reasoning_content</code> tests are unchanged and still pass, so the DeepSeek spelling keeps its behavior exactly.</li>
+  Tests: <code>tests/test_models_api.py</code> and <code>tests/test_aio_models_api.py</code> (fifteen new, one per call site plus the helper's precedence, non-text and mapping rules). The four existing <code>reasoning_content</code> tests are unchanged and still pass, so the DeepSeek spelling keeps its behavior exactly.</p>
+</li>
+<li>
+<p><strong>Fix</strong> <strong>A tool call's <code>arguments</code> now reach an OpenAI-compatible server as a JSON string rather than a dict</strong> (<code>encode_tool_call_arguments</code> in <code>aimu.models._internal.message_meta</code>, called at all four openai-compat request sites: <code>_chat</code> and <code>_chat_streamed</code> in each of <code>providers/openai_compat.py</code> and <code>aio/providers/openai_compat.py</code>). <code>self.messages</code> stores a tool call's arguments parsed, which is what Ollama's and Anthropic's request paths want on the wire and what a UI or a transcript reads, but OpenAI's schema types <code>tool_calls[].function.arguments</code> as a <em>string</em> and nothing re-serialized it at the request boundary. Sending the dict is not merely off-schema, it raises server-side: a server rendering its chat template calls <code>json.loads</code> on that field, so mlx-lm answered <code>404 {'error': 'the JSON object must be str, bytes or bytearray, not dict'}</code>. Measured against <code>mlx-community/Qwen3.8-27B-8bit</code> on mlx-lm, an <code>aio.Agent</code> holding a single tool failed every run; it now completes, as does a parent agent delegating through <code>spawn_subagent</code> to a sub-agent that calls <code>web_search</code>.
+  <strong>The failure landed one request later than its cause</strong>, which is what made it look like a routing problem rather than a payload problem. The round that <em>requests</em> a tool succeeds, and only the next request, the one carrying the tool result back, is rejected; so the first tool call of a conversation appeared to work and the turn died immediately after it. The status code compounds it: a 404 whose body is a Python <code>TypeError</code> message names neither the field nor the message that carried it.
+  <strong>Ollama and Anthropic were never affected</strong>, since both want the parsed object, and that is precisely why this could not be fixed by changing what the store holds. Every provider sharing the OpenAI-format request paths was affected, cloud OpenAI and Gemini included (<code>AsyncOpenAIClient</code> and <code>AsyncGeminiClient</code> subclass the compat client and override neither method), so the fix reaches them too; it is verified against a local mlx-lm server, not against those APIs.
+  <strong>Deliberately not folded into <code>strip_inert_keys</code></strong>, which Ollama's request path also calls: a dict is correct there, so encoding for every caller would have moved the bug rather than fixed it. A value that is already a string passes through, so history a caller hand-built in OpenAI's own shape is not double-encoded, and a tool call carrying no <code>arguments</code> key does not acquire one. <code>encode_tool_call_arguments</code> is exported alongside its sibling for the reason its sibling is: a caller writing a custom OpenAI-format request path needs it, and <code>tests/test_public_surface.py</code> records the name entering the surface as a deliberate edit.
+  Tests: <code>tests/test_request_legibility.py</code> (five new: one per request path, plus a guard that Ollama's path still receives the parsed dict, which is the half of this reasoning a later refactor is most likely to lose).</p>
+</li>
 </ul>
 <h3 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Docs</strong> <a href="docs/explanation/thinking-and-context.md">docs/explanation/thinking-and-context.md</a> names both spellings where it lists how each provider family separates reasoning from the answer. The page previously described only two routes (inline <code>&lt;think&gt;</code> tags, and a dedicated field on the native-thinking providers), which left the case above undocumented as well as unhandled.</li>
+<li>
+<p><strong>Docs</strong> <a href="docs/explanation/thinking-and-context.md">docs/explanation/thinking-and-context.md</a> names both spellings where it lists how each provider family separates reasoning from the answer. The page previously described only two routes (inline <code>&lt;think&gt;</code> tags, and a dedicated field on the native-thinking providers), which left the case above undocumented as well as unhandled.</p>
+</li>
+<li>
+<p><strong>Docs</strong> <a href="docs/explanation/architecture.md">docs/explanation/architecture.md</a> and <a href="docs/how-to/observe-a-run.md">docs/how-to/observe-a-run.md</a> name the tool-call <code>arguments</code> adaptation where each already lists what changes between <code>chat()</code> and the wire. The architecture page's list of request-time adaptations covered only providers needing a <em>different</em> wire format (Anthropic blocks, Ollama image fields, HF PIL images), which read as though the OpenAI-format paths adapt nothing.</p>
+</li>
 </ul>
 <h2 id="v0220-2026-08-24-one-meaning-for-max_iterations-and-a-sink-that-survives-concurrency">v0.22.0 (2026-08-24): one meaning for <code>max_iterations</code>, and a sink that survives concurrency<a class="headerlink" href="#v0220-2026-08-24-one-meaning-for-max_iterations-and-a-sink-that-survives-concurrency" title="Permanent link">&para;</a></h2>
 <p>Two pre-1.0 breaking corrections, both deferred out of v0.21.0 and recorded in that release's ledger. Breaking changes are free before 1.0 and expensive after, so they ship now rather than after the stability promise.</p>

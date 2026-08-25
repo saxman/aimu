@@ -3586,7 +3586,12 @@ input normalization) lands in one place and works everywhere. The I/O-free helpe
 shared <code>_ChatStateMixin</code> (<a href="../../reference/api/models/"><code>_internal/chat_state.py</code></a>), inherited by
 both the sync and async bases.</p>
 <p>Providers that need a different wire format (Anthropic blocks, Ollama image fields, HF PIL images)
-adapt at request time and never mutate <code>self.messages</code>. See
+adapt at request time and never mutate <code>self.messages</code>. The OpenAI-format paths adapt one field of
+their own: a tool call's <code>arguments</code> is stored parsed, which is what Ollama and Anthropic want on the
+wire, while OpenAI's schema types it as a JSON <em>string</em>, so those paths call
+<code>encode_tool_call_arguments()</code> alongside <code>strip_inert_keys()</code>. A server rendering its chat template
+calls <code>json.loads</code> on that field, so sending the dict does not merely deviate from the schema, it
+fails the request. See
 <a href="../system-message-lifecycle/">System message lifecycle</a> and
 <a href="../thinking-and-context/">Thinking and context</a> for how history and reasoning are managed.</p>
 <h2 id="the-factory-modelclient-modelspec-model">The factory: <code>ModelClient</code>, <code>ModelSpec</code>, <code>Model</code><a class="headerlink" href="#the-factory-modelclient-modelspec-model" title="Permanent link">&para;</a></h2>

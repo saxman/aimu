@@ -3422,9 +3422,10 @@ observing (the same contract <code>emit()</code> documents).</p>
 <p><code>RequestPrepared</code> carries the same payload the client stores on <code>client.last_request</code> — the
 request exactly as sent, after AIMU's own generate_kwargs merge (four tiers), the
 <code>GENERATE_KWARG_SUPPORT</code> renames and drops, thinking-effort resolution, <code>strip_inert_keys</code>
-(AIMU's own <code>timestamp</code>/<code>thinking</code>/<code>provenance</code> bookkeeping never reaches a provider), and
-provider format adaptation (OpenAI-format <code>messages</code> rewritten to Anthropic's block shape, and so
-on). It answers a question that otherwise takes source-reading to answer: when a model's behavior
+(AIMU's own <code>timestamp</code>/<code>thinking</code>/<code>provenance</code> bookkeeping never reaches a provider),
+<code>encode_tool_call_arguments</code> on the OpenAI-format paths (a tool call's <code>arguments</code> is stored parsed
+and OpenAI's schema types it as a JSON string), and provider format adaptation (OpenAI-format
+<code>messages</code> rewritten to Anthropic's block shape, and so on). It answers a question that otherwise takes source-reading to answer: when a model's behavior
 looks surprising, is the surprise something the model did, or something AIMU changed on the way
 out?</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3:8b"</span><span class="p">)</span>
