@@ -109,12 +109,11 @@ class Agent(_AgentLoopMixin, Runner):
     # the opposite -- see aio.Agent.events -- because asyncio.TaskGroup.create_task always
     # copies the current context. Sequential tool dispatch (the default) sees it on both
     # surfaces, since no thread/task boundary is crossed.
-    # One residual on the streamed path: this scope is held open across the run generator's
-    # yields, so it is torn down when that generator finishes or is *closed*. A consumer that
-    # abandons a streamed run should close it (aclose()/close(), or contextlib.aclosing);
-    # dropping an async generator without closing defers finalization to the event loop's
-    # asyncgen hook a few loop iterations later, and until then this sink is still the active
-    # one. Bounded and self-healing, never permanent -- see docs/how-to/observe-a-run.md.
+    # On the streamed path this scope is held open across the run generator's yields, so it is
+    # torn down when that generator finishes, is closed, or is dropped. Dropping is clean here:
+    # a sync generator is refcount-finalized on the thread that abandoned it, so the teardown
+    # runs immediately. (The async surface has a bounded residual on that last case -- see
+    # aio.Agent.events and docs/how-to/observe-a-run.md.)
     events: Optional[EventSink] = None
     # None (default): the loop never rewrites model_client.messages on its own -- an agent that
     # doesn't opt in behaves exactly as it did before this field existed. Set to a callable such

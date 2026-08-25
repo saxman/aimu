@@ -413,8 +413,8 @@ class _ChatStateMixin:
 
         Unlike ``_tools_override`` (a genuine mutation of ``self.tools``, since request-spec
         building has to read a plain attribute), this does **not** touch ``self.events`` --
-        it sets a module-level ``ContextVar`` to ``(events, _client_family(self))`` and resets
-        its token in a ``finally``, so the override is visible only within the execution
+        it pushes a ``_EventScope`` (the sink plus ``_client_family(self)``) onto a stack held
+        in a module-level ``ContextVar``, so the override is visible only within the execution
         context (OS thread / asyncio Task) that entered it, and only to ``self`` and whatever
         it delegates state to or from (see ``_client_family``) -- not to an unrelated client a
         tool happens to call while the scope is open. That combination is what makes it safe

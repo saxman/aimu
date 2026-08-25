@@ -519,6 +519,32 @@ def test_family_reaches_every_inner_client_of_a_fallback_client():
     assert primary.events is None  # the sink arrived by scope, not by mutating the inner client
 
 
+def test_family_membership_reaches_a_fallback_clients_inner_clients_directly():
+    """`clients`, pinned at the family level rather than end-to-end.
+
+    The end-to-end test above passes even with `clients` deleted, because FallbackClient has no
+    emit sites of its own and its `_scoped_events` helper already installs the run's effective
+    sink on whichever inner client wins -- two overlapping mechanisms reaching the same path,
+    only one of which the run exercises. Assert the family entry itself, so it cannot be
+    deleted silently by a refactor that later removes the overlap."""
+    from aimu.models._internal.chat_state import _effective_sink
+    from aimu.models.fallback import FallbackClient
+
+    primary = RecordingModelClient(["final"])
+    standby = RecordingModelClient(["final"])
+    wrapper = FallbackClient([primary, standby])
+
+    def sink(_event):
+        pass
+
+    with wrapper._events_override(sink):
+        assert _effective_sink(wrapper) is sink
+        assert _effective_sink(primary) is sink
+        assert _effective_sink(standby) is sink
+
+    assert _effective_sink(primary) is None
+
+
 def test_family_reaches_the_inner_client_of_an_agentic_view():
     """`_inner_client`: _AgenticView suppresses its own turn events by design (they would be
     phantoms on top of the inner client's real request), so the inner client emits *both*
