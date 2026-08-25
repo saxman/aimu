@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.22.1 (2026-08-24): reasoning from a server that calls the field `reasoning`
+
+### Models
+
+- **Fix** **Reasoning is no longer dropped when the server names the field `reasoning`** (`_reasoning_text` in `aimu.models.providers._thinking`, now read by every OpenAI-compatible client and by llama.cpp). A server that strips `<think>` tags itself returns the reasoning in a field of its own, and the family has never agreed on that field's name: llama-server, vLLM and SGLang use `reasoning_content` (the DeepSeek spelling), while mlx-lm and OpenRouter use `reasoning`. AIMU read only the first, so against an mlx-lm server every reasoning block vanished: `client.last_thinking` stayed empty, no `THINKING` chunks were yielded, no `"thinking"` key reached the assistant message, and nothing was raised anywhere. Measured against `mlx-community/Qwen3.8-27B-8bit` on mlx-lm 0.31.3, with the reasoning plainly present on the wire, a streamed turn produced `{'GENERATING': 3}` and no thinking at all; it now produces `{'THINKING': 14, 'GENERATING': 9}` for the same question.
+  **The inline-tag fallback could not have covered this**, which is why it went unnoticed: that path only fires when the tags are still in `content`, and a server doing its own parsing has already removed them. Both spellings are extra fields on an otherwise standard message, so neither is detectable any way but by name.
+  Twelve call sites now share one helper: `_iter_stream`, `_generate`, `_chat` and `_chat_streamed` in each of `providers/openai_compat.py`, `aio/providers/openai_compat.py`, and `providers/llamacpp.py` (async llama.cpp wraps the sync client, so there is no fourth set). `reasoning_content` wins when a server sends both, so a gateway echoing the same text into an alias cannot have it counted twice. A non-text value under either name (a summary object, a list of parts) is ignored rather than surfaced, since callers concatenate the result and a dict would raise mid-stream. The helper takes a mapping as well as an attribute-bearing object, because llama.cpp hands back plain dicts where the OpenAI SDK hands back models.
+  Tests: `tests/test_models_api.py` and `tests/test_aio_models_api.py` (fifteen new, one per call site plus the helper's precedence, non-text and mapping rules). The four existing `reasoning_content` tests are unchanged and still pass, so the DeepSeek spelling keeps its behavior exactly.
+
+### Documentation
+
+- **Docs** [docs/explanation/thinking-and-context.md](docs/explanation/thinking-and-context.md) names both spellings where it lists how each provider family separates reasoning from the answer. The page previously described only two routes (inline `<think>` tags, and a dedicated field on the native-thinking providers), which left the case above undocumented as well as unhandled.
+
 ## v0.22.0 (2026-08-24): one meaning for `max_iterations`, and a sink that survives concurrency
 
 Two pre-1.0 breaking corrections, both deferred out of v0.21.0 and recorded in that release's ledger. Breaking changes are free before 1.0 and expensive after, so they ship now rather than after the stability promise.
