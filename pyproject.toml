@@ -1,7 +1,7 @@
 [project]
 name = "aimu"
 version = "0.25.0"
-description = "AI Modeling Utilities: A Python package containing support for working with numerous AI models and services."
+description = "AI Modeling Utilities: A comprehensive generative AI framework that makes it easy to understand what AI models and systems are capable of, and to learn how they work while you use them."
 readme = "README.md"
 requires-python = ">=3.11"
 license = {file = "LICENSE"}
@@ -18,10 +18,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/saxman/aimu"
-Documentation = "https://saxman.github.io/aimu/"
+Homepage = "https://saxman.info/aimu"
+Documentation = "https://saxman.info/aimu"
 Repository = "https://github.com/saxman/aimu"
-Changelog = "https://github.com/saxman/aimu/blob/main/CHANGELOG.md"
+Changelog = "https://saxman.info/aimu/changelog/"
 
 [project.optional-dependencies]
 
