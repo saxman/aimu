@@ -3501,7 +3501,8 @@ within the same turn:</p>
 <p>Skill scripts execute as real subprocesses with your user privileges, exactly like OpenClaw and
 Hermes Agent. There is no sandbox. Only run an assistant that can author/run scripts with a model
 and inputs you trust. AIMU ships no containment boundary for untrusted code -- <code>builtin.execute_python</code>
-is not one either; it stops accidents, not attempts, from code you've already chosen to run. For
+and <code>builtin.run_command</code> are not one either; both stop accidents, not attempts, from code or
+commands you've already chosen to run. For
 untrusted input, gate the authoring/execution tools with a <a href="../gate-tool-calls/"><code>tool_approval</code></a>
 hook, or run generated code in an external sandbox (a container, a VM, a locked-down user account)
 that this library does not provide. The subprocess also blocks the event loop for up to its

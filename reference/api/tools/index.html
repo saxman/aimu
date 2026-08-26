@@ -2639,6 +2639,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.make_command_tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_command_tool
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#aimu.tools.builtin.make_memory_tools" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3826,6 +3837,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.make_command_tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_command_tool
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#aimu.tools.builtin.make_memory_tools" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4222,7 +4244,7 @@ the connection.</p>
 </tr>
 <tr>
 <td><code>builtin.compute</code></td>
-<td><code>calculate</code>, <code>execute_python</code></td>
+<td><code>calculate</code>, <code>execute_python</code>, <code>run_command</code></td>
 </tr>
 <tr>
 <td><code>builtin.time</code></td>
@@ -4234,7 +4256,7 @@ the connection.</p>
 </tr>
 <tr>
 <td><code>builtin.ALL_TOOLS</code></td>
-<td>All of the above <strong>except</strong> <code>execute_python</code> (isolation, not containment; opt in via <code>builtin.compute</code>)</td>
+<td>All of the above <strong>except</strong> <code>execute_python</code> and <code>run_command</code> (isolation, not containment; opt in via <code>builtin.compute</code>)</td>
 </tr>
 </tbody>
 </table>
@@ -4243,6 +4265,27 @@ and no access to this process's environment variables -- but it does not confine
 filesystem or the network; see its docstring). <code>execute_python_in_process</code> is the
 explicit opt-in for trusted code where subprocess startup cost matters; it is not
 included in <code>builtin.compute</code> or <code>builtin.ALL_TOOLS</code>.</p>
+<p><code>run_command</code> runs a command line through <code>/bin/sh -c</code> (<code>COMSPEC /c</code> on Windows), sharing
+<code>execute_python</code>'s subprocess supervisor rather than a separate implementation:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">run_command</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">cwd</span><span class="o">=</span><span class="s2">""</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+</span></code></pre></div>
+<p><code>timeout</code> is seconds, clamped to 600. It returns the exit code plus stdout and stderr labelled
+separately; a nonzero exit returns that output rather than an error string, since <code>pytest</code> exits 1
+with the answer on stdout and <code>git diff --exit-code</code> exits 1 to mean "yes, there is a diff." Unlike
+<code>execute_python</code>, there is no memory cap: a 512 MB address-space limit breaks compilers and test
+suites, and imposing one on a shell child needs <code>preexec_fn</code>, which is neither portable nor safe
+alongside threads.</p>
+<p><strong>Not a security boundary.</strong> This is isolation, not containment, one step sharper than
+<code>execute_python</code>: the command reaches credentials sitting in files (a <code>.env</code>, <code>~/.aws/credentials</code>)
+as the calling user, and process signalling is unconfined, so <code>kill -9</code> against the host process is
+one command away. Gate it with <code>tool_approval</code> for untrusted callers and reach for a container when
+you need real containment.</p>
+<p>Unlike <code>execute_python</code>, <code>run_command</code> is not added by <code>make_tools(allow_code_execution=True)</code>:
+that flag names <em>code</em> execution, and widening it would hand a shell to every caller already
+passing it, so <code>builtin.compute</code> is the only route in. <code>make_command_tool(env_passthrough=...)</code>
+builds a variant whose child also sees the named environment variables, for callers that need <code>gh</code>
+or <code>ssh</code> to work; <code>run_command</code> itself is that factory called with no arguments, so no extra
+variable reaches the child beyond its default allowlist.</p>
 
 
 <div class="doc doc-object doc-function">
@@ -5007,9 +5050,40 @@ engines). Comma-separated for multiple, e.g. "news,science".</p>
     </div>
 
 </div><h2 id="tool-factories">Tool factories<a class="headerlink" href="#tool-factories" title="Permanent link">&para;</a></h2>
-<p>Bind a tool to a specific resource (a memory store, a knowledge base) instead of a
-process-wide singleton.</p>
+<p>Bind a tool to a specific resource (a memory store, a knowledge base) or policy (a command's
+environment allowlist) instead of a process-wide singleton.</p>
 
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.tools.builtin.make_command_tool" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.tools.builtin.make_command_tool</span>
+
+
+<a href="#aimu.tools.builtin.make_command_tool" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_command_tool</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">env_passthrough</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">())</span> <span class="o">-&gt;</span> <span class="n">Callable</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Build a <code>run_command</code> whose child also sees the named environment variables.</p>
+<p><em>env_passthrough</em> is what keeps the capability real without the default being unsafe.
+The child's environment is an allowlist with no API keys in it, which is what stops
+<code>run_command("env")</code> lifting a credential into a model's context, and which also makes
+<code>gh</code>, <code>ssh</code>, and <code>git push</code> over ssh fail. A host that wants one of those working names
+the variable it needs, typically from its own configuration, so the allowance is the
+user's to grant rather than this library's to assume.</p>
+<p><code>builtin.compute</code>'s <code>run_command</code> is this factory called with no arguments, rather than
+a separately defined twin. <code>@tool</code> freezes the docstring into <code>__tool_spec__</code> at
+decoration time, so a closure with no docstring reaches a model with an empty
+description and a <code>__doc__</code> assigned afterwards never lands; one definition is the only
+way to keep one security disclosure.</p>
+
+
+    </div>
+
+</div>
 
 <div class="doc doc-object doc-function">
 
