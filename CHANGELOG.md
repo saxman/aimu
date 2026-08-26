@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.25.0 (2026-08-25): a spawned sub-agent that can report to its caller's sink
+## v0.25.0 (2026-08-26): a spawned sub-agent that can report to its caller's sink
 
 ### Tools
 
