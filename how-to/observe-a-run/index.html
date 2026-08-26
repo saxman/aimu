@@ -3536,6 +3536,17 @@ to that client's own <code>self.events</code> once family membership fails, rath
 override winning regardless of which client is asking — an earlier version of this mechanism
 had exactly that bug, folding a sub-agent's turns into its parent's sink under the parent's
 name while the sub-agent's own <code>RunStarted</code>/<code>RunFinished</code> never appeared).</p>
+<p><strong><code>make_subagent_tool</code> and <code>make_async_subagent_tool</code> take that explicit <code>events=</code> directly,</strong>
+so a delegated run's usage doesn't have to stay invisible:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_subagent_tool</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="n">spawn</span> <span class="o">=</span> <span class="n">make_subagent_tool</span><span class="p">(</span><span class="s2">"anthropic:claude-sonnet-4-6"</span><span class="p">,</span> <span class="n">events</span><span class="o">=</span><span class="n">my_sink</span><span class="p">)</span>
+</span></code></pre></div>
+<p>The factory sets it on every spawned child's <code>Agent.events</code> field (not passed to that child's
+<code>run</code>, which is what makes it cover a streamed spawn too). Leave it out and a spawn reports
+nowhere: its fresh client has no family membership to fall back on and no <code>self.events</code> of its
+own either, so a caller measuring a whole turn's cost would otherwise silently under-count every
+delegation.</p>
 <p><strong>The one case that still depends on the surface</strong> is a tool that calls the <strong>same</strong> client
 the run's override was installed for (e.g. a tool that reuses <code>ctx.deps</code> holding that client).
 Sync dispatches a concurrent tool via a plain <code>ThreadPoolExecutor.submit()</code> (no context copy),
@@ -3553,11 +3564,11 @@ attribute assignment by.</p>
 <p><strong>Abandoning a streamed run: close it.</strong> <code>run(stream=True, events=sink)</code> holds the scope open
 across the generator's yields, so the scope is torn down when the generator finishes <em>or is
 closed</em>. A consumer that stops early — a UI's stop button — should close it:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">stream</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"..."</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">events</span><span class="o">=</span><span class="n">sink</span><span class="p">)</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="k">async</span> <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="k">if</span> <span class="n">user_pressed_stop</span><span class="p">:</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>        <span class="k">break</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="k">await</span> <span class="n">stream</span><span class="o">.</span><span class="n">aclose</span><span class="p">()</span>          <span class="c1"># or: async with aclosing(stream) as stream: ...</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">stream</span> <span class="o">=</span> <span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"..."</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">events</span><span class="o">=</span><span class="n">sink</span><span class="p">)</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">async</span> <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">stream</span><span class="p">:</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="k">if</span> <span class="n">user_pressed_stop</span><span class="p">:</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>        <span class="k">break</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="k">await</span> <span class="n">stream</span><span class="o">.</span><span class="n">aclose</span><span class="p">()</span>          <span class="c1"># or: async with aclosing(stream) as stream: ...</span>
 </span></code></pre></div>
 <p><code>aclose()</code> (sync: <code>stream.close()</code>, or just letting the generator go out of scope, which
 CPython finalizes immediately on the same thread) tears the scope down synchronously, right
