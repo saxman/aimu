@@ -15,7 +15,7 @@ Return `False` to block the call: the tool does not run, and a refusal tool mess
 ```python
 import aimu
 
-RISKY = {"execute_python", "write_file"}
+RISKY = {"execute_python", "run_command", "write_file"}
 
 def confirm_risky(name: str, arguments: dict) -> bool:
     if name not in RISKY:

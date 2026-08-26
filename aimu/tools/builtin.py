@@ -16,7 +16,7 @@ import sys
 import tempfile
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, NamedTuple, Optional
 from urllib.parse import quote, urljoin
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -438,6 +438,35 @@ def _execute_python_env() -> dict:
     return {name: value for name in _EXECUTE_PYTHON_ENV_ALLOWLIST if (value := os.environ.get(name)) is not None}
 
 
+# What a command's environment adds to execute_python's allowlist. A Python snippet needs
+# an interpreter to start; a command needs to look like it is running in a shell, which is
+# a slightly larger set and a deliberately small one. Still absent, and the reason this is
+# an allowlist rather than a denylist of secret-looking names: everything else in this
+# process's environment, API keys included. `run_command("env")` therefore cannot lift a
+# credential into a model's context.
+_COMMAND_ENV_ALLOWLIST = _EXECUTE_PYTHON_ENV_ALLOWLIST + (
+    "SHELL",
+    "TERM",
+    "TZ",
+    "USER",
+    "LOGNAME",
+)
+
+
+def _command_env(passthrough: tuple[str, ...] = ()) -> dict:
+    """The environment for a `run_command` child: the allowlist, plus names the host asked for.
+
+    *passthrough* is how a capability stays real without the default being unsafe. A host
+    that wants `gh` or `git push` over ssh to work names `GH_TOKEN` or `SSH_AUTH_SOCK`
+    itself (see `make_command_tool`); nothing here guesses that a variable is wanted, so
+    naming one does not admit its neighbors. A name that is unset produces no key at all,
+    rather than an empty-string value, since `SSH_AUTH_SOCK=""` misleads ssh in a way a
+    missing variable does not.
+    """
+    names = _COMMAND_ENV_ALLOWLIST + tuple(passthrough)
+    return {name: value for name in names if (value := os.environ.get(name)) is not None}
+
+
 _execute_python_warned: set = set()
 
 
@@ -473,12 +502,12 @@ def _strip_memory_cap_marker(stderr_text: str) -> str:
     return stderr_text
 
 
-def _kill_execute_python_process_group(proc: subprocess.Popen) -> None:
+def _kill_process_group(proc: subprocess.Popen) -> None:
     """Kill *proc* and every process in its process group.
 
-    `execute_python` launches with `start_new_session=True`, making the child the
-    leader of a new process group; anything it spawns (e.g. a backgrounded process the
-    snippet itself launches and does not wait for) inherits that same group unless it
+    `_run_supervised` launches every child with `start_new_session=True`, making it the
+    leader of a new process group; anything it spawns (a backgrounded process a snippet
+    or a shell command starts and does not wait for) inherits that same group unless it
     detaches into a session of its own. A plain `proc.kill()` reaches only the direct
     child, which is exactly how a "hard timeout" used to leave a backgrounded
     grandchild running indefinitely. SIGKILL is uncatchable, so this can't race the
@@ -487,9 +516,9 @@ def _kill_execute_python_process_group(proc: subprocess.Popen) -> None:
     `os.killpg`/`os.getpgid` don't exist on Windows, so this falls back to killing just
     the direct child there: worse than a real process-group kill (a backgrounded
     grandchild can still be left running), but it's the same guarantee
-    `subprocess.run(timeout=...)` gave before this tool moved to a hand-rolled `Popen`,
-    and it keeps this function returning a string rather than raising `AttributeError`
-    partway through the timeout/cleanup path.
+    `subprocess.run(timeout=...)` gave before this moved to a hand-rolled `Popen`, and
+    it keeps the timeout/cleanup path returning rather than raising `AttributeError`
+    partway through.
     """
     killpg = getattr(os, "killpg", None)
     getpgid = getattr(os, "getpgid", None)
@@ -532,6 +561,110 @@ def _read_capped(path: str, limit_bytes: int) -> str:
     return text
 
 
+class _SupervisedRun(NamedTuple):
+    """What `_run_supervised` learned about one child: how it ended, and what it wrote."""
+
+    exit_code: int
+    stdout: str
+    stderr: str
+    timed_out: bool
+
+
+def _run_supervised(
+    argv: list[str],
+    *,
+    stdin_data: Optional[bytes],
+    cwd: Optional[str],
+    env: dict,
+    timeout_s: float,
+    output_limit_bytes: int,
+) -> _SupervisedRun:
+    """Run *argv* as a supervised child, and return how it ended plus what it wrote.
+
+    Shared by `execute_python` and `run_command` so the properties that were expensive
+    to get right hold identically for both, rather than being reimplemented once per
+    tool and drifting:
+
+    - **No path out leaves the direct child alive.** `Popen.__exit__` reaps it on a normal
+      return; timeout and any interruption (`KeyboardInterrupt`, a `CancelledError`
+      surfacing through a RunHandle) additionally SIGKILL the whole process group before
+      reaping, since a normal return gives the child every chance to exit on its own but a
+      timeout and an interruption do not. A grandchild the child backgrounded is deliberately
+      exempt on the normal-return path: see the "Output goes to files" bullet below, and
+      `test_a_fast_command_that_backgrounds_something_is_not_a_false_timeout`.
+    - **Output goes to files, not pipes.** `wait()` depends only on the direct child's
+      exit, never on every process holding a copy of the stdout/stderr fds closing
+      them, so a backgrounded grandchild inheriting those fds cannot hold a fast,
+      successful run hostage.
+    - **Bounded parent memory,** since only a capped prefix of each file is ever read.
+
+    *cwd* of None means the runner's own temp directory. That is what `execute_python`
+    wants (a throwaway working directory the snippet cannot pollute) and never what
+    `run_command` wants, which resolves its own default to `os.getcwd()` before calling
+    here. Each caller's absent value therefore means its own thing, and neither has to
+    know the other's.
+
+    *stdin_data* of None gives the child `DEVNULL` rather than an open pipe, so a
+    command that reads stdin sees EOF at once instead of blocking until the timeout.
+    """
+    with tempfile.TemporaryDirectory(prefix="aimu-supervised-") as tmpdir:
+        stdout_path = os.path.join(tmpdir, "stdout.txt")
+        stderr_path = os.path.join(tmpdir, "stderr.txt")
+        timed_out = False
+
+        with (
+            open(stdout_path, "wb") as stdout_f,
+            open(stderr_path, "wb") as stderr_f,
+            subprocess.Popen(  # noqa: S603
+                argv,
+                stdin=subprocess.PIPE if stdin_data is not None else subprocess.DEVNULL,
+                stdout=stdout_f,
+                stderr=stderr_f,
+                cwd=tmpdir if cwd is None else cwd,
+                env=env,
+                start_new_session=True,
+            ) as proc,
+        ):
+            # Everything from here to the end of the `with` runs under one guard: once the
+            # child exists, no path out of this block -- normal, exceptional, or
+            # interrupted -- may leave it alive. Feeding stdin is inside it too, because an
+            # interruption during the write or the close is just as capable of orphaning a
+            # child that is already running (and `Popen.__exit__` will not save us: its
+            # KeyboardInterrupt branch waits only ~0.25s on the assumption the SIGINT
+            # already reached the child, which is false once the child has its own group).
+            try:
+                if stdin_data is not None:
+                    try:
+                        proc.stdin.write(stdin_data)
+                    except BrokenPipeError:
+                        # The child exited before reading its input. Not an interruption:
+                        # fall through to the normal path, where its output and exit code
+                        # explain why.
+                        pass
+                    finally:
+                        proc.stdin.close()
+                proc.wait(timeout=timeout_s)
+            except subprocess.TimeoutExpired:
+                _kill_process_group(proc)
+                proc.wait()
+                timed_out = True
+            except BaseException:
+                # Kill, then reap, then re-raise: a kill without the wait leaves a zombie.
+                # Deliberately BaseException, not Exception: KeyboardInterrupt and
+                # CancelledError are exactly the cases this exists for.
+                _kill_process_group(proc)
+                proc.wait()
+                raise
+
+        # stdout_f/stderr_f are closed by the `with` above and the child has exited, so
+        # its writes are guaranteed flushed to disk. Read on the timeout path too: what a
+        # command printed before it hung is usually the most useful thing about it.
+        stdout_text = _read_capped(stdout_path, output_limit_bytes)
+        stderr_text = _read_capped(stderr_path, output_limit_bytes)
+
+    return _SupervisedRun(proc.returncode, stdout_text, stderr_text, timed_out)
+
+
 @tool
 def execute_python(code: str) -> str:
     """Execute Python code in a fresh subprocess and return its output.
@@ -570,78 +703,212 @@ def execute_python(code: str) -> str:
     Args:
         code: Python code to execute.
     """
-    with tempfile.TemporaryDirectory(prefix="aimu-execute-python-") as tmpdir:
-        stdout_path = os.path.join(tmpdir, "stdout.txt")
-        stderr_path = os.path.join(tmpdir, "stderr.txt")
+    run = _run_supervised(
+        [sys.executable, "-c", _EXECUTE_PYTHON_WORKER_SOURCE],
+        stdin_data=code.encode("utf-8"),
+        cwd=None,  # the runner's temp directory: a throwaway cwd for the snippet
+        env=_execute_python_env(),
+        timeout_s=_EXECUTE_PYTHON_TIMEOUT_S,
+        output_limit_bytes=_EXECUTE_PYTHON_OUTPUT_LIMIT_BYTES,
+    )
+    if run.timed_out:
+        return f"Error: execution timed out after {_EXECUTE_PYTHON_TIMEOUT_S}s"
 
-        with (
-            open(stdout_path, "wb") as stdout_f,
-            open(stderr_path, "wb") as stderr_f,
-            subprocess.Popen(  # noqa: S603
-                [sys.executable, "-c", _EXECUTE_PYTHON_WORKER_SOURCE],
-                stdin=subprocess.PIPE,
-                stdout=stdout_f,
-                stderr=stderr_f,
-                cwd=tmpdir,
-                env=_execute_python_env(),
-                start_new_session=True,
-            ) as proc,
-        ):
-            # Everything from here to the end of the `with` runs under one guard: once the
-            # child exists, no path out of this block -- normal, exceptional, or
-            # interrupted -- may leave it alive. Feeding stdin is inside it too, because an
-            # interruption during the write or the close is just as capable of orphaning a
-            # child that is already running (and `Popen.__exit__` will not save us; see the
-            # `except BaseException` note below).
-            try:
-                try:
-                    proc.stdin.write(code.encode("utf-8"))
-                except BrokenPipeError:
-                    # The child exited before reading its input. Not an interruption: fall
-                    # through to the normal path, where its output and exit code explain why.
-                    pass
-                finally:
-                    proc.stdin.close()
-
-                # wait(), unlike communicate(), never depends on the stdout/stderr fds
-                # being closed by every process holding a copy of them -- only on the
-                # direct child's own exit. A backgrounded grandchild inheriting those
-                # fds therefore can't hold a fast, successful run hostage the way it
-                # could when output was captured through a pipe.
-                proc.wait(timeout=_EXECUTE_PYTHON_TIMEOUT_S)
-            except subprocess.TimeoutExpired:
-                _kill_execute_python_process_group(proc)
-                proc.wait()
-                return f"Error: execution timed out after {_EXECUTE_PYTHON_TIMEOUT_S}s"
-            except BaseException:
-                # Anything else escaping this block -- KeyboardInterrupt, asyncio.CancelledError
-                # surfacing through a RunHandle, or any other interruption -- must still
-                # kill the child before propagating. start_new_session=True (needed so a
-                # SIGKILL can reach a backgrounded grandchild too) has the side effect of
-                # detaching the child from this process's controlling terminal, so a Ctrl-C
-                # does NOT reach it for free the way it would a foreground child; without
-                # this handler an interrupted run leaves the child (and any grandchild)
-                # orphaned and running indefinitely. Deliberately `except BaseException`,
-                # not `Exception`: KeyboardInterrupt and CancelledError are exactly the
-                # cases this exists for, and Popen's own context-manager __exit__ is no
-                # backstop -- its KeyboardInterrupt branch waits only ~0.25s on the
-                # assumption that the SIGINT already reached the child, which is false once
-                # the child has its own process group. Kill, then reap, then re-raise: a
-                # kill without the wait would leave a zombie.
-                _kill_execute_python_process_group(proc)
-                proc.wait()
-                raise
-
-        # stdout_f/stderr_f are closed by the `with` above, and the child has already
-        # exited (proc.wait() returned), so its writes are guaranteed flushed to disk.
-        stdout_text = _read_capped(stdout_path, _EXECUTE_PYTHON_OUTPUT_LIMIT_BYTES)
-        stderr_text = _strip_memory_cap_marker(_read_capped(stderr_path, _EXECUTE_PYTHON_OUTPUT_LIMIT_BYTES))
-
-    if proc.returncode != 0:
-        detail = stderr_text.strip() or f"exit code {proc.returncode}"
+    stderr_text = _strip_memory_cap_marker(run.stderr)
+    if run.exit_code != 0:
+        detail = stderr_text.strip() or f"exit code {run.exit_code}"
         return f"Error: subprocess exited abnormally ({detail})"
 
-    return stdout_text
+    return run.stdout
+
+
+_COMMAND_TIMEOUT_DEFAULT_S = 30
+# A ceiling rather than a fixed duration: a model that knows it is running a test suite can
+# ask for four minutes, and no model can ask for forever. 10s (execute_python's constant)
+# would make the obvious use of this tool impossible.
+_COMMAND_TIMEOUT_MAX_S = 600
+# Same value as execute_python's cap today, kept under its own name so the two tiers can
+# diverge later without a rename: this is the combined budget across stdout and stderr
+# (see _cap_combined_output), where execute_python's is a per-stream one.
+_COMMAND_OUTPUT_LIMIT_BYTES = _EXECUTE_PYTHON_OUTPUT_LIMIT_BYTES
+
+
+def _shell_argv(command: str) -> list[str]:
+    """The argv that hands *command* to a shell.
+
+    Spelled out rather than passing `shell=True`, which would do this platform dispatch in
+    less code: which shell interpreted a command decides what `&&`, quoting, and `$VAR`
+    meant, so it is worth being able to read it here rather than inferring it from
+    `subprocess`'s own rules. `/bin/sh` specifically, not `$SHELL`: a tool whose behavior
+    changed with the user's login shell would be reproducible nowhere.
+    """
+    if os.name == "nt":
+        return [os.environ.get("COMSPEC", "cmd.exe"), "/c", command]
+    return ["/bin/sh", "-c", command]
+
+
+def _truncate_text_to_bytes(text: str, encoded: bytes, budget: int) -> str:
+    """Cut *text* (already available as *encoded*) to *budget* bytes, marking it if it shrank.
+
+    Decodes with ``errors="replace"`` because *budget* can land mid-codepoint; the marker
+    matches ``_read_capped``'s wording so a reader sees one consistent shape for "there was
+    more than this" regardless of which cap produced it.
+    """
+    if len(encoded) <= budget:
+        return text
+    kept = encoded[:budget].decode("utf-8", errors="replace")
+    return f"{kept}\n[... truncated {len(encoded) - budget} more bytes]"
+
+
+def _cap_combined_output(stdout: str, stderr: str, limit_bytes: int) -> tuple[str, str]:
+    """Trim *stdout* and *stderr* together to one shared byte budget.
+
+    `_run_supervised` caps each stream independently (a property `execute_python` depends on
+    and this function does not touch), so a command that writes near the cap to both streams
+    can return roughly twice the documented limit. This is the other side of that call, where
+    only `run_command` is affected: `execute_python` never reaches this function, since it
+    returns stdout alone on success and capped stderr alone on failure.
+
+    The budget splits evenly, except a stream that needs less than its half hands the
+    difference to the other: a one-line stderr should not cost a talkative stdout half the
+    budget, and a large stdout must not be able to push stderr out of the result entirely.
+    """
+    stdout_bytes = stdout.encode("utf-8")
+    stderr_bytes = stderr.encode("utf-8")
+    if len(stdout_bytes) + len(stderr_bytes) <= limit_bytes:
+        return stdout, stderr
+
+    half = limit_bytes // 2
+    if len(stdout_bytes) <= half:
+        stdout_budget, stderr_budget = len(stdout_bytes), limit_bytes - len(stdout_bytes)
+    elif len(stderr_bytes) <= half:
+        stderr_budget, stdout_budget = len(stderr_bytes), limit_bytes - len(stderr_bytes)
+    else:
+        stdout_budget = stderr_budget = half
+
+    return (
+        _truncate_text_to_bytes(stdout, stdout_bytes, stdout_budget),
+        _truncate_text_to_bytes(stderr, stderr_bytes, stderr_budget),
+    )
+
+
+def _format_command_result(run: _SupervisedRun, timeout_s: float, limit_bytes: int) -> str:
+    """Render a finished command for a model: how it ended, then what it wrote.
+
+    The first line is always present, so the shape a model parses does not change with the
+    outcome. Empty streams are omitted rather than shown as empty sections, and a command
+    that wrote nothing at all says so, because a bare exit line reads like truncation.
+
+    *limit_bytes* bounds stdout and stderr combined, via `_cap_combined_output`, rather than
+    each stream separately: `_run_supervised` already caps each stream at *limit_bytes* on its
+    own, so without this step a command writing near that cap to both streams would return
+    close to double it.
+    """
+    header = f"Error: command timed out after {timeout_s:g}s" if run.timed_out else f"exit {run.exit_code}"
+    stdout_text, stderr_text = _cap_combined_output(run.stdout, run.stderr, limit_bytes)
+    sections = [header]
+    if stdout_text.strip():
+        sections.append(f"--- stdout ---\n{stdout_text.rstrip()}")
+    if stderr_text.strip():
+        sections.append(f"--- stderr ---\n{stderr_text.rstrip()}")
+    if len(sections) == 1:
+        sections.append("(no output)")
+    return "\n".join(sections)
+
+
+def make_command_tool(*, env_passthrough: tuple[str, ...] = ()) -> Callable:
+    """Build a `run_command` whose child also sees the named environment variables.
+
+    *env_passthrough* is what keeps the capability real without the default being unsafe.
+    The child's environment is an allowlist with no API keys in it, which is what stops
+    `run_command("env")` lifting a credential into a model's context, and which also makes
+    `gh`, `ssh`, and `git push` over ssh fail. A host that wants one of those working names
+    the variable it needs, typically from its own configuration, so the allowance is the
+    user's to grant rather than this library's to assume.
+
+    `builtin.compute`'s `run_command` is this factory called with no arguments, rather than
+    a separately defined twin. `@tool` freezes the docstring into `__tool_spec__` at
+    decoration time, so a closure with no docstring reaches a model with an empty
+    description and a `__doc__` assigned afterwards never lands; one definition is the only
+    way to keep one security disclosure.
+    """
+    if isinstance(env_passthrough, str):
+        # tuple("GH_TOKEN") is ('G', 'H', '_', 'T', 'O', 'K', 'E', 'N'), none of which is set,
+        # so a caller who meant one variable and passed a bare string would get a tool that
+        # silently admits nothing rather than an error at the call that misconfigured it.
+        raise TypeError(f"env_passthrough must be a tuple of variable names, not a bare string: {env_passthrough!r}.")
+
+    @tool
+    def run_command(command: str, cwd: str = "", timeout: int = _COMMAND_TIMEOUT_DEFAULT_S) -> str:
+        """Run a unix command through a shell and return its exit code and output.
+
+        NOT A SECURITY BOUNDARY: this is isolation, not containment, in exactly the sense
+        `execute_python`'s docstring means it, and with one fewer step in between. The command
+        runs as the same user this process does, so it reads, writes, and makes network
+        requests exactly as this process can. A `.env` file, `~/.aws/credentials`, or
+        `~/.config/gh/hosts.yml` is as readable to it as to this user's own account. Process
+        signalling is not confined either: `kill -9` against this process's own pid is one
+        command away. Treat anything reaching this tool as a command you have chosen to run,
+        gate it with `tool_approval` for untrusted callers, and reach for a container when you
+        need real containment.
+
+        What the subprocess does buy: a hard timeout, so a hung command cannot hang this
+        process; a process-group kill, so a command that backgrounds something does not leave
+        it running after that timeout; crash isolation; and no access to this process's
+        environment variables, so `ANTHROPIC_API_KEY` and anything else set there is invisible
+        unless a host passed the name through deliberately (see `make_command_tool`). Note what
+        that last one is not: it is about environment variables specifically, not credentials
+        in general, which is what the paragraph above is about.
+
+        Unlike `execute_python`, there is no memory cap. A 512 MB address-space limit would
+        break compilers and test suites, and imposing one on a shell child needs `preexec_fn`,
+        which is neither portable nor safe alongside threads.
+
+        A nonzero exit is reported, not treated as a failure to be summarized away: `pytest`
+        exits 1 with the answer on stdout, and `git diff --exit-code` exits 1 to mean "yes,
+        there is a diff". Output is capped, stdout and stderr are labelled separately, and a
+        command killed by its timeout still returns whatever it printed first.
+
+        A command that backgrounds something returns as soon as the shell itself exits, not
+        when the backgrounded work finishes: `run_command("./build.sh > log 2>&1 &")` can
+        report `exit 0` and `(no output)` within milliseconds while the build keeps running.
+        Only a run still alive at the timeout gets its whole process group killed; a fast
+        return neither waits for nor cleans up anything left running in the background, and if
+        that background process did not redirect its own output somewhere durable, it was
+        inheriting this call's capture files, in a temp directory already deleted by the time
+        you read the answer.
+
+        Args:
+            command: The command line to run. Interpreted by /bin/sh, so pipes, redirects,
+                globs, and && work (on Windows, by COMSPEC instead, where quoting and glob
+                rules differ).
+            cwd: Directory to run in. Defaults to this process's working directory.
+            timeout: Seconds to allow, clamped to 600.
+        """
+        if cwd and not os.path.isdir(cwd):
+            return f"Error: working directory does not exist: {cwd}"
+
+        timeout_s = max(1, min(int(timeout), _COMMAND_TIMEOUT_MAX_S))
+        result = _run_supervised(
+            _shell_argv(command),
+            stdin_data=None,
+            cwd=cwd or os.getcwd(),
+            env=_command_env(tuple(env_passthrough)),
+            timeout_s=timeout_s,
+            output_limit_bytes=_COMMAND_OUTPUT_LIMIT_BYTES,
+        )
+        return _format_command_result(result, timeout_s, _COMMAND_OUTPUT_LIMIT_BYTES)
+
+    return run_command
+
+
+#: The command tool AIMU's own groups carry: no environment passthrough, so nothing beyond the
+#: allowlist reaches a command. A host wanting more calls `make_command_tool` itself.
+#: No `::: aimu.tools.builtin.run_command` directive in the API reference: this is a module
+#: attribute rather than a `def`, so griffe resolves it as `Kind.ATTRIBUTE` with no docstring,
+#: and the directive would render an empty stub. `docs/reference/api/tools.md` documents it
+#: through `make_command_tool`'s directive instead.
+run_command = make_command_tool()
 
 
 class _TextExtractor(HTMLParser):
@@ -1825,7 +2092,7 @@ def make_web_tools(
 # Curated subsets: pass one of these to ``tools=`` instead of importing every function.
 web = [get_weather, get_webpage, get_webpage_html, web_search, wikipedia]
 fs = [list_directory, read_file]
-compute = [calculate, execute_python]
+compute = [calculate, execute_python, run_command]
 # Grouped apart from ``misc`` because an agent almost always wants a clock regardless of its role: an
 # assistant scoped to filesystem work still has to resolve "by tomorrow morning". Bundled with ``echo``
 # it could only be granted alongside it.
@@ -1887,9 +2154,11 @@ def make_transcription_tool(client):
 
 transcription = [transcribe_audio]
 
-# execute_python (and its explicit in-process opt-in, execute_python_in_process) are
-# excluded from ALL_TOOLS: isolation, not containment, so they're opt-in via
-# builtin.compute or make_tools(allow_code_execution=True).
+# execute_python (and its explicit in-process opt-in, execute_python_in_process) and
+# run_command are excluded from ALL_TOOLS: isolation, not containment, so they're opt-in.
+# execute_python via builtin.compute or make_tools(allow_code_execution=True); run_command
+# via builtin.compute only, since that flag says *code* execution and widening it would
+# hand a shell to every caller already passing it.
 ALL_TOOLS = [
     *misc,
     *time,
