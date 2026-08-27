@@ -591,3 +591,29 @@ def test_close_lets_a_long_lived_client_be_torn_down_deterministically():
     # The portal is released, and a second teardown attempt (including the one __del__ will make) is
     # a no-op rather than a call into a portal that is gone.
     assert client._portal is None
+
+
+def test_read_file_reports_how_much_it_truncated(tmp_path):
+    # A default that silently returns the first pages of a long document is how a model ends up
+    # synthesizing from an introduction; the notice has to say what was left behind.
+    from aimu.tools import builtin
+
+    doc = tmp_path / "paper.md"
+    doc.write_text("\n".join(str(i) for i in range(500)))
+
+    text = builtin.read_file(str(doc), max_lines=10)
+
+    assert "500" in text  # the total line count, so the model knows the size of the gap
+    assert "max_lines" in text  # and how to get the rest
+
+
+def test_read_file_default_reads_a_document_sized_file_whole(tmp_path):
+    from aimu.tools import builtin
+
+    doc = tmp_path / "paper.md"
+    doc.write_text("\n".join(f"line {i}" for i in range(1500)))
+
+    text = builtin.read_file(str(doc))
+
+    assert "line 1499" in text
+    assert "truncated" not in text

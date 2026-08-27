@@ -7,12 +7,16 @@ retrieved via full-text search or exact path lookup.
 
 Persistence modes:
   - Ephemeral (persist_path=None): in-memory dict, lost on process exit.
-  - Persistent (persist_path provided): each document is a file on disk
-    under that directory; path segments map to subdirectories.
+  - Persistent (persist_path provided): the directory *is* the store.  Each
+    document is a file on disk, path segments map to subdirectories, and every
+    read/list/search goes to the filesystem.  A file copied into the directory
+    out-of-band (by a user or another process) is therefore visible
+    immediately, without reconstructing the store.
 """
 
 from __future__ import annotations
 
+import logging
 import os
 import posixpath
 import threading
@@ -20,6 +24,8 @@ import uuid
 from typing import Optional
 
 from aimu.memory.base import MemoryStore, synchronized
+
+logger = logging.getLogger(__name__)
 
 
 class DocumentStore(MemoryStore):
@@ -34,6 +40,13 @@ class DocumentStore(MemoryStore):
     lock, so the in-memory dict and on-disk files stay consistent when the store
     is shared across concurrent threads or turns (``edit`` -> ``read`` + ``write``
     stays atomic).
+
+    With *persist_path* set, the directory is the single source of truth: reads,
+    listings, and searches hit the filesystem on each call, so a document copied
+    into the directory by hand shows up without restarting the process.  Files
+    that are not UTF-8 text (a PDF, a binary artifact) are not documents; they
+    are skipped, with a warning naming the file, and dot-files are ignored
+    outright.
 
     Args:
         persist_path: Root directory for persistent storage.  If *None* the
@@ -51,15 +64,17 @@ class DocumentStore(MemoryStore):
 
     def __init__(self, persist_path: Optional[str] = None):
         self._persist_path = persist_path
-        # Ephemeral backing store; ignored when persist_path is set.
+        # Ephemeral backing store; unused when persist_path is set (disk is authoritative then).
         self._docs: dict[str, str] = {}
+        # Absolute paths already reported as unreadable, so a scan on every list/search call
+        # warns once per file rather than on every turn.
+        self._warned_unreadable: set[str] = set()
         # Serializes the public methods so the in-memory dict + on-disk files stay consistent when the
         # store is shared across concurrent turns (which dispatch sync tools from worker threads).
         # Re-entrant because public methods call each other (edit -> read + write, store -> write).
         self._lock = threading.RLock()
         if persist_path:
             os.makedirs(persist_path, exist_ok=True)
-            self._load_from_disk()
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -70,7 +85,7 @@ class DocumentStore(MemoryStore):
         """Canonicalize a memory path to a single leading slash with forward slashes.
 
         Callers may address a document as ``"foo.md"`` or ``"/foo.md"`` interchangeably, and keys
-        created by :meth:`write` match those rebuilt from disk by :meth:`_load_from_disk` (which
+        created by :meth:`write` match those rebuilt from disk by :meth:`_scan_disk` (which
         always prefixes a slash). ``posixpath.normpath`` also collapses redundant separators and
         resolves ``..`` segments, so a path can't escape the store's namespace.
         """
@@ -82,24 +97,64 @@ class DocumentStore(MemoryStore):
         # Strip leading slash so os.path.join works correctly.
         return os.path.join(self._persist_path, path.lstrip("/"))
 
-    def _load_from_disk(self) -> None:
-        """Walk persist_path and populate the in-memory index.
+    @staticmethod
+    def _is_hidden(path: str) -> bool:
+        """Whether any segment of a memory path is a dot-file or dot-directory.
 
-        Documents are text; a non-UTF-8 file (e.g. a binary artifact that happens to share the
-        directory) is skipped rather than aborting the whole load, so one stray file can't make the
-        store unreadable.
+        ``.DS_Store``, ``.git/``, ``.gitkeep`` and friends share the directory but are not
+        documents anyone placed there, so they are excluded silently rather than listed or
+        reported as unreadable on every scan.
         """
-        for dirpath, _dirnames, filenames in os.walk(self._persist_path):
+        return any(segment.startswith(".") for segment in path.split("/") if segment)
+
+    def _is_document(self, path: str) -> bool:
+        """Whether *path* names a file eligible to be a document in this store."""
+        return not self._is_hidden(path) and os.path.isfile(self._abs_path(path))
+
+    def _read_file(self, abs_file: str) -> Optional[str]:
+        """Return the text of *abs_file*, or *None* if it is not a readable UTF-8 document.
+
+        Documents are text.  A file that is not (a PDF, an image, a partially written file) is
+        skipped rather than aborting the scan, but never silently: it is logged once per path so
+        a document that will never appear is visible to whoever put it there.
+        """
+        try:
+            with open(abs_file, encoding="utf-8") as f:
+                return f.read()
+        except (UnicodeDecodeError, OSError) as exc:
+            if abs_file not in self._warned_unreadable:
+                self._warned_unreadable.add(abs_file)
+                logger.warning("Skipping unreadable document %s: %s", abs_file, exc)
+            return None
+
+    def _scan_disk(self, collect_unreadable: Optional[list[str]] = None) -> dict[str, str]:
+        """Read every document under persist_path into a fresh path -> content mapping.
+
+        Pass *collect_unreadable* to also gather the memory paths of files that exist in the
+        directory but are not readable UTF-8 text.
+        """
+        docs: dict[str, str] = {}
+        for dirpath, dirnames, filenames in os.walk(self._persist_path):
+            # Prune dot-directories in place so os.walk never descends into them.
+            dirnames[:] = [d for d in dirnames if not d.startswith(".")]
             for filename in filenames:
+                if filename.startswith("."):
+                    continue
                 abs_file = os.path.join(dirpath, filename)
                 rel = os.path.relpath(abs_file, self._persist_path)
                 # Normalise to forward-slash memory paths with leading slash.
                 mem_path = self._normalize(rel.replace(os.sep, "/"))
-                try:
-                    with open(abs_file, encoding="utf-8") as f:
-                        self._docs[mem_path] = f.read()
-                except (UnicodeDecodeError, OSError):
+                content = self._read_file(abs_file)
+                if content is None:
+                    if collect_unreadable is not None:
+                        collect_unreadable.append(mem_path)
                     continue
+                docs[mem_path] = content
+        return docs
+
+    def _documents(self) -> dict[str, str]:
+        """Current contents of the store: the directory when persistent, the dict otherwise."""
+        return self._scan_disk() if self._persist_path else dict(self._docs)
 
     def _write_to_disk(self, path: str, content: str) -> None:
         abs_file = self._abs_path(path)
@@ -126,9 +181,12 @@ class DocumentStore(MemoryStore):
             content: Text content to store (≤ 100 KB recommended).
         """
         path = self._normalize(path)
-        self._docs[path] = content
         if self._persist_path:
             self._write_to_disk(path, content)
+            # A path that was unreadable may now be a valid document; let it warn again if not.
+            self._warned_unreadable.discard(self._abs_path(path))
+        else:
+            self._docs[path] = content
 
     @synchronized
     def read(self, path: str) -> str:
@@ -139,6 +197,12 @@ class DocumentStore(MemoryStore):
             KeyError: If no document exists at *path*.
         """
         path = self._normalize(path)
+        if self._persist_path:
+            # Open the one file directly rather than scanning the whole directory.
+            content = self._read_file(self._abs_path(path)) if self._is_document(path) else None
+            if content is None:
+                raise KeyError(path)
+            return content
         if path not in self._docs:
             raise KeyError(path)
         return self._docs[path]
@@ -175,7 +239,7 @@ class DocumentStore(MemoryStore):
         Returns:
             Sorted list of path strings.
         """
-        paths = sorted(self._docs.keys())
+        paths = sorted(self._documents().keys())
         if prefix:
             paths = [p for p in paths if p.startswith(self._normalize(prefix))]
         return paths
@@ -196,10 +260,32 @@ class DocumentStore(MemoryStore):
         query_lower = query.lower()
         matches = [
             {"path": path, "content": content}
-            for path, content in sorted(self._docs.items())
+            for path, content in sorted(self._documents().items())
             if query_lower in path.lower() or query_lower in content.lower()
         ]
         return matches[:n_results]
+
+    @synchronized
+    def unreadable_paths(self) -> list[str]:
+        """Return the paths of files in the store's directory that are not readable as text.
+
+        These are files someone put in the directory that can never become documents (a PDF, a
+        Word export, a binary artifact).  They are excluded from :meth:`list_paths` and
+        :meth:`search_full_text`, so this is what lets a caller tell the difference between "you
+        gave me nothing" and "what you gave me is not text" -- the distinction an agent needs in
+        order to say something useful back.  Dot-files are not reported: they are not documents
+        anyone placed here.
+
+        Rescans the directory; returns ``[]`` for an ephemeral store, which has no directory.
+
+        Returns:
+            Sorted list of memory paths.
+        """
+        if not self._persist_path:
+            return []
+        unreadable: list[str] = []
+        self._scan_disk(collect_unreadable=unreadable)
+        return sorted(unreadable)
 
     # ------------------------------------------------------------------
     # MemoryStore abstract interface
@@ -243,9 +329,11 @@ class DocumentStore(MemoryStore):
             identifier: Memory path of the document to remove.
         """
         identifier = self._normalize(identifier)
-        self._docs.pop(identifier, None)
         if self._persist_path:
             self._delete_from_disk(identifier)
+            self._warned_unreadable.discard(self._abs_path(identifier))
+        else:
+            self._docs.pop(identifier, None)
 
     @synchronized
     def list_all(self) -> list[str]:

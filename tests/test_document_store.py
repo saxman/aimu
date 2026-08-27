@@ -328,3 +328,130 @@ def test_mcp_memory_delete_nonexistent_is_noop(mcp_store):
     document_mcp.memory_write("/a.md", "content")
     document_mcp.memory_delete("/does-not-exist.md")
     assert len(document_mcp.memory_list()) == 1
+
+
+# ---------------------------------------------------------------------------
+# Read-through: with persist_path set, the directory *is* the store, so a file
+# copied in (or removed) out-of-band by a user or another process is visible
+# without reconstructing the store.
+# ---------------------------------------------------------------------------
+
+
+def test_list_paths_sees_file_copied_in_after_construction(tmp_path):
+    store = DocumentStore(persist_path=str(tmp_path))
+    (tmp_path / "handbook.md").write_text("The quarterly target is 40%.")
+
+    assert store.list_paths() == ["/handbook.md"]
+
+
+def test_read_sees_file_copied_in_after_construction(tmp_path):
+    store = DocumentStore(persist_path=str(tmp_path))
+    (tmp_path / "handbook.md").write_text("The quarterly target is 40%.")
+
+    assert store.read("/handbook.md") == "The quarterly target is 40%."
+
+
+def test_search_sees_file_copied_in_after_construction(tmp_path):
+    store = DocumentStore(persist_path=str(tmp_path))
+    (tmp_path / "handbook.md").write_text("The quarterly target is 40%.")
+
+    assert store.search_full_text("quarterly") == [{"path": "/handbook.md", "content": "The quarterly target is 40%."}]
+
+
+def test_read_sees_file_copied_into_subdirectory_after_construction(tmp_path):
+    store = DocumentStore(persist_path=str(tmp_path))
+    (tmp_path / "notes").mkdir()
+    (tmp_path / "notes" / "todo.md").write_text("buy milk")
+
+    assert store.list_paths() == ["/notes/todo.md"]
+    assert store.read("notes/todo.md") == "buy milk"
+
+
+def test_read_sees_content_edited_on_disk_after_construction(tmp_path):
+    store = DocumentStore(persist_path=str(tmp_path))
+    store.write("/doc.md", "version one")
+    (tmp_path / "doc.md").write_text("version two")
+
+    assert store.read("/doc.md") == "version two"
+
+
+def test_list_paths_reflects_file_deleted_from_disk(tmp_path):
+    store = DocumentStore(persist_path=str(tmp_path))
+    store.write("/doc.md", "gone soon")
+    (tmp_path / "doc.md").unlink()
+
+    assert store.list_paths() == []
+    assert len(store) == 0
+    with pytest.raises(KeyError):
+        store.read("/doc.md")
+
+
+def test_ephemeral_store_is_unaffected_by_the_filesystem(tmp_path):
+    # No persist_path: the in-memory dict stays the only source of truth.
+    store = DocumentStore()
+    (tmp_path / "stray.md").write_text("not mine")
+    store.write("/doc.md", "mine")
+
+    assert store.list_paths() == ["/doc.md"]
+
+
+def test_unreadable_file_is_skipped_with_a_warning(tmp_path, caplog):
+    store = DocumentStore(persist_path=str(tmp_path))
+    store.write("/notes.md", "keep me")
+    (tmp_path / "report.pdf").write_bytes(b"%PDF-1.4\n\xe9\xff\x00binary")
+
+    with caplog.at_level("WARNING", logger="aimu.memory.document_store"):
+        paths = store.list_paths()
+
+    assert paths == ["/notes.md"]
+    assert "report.pdf" in caplog.text
+
+
+def test_dot_files_are_ignored_without_warning(tmp_path, caplog):
+    # A .DS_Store / .gitkeep sharing the directory is not a document the user placed there,
+    # so it must not be listed *or* reported as unreadable on every scan.
+    store = DocumentStore(persist_path=str(tmp_path))
+    store.write("/notes.md", "keep me")
+    (tmp_path / ".DS_Store").write_bytes(b"\x00\x01binary")
+
+    with caplog.at_level("WARNING", logger="aimu.memory.document_store"):
+        paths = store.list_paths()
+
+    assert paths == ["/notes.md"]
+    assert caplog.text == ""
+
+
+def test_dot_directories_are_ignored(tmp_path):
+    store = DocumentStore(persist_path=str(tmp_path))
+    (tmp_path / ".git").mkdir()
+    (tmp_path / ".git" / "HEAD").write_text("ref: refs/heads/main")
+    store.write("/notes.md", "keep me")
+
+    assert store.list_paths() == ["/notes.md"]
+
+
+def test_read_refuses_a_dot_file(tmp_path):
+    store = DocumentStore(persist_path=str(tmp_path))
+    (tmp_path / ".secret").write_text("not a document")
+
+    with pytest.raises(KeyError):
+        store.read("/.secret")
+
+
+def test_unreadable_paths_reports_skipped_files(tmp_path):
+    store = DocumentStore(persist_path=str(tmp_path))
+    store.write("/notes.md", "keep me")
+    (tmp_path / "paper.pdf").write_bytes(b"%PDF-1.4\n\xe9\xff\x00binary")
+
+    assert store.unreadable_paths() == ["/paper.pdf"]
+
+
+def test_unreadable_paths_excludes_dot_files(tmp_path):
+    store = DocumentStore(persist_path=str(tmp_path))
+    (tmp_path / ".DS_Store").write_bytes(b"\x00\x01binary")
+
+    assert store.unreadable_paths() == []
+
+
+def test_unreadable_paths_empty_for_ephemeral_store():
+    assert DocumentStore().unreadable_paths() == []

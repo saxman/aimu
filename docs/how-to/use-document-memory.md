@@ -21,6 +21,31 @@ store.list_paths(prefix="/notes/")
 
 Pass `persist_path=None` for ephemeral, in-memory use.
 
+## The directory is the store
+
+With `persist_path` set, that directory *is* the store: every `read`, `list_paths`, and
+`search_full_text` call goes to the filesystem. So you can hand an agent a document by copying a
+file into the directory, and it shows up on the next call, with no restart and no ingest step:
+
+```python
+store = DocumentStore(persist_path="./doc_store")
+# ...copy handbook.md into ./doc_store from anywhere...
+store.list_paths()
+# ['/handbook.md']
+```
+
+Two rules govern what counts as a document:
+
+- **UTF-8 text only.** A PDF, an image, or any other non-text file is skipped and logged at
+  `WARNING` naming the file, so a document that will never appear says so instead of vanishing.
+  Convert it to text (or Markdown) first.
+- **Dot-files and dot-directories are ignored**, silently: `.DS_Store`, `.git/`, `.gitkeep` are
+  not documents anyone placed there.
+
+For a *read-only* folder of reference material, consider `builtin.fs` (`list_directory` +
+`read_file`) instead: no store object, no write surface. `DocumentStore` earns its keep when the
+agent also writes back.
+
 ## Edit existing documents
 
 ```python

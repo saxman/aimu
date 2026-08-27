@@ -257,3 +257,53 @@ def test_list_documents(doc_tools):
     save("/b.md", "two")
     result = list_docs()
     assert "/a.md" in result and "/b.md" in result
+
+
+# ---------------------------------------------------------------------------
+# Document tools: a file the store cannot read must be reported to the model,
+# and a search must not dump whole documents into the context window.
+# ---------------------------------------------------------------------------
+
+
+def test_list_documents_reports_unreadable_files(tmp_path):
+    from aimu.memory import DocumentStore
+    from aimu.tools.builtin import make_document_tools
+
+    store = DocumentStore(persist_path=str(tmp_path))
+    store.write("/notes.md", "keep me")
+    (tmp_path / "paper.pdf").write_bytes(b"%PDF-1.4\n\xe9\xff\x00binary")
+
+    result = _by_name(make_document_tools(store), "list_documents")()
+
+    assert "/notes.md" in result
+    assert "paper.pdf" in result
+    assert "could not be read" in result
+
+
+def test_list_documents_says_nothing_about_unreadable_when_there_are_none(doc_tools):
+    save = _by_name(doc_tools, "save_document")
+    save("/a.md", "one")
+    assert "could not be read" not in _by_name(doc_tools, "list_documents")()
+
+
+def test_search_documents_truncates_a_long_document(doc_tools):
+    save = _by_name(doc_tools, "save_document")
+    search = _by_name(doc_tools, "search_documents")
+    save("/paper.md", "findings " + ("x" * 20000))
+
+    result = search("findings")
+
+    assert len(result) < 5000
+    assert "read_document" in result
+    assert "/paper.md" in result
+
+
+def test_search_documents_does_not_truncate_a_short_document(doc_tools):
+    save = _by_name(doc_tools, "save_document")
+    search = _by_name(doc_tools, "search_documents")
+    save("/note.md", "the gate code is 4242")
+
+    result = search("gate")
+
+    assert "the gate code is 4242" in result
+    assert "read_document" not in result

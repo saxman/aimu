@@ -1,5 +1,67 @@
 # Changelog
 
+## Unreleased
+
+### Memory
+
+- **Fixed** **A persistent `DocumentStore` now reads through to its directory**, so a document
+  copied into `persist_path` by a user or another process is visible immediately. The store used
+  to walk the directory exactly once, in `__init__`, and treat the resulting dict as the source
+  of truth with disk as a write-through mirror that was never re-read. A file placed in the
+  directory after construction was therefore invisible to `read`, `list_paths`, and
+  `search_full_text` for the lifetime of the process, with nothing raised or logged to say so:
+  `list_documents` reported "No documents stored." while the file sat in the directory. The
+  `aimu.memory.document_mcp` server made this worse by building its store at *import* time, so
+  the snapshot was taken before the server could ever be handed anything. Because the store
+  advertises a path-addressed, filesystem-backed namespace, "drop a file in the folder" is the
+  mental model it invites, and it silently did not work. The fix removes the second source of
+  truth rather than adding a `refresh()` a host would have to remember to call (and an agent
+  could never trigger): with `persist_path` set, `read` opens the file, and `list_paths` /
+  `search_full_text` scan the directory, on every call. The in-memory dict remains the backing
+  store only for the ephemeral (`persist_path=None`) mode, where it is the sole source of truth.
+  `document_mcp` needed no change.
+  Tests: `tests/test_document_store.py::test_list_paths_sees_file_copied_in_after_construction`
+  and the six read-through cases beside it.
+- **Changed** **An unreadable file in a persistent store's directory is logged at `WARNING`**
+  naming the file, instead of being skipped in silence (`except (UnicodeDecodeError, OSError):
+  continue`). Documents are UTF-8 text; a PDF or binary artifact sharing the directory still
+  cannot become one, but a file that will never appear now says so, per the "failures are
+  apparent" principle. The warning fires once per path per store instance, since the scan now
+  runs on every list/search call. Dot-files and dot-directories (`.DS_Store`, `.git/`,
+  `.gitkeep`) are excluded silently instead: they are not documents anyone placed there, and
+  warning about them on every scan would be noise.
+  Tests: `tests/test_document_store.py::test_unreadable_file_is_skipped_with_a_warning`,
+  `::test_dot_files_are_ignored_without_warning`.
+
+### Tools
+
+- **Changed** **`list_documents` reports files the store could not read.** The store skips
+  anything that is not UTF-8 text, which is correct, but the agent had no way to know it had
+  happened: a research paper dropped in as a PDF produced the same "No documents stored." as an
+  empty directory, and the model would tell the user there was nothing there. The tool now
+  appends a note naming the unreadable files and saying to export them to Markdown, backed by a
+  new `DocumentStore.unreadable_paths()`. Its docstring also now tells the model to list before
+  concluding a document is absent, since the store is a directory a user can add files to
+  directly. Making the failure apparent in the *log* (see Memory, above) is not enough when the
+  only party who can act on it is on the other side of the model.
+  Tests: `tests/test_memory_tools.py::test_list_documents_reports_unreadable_files`.
+- **Changed** **`search_documents` returns an excerpt per match, not the whole document.** It
+  joined the full text of up to `n_results` (default 5) documents into one tool result, so a
+  single query against a corpus of papers could put hundreds of KB into the context window in
+  one call. Matches longer than 1500 characters are now truncated with their total size and a
+  pointer to `read_document` for the full text, and the docstring directs the model to
+  `read_document` when it needs to analyze rather than locate. Short documents are unchanged.
+  Tests: `tests/test_memory_tools.py::test_search_documents_truncates_a_long_document`.
+- **Changed** **`read_file`'s line cap is 2000 (was 200), and its truncation notice names the
+  total.** 200 lines is under a fifth of a typical research paper or design doc, so the common
+  case was a model reading an introduction and synthesizing from it with no sign anything was
+  missing -- a confident, plausible, wrong answer, which is worse than an error. The notice now
+  reads `truncated: showing N of M lines; call read_file with a larger max_lines to read the
+  rest`, so the model can see the size of the gap and how to close it, and the docstring says
+  not to draw conclusions from a truncated read.
+  Tests: `tests/test_tools.py::test_read_file_reports_how_much_it_truncated`,
+  `::test_read_file_default_reads_a_document_sized_file_whole`.
+
 ## v0.25.0 (2026-08-26): a spawned sub-agent that can report to its caller's sink
 
 ### Tools

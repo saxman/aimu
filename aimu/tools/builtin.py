@@ -1225,12 +1225,15 @@ def list_directory(path: str) -> str:
 
 
 @tool
-def read_file(path: str, max_lines: int = 200) -> str:
+def read_file(path: str, max_lines: int = 2000) -> str:
     """Reads a local file and returns its contents, capped at max_lines lines.
+
+    If the result says it was truncated, call again with a larger max_lines before drawing any
+    conclusion from it: a partial document reads exactly like a complete one.
 
     Args:
         path: Path to the file to read.
-        max_lines: Maximum number of lines to return (default 200).
+        max_lines: Maximum number of lines to return (default 2000).
     """
     p = Path(path)
     if not p.exists():
@@ -1241,10 +1244,14 @@ def read_file(path: str, max_lines: int = 200) -> str:
         lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError as e:
         return f"Error reading file: {e}"
-    truncated = len(lines) > max_lines
     content = "\n".join(lines[:max_lines])
-    if truncated:
-        content += f"\n... (truncated at {max_lines} lines)"
+    if len(lines) > max_lines:
+        # Name the total, so the model can see how much it is missing rather than just that
+        # something was cut, and name the parameter that gets the rest.
+        content += (
+            f"\n... (truncated: showing {max_lines} of {len(lines)} lines; "
+            f"call read_file with a larger max_lines to read the rest)"
+        )
     return content
 
 
@@ -1728,6 +1735,22 @@ def make_retrieval_tool(store, *, n_results: int = 5):
     return retrieve_context
 
 
+# A whole document per match turns one search over a corpus of papers into a context-window
+# flood. Excerpt instead, and name the tool that returns the rest.
+SEARCH_EXCERPT_CHARS = 1500
+
+
+def _excerpt(content: str, path: str) -> str:
+    """Return *content*, or its head plus a pointer to the tool that returns the whole thing."""
+    if len(content) <= SEARCH_EXCERPT_CHARS:
+        return content
+    return (
+        content[:SEARCH_EXCERPT_CHARS]
+        + f"\n... (excerpt of {len(content)} characters; "
+        + f"call read_document('{path}') for the full text)"
+    )
+
+
 def make_document_tools(store):
     """Build ``save_document``, ``read_document``, ``list_documents``, and ``search_documents`` tools.
 
@@ -1770,15 +1793,31 @@ def make_document_tools(store):
 
     @tool
     def list_documents() -> str:
-        """List the paths of all stored documents."""
+        """List the paths of all stored documents.
+
+        Call this before concluding that a document does not exist: the store is a directory the
+        user can add files to directly, so it may hold documents you did not save yourself.
+        """
         paths = store.list_paths()
-        if not paths:
-            return "No documents stored."
-        return "\n".join(f"- {p}" for p in paths)
+        # Files the user placed in the directory that are not text can never become documents.
+        # Reporting them here is the only way the model can tell the user why one is missing.
+        unreadable = store.unreadable_paths() if hasattr(store, "unreadable_paths") else []
+        listing = "\n".join(f"- {p}" for p in paths) if paths else "No documents stored."
+        if unreadable:
+            listing += (
+                f"\n\nNote: {len(unreadable)} file(s) in the document directory could not be read, "
+                "because documents must be UTF-8 text: "
+                + ", ".join(unreadable)
+                + ". Tell the user to export these to Markdown or plain text."
+            )
+        return listing
 
     @tool
     def search_documents(query: str, n_results: int = 5) -> str:
-        """Search stored documents for text relevant to a query.
+        """Search stored documents for a query, returning an excerpt of each match.
+
+        Use this to locate which document discusses something. Long matches are truncated, so
+        call `read_document` on a path when you need to analyze or summarize its full text.
 
         Args:
             query: The text to search for.
@@ -1787,7 +1826,7 @@ def make_document_tools(store):
         matches = store.search_full_text(query, n_results=n_results)
         if not matches:
             return "No matching documents found."
-        return "\n\n".join(f"{m['path']}:\n{m['content']}" for m in matches)
+        return "\n\n".join(f"{m['path']}:\n{_excerpt(m['content'], m['path'])}" for m in matches)
 
     return [save_document, read_document, list_documents, search_documents]
 
