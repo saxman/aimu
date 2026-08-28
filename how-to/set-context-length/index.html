@@ -3384,6 +3384,11 @@ round.</p>
 <a href="../../reference/provider-matrix/"><code>ContextOverflowError</code></a> on Ollama, and a turn cut off before it
 produced anything raises <code>TruncatedTurnError</code>. Both are worth reading as "the window is too small
 for this conversation": raise <code>context_length</code>, shorten the history, or advertise fewer tools.</p>
+<p><code>TruncatedTurnError</code> fires on every provider as of v0.27.0. Before that only Ollama reported the
+signal it reads (<code>client.last_output_truncated</code>), so on the other backends a cut-off turn came back
+as a bare empty string. <code>client.last_stop_reason</code> carries the provider's own word for how the turn
+ended (<code>"length"</code>, <code>"max_tokens"</code>, <code>"stop"</code>, ...) if you want to inspect it directly; <code>None</code> means
+the provider said nothing, which is not the same as "finished normally".</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContextOverflowError</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">try</span><span class="p">:</span>
