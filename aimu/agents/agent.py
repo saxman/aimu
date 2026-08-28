@@ -54,7 +54,10 @@ class Agent(_AgentLoopMixin, Runner):
       the agent sends one forced wrap-up turn with tools disabled, so the model must synthesize an
       answer from the context it has gathered. ``final_answer_prompt`` customizes this wrap-up
       prompt; when unset a built-in default is used. This turn is *not* counted against
-      ``max_iterations``. A natural finish (a real answer) is unaffected.
+      ``max_iterations``. A natural finish (a real answer) is unaffected. The pending calls are
+      first answered with results stating they were not executed and why (logged at ``WARNING``),
+      since the wrap-up prompt is a user message and no provider accepts one on top of an
+      unanswered tool call -- so the transcript stays valid to send, persist, and resume.
     - **Still degenerate after wrap-up.** If even the wrap-up yields no answer, the agent raises
       :class:`~aimu.agents.DegenerateTurnError` rather than returning empty output.
 

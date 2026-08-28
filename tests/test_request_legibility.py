@@ -452,7 +452,7 @@ def _drive_ollama(client_cls, monkeypatch, method, stream, prepare=None):
     return client
 
 
-async def _drive_async_ollama(client_cls, monkeypatch, method, stream):
+async def _drive_async_ollama(client_cls, monkeypatch, method, stream, prepare=None):
     import ollama as ollama_sdk
 
     import aimu.aio.providers.ollama as ollama_mod
@@ -470,6 +470,8 @@ async def _drive_async_ollama(client_cls, monkeypatch, method, stream):
     monkeypatch.setattr(ollama_mod, "truncated_from_ollama", lambda *a, **k: False)
     model = next(iter(client_cls.MODELS))
     client = client_cls(model)
+    if prepare:
+        prepare(client)
     result = await getattr(client, method)("hi", stream=stream)
     if stream:
         async for _ in result:
@@ -477,7 +479,7 @@ async def _drive_async_ollama(client_cls, monkeypatch, method, stream):
     return client
 
 
-def _drive_anthropic(client_cls, monkeypatch, method, stream):
+def _drive_anthropic(client_cls, monkeypatch, method, stream, prepare=None):
     import anthropic as anthropic_sdk
 
     def fake_create(**kw):
@@ -495,13 +497,15 @@ def _drive_anthropic(client_cls, monkeypatch, method, stream):
     )
     model = next(iter(client_cls.MODELS))
     client = client_cls(model)
+    if prepare:
+        prepare(client)
     result = getattr(client, method)("hi", stream=stream)
     if stream:
         list(result)
     return client
 
 
-async def _drive_async_anthropic(client_cls, monkeypatch, method, stream):
+async def _drive_async_anthropic(client_cls, monkeypatch, method, stream, prepare=None):
     import anthropic as anthropic_sdk
 
     async def fake_create(**kw):
@@ -519,6 +523,8 @@ async def _drive_async_anthropic(client_cls, monkeypatch, method, stream):
     )
     model = next(iter(client_cls.MODELS))
     client = client_cls(model)
+    if prepare:
+        prepare(client)
     result = await getattr(client, method)("hi", stream=stream)
     if stream:
         async for _ in result:
@@ -639,6 +645,20 @@ async def test_every_client_records_its_request(client_cls, method, stream, monk
     skipped rather than silently passed, per the rule this test exists to enforce: a
     coverage gap must be visible, not quiet.
     """
+    client = await _drive_any(client_cls, monkeypatch, method, stream)
+    name = client_cls.__name__
+    assert client.last_request is not None, f"{name}.{method}(stream={stream}) recorded nothing on last_request"
+
+
+async def _drive_any(client_cls, monkeypatch, method, stream, prepare=None):
+    """Drive one client through one request path against a stubbed SDK, whichever client it is.
+
+    Shared by every cross-provider test below, so the per-provider stub wiring exists once: a
+    second copy would be one more thing to keep in step, and a provider missing from one copy
+    would silently drop out of that test's coverage rather than failing it. ``pytest.skip`` for
+    the in-process clients lives here for the same reason -- named once, honored everywhere.
+    Awaited unconditionally; the sync drivers just return without suspending.
+    """
     from aimu.aio.providers.openai_compat import AsyncOpenAICompatClient
     from aimu.models.providers.openai_compat import OpenAICompatClient
 
@@ -647,24 +667,21 @@ async def test_every_client_records_its_request(client_cls, method, stream, monk
         pytest.skip(f"{name}: {_IN_PROCESS_SKIP[name]}")
 
     if name == "OllamaClient":
-        client = _drive_ollama(client_cls, monkeypatch, method, stream)
-    elif name == "AnthropicClient":
-        client = _drive_anthropic(client_cls, monkeypatch, method, stream)
-    elif issubclass(client_cls, OpenAICompatClient):
-        client = _drive_openai_compat(client_cls, monkeypatch, method, stream)
-    elif name == "AsyncOllamaClient":
-        client = await _drive_async_ollama(client_cls, monkeypatch, method, stream)
-    elif name == "AsyncAnthropicClient":
-        client = await _drive_async_anthropic(client_cls, monkeypatch, method, stream)
-    elif issubclass(client_cls, AsyncOpenAICompatClient):
-        client = await _drive_async_openai_compat(client_cls, monkeypatch, method, stream)
-    else:
-        raise AssertionError(
-            f"No driver wired for {name} in this guard test -- add one rather than letting "
-            "it silently skip the check this test exists to enforce."
-        )
-
-    assert client.last_request is not None, f"{name}.{method}(stream={stream}) recorded nothing on last_request"
+        return _drive_ollama(client_cls, monkeypatch, method, stream, prepare=prepare)
+    if name == "AnthropicClient":
+        return _drive_anthropic(client_cls, monkeypatch, method, stream, prepare=prepare)
+    if issubclass(client_cls, OpenAICompatClient):
+        return _drive_openai_compat(client_cls, monkeypatch, method, stream, prepare=prepare)
+    if name == "AsyncOllamaClient":
+        return await _drive_async_ollama(client_cls, monkeypatch, method, stream, prepare=prepare)
+    if name == "AsyncAnthropicClient":
+        return await _drive_async_anthropic(client_cls, monkeypatch, method, stream, prepare=prepare)
+    if issubclass(client_cls, AsyncOpenAICompatClient):
+        return await _drive_async_openai_compat(client_cls, monkeypatch, method, stream, prepare=prepare)
+    raise AssertionError(
+        f"No driver wired for {name} in this guard test -- add one rather than letting "
+        "it silently skip the check this test exists to enforce."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -743,3 +760,53 @@ def test_ollama_keeps_tool_call_arguments_parsed_on_the_wire(monkeypatch):
     sent = [tc for message in client.last_request["messages"] for tc in message.get("tool_calls", ())]
     assert sent, "the seeded tool round never reached the payload"
     assert sent[0]["function"]["arguments"] == _TOOL_ARGUMENTS
+
+
+# ---------------------------------------------------------------------------
+# Prose emitted in the same turn as a tool call.
+#
+# A single generation can carry both, and `_record_tool_calls` stores both deliberately.
+# Whether it survives to the wire is per-provider, because it is the request-side format
+# adaptation that can drop it: a provider that re-formats messages has to carry the prose
+# across, and one that forwards OpenAI-shaped messages carries it for free. Checked over
+# every installed client rather than the one that got this wrong, since "which providers
+# re-format" is exactly the question a reader has here.
+# ---------------------------------------------------------------------------
+
+_PROSE = "I need two searches to answer this."
+
+
+def _seed_tool_round_with_prose(client) -> None:
+    """A completed tool round whose assistant turn also carried prose, as the store holds it."""
+    client._record_tool_calls([{"name": "web_search", "arguments": {"query": "aimu"}}], content=_PROSE)
+    stored = client.messages[-1]
+    assert stored.get("content") == _PROSE, "the store no longer keeps prose beside tool_calls"
+    client.messages.append({"role": "tool", "tool_call_id": stored["tool_calls"][0]["id"], "content": "1. a result"})
+
+
+# Only the chat paths: generate() sends a single prompt and ignores stored history, so it has
+# no prose to carry and a parametrized skip there would be noise.
+_CHAT_PATHS = [(method, stream) for method, stream in _PATHS if method == "chat"]
+
+
+@pytest.mark.parametrize("method,stream", _CHAT_PATHS, ids=[f"{m}-{'stream' if s else 'sync'}" for m, s in _CHAT_PATHS])
+@pytest.mark.parametrize("client_cls", _clients_to_check(), ids=lambda c: c.__name__)
+async def test_prose_beside_a_tool_call_reaches_the_wire(client_cls, method, stream, monkeypatch):
+    """Dropping it loses the model's stated reason for the call from every later turn, silently.
+
+    Anthropic's adapter did exactly that: its ``"tool_calls" in msg`` branch built only
+    ``tool_use`` blocks and never read ``msg["content"]``. Nothing raised, and the loss compounds
+    -- the reasoning is gone from the request that follows, and from every request after that.
+    Parametrized over ``_clients_to_check()`` so a provider added later is covered without a list
+    to remember, and over both request paths, since each builds its own ``messages`` argument.
+
+    Asserted on the serialized payload rather than a per-provider block path: the shapes differ
+    legitimately (Anthropic wants a text block, the OpenAI-shaped providers a ``content`` string),
+    and "the prose is somewhere in what we sent" is the claim that holds for all of them.
+    """
+    client = await _drive_any(client_cls, monkeypatch, method, stream, prepare=_seed_tool_round_with_prose)
+    payload = json.dumps(client.last_request["messages"], default=str)
+    assert _PROSE in payload, (
+        f"{client_cls.__name__}.{method}(stream={stream}) dropped the prose the model emitted "
+        f"alongside its tool call. Sent: {payload[:400]}"
+    )

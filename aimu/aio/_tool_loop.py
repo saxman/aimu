@@ -177,6 +177,9 @@ class _AsyncToolLoop(_BaseToolLoop):
                 if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
                     iteration += 1
                     self._current_iteration = iteration
+                    # Before injected_at is read: the wrap-up prompt must still be the message at
+                    # that index for _tag_injected to find (it tags a user message and nothing else).
+                    self._settle_pending_tools()
                     self._maybe_compact()
                     injected_at = len(self._client.messages)
                     stream = await self._client.chat(
@@ -214,6 +217,9 @@ class _AsyncToolLoop(_BaseToolLoop):
         # made (this branch): the healthy check above already returned without one, so
         # self._current_iteration must stay put and keep pointing at that last real turn.
         self._current_iteration += 1
+        # Before injected_at is read: the wrap-up prompt must still be the message at that
+        # index for _tag_injected to find (it tags a user message and nothing else).
+        self._settle_pending_tools()
         self._maybe_compact()
         injected_at = len(self._client.messages)
         response = await self._client.chat(

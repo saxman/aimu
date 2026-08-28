@@ -261,6 +261,64 @@ class _BaseToolLoop:
         if 0 <= index < len(messages) and messages[index].get("role") == "user":
             messages[index][PROVENANCE_KEY] = provenance
 
+    def _settle_pending_tools(self) -> None:
+        """Answer any tool call the loop is about to walk away from, so the transcript stays valid.
+
+        ``chat()`` is single-turn: it records the assistant turn's ``tool_calls`` and leaves
+        execution to the loop. So reaching the round cap on a turn that requested tools leaves
+        those calls with no results, and the forced wrap-up's prompt is a *user* message. Appending
+        it there produces a transcript every tool-calling provider rejects: Anthropic answers 400
+        ``tool_use ids were found without tool_result blocks immediately after``, and OpenAI
+        requires an assistant ``tool_calls`` message be followed by tool messages. Called before
+        each wrap-up, this closes the pending calls with synthesized results instead, which keeps
+        the transcript valid for the wrap-up request *and* for every later resume or export of it.
+
+        The result says the call was not executed, rather than standing in for a plausible one:
+        the model is about to write a final answer, and a blank or invented result would let it
+        report as gathered what was never fetched.
+
+        No event is emitted. ``ToolDenied`` is the nearest fit in shape but means an approval
+        policy refused the call, and a sink cannot tell a real denial from this one if both use it;
+        the ``WARNING`` is what keeps the synthesis from being silent, matching
+        :meth:`_maybe_compact`'s unconditional log for the other place the loop rewrites history.
+
+        Deliberately not routed through :meth:`_pending`, whose scan walks back past an empty
+        terminal turn to an *older*, already-answered tool turn. That is harmless where it is used
+        (only ever called on a turn already classified as pending tools) and would be a bug here,
+        since this also runs on the empty-turn path and would synthesize a duplicate result for a
+        call that really did run.
+        """
+        answered: set[str] = set()
+        tool_calls: list[dict] = []
+        # The trailing run of tool results, then the single message before it: a mid-dispatch turn
+        # has some results appended already, and only the calls missing from that run are stranded.
+        for msg in reversed(self._client.messages):
+            if msg.get("role") == "tool":
+                answered.add(msg["tool_call_id"])
+                continue
+            if msg.get("role") == "assistant":
+                tool_calls = msg.get("tool_calls") or []
+            break
+        stranded = [tc for tc in tool_calls if tc["id"] not in answered]
+        if not stranded:
+            return
+        logger.warning(
+            "Reached the tool-use limit with %d tool call(s) still pending (%s); recording them as "
+            "not executed so the forced wrap-up has a valid transcript.",
+            len(stranded),
+            ", ".join(tc["function"]["name"] for tc in stranded),
+        )
+        for tc in stranded:
+            name = tc["function"]["name"]
+            self._client._append_message(
+                {
+                    "role": "tool",
+                    "name": name,
+                    "content": f"Tool '{name}' was not executed: the tool-use limit for this task was reached.",
+                    "tool_call_id": tc["id"],
+                }
+            )
+
     def _wrap_up_prompt(self) -> str:
         """The forced tools-disabled wrap-up prompt: the configured one, else the built-in default."""
         return self._final_answer_prompt or DEFAULT_WRAP_UP_PROMPT
@@ -502,6 +560,9 @@ class _ToolLoop(_BaseToolLoop):
                 if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
                     iteration += 1
                     self._current_iteration = iteration
+                    # Before injected_at is read: the wrap-up prompt must still be the message at
+                    # that index for _tag_injected to find (it tags a user message and nothing else).
+                    self._settle_pending_tools()
                     self._maybe_compact()
                     injected_at = len(self._client.messages)
                     yield from self._retag(
@@ -541,6 +602,9 @@ class _ToolLoop(_BaseToolLoop):
         # made (this branch): the healthy check above already returned without one, so
         # self._current_iteration must stay put and keep pointing at that last real turn.
         self._current_iteration += 1
+        # Before injected_at is read: the wrap-up prompt must still be the message at that
+        # index for _tag_injected to find (it tags a user message and nothing else).
+        self._settle_pending_tools()
         self._maybe_compact()
         injected_at = len(self._client.messages)
         response = self._client.chat(

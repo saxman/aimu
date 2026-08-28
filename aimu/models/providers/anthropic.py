@@ -398,7 +398,8 @@ class AnthropicClient(BaseModelClient):
           system message          → extracted to system= param
           user text               → {"role": "user", "content": "..."}  (unchanged)
           assistant text          → {"role": "assistant", "content": [{"type": "text", "text": "..."}]}
-          assistant tool_calls    → {"role": "assistant", "content": [{"type": "tool_use", ...}]}
+          assistant tool_calls    → {"role": "assistant", "content": [{"type": "tool_use", ...}]},
+                                    preceded by a text block when the turn also carried prose
           run of tool results     → single {"role": "user", "content": [{"type": "tool_result", ...}]}
         """
         system_str = ""
@@ -427,7 +428,12 @@ class AnthropicClient(BaseModelClient):
 
             elif role == "assistant":
                 if "tool_calls" in msg:
-                    blocks = []
+                    # A turn can carry both prose and tool calls, and _append_assistant_tool_calls
+                    # stores the prose deliberately; dropping it here would silently lose the
+                    # model's stated reason for the call from every later request. Skipped when
+                    # blank, since the API rejects an empty text block.
+                    text = msg.get("content") or ""
+                    blocks = [{"type": "text", "text": text}] if text.strip() else []
                     for tc in msg["tool_calls"]:
                         args = tc["function"]["arguments"]
                         if isinstance(args, str):

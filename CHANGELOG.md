@@ -2,6 +2,51 @@
 
 ## Unreleased
 
+### Agents
+
+- **Fixed** **The forced wrap-up no longer strands an un-dispatched tool call**, which made every
+  Anthropic run that reached its round cap mid-search fail with a 400 instead of an answer.
+  `chat()` is single-turn: it records the assistant turn's `tool_calls` and leaves execution to the
+  loop. So exhausting `max_iterations` on a turn that requested tools left those calls unanswered,
+  and the wrap-up's prompt is a *user* message, appended directly on top of them. That transcript is
+  invalid for every tool-calling provider: Anthropic rejects it with ``messages.N: `tool_use` ids
+  were found without `tool_result` blocks immediately after``, and OpenAI requires an assistant
+  `tool_calls` message be followed by tool messages. All four wrap-up sites were affected (`run` and
+  `run_streamed`, sync and async), so the bug was invisible to the surface-parity tests: both
+  surfaces were equally wrong. Search-heavy sub-agents are what hit it in practice, being the shape
+  of run that spends every round calling tools and so the one still holding a pending call when the
+  cap lands. `_BaseToolLoop._settle_pending_tools` now closes the stranded calls with results
+  stating they were not executed and why, logged at `WARNING` rather than emitted as an event
+  (`ToolDenied` is the nearest fit in shape but means an approval policy refused the call, and a
+  sink cannot tell a real denial from a synthesized one if both use it). The result says the call
+  did not run rather than standing in for a plausible one, since the model is about to write a final
+  answer and a blank or invented result would let it report as gathered what was never fetched. The
+  fix is in the transcript, not in a provider's adapter, because the transcript is what is
+  persisted, exported, and resumed: patching one converter at request time would leave the same
+  latent defect for every other provider.
+  Tests: `tests/test_pending_tools_wrap_up.py` (all four surfaces, plus the empty-terminal-turn case
+  that must *not* gain a duplicate result).
+
+### Models
+
+- **Fixed** **The Anthropic adapter keeps prose a model emitted alongside a tool call.**
+  `_openai_messages_to_anthropic` took its `"tool_calls" in msg` branch and built only `tool_use`
+  blocks, never reading `msg["content"]` -- which `_append_assistant_tool_calls` stores deliberately,
+  because a single generation can carry both. Every later request in the conversation therefore
+  dropped the model's own stated reason for the call, silently and with nothing raised. The branch
+  now emits a leading text block when that content is non-blank, and still omits it when blank,
+  since the API rejects an empty text block. Anthropic was the only provider affected, and that is
+  now checked rather than asserted: the providers that forward OpenAI-shaped messages
+  (openai_compat and everything built on it, including Gemini via Google's compatible endpoint,
+  plus Ollama, whose adapter only rewrites vision blocks) carry the prose for free, and only a
+  provider that re-formats messages can drop it.
+  Tests: `tests/test_request_legibility.py::test_prose_beside_a_tool_call_reaches_the_wire`, over
+  every installed client on both surfaces and both chat paths, so a provider added later is covered
+  without a list to remember;
+  `tests/test_pending_tools_wrap_up.py::test_anthropic_keeps_assistant_prose_emitted_alongside_tool_calls`
+  and `::test_anthropic_omits_an_empty_text_block_when_a_tool_call_carries_no_prose` for the
+  adapter's two branches directly.
+
 ### Memory
 
 - **Fixed** **A persistent `DocumentStore` now reads through to its directory**, so a document
