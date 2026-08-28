@@ -29,6 +29,35 @@
 
 ### Models
 
+- **Changed** **Opus 4.6 and Sonnet 4.6 now use adaptive thinking**, not the deprecated
+  `{"type": "enabled", "budget_tokens": N}` shape. Anthropic deprecated manual extended thinking on
+  that line, says it "will be removed in a future release", and reports adaptive as measurably
+  better; AIMU was sending the shape with the removal date on it by default. What changes on the
+  wire, for Sonnet 4.6:
+
+  | Call | Before | After |
+  | --- | --- | --- |
+  | `thinking=None` (the default) | `{"type": "enabled", "budget_tokens": 8000}` | `{"type": "adaptive", "display": "summarized"}` |
+  | `thinking="low"` | `budget_tokens: 2048` | adaptive + `output_config {"effort": "low"}` |
+  | `thinking="high"` | `budget_tokens: 16000` | adaptive + `output_config {"effort": "high"}` |
+  | `thinking=False` | no `thinking` key | `{"type": "disabled"}` |
+  | `thinking=False, temperature=0.2` | `extra_body {"temperature": 0.2}` | unchanged |
+  | `generate_kwargs={"thinking_budget_tokens": N}` | honoured | dropped, with a warning |
+
+  The first row is the behavioral change worth reading twice: the model now decides how much to
+  think rather than always reasoning up to 8000 tokens. `"high"` maps to `"high"` rather than
+  `xhigh` on this line, which has no `xhigh` -- the mapping rule is "the rung below `max`", and
+  here that is `high`.
+  **Haiku 4.5 is untouched** and is now the only `ThinkingStyle.ENABLED` member, so it is also the
+  only place `thinking_budget_tokens` still does anything; elsewhere it is dropped with a warning
+  naming `thinking=` as the replacement, rather than silently as before.
+  One internal fact had to be split for this: `_route_sampling_kwargs` used "is adaptive" as a
+  proxy for "rejects `temperature`/`top_p`/`top_k`", and the 4.6 line is adaptive *and* accepts
+  sampling parameters. The proxy is now an explicit `_REJECTS_SAMPLING` set, so moving a model's
+  request shape can no longer silently change which sampling parameters it sends.
+  Design: `docs/superpowers/specs/2026-08-28-anthropic-4-6-adaptive-design.md`.
+  Tests: `tests/test_thinking_control.py`.
+
 - **New** **`thinking="low"/"medium"/"high"` now steers Anthropic's adaptive models**, via
   `output_config.effort`. Five of the eight `AnthropicModel` members declared
   `thinking_levels=True` and then dropped the level with a warning -- the declaration existed only

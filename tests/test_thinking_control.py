@@ -516,9 +516,11 @@ def _anthropic_kwargs(monkeypatch, model, thinking, generate_kwargs=None):
 
 
 def test_anthropic_maps_a_level_to_a_token_budget(monkeypatch):
+    """Haiku 4.5 is the last ENABLED-style model: it errors on output_config.effort, so a level
+    still becomes a token budget there. The 4.6 line moved to adaptive + effort."""
     from aimu.models.providers.anthropic import AnthropicModel
 
-    kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_SONNET_4_6, "low")
+    kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_HAIKU_4_5, "low")
 
     assert kwargs["thinking"] == {"type": "enabled", "budget_tokens": 2048}
     assert THINKING_KWARG not in kwargs
@@ -528,7 +530,7 @@ def test_anthropic_thinking_off_sends_no_thinking_block(monkeypatch):
     from aimu.models.providers.anthropic import AnthropicModel
 
     kwargs = _anthropic_kwargs(
-        monkeypatch, AnthropicModel.CLAUDE_SONNET_4_6, False, generate_kwargs={"temperature": 0.3}
+        monkeypatch, AnthropicModel.CLAUDE_HAIKU_4_5, False, generate_kwargs={"temperature": 0.3}
     )
 
     assert "thinking" not in kwargs
@@ -545,7 +547,7 @@ def test_anthropic_thinking_off_keeps_top_p(monkeypatch):
     survive untouched, mirroring the temperature test above."""
     from aimu.models.providers.anthropic import AnthropicModel
 
-    kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_SONNET_4_6, False, generate_kwargs={"top_p": 0.9})
+    kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_HAIKU_4_5, False, generate_kwargs={"top_p": 0.9})
 
     assert "thinking" not in kwargs
     assert kwargs["extra_body"]["top_p"] == 0.9
@@ -556,7 +558,7 @@ def test_anthropic_none_still_drops_top_p(monkeypatch):
     conflicts with extended thinking and must still be dropped."""
     from aimu.models.providers.anthropic import AnthropicModel
 
-    kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_SONNET_4_6, None, generate_kwargs={"top_p": 0.9})
+    kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_HAIKU_4_5, None, generate_kwargs={"top_p": 0.9})
 
     assert "top_p" not in kwargs
 
@@ -587,16 +589,84 @@ def test_anthropic_adaptive_emits_no_effort_when_no_level_was_asked_for(monkeypa
         assert "output_config" not in kwargs
 
 
-@pytest.mark.parametrize("model_name", ["CLAUDE_SONNET_4_6", "CLAUDE_HAIKU_4_5", "CLAUDE_OPUS_4_6"])
-def test_anthropic_budget_models_are_untouched_by_the_effort_path(monkeypatch, model_name):
-    """Additive: Haiku 4.5 errors on effort outright, and the 4.6 line keeps its token budget
-    until that migration is taken deliberately. Only members declaring effort_levels emit one."""
+def test_anthropic_haiku_is_untouched_by_the_effort_path(monkeypatch):
+    """Haiku 4.5 errors on output_config.effort, so it declares no vocabulary and keeps budgets.
+    It is the only ENABLED-style member left after the 4.6 line moved to adaptive."""
     from aimu.models.providers.anthropic import AnthropicModel
 
-    kwargs = _anthropic_kwargs(monkeypatch, getattr(AnthropicModel, model_name), "low")
+    kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_HAIKU_4_5, "low")
 
     assert kwargs["thinking"] == {"type": "enabled", "budget_tokens": 2048}
     assert "output_config" not in kwargs
+
+
+@pytest.mark.parametrize("model_name", ["CLAUDE_OPUS_4_6", "CLAUDE_SONNET_4_6"])
+def test_anthropic_4_6_line_is_adaptive(monkeypatch, model_name):
+    """Anthropic deprecated the enabled+budget_tokens shape on this line and will remove it."""
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    for thinking in (None, True):
+        kwargs = _anthropic_kwargs(monkeypatch, getattr(AnthropicModel, model_name), thinking)
+
+        assert kwargs["thinking"] == {"type": "adaptive", "display": "summarized"}
+        assert "output_config" not in kwargs
+
+
+@pytest.mark.parametrize("model_name", ["CLAUDE_OPUS_4_6", "CLAUDE_SONNET_4_6"])
+def test_anthropic_4_6_line_has_no_xhigh(monkeypatch, model_name):
+    """xhigh arrived with Opus 4.7, so thinking="high" lands on this line's top routine rung.
+
+    That coincides with Anthropic's default, which looks like the no-op the mapping rule exists to
+    avoid -- but the rule is "the rung below max", and here that rung is "high".
+    """
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    kwargs = _anthropic_kwargs(monkeypatch, getattr(AnthropicModel, model_name), "high")
+
+    assert kwargs["output_config"] == {"effort": "high"}
+
+
+@pytest.mark.parametrize("model_name", ["CLAUDE_OPUS_4_6", "CLAUDE_SONNET_4_6"])
+def test_anthropic_4_6_line_keeps_its_sampling_parameters(monkeypatch, model_name):
+    """The regression guard for the fact this migration had to split apart.
+
+    _route_sampling_kwargs used "is adaptive" as a proxy for "rejects temperature/top_p/top_k".
+    Reclassifying this line made the proxy false: 4.6 is adaptive *and* accepts sampling.
+    """
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    kwargs = _anthropic_kwargs(
+        monkeypatch, getattr(AnthropicModel, model_name), False, generate_kwargs={"temperature": 0.2}
+    )
+
+    assert kwargs["thinking"] == {"type": "disabled"}
+    assert kwargs["extra_body"] == {"temperature": 0.2}
+
+
+@pytest.mark.parametrize("model_name", ["CLAUDE_OPUS_5", "CLAUDE_SONNET_5", "CLAUDE_OPUS_4_7"])
+def test_anthropic_4_7_line_still_rejects_sampling(monkeypatch, model_name):
+    """The other side of the same split: these genuinely 400 on a sampling parameter."""
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    kwargs = _anthropic_kwargs(
+        monkeypatch, getattr(AnthropicModel, model_name), False, generate_kwargs={"temperature": 0.2}
+    )
+
+    assert "extra_body" not in kwargs
+
+
+def test_anthropic_dropped_thinking_budget_is_not_silent(monkeypatch, caplog):
+    """thinking_budget_tokens now applies to Haiku 4.5 alone. Dropping a parameter the caller
+    explicitly set has to be said out loud, or the escape hatch just stops working."""
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    with caplog.at_level("WARNING"):
+        kwargs = _anthropic_kwargs(
+            monkeypatch, AnthropicModel.CLAUDE_SONNET_4_6, True, generate_kwargs={"thinking_budget_tokens": 3000}
+        )
+
+    assert "thinking_budget_tokens" not in kwargs
+    assert any("thinking_budget_tokens is ignored" in r.message for r in caplog.records)
 
 
 def test_anthropic_a_callers_own_effort_outranks_the_derived_one(monkeypatch):
@@ -714,7 +784,7 @@ def test_anthropic_fable_5_cannot_be_disabled(monkeypatch, caplog):
 def test_anthropic_none_keeps_current_behavior(monkeypatch):
     from aimu.models.providers.anthropic import AnthropicModel
 
-    kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_SONNET_4_6, None)
+    kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_HAIKU_4_5, None)
 
     assert kwargs["thinking"] == {"type": "enabled", "budget_tokens": 8000}
 
@@ -1147,7 +1217,7 @@ def test_anthropic_explicit_budget_wins_over_a_level(monkeypatch):
     from aimu.models.providers.anthropic import AnthropicClient, AnthropicModel
 
     monkeypatch.setattr(anthropic_sdk, "Anthropic", lambda **kw: types.SimpleNamespace())
-    client = AnthropicClient(AnthropicModel.CLAUDE_SONNET_4_6)
+    client = AnthropicClient(AnthropicModel.CLAUDE_HAIKU_4_5)
 
     kwargs = client._apply_thinking({"max_tokens": 20000, "thinking_budget_tokens": 12000}, "low")
     kwargs = client._thinking_kwargs(client._resolve_generate_kwargs(kwargs))

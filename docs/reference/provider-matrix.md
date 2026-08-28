@@ -179,7 +179,7 @@ override you where an API demands it (see the notes below).
 ## Notes per provider
 
 - **`OpenAIClient`** overrides `_rewrite_generate_kwargs` for o-series models (o1/o3/o4): renames `max_tokens → max_completion_tokens`, forces `temperature=1`, and drops `top_p` (the o-series exposes no sampling control).
-- **`AnthropicClient`** stores `self.messages` in OpenAI format; conversion to Anthropic's format happens at request time. Thinking is native (not `<think>` tag parsing), built per the model's `ThinkingStyle`: `enabled` (`{"type": "enabled", "budget_tokens": N}`) for Opus 4.6 / Sonnet 4.6 / Haiku 4.5, or `adaptive` (`{"type": "adaptive", "display": "summarized"}`, sampling params dropped) for Opus 4.7+ / Sonnet 5 / Fable 5. See the [model matrix](model-matrix.md#anthropic-anthropicmodel).
+- **`AnthropicClient`** stores `self.messages` in OpenAI format; conversion to Anthropic's format happens at request time. Thinking is native (not `<think>` tag parsing), built per the model's `ThinkingStyle`: `enabled` (`{"type": "enabled", "budget_tokens": N}`) for Haiku 4.5 alone, or `adaptive` (`{"type": "adaptive", "display": "summarized"}`) for every other member. Sampling parameters are dropped on Opus 4.7 and later, which reject them outright; the 4.6 line is adaptive and still accepts them. See the [model matrix](model-matrix.md#anthropic-anthropicmodel).
 
 !!! note "Thinking control per provider"
     The portable [`thinking=`](../how-to/control-thinking.md) parameter reaches each backend
@@ -189,7 +189,7 @@ override you where an API demands it (see the notes below).
     |---|---|---|
     | `OllamaClient` | `think=False` | `think="low"/"medium"/"high"` |
     | OpenAI-compat local servers | `extra_body={"chat_template_kwargs": {"enable_thinking": False}}` | `reasoning_effort`, with `high` sent as Qwen's `xhigh` |
-    | `AnthropicClient` | `{"type": "disabled"}` on the adaptive models, omits the parameter on the rest; Fable 5 cannot be turned off | `output_config.effort` on Opus 4.7+ / Sonnet 5 / Fable 5 (`high` sent as `xhigh`); `budget_tokens` 2048 / 8000 / 16000 on Opus 4.6 / Sonnet 4.6 / Haiku 4.5 |
+    | `AnthropicClient` | `{"type": "disabled"}`, except Haiku 4.5 which omits the parameter; Fable 5 cannot be turned off | `output_config.effort` (`high` sent as `xhigh` where the model has it); `budget_tokens` 2048 / 8000 / 16000 on Haiku 4.5 |
     | `HuggingFaceClient` | `enable_thinking=False` template kwarg | `reasoning_effort` template kwarg |
     | `LlamaCppClient`, `OpenAIClient`, `GeminiClient` | nothing emitted | nothing emitted |
 

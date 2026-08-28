@@ -34,9 +34,9 @@ per-provider mechanisms.
 | `CLAUDE_OPUS_5` ◆ | `claude-opus-5` | ✅ | ✅ (adaptive, effort) | ✅ |
 | `CLAUDE_OPUS_4_8` ◆ | `claude-opus-4-8` | ✅ | ✅ (adaptive, effort) | ✅ |
 | `CLAUDE_OPUS_4_7` ◆ | `claude-opus-4-7` | ✅ | ✅ (adaptive, effort) | ✅ |
-| `CLAUDE_OPUS_4_6` ◆ | `claude-opus-4-6` | ✅ | ✅ (budget) | ✅ |
+| `CLAUDE_OPUS_4_6` ◆ | `claude-opus-4-6` | ✅ | ✅ (adaptive, effort) | ✅ |
 | `CLAUDE_SONNET_5` ◆ | `claude-sonnet-5` | ✅ | ✅ (adaptive, effort) | ✅ |
-| `CLAUDE_SONNET_4_6` ◆ | `claude-sonnet-4-6` | ✅ | ✅ (budget) | ✅ |
+| `CLAUDE_SONNET_4_6` ◆ | `claude-sonnet-4-6` | ✅ | ✅ (adaptive, effort) | ✅ |
 | `CLAUDE_HAIKU_4_5` ◆ | `claude-haiku-4-5` | ✅ | ✅ (budget) | ✅ |
 <!-- /generated -->
 

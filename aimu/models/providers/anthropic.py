@@ -36,9 +36,18 @@ _ADAPTIVE_THINKING_MAX_TOKENS_FLOOR = 4096
 # so thinking="medium" and thinking=None agree.
 _THINKING_BUDGETS = {"low": 2048, "medium": _DEFAULT_THINKING_BUDGET, "high": 16000}
 
-# The effort vocabulary of Opus 4.7 and later. Declared on the members that accept it, so the
-# mapping below can read what a given model actually takes rather than assuming one set.
+# The effort vocabularies, declared on the members that accept them so the mapping below can read
+# what a given model actually takes rather than assuming one set. "xhigh" arrived with Opus 4.7.
 _EFFORT_LEVELS_4_7 = ("low", "medium", "high", "xhigh", "max")
+_EFFORT_LEVELS_4_6 = ("low", "medium", "high", "max")
+
+# Opus 4.7 and later reject temperature/top_p/top_k outright, thinking or not; the 4.6 line and
+# Haiku 4.5 still accept them. A model fact rather than a request shape, so it cannot be read off
+# ThinkingStyle: the 4.6 line is adaptive *and* takes sampling parameters. Kept provider-local
+# (like ThinkingStyle) rather than promoted to ModelSpec, since no other provider has the quirk.
+_REJECTS_SAMPLING = frozenset(
+    {"claude-fable-5", "claude-opus-5", "claude-opus-4-8", "claude-opus-4-7", "claude-sonnet-5"}
+)
 
 # Effort values AIMU will not pair with disabled thinking: Opus 5 rejects that combination with a
 # 400, and validates the two independently on every request, so it cannot be settled per client.
@@ -146,8 +155,17 @@ class AnthropicModel(Model):
         ),
         ThinkingStyle.ADAPTIVE,
     )
-    CLAUDE_OPUS_4_6 = ModelSpec(
-        "claude-opus-4-6", tools=True, thinking=True, vision=True, structured_output=True, thinking_levels=True
+    CLAUDE_OPUS_4_6 = (
+        ModelSpec(
+            "claude-opus-4-6",
+            tools=True,
+            thinking=True,
+            vision=True,
+            structured_output=True,
+            thinking_levels=True,
+            effort_levels=_EFFORT_LEVELS_4_6,
+        ),
+        ThinkingStyle.ADAPTIVE,
     )
     CLAUDE_SONNET_5 = (
         ModelSpec(
@@ -161,8 +179,17 @@ class AnthropicModel(Model):
         ),
         ThinkingStyle.ADAPTIVE,
     )
-    CLAUDE_SONNET_4_6 = ModelSpec(
-        "claude-sonnet-4-6", tools=True, thinking=True, vision=True, structured_output=True, thinking_levels=True
+    CLAUDE_SONNET_4_6 = (
+        ModelSpec(
+            "claude-sonnet-4-6",
+            tools=True,
+            thinking=True,
+            vision=True,
+            structured_output=True,
+            thinking_levels=True,
+            effort_levels=_EFFORT_LEVELS_4_6,
+        ),
+        ThinkingStyle.ADAPTIVE,
     )
     CLAUDE_HAIKU_4_5 = ModelSpec(
         "claude-haiku-4-5", tools=True, thinking=True, vision=True, structured_output=True, thinking_levels=True
@@ -430,10 +457,10 @@ class AnthropicClient(BaseModelClient):
         resolved = kwargs.get(THINKING_KWARG)
         thinking_off_this_call = resolved is not None and not resolved.enabled
         thinking_in_effect = self.is_thinking_model and not thinking_off_this_call
-        adaptive = getattr(self.model, "thinking_style", ThinkingStyle.ENABLED) is ThinkingStyle.ADAPTIVE
+        rejects_sampling = self.model.value in _REJECTS_SAMPLING
 
         sampling = {key: kwargs.pop(key) for key in self._SAMPLING_KWARGS if key in kwargs}
-        if sampling and not (thinking_in_effect or adaptive):
+        if sampling and not (thinking_in_effect or rejects_sampling):
             kwargs["extra_body"] = {**kwargs.get("extra_body", {}), **sampling}
         return kwargs
 
@@ -472,9 +499,18 @@ class AnthropicClient(BaseModelClient):
         """Build the thinking parameter for an ADAPTIVE-style model (see :class:`ThinkingStyle`).
 
         These models reject ``budget_tokens`` whether or not the request asks them to think; the
-        sampling parameters they also reject are dropped earlier, by ``_route_sampling_kwargs``.
+        sampling parameters some of them also reject are dropped earlier, by
+        ``_route_sampling_kwargs``.
         """
-        kwargs.pop("thinking_budget_tokens", None)
+        if kwargs.pop("thinking_budget_tokens", None) is not None:
+            # Dropping a parameter the caller explicitly set has to be said out loud. Since the
+            # 4.6 line moved to this branch, Haiku 4.5 is the only model where the escape hatch
+            # still does anything, and a caller reaching for it elsewhere would otherwise see
+            # nothing happen.
+            self._warn_once(
+                f"{self.model.value} has no thinking budget parameter; thinking_budget_tokens is "
+                "ignored. Use thinking='low'/'medium'/'high' to steer effort instead."
+            )
 
         if resolved is not None and not resolved.enabled:
             # Omission is not "off" here the way it is for the ENABLED style: an absent parameter

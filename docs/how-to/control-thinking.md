@@ -63,14 +63,14 @@ though the caller asked to skip them.
 | Ollama native | `think=False` | `think="low"/"medium"/"high"` (its SDK already accepts this exact vocabulary) |
 | OpenAI-compat local servers (vLLM, SGLang, LM Studio, Ollama-OpenAI, oMLX, HF-Serve, llama-server) | `extra_body={"chat_template_kwargs": {"enable_thinking": False}}` | `reasoning_effort`, with `"high"` sent as Qwen's own `"xhigh"` |
 | HuggingFace (in-process) | `enable_thinking=False` template kwarg | `reasoning_effort` template kwarg |
-| Anthropic | `{"type": "disabled"}` on the adaptive models (Opus 4.7+, Sonnet 5), omits the parameter on the rest | `output_config.effort` on Opus 4.7+ / Sonnet 5 / Fable 5; `budget_tokens` (low 2048, medium 8000, high 16000) on Opus 4.6 / Sonnet 4.6 / Haiku 4.5 |
+| Anthropic | `{"type": "disabled"}` on every model but Haiku 4.5, which omits the parameter | `output_config.effort` everywhere but Haiku 4.5, which takes `budget_tokens` (low 2048, medium 8000, high 16000) |
 | llama.cpp, OpenAI cloud, Gemini | nothing emitted | nothing emitted |
 
 **Among the providers that share Qwen's effort vocabulary** (Ollama, the OpenAI-compatible family,
 HuggingFace), only Qwen 3.8 declares effort-level support today; every other model on those
 providers accepts on/off (`True`/`False`) but treats a level as advisory (see above). Anthropic is
 a separate case: every `AnthropicModel` member declares effort-level support too, mapped to
-`budget_tokens` rather than this shared vocabulary (see "Anthropic: exact token budgets" below).
+`output_config.effort`, or on Haiku 4.5 to `budget_tokens` (see the two Anthropic sections below).
 The last table row is a scope boundary rather than an absolute limitation for two of its
 three providers: OpenAI's o-series models never declare `thinking=True` in AIMU's catalog, so
 there is nothing to control on that path, and Google's OpenAI-compatible endpoint for Gemini does
@@ -80,14 +80,14 @@ vocabulary does not include the `"xhigh"` value the shared Qwen mapping sends fo
 doing this correctly needs a second, Gemini-specific effort vocabulary, which is a deferred
 follow-up. `llama.cpp` has no mechanism at all on either axis.
 
-## Anthropic: exact token budgets
+## Anthropic: exact token budgets (Haiku 4.5 only)
 
-The portable levels above map to `budget_tokens` 2048 / 8000 / 16000. If you need an exact
-number, pass `thinking_budget_tokens` directly in `generate_kwargs`; it takes precedence over any
-`thinking=` level:
+Haiku 4.5 is the last model on the `ENABLED` request shape, where a level maps to `budget_tokens`
+2048 / 8000 / 16000. If you need an exact number, pass `thinking_budget_tokens` directly in
+`generate_kwargs`; it takes precedence over any `thinking=` level:
 
 ```python
-client = aimu.client("anthropic:claude-sonnet-4-6")
+client = aimu.client("anthropic:claude-haiku-4-5")
 client.chat(
     "Design a cache eviction policy.",
     thinking=True,
@@ -96,19 +96,21 @@ client.chat(
 ```
 
 This stays a separate, Anthropic-specific parameter rather than folding into `thinking=`, since
-no other provider has an equivalent numeric knob to translate it to.
+no other provider has an equivalent numeric knob to translate it to. On every other Anthropic
+model it is dropped with a warning naming `thinking=` as the replacement -- those models have no
+budget parameter at all.
 
 ## Anthropic: effort on the adaptive models
 
-Anthropic's `ADAPTIVE`-style models (Opus 4.7+, Sonnet 5, Fable 5) have no budget parameter at all,
-so `thinking_budget_tokens` is dropped on them. A `thinking=` level travels as
+Every Anthropic model except Haiku 4.5 uses the `ADAPTIVE` request shape and has no budget
+parameter at all, so `thinking_budget_tokens` is dropped there. A `thinking=` level travels as
 `output_config.effort` instead:
 
 | `thinking=` | effort sent |
 | --- | --- |
 | `"low"` | `low` |
 | `"medium"` | `medium` |
-| `"high"` | `xhigh` |
+| `"high"` | `xhigh`, or `high` on Opus 4.6 / Sonnet 4.6, which have no `xhigh` |
 | `True` / `None` | nothing sent, so the provider's own default (`high`) applies |
 
 `"high"` maps to `xhigh` rather than the literal `high` for the same reason it maps to `xhigh` on
@@ -130,9 +132,9 @@ Opus 5 rejects disabled thinking above `high` effort, so `thinking=False` alongs
 you turned off.
 
 Turning thinking off is where the two styles differ on the wire. On the `ENABLED`-style models
-(Opus 4.6, Sonnet 4.6, Haiku 4.5) an absent `thinking` parameter *is* off, so `thinking=False`
-sends nothing. Opus 5 and Sonnet 5 reason by default when the parameter is absent, so AIMU sends
-an explicit `{"type": "disabled"}` there instead. `CLAUDE_FABLE_5` is the one member that cannot
+(Haiku 4.5 alone, now) an absent `thinking` parameter *is* off, so `thinking=False` sends
+nothing. The adaptive models reason by default when the parameter is absent, so AIMU sends an
+explicit `{"type": "disabled"}` there instead. `CLAUDE_FABLE_5` is the one member that cannot
 be turned off at all (it declares `thinking_optional=False`): `thinking=False` warns and the call
 proceeds with reasoning on, as it does for any model that cannot honour the request.
 
