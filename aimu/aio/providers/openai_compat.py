@@ -24,6 +24,7 @@ from aimu.models.providers._thinking import _reasoning_text, _ThinkingParser, _s
 from aimu.models.base import Model, ModelConnectionError, StreamChunk, StreamingContentType, classproperty
 from aimu.models.providers.openai_compat import (
     LLAMASERVER_OPENAI_GENERATE_KWARGS,
+    LOCAL_DEFAULT_GENERATE_KWARGS,
     OLLAMA_OPENAI_GENERATE_KWARGS,
     OPENAI_COMPAT_GENERATE_KWARGS,
     HFOpenAIModel,
@@ -82,10 +83,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
 
     GENERATE_KWARG_SUPPORT = OPENAI_COMPAT_GENERATE_KWARGS
 
-    DEFAULT_GENERATE_KWARGS = {
-        "max_tokens": 1024,
-        "temperature": 0.1,
-    }
+    DEFAULT_GENERATE_KWARGS = LOCAL_DEFAULT_GENERATE_KWARGS
 
     # ``chat_template_kwargs`` is a Qwen / vLLM template convention rather than part of the
     # OpenAI API, so cloud subclasses whose servers would reject or ignore it opt out.

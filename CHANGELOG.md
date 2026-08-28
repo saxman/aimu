@@ -29,6 +29,75 @@
 
 ### Models
 
+- **Changed** **The tier-1 `max_tokens` fallback is no longer 1024.** It is the weakest of the four
+  generation-kwarg tiers -- a model card or either caller tier still overrides it -- so what it has
+  to get right is the value nobody sets, and 1024 was low enough to truncate an ordinary answer:
+  a silent, mid-sentence failure whose only symptom is a retry. Two values now, in one place
+  (`CLOUD_MAX_TOKENS` = 16000 and `LOCAL_MAX_TOKENS` = 4096 in
+  `aimu/models/_internal/generate_kwargs.py`), because the two deployments fail differently. A
+  cloud endpoint stops at EOS and bills per token, so it can afford the vendors' documented
+  non-streaming guidance; a local server spends wall-clock on every token it is allowed, and a
+  quantized model that never emits EOS spends all of them. Anthropic, OpenAI and Gemini take the
+  cloud cap; llama.cpp, the local OpenAI-compat servers and HuggingFace (already at 4096, for this
+  exact reason) take the local one. Ollama is unchanged -- it declares no tier-1 fallbacks at all
+  and falls through to the server's own defaults. Both constants are shared by import rather than
+  restated per client, so the families and the sync/async surfaces cannot drift.
+  **The sharpest effect is on Anthropic's thinking models**, where the old default was worse than
+  it looked: a default Sonnet 4.6 turn resolved to `max_tokens=9024` against a `budget_tokens` of
+  8000, leaving ~1024 tokens for the answer *after* a full thinking budget. It now resolves to
+  16000, so thinking and the answer get about half each.
+  Tests: `tests/test_generate_kwargs_merge.py` (per-family caps, the cloud/local split across both
+  surfaces, and that the cap is still overridable in *both* directions -- a caller asking for a
+  smaller budget must win).
+
+- **Changed** **The `anthropic` extra now requires SDK 1.x** (`anthropic>=1,<2`, resolved 1.2.0).
+  The upgrade itself is small -- AIMU used none of the removed Text Completions API, no
+  `with_raw_response`, no `output_format` dicts, no Bedrock client, and already required Python
+  3.11 -- but one removal bites: `temperature`, `top_p` and `top_k` are gone from the
+  `messages.create()` / `.stream()` signatures, so passing one is a `TypeError` raised before any
+  request is made. Two AIMU paths still carried one: a thinking-capable model called with
+  `thinking=False`, and **every** structured-output call, which had `temperature=1` forced into it
+  by `_rewrite_generate_kwargs` and never stripped (the structured path routes around
+  `_thinking_kwargs`). The sampling decision now lives in one hook, `_route_sampling_kwargs`,
+  reached from `_rewrite_generate_kwargs` so it runs on every request path: all three keys are
+  dropped when thinking is in effect (the API fixes `temperature` at 1 there) or the model is
+  `ADAPTIVE` (Opus 4.7+/Sonnet 5/Fable 5 reject them outright), and otherwise moved into
+  `extra_body`, which is merged into the request JSON as-is. So `temperature=0.2` still reaches
+  Opus 4.6 / Sonnet 4.6 / Haiku 4.5, and `ANTHROPIC_GENERATE_KWARGS` still declares all three
+  supported; only the transport changed. One behavior change beyond the fix: `top_k` used to
+  survive alongside extended thinking (only `temperature` and `top_p` were stripped) and is now
+  dropped with the other two, matching Anthropic's documented restriction.
+  `httpx2` (the SDK's new HTTP layer, the maintained fork of `httpx` by its original author,
+  published by Pydantic at `github.com/pydantic/httpx2`) arrives transitively; the only direct use
+  is in `tests/test_context_overflow_providers.py`, whose Anthropic section builds `httpx2` request
+  and response objects while its OpenAI section stays on `httpx`, since the `openai` SDK has not
+  moved.
+  New guard: `tests/test_anthropic_sdk_contract.py` binds the payloads AIMU builds -- every model
+  x every `thinking=` value x both request paths -- against the installed SDK's real signature.
+  Every other Anthropic test monkeypatches `messages.create`, which is exactly why this removal
+  could have shipped green.
+
+- **New** `AnthropicModel` members `CLAUDE_OPUS_5` (`claude-opus-5`) and `CLAUDE_SONNET_5`
+  (`claude-sonnet-5`), both `tools=True, thinking=True, vision=True, structured_output=True` and
+  both `ThinkingStyle.ADAPTIVE`. Addressable as `aimu.client("anthropic:claude-opus-5")`.
+  `claude-mythos-5` is deliberately absent: it is invitation-only, and the catalog is curated to
+  models a caller can actually reach.
+
+- **Fixed** **`thinking=False` now really turns thinking off on Anthropic's adaptive models.**
+  AIMU disabled reasoning by omitting the `thinking` parameter, which is correct for the
+  `ENABLED`-style models but not for the 5-series: Opus 5 and Sonnet 5 run adaptive thinking when
+  the parameter is *absent*, so `thinking=False` would have quietly bought reasoning tokens on the
+  two models this release adds. The adaptive path (now `_adaptive_thinking_kwargs`, shared by the
+  sync and async clients) sends an explicit `{"type": "disabled"}` instead. Two consequences worth
+  naming: `temperature`/`top_p`/`top_k` are stripped on the adaptive models whether or not the
+  request asks them to think (they are rejected outright there, and this client's own
+  `DEFAULT_GENERATE_KWARGS` supplies a `temperature`, so a `thinking=False` call to Opus 4.7/4.8
+  was already 400ing before this release); and `CLAUDE_FABLE_5` now declares
+  `thinking_optional=False`, since it always reasons and 400s on an explicit disable -- so
+  `thinking=False` there warns at the resolver and never reaches the wire, the same
+  warn-and-continue path as any other model that cannot honour the request.
+  Tests: `tests/test_thinking_control.py`, `tests/test_models_api.py`.
+
 - **Fixed** **The Anthropic adapter keeps prose a model emitted alongside a tool call.**
   `_openai_messages_to_anthropic` took its `"tool_calls" in msg` branch and built only `tool_use`
   blocks, never reading `msg["content"]` -- which `_append_assistant_tool_calls` stores deliberately,

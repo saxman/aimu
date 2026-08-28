@@ -125,10 +125,40 @@ _BUILDERS = {
     "openai_compat": _build_openai_compat,
 }
 
-# The three providers whose DEFAULT_GENERATE_KWARGS carries max_tokens under the API's own name.
-# Ollama and HuggingFace rename it, and Ollama has no fallbacks at all (unset parameters fall
-# through to the server's own defaults).
-_MAX_TOKENS_FALLBACK = ["aio_anthropic", "aio_openai_compat", "anthropic", "llamacpp", "openai_compat"]
+# The providers whose DEFAULT_GENERATE_KWARGS carries max_tokens under the API's own name, with
+# the cap each one declares. Ollama and HuggingFace rename the key, and Ollama has no fallbacks at
+# all (unset parameters fall through to the server's own defaults).
+#
+# Two values, not one: a cloud endpoint stops at EOS and bills per token, so it can afford the
+# vendors' non-streaming guidance; a local server spends wall-clock on every token it is allowed.
+# Spelled as literals rather than imported from the constants under test, so moving a cap is a
+# deliberate two-place edit.
+_MAX_TOKENS_FALLBACK = {
+    "anthropic": 16000,
+    "aio_anthropic": 16000,
+    "openai_compat": 4096,  # LMStudio: a local server, so it inherits the base's local cap
+    "aio_openai_compat": 4096,
+    "llamacpp": 4096,
+}
+
+
+def _shipped_clients():
+    """(cloud, local) text clients, both surfaces. Skips any whose optional dep is absent."""
+    cloud, local = [], []
+    from aimu.models.providers.anthropic import AnthropicClient
+    from aimu.models.providers.gemini.text import GeminiClient
+    from aimu.models.providers.hf.text import HuggingFaceClient
+    from aimu.models.providers.llamacpp import LlamaCppClient
+    from aimu.models.providers.openai.text import OpenAIClient
+    from aimu.models.providers.openai_compat import OpenAICompatClient
+    from aimu.aio.providers.anthropic import AsyncAnthropicClient
+    from aimu.aio.providers.gemini.text import AsyncGeminiClient
+    from aimu.aio.providers.openai.text import AsyncOpenAIClient
+    from aimu.aio.providers.openai_compat import AsyncOpenAICompatClient
+
+    cloud += [AnthropicClient, AsyncAnthropicClient, OpenAIClient, AsyncOpenAIClient, GeminiClient, AsyncGeminiClient]
+    local += [OpenAICompatClient, AsyncOpenAICompatClient, LlamaCppClient, HuggingFaceClient]
+    return cloud, local
 
 
 @pytest.fixture(params=sorted(_BUILDERS))
@@ -141,14 +171,28 @@ def thinking_card_client(request, monkeypatch):
     return _BUILDERS[request.param](monkeypatch, _CardModel.THINKER)
 
 
+def sent(merged: dict, key: str):
+    """The value a request will carry for ``key``, wherever the backend's rewrite hook put it.
+
+    These tiers tests are about which *value* wins, not which transport slot it lands in, and the
+    slot is provider-specific: ``AnthropicClient`` moves ``temperature`` / ``top_p`` / ``top_k``
+    into ``extra_body`` (anthropic 1.x dropped them from the ``messages.create()`` signature), as
+    the local OpenAI-compatible servers already do for ``top_k`` / ``min_p``. Where a key *lands*
+    is asserted on its own, per provider, further down.
+    """
+    if key in merged:
+        return merged[key]
+    return merged.get("extra_body", {})[key]
+
+
 # --- tier 2: the model card is a default the caller can override -------------------------------
 
 
 def test_the_card_supplies_what_nobody_else_sets(card_client):
     merged = card_client._resolve_generate_kwargs()
 
-    assert merged["temperature"] == 0.9  # the card's value, not any client's own fallback of 0.1
-    assert merged["top_p"] == 0.3
+    assert sent(merged, "temperature") == 0.9  # the card's value, not any client's own fallback of 0.1
+    assert sent(merged, "top_p") == 0.3
     # The card's third key, min_p, is asserted per provider further down instead: what a request ends
     # up carrying depends on the backend's declared verdict for it (kept, dropped, or moved into
     # extra_body), so it cannot be one claim across every provider.
@@ -158,15 +202,15 @@ def test_a_per_call_kwarg_overrides_the_card_without_discarding_it(card_client):
     """The v0.15.0 regression, now pinned for every provider: one key must not replace a profile."""
     merged = card_client._resolve_generate_kwargs({"temperature": 0.2})
 
-    assert merged["temperature"] == 0.2
-    assert merged["top_p"] == 0.3
+    assert sent(merged, "temperature") == 0.2
+    assert sent(merged, "top_p") == 0.3
 
 
 def test_the_instruct_profile_replaces_the_card_when_thinking_resolves_off(thinking_card_client):
     merged = thinking_card_client._resolve_generate_kwargs({THINKING_KWARG: ResolvedThinking(enabled=False)})
 
-    assert merged["temperature"] == 0.7
-    assert merged["top_p"] == 0.8
+    assert sent(merged, "temperature") == 0.7
+    assert sent(merged, "top_p") == 0.8
 
 
 # --- tier 3: client.default_generate_kwargs, the caller's standing choice -----------------------
@@ -182,22 +226,22 @@ def test_client_defaults_override_the_card(card_client):
 
     merged = card_client._resolve_generate_kwargs()
 
-    assert merged["temperature"] == 0.5
-    assert merged["top_p"] == 0.3  # the card still fills what the caller left alone
+    assert sent(merged, "temperature") == 0.5
+    assert sent(merged, "top_p") == 0.3  # the card still fills what the caller left alone
 
 
 def test_client_defaults_apply_to_every_call(card_client):
     card_client.default_generate_kwargs["temperature"] = 0.5
 
-    assert card_client._resolve_generate_kwargs()["temperature"] == 0.5
-    assert card_client._resolve_generate_kwargs({"top_p": 0.9})["temperature"] == 0.5
+    assert sent(card_client._resolve_generate_kwargs(), "temperature") == 0.5
+    assert sent(card_client._resolve_generate_kwargs({"top_p": 0.9}), "temperature") == 0.5
 
 
 def test_reassigning_client_defaults_wholesale_takes_effect(card_client):
     """Assignment, not only mutation: the wrappers used to copy this dict on construction."""
     card_client.default_generate_kwargs = {"temperature": 0.5}
 
-    assert card_client._resolve_generate_kwargs()["temperature"] == 0.5
+    assert sent(card_client._resolve_generate_kwargs(), "temperature") == 0.5
 
 
 # --- tier 4: the per-call dict wins over everything --------------------------------------------
@@ -208,8 +252,8 @@ def test_per_call_kwargs_override_the_client_defaults(card_client):
 
     merged = card_client._resolve_generate_kwargs({"temperature": 0.2})
 
-    assert merged["temperature"] == 0.2
-    assert merged["top_p"] == 0.7  # a client default the call did not name still applies
+    assert sent(merged, "temperature") == 0.2
+    assert sent(merged, "top_p") == 0.7  # a client default the call did not name still applies
 
 
 # --- the merge must not corrupt the process-global profile on the enum member -------------------
@@ -232,11 +276,46 @@ def test_the_merge_never_mutates_the_catalog_profile(card_client):
 # --- tier 1, and the per-provider request reshaping that runs after the merge -------------------
 
 
-@pytest.mark.parametrize("provider", _MAX_TOKENS_FALLBACK)
-def test_library_fallbacks_fill_what_neither_card_nor_caller_sets(provider, monkeypatch):
+@pytest.mark.parametrize("provider,cap", sorted(_MAX_TOKENS_FALLBACK.items()))
+def test_library_fallbacks_fill_what_neither_card_nor_caller_sets(provider, cap, monkeypatch):
     client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
 
-    assert client._resolve_generate_kwargs()["max_tokens"] == 1024
+    assert client._resolve_generate_kwargs()["max_tokens"] == cap
+
+
+@pytest.mark.parametrize("provider,cap", sorted(_MAX_TOKENS_FALLBACK.items()))
+def test_the_library_cap_is_the_weakest_tier(provider, cap, monkeypatch):
+    """It exists to fill a gap, never to bound a caller: raising it *or* lowering it must win.
+
+    The lower direction is the one worth pinning. A tier-1 cap that quietly floored a caller's
+    small budget would be indistinguishable, from the outside, from the model simply being
+    verbose -- and 16000 is high enough that nobody would think to look here.
+    """
+    client = _BUILDERS[provider](monkeypatch, _CardModel.PLAIN)
+
+    assert client._resolve_generate_kwargs({"max_tokens": 200})["max_tokens"] == 200
+    assert client._resolve_generate_kwargs({"max_tokens": 90_000})["max_tokens"] == 90_000
+
+    client.default_generate_kwargs["max_tokens"] = 500
+    assert client._resolve_generate_kwargs()["max_tokens"] == 500
+
+
+def test_cloud_and_local_caps_do_not_drift_between_the_surfaces():
+    """Every shipped text client, sync and async, on one of the two declared caps.
+
+    They are shared by import rather than restated per client precisely so this cannot drift;
+    the test is here because "shared by import" is a claim about today's wiring, and a new
+    provider added by copy-paste is how it stops being true.
+    """
+    from aimu.models._internal.generate_kwargs import CLOUD_MAX_TOKENS, LOCAL_MAX_TOKENS
+
+    cloud, local = _shipped_clients()
+    for client in cloud:
+        assert client.DEFAULT_GENERATE_KWARGS["max_tokens"] == CLOUD_MAX_TOKENS, client.__name__
+    for client in local:
+        declared = client.DEFAULT_GENERATE_KWARGS
+        key = "max_tokens" if "max_tokens" in declared else "max_new_tokens"
+        assert declared[key] == LOCAL_MAX_TOKENS, client.__name__
 
 
 @pytest.mark.parametrize(

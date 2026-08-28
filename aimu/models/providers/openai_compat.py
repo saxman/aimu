@@ -29,7 +29,7 @@ from ..base import (
 )
 from .._catalog import Wire
 from .._internal.audio_input import _build_audio_content_blocks
-from .._internal.generate_kwargs import Unsupported
+from .._internal.generate_kwargs import CLOUD_MAX_TOKENS, LOCAL_MAX_TOKENS, Unsupported
 from .._internal.image_input import _build_user_content_blocks
 from .._internal.message_meta import encode_tool_call_arguments, strip_inert_keys
 from .._internal.sdk_config import sdk_client_kwargs
@@ -150,15 +150,24 @@ CLOUD_OPENAI_GENERATE_KWARGS = {
 }
 
 
+# Tier-1 defaults, split the way GENERATE_KWARG_SUPPORT already is: this base serves the local
+# servers, and the cloud subclasses (OpenAI, Gemini) import the cloud dict. See CLOUD_MAX_TOKENS.
+LOCAL_DEFAULT_GENERATE_KWARGS = {
+    "max_tokens": LOCAL_MAX_TOKENS,
+    "temperature": 0.1,
+}
+CLOUD_DEFAULT_GENERATE_KWARGS = {
+    "max_tokens": CLOUD_MAX_TOKENS,
+    "temperature": 0.1,
+}
+
+
 class OpenAICompatClient(BaseModelClient):
     MODELS = Model
 
     GENERATE_KWARG_SUPPORT = OPENAI_COMPAT_GENERATE_KWARGS
 
-    DEFAULT_GENERATE_KWARGS = {
-        "max_tokens": 1024,
-        "temperature": 0.1,
-    }
+    DEFAULT_GENERATE_KWARGS = LOCAL_DEFAULT_GENERATE_KWARGS
 
     # ``chat_template_kwargs`` is a Qwen / vLLM template convention rather than part of the
     # OpenAI API, so cloud subclasses whose servers would reject or ignore it opt out.

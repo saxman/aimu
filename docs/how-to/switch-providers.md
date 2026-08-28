@@ -310,7 +310,7 @@ agent.run("Second question")   # reads it back — most of the prefix is cached
 ValueError: Unknown provider 'foo'. Available providers (with installed deps): ['anthropic', 'ollama', ...]
 
 >>> aimu.client("anthropic:claude-nonsense")
-ValueError: Provider 'anthropic' has no model id 'claude-nonsense'. Available: ['claude-fable-5', 'claude-haiku-4-5', 'claude-opus-4-6', 'claude-opus-4-7', 'claude-opus-4-8', 'claude-sonnet-4-6']
+ValueError: Provider 'anthropic' has no model id 'claude-nonsense'. Available: ['claude-fable-5', 'claude-haiku-4-5', 'claude-opus-4-6', 'claude-opus-4-7', 'claude-opus-4-8', 'claude-opus-5', 'claude-sonnet-4-6', 'claude-sonnet-5']
 ```
 
 The extended grammar has two more guardrails. An `@<base_url>` on a provider that doesn't take one, and `;<flags>` on a catalog id, both raise `ValueError`:

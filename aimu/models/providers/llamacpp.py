@@ -10,7 +10,7 @@ import llama_cpp
 
 from ..base import StreamingContentType, StreamChunk, Model, BaseModelClient, ContextOverflowError, classproperty
 from .._catalog import Wire
-from .._internal.generate_kwargs import Unsupported
+from .._internal.generate_kwargs import LOCAL_MAX_TOKENS, Unsupported
 from .._internal.image_input import _build_user_content_blocks
 from .._internal.thinking import pop_thinking
 from ._thinking import _reasoning_text, _split_thinking, _ThinkingParser
@@ -159,7 +159,7 @@ class LlamaCppClient(BaseModelClient):
     GENERATE_KWARG_SUPPORT = LLAMACPP_GENERATE_KWARGS
 
     DEFAULT_GENERATE_KWARGS = {
-        "max_tokens": 1024,
+        "max_tokens": LOCAL_MAX_TOKENS,
         "temperature": 0.1,
     }
 

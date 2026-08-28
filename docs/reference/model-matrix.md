@@ -14,8 +14,8 @@ second question, answered by two `ModelSpec` flags behind the portable
   honoured: the Qwen 3.8 27B family and every Anthropic model. On every other reasoning model a
   level is warned about and treated as plain on, which is why swapping models never raises.
 - **◇ always reasons** (`thinking_optional=False`), so `thinking=False` cannot be honoured:
-  `GEMINI_2_5_PRO` only. The call proceeds and is billed for reasoning; `client.last_usage`
-  shows the cost.
+  `GEMINI_2_5_PRO` and `CLAUDE_FABLE_5`. The call proceeds and is billed for reasoning;
+  `client.last_usage` shows the cost.
 
 Note that a model declaring a level is not sufficient on its own: the active provider also has to
 be able to express it. llama.cpp, the OpenAI cloud client and Gemini emit nothing today, so
@@ -27,10 +27,12 @@ per-provider mechanisms.
 <!-- generated:AnthropicModel -->
 | Enum member | Model id | Tools | Thinking | Vision |
 |---|---|:---:|:---:|:---:|
-| `CLAUDE_FABLE_5` ◆ | `claude-fable-5` | ✅ | ✅ (adaptive) | ✅ |
+| `CLAUDE_FABLE_5` ◆ ◇ | `claude-fable-5` | ✅ | ✅ (adaptive) | ✅ |
+| `CLAUDE_OPUS_5` ◆ | `claude-opus-5` | ✅ | ✅ (adaptive) | ✅ |
 | `CLAUDE_OPUS_4_8` ◆ | `claude-opus-4-8` | ✅ | ✅ (adaptive) | ✅ |
 | `CLAUDE_OPUS_4_7` ◆ | `claude-opus-4-7` | ✅ | ✅ (adaptive) | ✅ |
 | `CLAUDE_OPUS_4_6` ◆ | `claude-opus-4-6` | ✅ | ✅ (budget) | ✅ |
+| `CLAUDE_SONNET_5` ◆ | `claude-sonnet-5` | ✅ | ✅ (adaptive) | ✅ |
 | `CLAUDE_SONNET_4_6` ◆ | `claude-sonnet-4-6` | ✅ | ✅ (budget) | ✅ |
 | `CLAUDE_HAIKU_4_5` ◆ | `claude-haiku-4-5` | ✅ | ✅ (budget) | ✅ |
 <!-- /generated -->

@@ -11,7 +11,7 @@ from typing import Optional
 
 from aimu.models.providers.gemini.text import GeminiModel
 
-from aimu.models.providers.openai_compat import CLOUD_OPENAI_GENERATE_KWARGS
+from aimu.models.providers.openai_compat import CLOUD_DEFAULT_GENERATE_KWARGS, CLOUD_OPENAI_GENERATE_KWARGS
 
 from ..openai_compat import AsyncOpenAICompatClient
 
@@ -22,6 +22,8 @@ class AsyncGeminiClient(AsyncOpenAICompatClient):
     MODELS = GeminiModel
 
     GENERATE_KWARG_SUPPORT = CLOUD_OPENAI_GENERATE_KWARGS
+
+    DEFAULT_GENERATE_KWARGS = CLOUD_DEFAULT_GENERATE_KWARGS
 
     # Google's endpoint has no chat-template convention; ``enable_thinking`` is a Qwen/vLLM
     # concept and would be rejected or silently ignored here.

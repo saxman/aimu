@@ -68,7 +68,7 @@ this order, so a lower tier only supplies what no higher tier set:
 
 | Tier | Source | Typical use |
 |------|--------|-------------|
-| 1 | `Client.DEFAULT_GENERATE_KWARGS` | AIMU's own fallbacks (`max_tokens=1024`) for what nobody else sets |
+| 1 | `Client.DEFAULT_GENERATE_KWARGS` | AIMU's own fallbacks for what nobody else sets: `max_tokens` 16000 on the cloud providers, 4096 on the local ones (HuggingFace as `max_new_tokens`); empty on Ollama |
 | 2 | `ModelSpec.generation_kwargs` | the sampling the model card recommends (see the [model matrix](model-matrix.md)) |
 | 3 | `client.default_generate_kwargs` | **your** standing choice for every call on this client |
 | 4 | `chat(generate_kwargs={...})` | **your** choice for one call |
@@ -124,12 +124,15 @@ override you where an API demands it (see the notes below).
     | `OllamaOpenAIClient` | dropped | dropped | `presence_penalty` | dropped | `max_tokens` |
     | `LlamaCppClient` | `top_k` | `min_p` | `presence_penalty` | `repeat_penalty` | `max_tokens` |
     | `HuggingFaceClient` | `top_k` | `min_p` | dropped | `repetition_penalty` | `max_new_tokens` |
-    | `AnthropicClient` | `top_k` | dropped | dropped | dropped | `max_tokens` |
+    | `AnthropicClient` | `extra_body` | dropped | dropped | dropped | `max_tokens` |
     | `OpenAIClient`, `GeminiClient` | dropped | dropped | `presence_penalty` | dropped | `max_tokens` |
 
     "dropped" means the key is removed before the request and logged once per client, naming where
     to set it instead. `extra_body` means the key survives but moves: the OpenAI schema has no
     top-level place for it, and a local server reads it from the extra request field instead.
+    `AnthropicClient` moves it for a different reason -- `anthropic` 1.x removed `temperature`,
+    `top_p` and `top_k` from the `messages.create()` signature, so all three now travel in
+    `extra_body`, and only on the models that still accept them (see the thinking section below).
 
     **The local OpenAI-compatible row is not uniformly confirmed.** It follows the sampling
     extensions vLLM and SGLang document, and the two servers that leave the row (`OllamaOpenAIClient`
@@ -176,7 +179,7 @@ override you where an API demands it (see the notes below).
 ## Notes per provider
 
 - **`OpenAIClient`** overrides `_rewrite_generate_kwargs` for o-series models (o1/o3/o4): renames `max_tokens → max_completion_tokens`, forces `temperature=1`, and drops `top_p` (the o-series exposes no sampling control).
-- **`AnthropicClient`** stores `self.messages` in OpenAI format; conversion to Anthropic's format happens at request time. Thinking is native (not `<think>` tag parsing), built per the model's `ThinkingStyle`: `enabled` (`{"type": "enabled", "budget_tokens": N}`) for Opus 4.6 / Sonnet 4.6 / Haiku 4.5, or `adaptive` (`{"type": "adaptive", "display": "summarized"}`, sampling params dropped) for Opus 4.7+ / Fable 5. See the [model matrix](model-matrix.md#anthropic-anthropicmodel).
+- **`AnthropicClient`** stores `self.messages` in OpenAI format; conversion to Anthropic's format happens at request time. Thinking is native (not `<think>` tag parsing), built per the model's `ThinkingStyle`: `enabled` (`{"type": "enabled", "budget_tokens": N}`) for Opus 4.6 / Sonnet 4.6 / Haiku 4.5, or `adaptive` (`{"type": "adaptive", "display": "summarized"}`, sampling params dropped) for Opus 4.7+ / Sonnet 5 / Fable 5. See the [model matrix](model-matrix.md#anthropic-anthropicmodel).
 
 !!! note "Thinking control per provider"
     The portable [`thinking=`](../how-to/control-thinking.md) parameter reaches each backend
@@ -186,7 +189,7 @@ override you where an API demands it (see the notes below).
     |---|---|---|
     | `OllamaClient` | `think=False` | `think="low"/"medium"/"high"` |
     | OpenAI-compat local servers | `extra_body={"chat_template_kwargs": {"enable_thinking": False}}` | `reasoning_effort`, with `high` sent as Qwen's `xhigh` |
-    | `AnthropicClient` | omits the `thinking` parameter | `budget_tokens`: 2048 / 8000 / 16000; adaptive-style models warn and ignore a level |
+    | `AnthropicClient` | `{"type": "disabled"}` on the adaptive models, omits the parameter on the rest; Fable 5 cannot be turned off | `budget_tokens`: 2048 / 8000 / 16000; adaptive-style models warn and ignore a level |
     | `HuggingFaceClient` | `enable_thinking=False` template kwarg | `reasoning_effort` template kwarg |
     | `LlamaCppClient`, `OpenAIClient`, `GeminiClient` | nothing emitted | nothing emitted |
 

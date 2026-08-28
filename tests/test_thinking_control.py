@@ -532,21 +532,23 @@ def test_anthropic_thinking_off_sends_no_thinking_block(monkeypatch):
     )
 
     assert "thinking" not in kwargs
-    # temperature is only stripped/forced to satisfy extended thinking; with thinking off for
-    # this call, the caller's own value must survive untouched (not merely be present).
-    assert kwargs["temperature"] == 0.3
+    # temperature is only stripped to satisfy extended thinking; with thinking off for this call,
+    # the caller's own value must survive untouched (not merely be present). It rides in
+    # extra_body because anthropic 1.x removed the keyword argument -- see
+    # tests/test_anthropic_sdk_contract.py.
+    assert kwargs["extra_body"]["temperature"] == 0.3
 
 
 def test_anthropic_thinking_off_keeps_top_p(monkeypatch):
-    """top_p is dropped for the same reason temperature is forced: it conflicts with extended
-    thinking. With thinking resolved off for this call, there is no conflict, so the caller's
-    own value must survive untouched, mirroring the temperature test above."""
+    """top_p is dropped for the same reason temperature is: it conflicts with extended thinking.
+    With thinking resolved off for this call, there is no conflict, so the caller's own value must
+    survive untouched, mirroring the temperature test above."""
     from aimu.models.providers.anthropic import AnthropicModel
 
     kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_SONNET_4_6, False, generate_kwargs={"top_p": 0.9})
 
     assert "thinking" not in kwargs
-    assert kwargs["top_p"] == 0.9
+    assert kwargs["extra_body"]["top_p"] == 0.9
 
 
 def test_anthropic_none_still_drops_top_p(monkeypatch):
@@ -568,6 +570,44 @@ def test_anthropic_adaptive_warns_and_ignores_a_level(monkeypatch, caplog):
     assert kwargs["thinking"] == {"type": "adaptive", "display": "summarized"}
     assert "budget_tokens" not in kwargs["thinking"]
     assert any("adaptive" in r.message.lower() for r in caplog.records)
+
+
+def test_anthropic_adaptive_thinking_off_is_said_out_loud(monkeypatch):
+    """Opus 5 and Sonnet 5 reason when the parameter is absent, so an omitted parameter is not
+    "off" on the adaptive models the way it is on the ENABLED-style ones."""
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    for model in (AnthropicModel.CLAUDE_OPUS_5, AnthropicModel.CLAUDE_SONNET_5, AnthropicModel.CLAUDE_OPUS_4_8):
+        kwargs = _anthropic_kwargs(monkeypatch, model, False)
+
+        assert kwargs["thinking"] == {"type": "disabled"}
+
+
+def test_anthropic_adaptive_thinking_off_still_drops_sampling_params(monkeypatch):
+    """The adaptive models reject temperature/top_p/top_k outright, thinking or not -- including
+    the temperature this client's own DEFAULT_GENERATE_KWARGS supplies."""
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    kwargs = _anthropic_kwargs(
+        monkeypatch, AnthropicModel.CLAUDE_OPUS_5, False, generate_kwargs={"top_p": 0.9, "top_k": 40}
+    )
+
+    assert kwargs["thinking"] == {"type": "disabled"}
+    assert not {"temperature", "top_p", "top_k"} & set(kwargs)
+    # ...and not smuggled back in through the extra_body route the pre-4.7 models use.
+    assert "extra_body" not in kwargs
+
+
+def test_anthropic_fable_5_cannot_be_disabled(monkeypatch, caplog):
+    """Fable 5 always reasons and 400s on an explicit disable, so thinking=False must warn and
+    continue rather than reach the request."""
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    with caplog.at_level("WARNING"):
+        kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_FABLE_5, False)
+
+    assert kwargs["thinking"] == {"type": "adaptive", "display": "summarized"}
+    assert any("cannot be disabled" in r.message for r in caplog.records)
 
 
 def test_anthropic_none_keeps_current_behavior(monkeypatch):

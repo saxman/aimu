@@ -4,7 +4,7 @@ from typing import Optional
 from dotenv import load_dotenv
 
 from ...base import Model, ModelSpec
-from ..openai_compat import CLOUD_OPENAI_GENERATE_KWARGS, OpenAICompatClient
+from ..openai_compat import CLOUD_DEFAULT_GENERATE_KWARGS, CLOUD_OPENAI_GENERATE_KWARGS, OpenAICompatClient
 
 OPENAI_BASE_URL = "https://api.openai.com/v1"
 
@@ -35,6 +35,8 @@ class OpenAIClient(OpenAICompatClient):
     MODELS = OpenAIModel
 
     GENERATE_KWARG_SUPPORT = CLOUD_OPENAI_GENERATE_KWARGS
+
+    DEFAULT_GENERATE_KWARGS = CLOUD_DEFAULT_GENERATE_KWARGS
 
     # OpenAI's endpoint has no chat-template convention; ``enable_thinking`` is a Qwen/vLLM
     # concept and would be rejected or silently ignored here.

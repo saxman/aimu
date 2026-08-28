@@ -1,7 +1,7 @@
 from ...base import StreamingContentType, StreamChunk, Model, BaseModelClient, ContextOverflowError, classproperty
 from ..._catalog import Wire
 from ..._internal.audio_input import _extract_audio_arrays, _replace_audio_with_placeholder
-from ..._internal.generate_kwargs import Unsupported
+from ..._internal.generate_kwargs import LOCAL_MAX_TOKENS, Unsupported
 from ..._internal.image_input import (
     _build_user_content_blocks,
     _extract_pil_images,
@@ -98,7 +98,8 @@ def _raise_if_prompt_overflows(hf_model: Any, model_inputs: Any, *, model_name: 
 
 
 DEFAULT_GENERATE_KWARGS = {
-    "max_new_tokens": 4096,  # high default to avoid cutting off tool calls or thinking; users can override with generation_kwargs
+    # High enough not to cut off tool calls or thinking; callers override via generate_kwargs.
+    "max_new_tokens": LOCAL_MAX_TOKENS,
     "temperature": 0.1,
     "top_p": 0.95,
     "top_k": 50,

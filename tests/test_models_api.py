@@ -236,6 +236,22 @@ def test_model_enum_value_is_string():
     assert isinstance(AnthropicModel.CLAUDE_SONNET_4_6.value, str)
 
 
+def test_anthropic_5_series_resolves_and_is_adaptive():
+    """The 5-series members are addressable by string and carry the adaptive request shape."""
+    from aimu.models import AnthropicModel, resolve_model_string
+    from aimu.models.providers.anthropic import ThinkingStyle
+
+    for member, model_id in (
+        (AnthropicModel.CLAUDE_OPUS_5, "claude-opus-5"),
+        (AnthropicModel.CLAUDE_SONNET_5, "claude-sonnet-5"),
+    ):
+        assert resolve_model_string(f"anthropic:{model_id}") is member
+        assert member.thinking_style is ThinkingStyle.ADAPTIVE
+        assert member.supports_tools and member.supports_thinking and member.supports_vision
+        assert member.supports_structured_output
+        assert member.thinking_optional is True
+
+
 def test_model_enum_capability_attrs_accessible():
     """Each member exposes supports_tools / supports_thinking / supports_vision."""
     from aimu.models import AnthropicModel, OllamaModel

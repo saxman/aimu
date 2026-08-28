@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 
 from aimu.models.providers.anthropic import AnthropicClient as _SyncAnthropicClient
 from aimu.models.providers.anthropic import (
+    ANTHROPIC_DEFAULT_GENERATE_KWARGS,
     ANTHROPIC_GENERATE_KWARGS,
     AnthropicModel,
     _raise_for_request_too_large,
@@ -45,10 +46,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
 
     GENERATE_KWARG_SUPPORT = ANTHROPIC_GENERATE_KWARGS
 
-    DEFAULT_GENERATE_KWARGS = {
-        "max_tokens": 1024,
-        "temperature": 0.1,
-    }
+    DEFAULT_GENERATE_KWARGS = ANTHROPIC_DEFAULT_GENERATE_KWARGS
 
     _UNSUPPORTED_KWARGS = frozenset({"max_new_tokens", "do_sample", "num_return_sequences"})
 
@@ -175,7 +173,10 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
 
     # Pure helpers reused from sync client; no I/O involved.
     _rewrite_generate_kwargs = _SyncAnthropicClient._rewrite_generate_kwargs
+    _route_sampling_kwargs = _SyncAnthropicClient._route_sampling_kwargs
+    _SAMPLING_KWARGS = _SyncAnthropicClient._SAMPLING_KWARGS
     _thinking_kwargs = _SyncAnthropicClient._thinking_kwargs
+    _adaptive_thinking_kwargs = _SyncAnthropicClient._adaptive_thinking_kwargs
     _openai_messages_to_anthropic = _SyncAnthropicClient._openai_messages_to_anthropic
     _openai_tools_to_anthropic = _SyncAnthropicClient._openai_tools_to_anthropic
 

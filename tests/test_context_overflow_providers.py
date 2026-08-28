@@ -153,10 +153,16 @@ _ANTHROPIC_URL = "http://x/v1/messages"
 
 
 def _anthropic_bad_request(*, message: str):
+    # httpx2, not httpx: anthropic 1.x moved its HTTP layer to the fork, so its exception types
+    # carry httpx2 objects. The openai-compat section above still builds httpx ones, because the
+    # openai SDK still uses httpx -- hence two imports in one file rather than a global alias.
+    # httpx2 is imported here rather than at module scope: it arrives with the anthropic extra,
+    # and this file's other sections must still collect without it.
     import anthropic
+    import httpx2
 
-    request = httpx.Request("POST", _ANTHROPIC_URL)
-    response = httpx.Response(
+    request = httpx2.Request("POST", _ANTHROPIC_URL)
+    response = httpx2.Response(
         400, request=request, json={"type": "error", "error": {"type": "invalid_request_error", "message": message}}
     )
     return anthropic.BadRequestError(message, response=response, body=response.json())
@@ -164,9 +170,10 @@ def _anthropic_bad_request(*, message: str):
 
 def _anthropic_request_too_large(*, message: str):
     import anthropic
+    import httpx2
 
-    request = httpx.Request("POST", _ANTHROPIC_URL)
-    response = httpx.Response(
+    request = httpx2.Request("POST", _ANTHROPIC_URL)
+    response = httpx2.Response(
         413, request=request, json={"type": "error", "error": {"type": "request_too_large", "message": message}}
     )
     return anthropic.RequestTooLargeError(message, response=response, body=response.json())

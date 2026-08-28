@@ -101,7 +101,10 @@ The example above (a new, single-provider model named `BIG`) uses a bare `ModelS
 
     class MyClient(BaseModelClient):
         # The weakest kwarg tier: parameters neither the model card nor the caller sets.
-        DEFAULT_GENERATE_KWARGS = {"max_tokens": 1024, "temperature": 0.1}
+        # Tier 1, the weakest tier. Use the shared caps rather than a new number:
+        # CLOUD_MAX_TOKENS for a hosted endpoint, LOCAL_MAX_TOKENS for one you run yourself
+        # (aimu/models/_internal/generate_kwargs.py).
+        DEFAULT_GENERATE_KWARGS = {"max_tokens": LOCAL_MAX_TOKENS, "temperature": 0.1}
 
         def _rewrite_generate_kwargs(self, kwargs):   # already merged; mutate and return
             resolved = pop_thinking(kwargs)   # required, even if you ignore the value

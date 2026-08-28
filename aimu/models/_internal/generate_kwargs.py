@@ -88,6 +88,25 @@ class Unsupported:
     remedy: str
 
 
+# Tier-1 output caps, in one place so the provider families cannot drift apart on them. This is
+# the weakest tier (a model card or either caller tier still wins), so what it has to get right is
+# the value nobody sets -- and the old 1024 was low enough to truncate an ordinary answer, which is
+# the worst shape of failure available here: silent, mid-sentence, and only visible as a retry.
+#
+# Two numbers rather than one, because the two deployments fail differently. A cloud endpoint bills
+# per token and stops at EOS, so a high cap costs nothing on a well-behaved turn; 16000 is the
+# current vendor guidance for a non-streaming request, large enough for a long answer and small
+# enough to stay inside an SDK's default HTTP timeout. A local server spends wall-clock on every
+# token it is allowed, and a quantized model that never emits EOS spends all of them, so local
+# stays at 4096 -- the value HuggingFaceClient already chose for the same reason.
+#
+# Streaming could afford far more (vendors suggest ~64000), but AIMU has one tier for both modes,
+# so these are the streaming-safe intersection. Raise it per client with
+# ``client.default_generate_kwargs["max_tokens"]``.
+CLOUD_MAX_TOKENS = 16000
+LOCAL_MAX_TOKENS = 4096
+
+
 def apply_kwarg_support(
     kwargs: dict,
     *,

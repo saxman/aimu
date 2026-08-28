@@ -63,13 +63,13 @@ though the caller asked to skip them.
 | Ollama native | `think=False` | `think="low"/"medium"/"high"` (its SDK already accepts this exact vocabulary) |
 | OpenAI-compat local servers (vLLM, SGLang, LM Studio, Ollama-OpenAI, oMLX, HF-Serve, llama-server) | `extra_body={"chat_template_kwargs": {"enable_thinking": False}}` | `reasoning_effort`, with `"high"` sent as Qwen's own `"xhigh"` |
 | HuggingFace (in-process) | `enable_thinking=False` template kwarg | `reasoning_effort` template kwarg |
-| Anthropic | omits the `thinking` request parameter | `budget_tokens`: low 2048, medium 8000, high 16000 |
+| Anthropic | `{"type": "disabled"}` on the adaptive models (Opus 4.7+, Sonnet 5), omits the parameter on the rest | `budget_tokens`: low 2048, medium 8000, high 16000 |
 | llama.cpp, OpenAI cloud, Gemini | nothing emitted | nothing emitted |
 
 **Among the providers that share Qwen's effort vocabulary** (Ollama, the OpenAI-compatible family,
 HuggingFace), only Qwen 3.8 declares effort-level support today; every other model on those
 providers accepts on/off (`True`/`False`) but treats a level as advisory (see above). Anthropic is
-a separate case: all six `AnthropicModel` members declare effort-level support too, mapped to
+a separate case: every `AnthropicModel` member declares effort-level support too, mapped to
 `budget_tokens` rather than this shared vocabulary (see "Anthropic: exact token budgets" below).
 The last table row is a scope boundary rather than an absolute limitation for two of its
 three providers: OpenAI's o-series models never declare `thinking=True` in AIMU's catalog, so
@@ -98,12 +98,23 @@ client.chat(
 This stays a separate, Anthropic-specific parameter rather than folding into `thinking=`, since
 no other provider has an equivalent numeric knob to translate it to.
 
-Anthropic's `ADAPTIVE`-style models (Opus 4.7+, Fable 5) decide for themselves whether and how
-much to think, and their request shape has no budget parameter at all: `thinking_budget_tokens`
-is dropped on these models whether or not you also pass a `thinking=` level. Passing a level
-(`thinking="low"`, etc.) additionally logs a warning naming the level that was ignored.
-`thinking=True`/`thinking=False` still work on these models, since they can be told to think or
-not, just not how hard.
+Anthropic's `ADAPTIVE`-style models (Opus 4.7+, Sonnet 5, Fable 5) decide for themselves whether
+and how much to think, and their request shape has no budget parameter at all:
+`thinking_budget_tokens` is dropped on these models whether or not you also pass a `thinking=`
+level. Passing a level (`thinking="low"`, etc.) additionally logs a warning naming the level that
+was ignored. `thinking=True`/`thinking=False` still work on these models, since they can be told
+to think or not, just not how hard.
+
+Turning thinking off is where the two styles differ on the wire. On the `ENABLED`-style models
+(Opus 4.6, Sonnet 4.6, Haiku 4.5) an absent `thinking` parameter *is* off, so `thinking=False`
+sends nothing. Opus 5 and Sonnet 5 reason by default when the parameter is absent, so AIMU sends
+an explicit `{"type": "disabled"}` there instead. `CLAUDE_FABLE_5` is the one member that cannot
+be turned off at all (it declares `thinking_optional=False`): `thinking=False` warns and the call
+proceeds with reasoning on, as it does for any model that cannot honour the request.
+
+The adaptive models also reject `temperature`, `top_p`, and `top_k` outright, thinking or not, so
+those keys are dropped from every request to them -- including the `temperature` the Anthropic
+client's own defaults supply.
 
 ## On an agent
 

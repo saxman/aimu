@@ -9,7 +9,7 @@ from typing import Any, Iterator, Optional, Union
 import anthropic
 from dotenv import load_dotenv
 
-from .._internal.generate_kwargs import Unsupported
+from .._internal.generate_kwargs import CLOUD_MAX_TOKENS, Unsupported
 from .._internal.sdk_config import sdk_client_kwargs
 from ..base import (
     BaseModelClient,
@@ -41,13 +41,17 @@ class ThinkingStyle(Enum):
     """How a model's thinking parameter is expressed in the Anthropic Messages API.
 
     ENABLED  -> ``{"type": "enabled", "budget_tokens": N}``; the model always thinks up
-                to the budget. Used by Opus <= 4.6, Sonnet 4.6, and Haiku 4.5.
+                to the budget. Used by Opus <= 4.6, Sonnet 4.6, and Haiku 4.5. Thinking is
+                disabled by omitting the parameter.
     ADAPTIVE -> ``{"type": "adaptive", "display": "summarized"}``; the model decides per
                 request whether and how much to think (it may not think at all on simple
-                prompts). Required by Opus 4.7+ and Fable 5 -- the ENABLED form returns a
-                400 on those models, which also reject temperature/top_p/top_k. ``display``
-                defaults to ``"omitted"`` (empty thinking text), so we request ``"summarized"``
-                to surface thinking as StreamChunks.
+                prompts). Required by Opus 4.7+, Sonnet 5, and Fable 5 -- the ENABLED form
+                returns a 400 on those models, which also reject temperature/top_p/top_k.
+                ``display`` defaults to ``"omitted"`` (empty thinking text), so we request
+                ``"summarized"`` to surface thinking as StreamChunks. Thinking is disabled
+                with an explicit ``{"type": "disabled"}`` rather than by omission, because
+                Opus 5 and Sonnet 5 reason by default when the parameter is absent (Fable 5
+                cannot be disabled at all, and declares ``thinking_optional=False``).
     """
 
     ENABLED = "enabled"
@@ -70,7 +74,22 @@ class AnthropicModel(Model):
     # no-op for ADAPTIVE), so the generic resolver must never strip it beforehand.
     CLAUDE_FABLE_5 = (
         ModelSpec(
-            "claude-fable-5", tools=True, thinking=True, vision=True, structured_output=True, thinking_levels=True
+            "claude-fable-5",
+            tools=True,
+            thinking=True,
+            vision=True,
+            structured_output=True,
+            thinking_levels=True,
+            # Fable 5 always reasons: omitting the parameter runs adaptive, and an explicit
+            # {"type": "disabled"} is a 400. Declaring it here is what makes thinking=False warn
+            # and continue instead of reaching _thinking_kwargs and being sent.
+            thinking_optional=False,
+        ),
+        ThinkingStyle.ADAPTIVE,
+    )
+    CLAUDE_OPUS_5 = (
+        ModelSpec(
+            "claude-opus-5", tools=True, thinking=True, vision=True, structured_output=True, thinking_levels=True
         ),
         ThinkingStyle.ADAPTIVE,
     )
@@ -88,6 +107,12 @@ class AnthropicModel(Model):
     )
     CLAUDE_OPUS_4_6 = ModelSpec(
         "claude-opus-4-6", tools=True, thinking=True, vision=True, structured_output=True, thinking_levels=True
+    )
+    CLAUDE_SONNET_5 = (
+        ModelSpec(
+            "claude-sonnet-5", tools=True, thinking=True, vision=True, structured_output=True, thinking_levels=True
+        ),
+        ThinkingStyle.ADAPTIVE,
     )
     CLAUDE_SONNET_4_6 = ModelSpec(
         "claude-sonnet-4-6", tools=True, thinking=True, vision=True, structured_output=True, thinking_levels=True
@@ -154,6 +179,13 @@ def _raise_for_request_too_large(exc: "anthropic.RequestTooLargeError") -> None:
     ) from exc
 
 
+# Tier-1 defaults; the async twin imports this rather than restating it. See CLOUD_MAX_TOKENS.
+ANTHROPIC_DEFAULT_GENERATE_KWARGS = {
+    "max_tokens": CLOUD_MAX_TOKENS,
+    "temperature": 0.1,
+}
+
+
 class AnthropicClient(BaseModelClient):
     """Client for Anthropic Claude models using the native anthropic SDK.
 
@@ -166,10 +198,7 @@ class AnthropicClient(BaseModelClient):
 
     GENERATE_KWARG_SUPPORT = ANTHROPIC_GENERATE_KWARGS
 
-    DEFAULT_GENERATE_KWARGS = {
-        "max_tokens": 1024,
-        "temperature": 0.1,
-    }
+    DEFAULT_GENERATE_KWARGS = ANTHROPIC_DEFAULT_GENERATE_KWARGS
 
     def __init__(
         self,
@@ -324,20 +353,41 @@ class AnthropicClient(BaseModelClient):
     # Parameters not accepted by the Anthropic Messages API (e.g. HuggingFace-specific)
     _UNSUPPORTED_KWARGS = frozenset({"max_new_tokens", "do_sample", "num_return_sequences"})
 
+    # anthropic 1.x removed temperature/top_p/top_k from the messages.create()/stream()
+    # signatures; the ones that survive _route_sampling_kwargs travel in extra_body, which is
+    # merged into the request JSON as-is.
+    _SAMPLING_KWARGS = ("temperature", "top_p", "top_k")
+
     def _rewrite_generate_kwargs(self, kwargs: dict) -> dict:
         # Strip HuggingFace / other framework-specific keys the Anthropic API rejects
         for key in self._UNSUPPORTED_KWARGS:
             kwargs.pop(key, None)
-        # Anthropic rejects top_p alongside thinking, and thinking models require temperature=1,
-        # but only while thinking is actually in effect for this call. A resolved thinking=False
-        # means the caller's own sampling parameters belong in the request instead, so peek at
-        # (without popping) the reserved key here; _thinking_kwargs still needs it downstream to
-        # build/omit the thinking parameter.
+        return self._route_sampling_kwargs(kwargs)
+
+    def _route_sampling_kwargs(self, kwargs: dict) -> dict:
+        """Drop the sampling parameters, or move them into ``extra_body``.
+
+        Three separate facts meet here. Extended thinking rejects all three (the API fixes
+        temperature at 1 while it is in effect). The ``ADAPTIVE``-style models reject them
+        outright, thinking or not. And anthropic 1.x removed them from the ``messages.create()``
+        signature, so passing one as a keyword argument is a ``TypeError`` before any request is
+        made -- what survives has to go through ``extra_body`` instead.
+
+        One method owns the decision because it has to hold on *every* request path, and the
+        structured-output path routes around ``_thinking_kwargs`` entirely: leaving the stripping
+        to the thinking helpers is what let a forced ``temperature=1`` reach every structured call.
+        ``_resolve_generate_kwargs`` calls this hook on all of them.
+        """
+        # Peek at (rather than pop) the reserved key: _thinking_kwargs still needs it downstream
+        # to build or omit the thinking parameter.
         resolved = kwargs.get(THINKING_KWARG)
-        thinking_disabled_this_call = resolved is not None and not resolved.enabled
-        if self.is_thinking_model and not thinking_disabled_this_call:
-            kwargs["temperature"] = 1
-            kwargs.pop("top_p", None)
+        thinking_off_this_call = resolved is not None and not resolved.enabled
+        thinking_in_effect = self.is_thinking_model and not thinking_off_this_call
+        adaptive = getattr(self.model, "thinking_style", ThinkingStyle.ENABLED) is ThinkingStyle.ADAPTIVE
+
+        sampling = {key: kwargs.pop(key) for key in self._SAMPLING_KWARGS if key in kwargs}
+        if sampling and not (thinking_in_effect or adaptive):
+            kwargs["extra_body"] = {**kwargs.get("extra_body", {}), **sampling}
         return kwargs
 
     def _thinking_kwargs(self, generate_kwargs: dict) -> dict:
@@ -348,27 +398,14 @@ class AnthropicClient(BaseModelClient):
         if not self.is_thinking_model:
             return kwargs
 
-        if resolved is not None and not resolved.enabled:
-            # Omitting the parameter is how thinking is disabled. Sampling parameters are
-            # only stripped to satisfy extended thinking, so they stay put here.
-            return kwargs
-
         style = getattr(self.model, "thinking_style", ThinkingStyle.ENABLED)
-
         if style is ThinkingStyle.ADAPTIVE:
-            if resolved is not None and resolved.level is not None:
-                self._warn_once(
-                    f"{self.model.value} uses adaptive thinking and chooses its own effort; "
-                    f"thinking={resolved.level!r} ignored."
-                )
-            # Adaptive models reject budget_tokens and all sampling params; the model
-            # decides whether to think. Give thinking room within the shared max_tokens.
-            kwargs.pop("thinking_budget_tokens", None)
-            for key in ("temperature", "top_p", "top_k"):
-                kwargs.pop(key, None)
-            if kwargs.get("max_tokens", 0) < _ADAPTIVE_THINKING_MAX_TOKENS_FLOOR:
-                kwargs["max_tokens"] = _ADAPTIVE_THINKING_MAX_TOKENS_FLOOR
-            kwargs["thinking"] = {"type": "adaptive", "display": "summarized"}
+            return self._adaptive_thinking_kwargs(kwargs, resolved)
+
+        if resolved is not None and not resolved.enabled:
+            # On the ENABLED-style models, omitting the parameter is how thinking is disabled.
+            # Sampling parameters are only stripped to satisfy extended thinking, so they stay
+            # put here.
             return kwargs
 
         budget = kwargs.pop("thinking_budget_tokens", None)
@@ -380,8 +417,35 @@ class AnthropicClient(BaseModelClient):
         if kwargs.get("max_tokens", 0) <= budget:
             kwargs["max_tokens"] = budget + 1024
         kwargs["thinking"] = {"type": "enabled", "budget_tokens": budget}
-        # temperature must be omitted (defaults to 1) when thinking is enabled
-        kwargs.pop("temperature", None)
+        # The sampling parameters are already gone: _route_sampling_kwargs drops them whenever
+        # thinking is in effect, which is the only way this branch is reached.
+        return kwargs
+
+    def _adaptive_thinking_kwargs(self, kwargs: dict, resolved) -> dict:
+        """Build the thinking parameter for an ADAPTIVE-style model (see :class:`ThinkingStyle`).
+
+        These models reject ``budget_tokens`` whether or not the request asks them to think; the
+        sampling parameters they also reject are dropped earlier, by ``_route_sampling_kwargs``.
+        """
+        kwargs.pop("thinking_budget_tokens", None)
+
+        if resolved is not None and not resolved.enabled:
+            # Omission is not "off" here the way it is for the ENABLED style: an absent parameter
+            # runs adaptive on Opus 5 and Sonnet 5, so disabling has to be said out loud. The
+            # explicit form is accepted at the default effort; Opus 5 rejects it only above
+            # "high", an effort level AIMU never requests.
+            kwargs["thinking"] = {"type": "disabled"}
+            return kwargs
+
+        if resolved is not None and resolved.level is not None:
+            self._warn_once(
+                f"{self.model.value} uses adaptive thinking and chooses its own effort; "
+                f"thinking={resolved.level!r} ignored."
+            )
+        # The model decides whether to think. Give thinking room within the shared max_tokens.
+        if kwargs.get("max_tokens", 0) < _ADAPTIVE_THINKING_MAX_TOKENS_FLOOR:
+            kwargs["max_tokens"] = _ADAPTIVE_THINKING_MAX_TOKENS_FLOOR
+        kwargs["thinking"] = {"type": "adaptive", "display": "summarized"}
         return kwargs
 
     # ------------------------------------------------------------------ #
