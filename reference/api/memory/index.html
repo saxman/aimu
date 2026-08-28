@@ -2581,6 +2581,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#aimu.memory.DocumentStore.unreadable_paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unreadable_paths
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.memory.DocumentStore.store" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3603,6 +3614,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#aimu.memory.DocumentStore.unreadable_paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        unreadable_paths
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.memory.DocumentStore.store" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4229,6 +4251,12 @@ path-based API that mirrors Anthropic's Managed Agents Memory tools.</p>
 lock, so the in-memory dict and on-disk files stay consistent when the store
 is shared across concurrent threads or turns (<code>edit</code> -&gt; <code>read</code> + <code>write</code>
 stays atomic).</p>
+<p>With <em>persist_path</em> set, the directory is the single source of truth: reads,
+listings, and searches hit the filesystem on each call, so a document copied
+into the directory by hand shows up without restarting the process.  Files
+that are not UTF-8 text (a PDF, a binary artifact) are not documents; they
+are skipped, with a warning naming the file, and dot-files are ignored
+outright.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4685,6 +4713,56 @@ document at <em>path</em>.</p>
             <td>
               <div class="doc-md-description">
                 <p>documents, ordered by path.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.memory.DocumentStore.unreadable_paths" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">unreadable_paths</span>
+
+
+<a href="#aimu.memory.DocumentStore.unreadable_paths" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">unreadable_paths</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Return the paths of files in the store's directory that are not readable as text.</p>
+<p>These are files someone put in the directory that can never become documents (a PDF, a
+Word export, a binary artifact).  They are excluded from :meth:<code>list_paths</code> and
+:meth:<code>search_full_text</code>, so this is what lets a caller tell the difference between "you
+gave me nothing" and "what you gave me is not text" -- the distinction an agent needs in
+order to say something useful back.  Dot-files are not reported: they are not documents
+anyone placed here.</p>
+<p>Rescans the directory; returns <code>[]</code> for an ephemeral store, which has no directory.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Sorted list of memory paths.</p>
               </div>
             </td>
           </tr>

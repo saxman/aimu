@@ -4992,12 +4992,14 @@ engines). Comma-separated for multiple, e.g. "news,science".</p>
 
 
 <a href="#aimu.tools.builtin.read_file" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">read_file</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">max_lines</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">200</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">read_file</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">max_lines</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2000</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
 
         <p>Reads a local file and returns its contents, capped at max_lines lines.</p>
+<p>If the result says it was truncated, call again with a larger max_lines before drawing any
+conclusion from it: a partial document reads exactly like a complete one.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5036,11 +5038,11 @@ engines). Comma-separated for multiple, e.g. "news,science".</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Maximum number of lines to return (default 200).</p>
+                <p>Maximum number of lines to return (default 2000).</p>
               </div>
             </td>
             <td>
-                  <code>200</code>
+                  <code>2000</code>
             </td>
           </tr>
       </tbody>
