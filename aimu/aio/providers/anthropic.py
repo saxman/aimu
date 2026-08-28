@@ -25,7 +25,6 @@ from aimu.models.providers.anthropic import (
     _raise_if_context_overflowed,
 )
 from aimu.models._internal.sdk_config import sdk_client_kwargs
-from aimu.models._internal.usage import usage_from_anthropic
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
 
 from .._base import AsyncBaseModelClient
@@ -116,7 +115,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         except anthropic.BadRequestError as exc:
             _raise_if_context_overflowed(exc)
             raise
-        self.last_usage = usage_from_anthropic(response)
+        self._record_response(response)
         for block in response.content:
             if block.type == "tool_use":
                 return json.dumps(block.input)
@@ -162,7 +161,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         except anthropic.BadRequestError as exc:
             _raise_if_context_overflowed(exc)
             raise
-        self.last_usage = usage_from_anthropic(final)
+        self._record_response(final)
         text = "{}"
         for block in final.content:
             if block.type == "tool_use":
@@ -177,6 +176,8 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
     _SAMPLING_KWARGS = _SyncAnthropicClient._SAMPLING_KWARGS
     _thinking_kwargs = _SyncAnthropicClient._thinking_kwargs
     _adaptive_thinking_kwargs = _SyncAnthropicClient._adaptive_thinking_kwargs
+    _record_response = _SyncAnthropicClient._record_response
+    _raise_if_refused = _SyncAnthropicClient._raise_if_refused
     _with_effort = _SyncAnthropicClient._with_effort
     _cap_effort_for_disabled_thinking = _SyncAnthropicClient._cap_effort_for_disabled_thinking
     _openai_messages_to_anthropic = _SyncAnthropicClient._openai_messages_to_anthropic
@@ -222,7 +223,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         except anthropic.BadRequestError as exc:
             _raise_if_context_overflowed(exc)
             raise
-        self.last_usage = usage_from_anthropic(response)
+        self._record_response(response)
 
         self.last_thinking = ""
         content = ""
@@ -261,7 +262,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
                             yield StreamChunk(StreamingContentType.THINKING, delta.thinking)
                         elif delta.type == "text_delta":
                             yield StreamChunk(StreamingContentType.GENERATING, delta.text)
-                self.last_usage = usage_from_anthropic(await stream.get_final_message())
+                self._record_response(await stream.get_final_message())
         except anthropic.RequestTooLargeError as exc:
             _raise_for_request_too_large(exc)
         except anthropic.BadRequestError as exc:
@@ -336,7 +337,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
             elif block.type == "tool_use":
                 tool_use_blocks.append(block)
 
-        self.last_usage = usage_from_anthropic(response)
+        self._record_response(response)
 
         # Single turn: record the requested tools (with Anthropic's real tool_use ids) and return.
         # The Agent executes them.
@@ -392,7 +393,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
             _raise_if_context_overflowed(exc)
             raise
 
-        self.last_usage = usage_from_anthropic(await stream.get_final_message())
+        self._record_response(await stream.get_final_message())
 
         if not tool_use_acc:
             full_content = ""

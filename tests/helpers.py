@@ -91,6 +91,7 @@ class MockModelClient(BaseModelClient):
         self.tools = []
         self.last_thinking = ""
         self.last_usage = None
+        self.last_stop_reason = None
         self.last_output_truncated = False
         self.last_request = None
         self.events = None
@@ -521,6 +522,15 @@ def client_stand_in(client_cls, model, default_generate_kwargs=None):
     fake._rewrite_generate_kwargs = client_cls._rewrite_generate_kwargs.__get__(fake)
     fake._resolve_generate_kwargs = _GenerateKwargsMixin._resolve_generate_kwargs.__get__(fake)
     fake._warn_once = _ChatStateMixin._warn_once.__get__(fake)
+    # The outcome seam: every provider's request path records how the turn ended, and HuggingFace
+    # infers it from the generated length. Same reason the merge tiers are bound above -- a bare
+    # namespace silently loses a seam the moment the request path grows one.
+    fake.last_stop_reason = None
+    fake.last_output_truncated = False
+    fake._record_stop_reason = _ChatStateMixin._record_stop_reason.__get__(fake)
+    fake._record_generated_length = lambda *a, **k: None
+    fake._record_response = lambda *a, **k: None
+    fake._record_stream_chunk = lambda *a, **k: None
     return fake
 
 

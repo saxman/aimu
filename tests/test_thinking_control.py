@@ -352,7 +352,7 @@ def _ollama_recorder(monkeypatch, model):
         lambda **kw: types.SimpleNamespace(pull=lambda *a, **k: None, chat=record, generate=record),
     )
     monkeypatch.setattr(sync_ollama, "usage_from_ollama", lambda *a, **k: None)
-    monkeypatch.setattr(sync_ollama, "truncated_from_ollama", lambda *a, **k: False)
+    monkeypatch.setattr(sync_ollama, "stop_reason_from_ollama", lambda *a, **k: None)
     return OllamaClient(model), calls
 
 
@@ -1192,7 +1192,7 @@ def test_ollama_threads_thinking_through_every_entry_point(monkeypatch, method, 
         lambda **kw: types.SimpleNamespace(pull=lambda *a, **k: None, chat=record, generate=record),
     )
     monkeypatch.setattr(sync_ollama, "usage_from_ollama", lambda *a, **k: None)
-    monkeypatch.setattr(sync_ollama, "truncated_from_ollama", lambda *a, **k: False)
+    monkeypatch.setattr(sync_ollama, "stop_reason_from_ollama", lambda *a, **k: None)
     client = OllamaClient(OllamaModel.QWEN_3_8_27B)
 
     result = getattr(client, method)("hi", thinking="low", stream=stream)
@@ -1307,6 +1307,10 @@ def test_hf_never_passes_the_reserved_key_to_transformers_generate():
     # bind the real template method so the pop-then-splat ordering is the code under test
     client._apply_chat_template = HuggingFaceClient._apply_chat_template.__get__(client, type(client))
     client._record_request = lambda *a, **k: None
+    client._record_response = lambda *a, **k: None
+    client._record_stream_chunk = lambda *a, **k: None
+    client._record_stop_reason = lambda *a, **k: None
+    client._record_generated_length = lambda *a, **k: None
     kwargs = {"max_new_tokens": 16, THINKING_KWARG: ResolvedThinking(enabled=True, level="high")}
 
     HuggingFaceClient._generate_sync(client, [{"role": "user", "content": "hi"}], kwargs, None)

@@ -40,6 +40,7 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
     messages: list[dict]
     last_thinking: str | None
     last_usage: dict | None
+    last_stop_reason: str | None
     last_output_truncated: bool
     last_structured: Any | None
     last_request: Optional[Any]
@@ -64,6 +65,7 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         self.tools: list = []
         self.last_thinking = ""
         self.last_usage = None
+        self.last_stop_reason = None
         self.last_output_truncated = False
         self.last_structured = None
         self.last_request = None

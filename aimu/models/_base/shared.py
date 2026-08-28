@@ -30,6 +30,26 @@ class ContextOverflowError(RuntimeError):
     is ``None`` by design -- do not assume every instance of this error carries one."""
 
 
+class ModelRefusalError(RuntimeError):
+    """Raised when a model's safety classifiers decline a request rather than answer it.
+
+    Not a transport or validation failure: the API returns HTTP 200 with a ``stop_reason`` of
+    ``"refusal"`` and **no answer content**, so a client that only reads the content blocks returns
+    an empty string and nothing tells the caller their request was declined. In an agent loop that
+    is indistinguishable from a degenerate turn, so the continuation nudge fires and the run burns
+    its iterations getting refused again.
+
+    ``category`` is the provider's own classifier label (an open set -- e.g. ``"cyber"``,
+    ``"bio"``) and may be ``None``; ``explanation`` is its prose, when it supplies any. Being a
+    distinct type, it composes with :class:`aimu.models.FallbackClient`'s ``retry_on``, which is
+    the documented recovery: a refusal on one model is often answered by another."""
+
+    def __init__(self, message: str, *, category: Optional[str] = None, explanation: Optional[str] = None):
+        super().__init__(message)
+        self.category = category
+        self.explanation = explanation
+
+
 class StreamingContentType(str, Enum):
     THINKING = "thinking"
     TOOL_CALLING = "tool_calling"

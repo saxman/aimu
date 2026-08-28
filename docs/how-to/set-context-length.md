@@ -62,6 +62,12 @@ A request that no longer fits raises
 produced anything raises `TruncatedTurnError`. Both are worth reading as "the window is too small
 for this conversation": raise `context_length`, shorten the history, or advertise fewer tools.
 
+`TruncatedTurnError` fires on every provider as of v0.27.0. Before that only Ollama reported the
+signal it reads (`client.last_output_truncated`), so on the other backends a cut-off turn came back
+as a bare empty string. `client.last_stop_reason` carries the provider's own word for how the turn
+ended (`"length"`, `"max_tokens"`, `"stop"`, ...) if you want to inspect it directly; `None` means
+the provider said nothing, which is not the same as "finished normally".
+
 ```python
 from aimu.models import ContextOverflowError
 

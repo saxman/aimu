@@ -71,6 +71,7 @@ class MockAsyncModelClient(AsyncBaseModelClient):
         self.tools = []
         self.last_thinking = ""
         self.last_usage = None
+        self.last_stop_reason = None
         self.last_output_truncated = False
         self.last_request = None
         self.events = None

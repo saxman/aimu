@@ -19,6 +19,9 @@ def _bind_append(fake):
     ``_generate`` now calls it once per request), and return it."""
     fake._append_message = _ChatStateMixin._append_message.__get__(fake)
     fake._record_request = lambda *a, **k: None
+    fake._record_response = lambda *a, **k: None
+    fake._record_stream_chunk = lambda *a, **k: None
+    fake._record_stop_reason = lambda *a, **k: None
     return fake
 
 
@@ -347,6 +350,10 @@ async def test_aio_openai_compat_tool_call_turn_thinking_preserved():
         is_thinking_model=True,
         last_usage=None,
         last_thinking="",
+        _record_stop_reason=lambda *a, **k: None,
+        _record_response=lambda *a, **k: None,
+        _record_stream_chunk=lambda *a, **k: None,
+        _record_generated_length=lambda *a, **k: None,
         messages=[],
     )
 
@@ -358,6 +365,9 @@ async def test_aio_openai_compat_tool_call_turn_thinking_preserved():
 
     fake._record_tool_calls = _record
     fake._record_request = lambda *a, **k: None
+    fake._record_response = lambda *a, **k: None
+    fake._record_stream_chunk = lambda *a, **k: None
+    fake._record_stop_reason = lambda *a, **k: None
 
     # Single turn: the model called a tool and chat() returns (no follow-up; the engine dispatches).
     # The tool-call turn's reasoning is attached to the assistant(tool_calls) message.
@@ -390,6 +400,10 @@ async def test_aio_openai_compat_preserves_content_alongside_tool_call():
         is_thinking_model=False,
         last_usage=None,
         last_thinking="",
+        _record_stop_reason=lambda *a, **k: None,
+        _record_response=lambda *a, **k: None,
+        _record_stream_chunk=lambda *a, **k: None,
+        _record_generated_length=lambda *a, **k: None,
         messages=[],
     )
 
@@ -401,6 +415,9 @@ async def test_aio_openai_compat_preserves_content_alongside_tool_call():
 
     fake._record_tool_calls = _record
     fake._record_request = lambda *a, **k: None
+    fake._record_response = lambda *a, **k: None
+    fake._record_stream_chunk = lambda *a, **k: None
+    fake._record_stop_reason = lambda *a, **k: None
 
     result = await AsyncOpenAICompatClient._chat(fake, "hi")
 
@@ -436,6 +453,10 @@ async def test_aio_openai_compat_streamed_tool_call_turn_thinking_preserved():
         model=types.SimpleNamespace(value="fake-model"),
         is_thinking_model=True,
         last_thinking="",
+        _record_stop_reason=lambda *a, **k: None,
+        _record_response=lambda *a, **k: None,
+        _record_stream_chunk=lambda *a, **k: None,
+        _record_generated_length=lambda *a, **k: None,
         last_usage=None,
         messages=[],
     )
@@ -449,6 +470,9 @@ async def test_aio_openai_compat_streamed_tool_call_turn_thinking_preserved():
 
     fake._record_tool_calls = _record
     fake._record_request = lambda *a, **k: None
+    fake._record_response = lambda *a, **k: None
+    fake._record_stream_chunk = lambda *a, **k: None
+    fake._record_stop_reason = lambda *a, **k: None
 
     # Single turn: store the tool-call turn and stop (no second stream; the engine dispatches).
     # Thinking from the tool-call turn is attached to the assistant(tool_calls) message.
@@ -487,6 +511,10 @@ async def test_aio_openai_compat_chat_streamed_yields_incrementally():
         model=types.SimpleNamespace(value="fake-model"),
         is_thinking_model=False,
         last_thinking="",
+        _record_stop_reason=lambda *a, **k: None,
+        _record_response=lambda *a, **k: None,
+        _record_stream_chunk=lambda *a, **k: None,
+        _record_generated_length=lambda *a, **k: None,
         last_usage=None,
         messages=[],
     )
@@ -527,6 +555,10 @@ async def test_aio_openai_compat_chat_streamed_reads_reasoning_content_field():
         model=types.SimpleNamespace(value="fake-model"),
         is_thinking_model=True,
         last_thinking="",
+        _record_stop_reason=lambda *a, **k: None,
+        _record_response=lambda *a, **k: None,
+        _record_stream_chunk=lambda *a, **k: None,
+        _record_generated_length=lambda *a, **k: None,
         last_usage=None,
         messages=[],
     )
@@ -607,6 +639,10 @@ async def test_aio_openai_compat_chat_streamed_reads_reasoning_field_alias():
         model=types.SimpleNamespace(value="fake-model"),
         is_thinking_model=True,
         last_thinking="",
+        _record_stop_reason=lambda *a, **k: None,
+        _record_response=lambda *a, **k: None,
+        _record_stream_chunk=lambda *a, **k: None,
+        _record_generated_length=lambda *a, **k: None,
         last_usage=None,
         messages=[],
     )
@@ -643,6 +679,9 @@ async def test_aio_openai_compat_generate_reads_reasoning_field_alias():
         last_usage=None,
         last_thinking="",
         _record_request=lambda *a, **k: None,
+        _record_response=lambda *a, **k: None,
+        _record_stream_chunk=lambda *a, **k: None,
+        _record_stop_reason=lambda *a, **k: None,
     )
 
     result = await AsyncOpenAICompatClient._generate(fake, "hi", {"max_tokens": 5})
@@ -665,7 +704,13 @@ async def test_aio_openai_compat_iter_stream_reads_reasoning_field_alias():
         for it in items:
             yield it
 
-    fake = types.SimpleNamespace(is_thinking_model=True, last_thinking="", last_usage=None)
+    fake = types.SimpleNamespace(
+        is_thinking_model=True,
+        last_thinking="",
+        last_usage=None,
+        _record_stream_chunk=lambda *a, **k: None,
+        _record_stop_reason=lambda *a, **k: None,
+    )
 
     chunks = []
     async for c in AsyncOpenAICompatClient._iter_stream(

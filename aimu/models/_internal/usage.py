@@ -76,11 +76,12 @@ def usage_from_ollama(response: Any) -> Optional[dict]:
     return _usage_dict(_ollama_field(response, "prompt_eval_count"), _ollama_field(response, "eval_count"))
 
 
-def truncated_from_ollama(response: Any) -> bool:
-    """Whether Ollama stopped this response at a limit rather than at the model's own stopping point.
+def stop_reason_from_ollama(response: Any) -> Optional[str]:
+    """Ollama's own word for why this response ended (``stop``, ``length``, ``load``, ...).
 
-    ``done_reason == "length"`` covers both ways output runs out: a ``num_predict`` cap, and a prompt
-    that leaves too little of ``num_ctx`` to generate in. The second is the one worth surfacing, because
-    it looks exactly like a model that answered with nothing.
+    ``length`` covers both ways output runs out: a ``num_predict`` cap, and a prompt that leaves too
+    little of ``num_ctx`` to generate in. The second is the one worth surfacing, because it looks
+    exactly like a model that answered with nothing. ``_record_stop_reason`` maps it to
+    ``last_output_truncated``; this function only reports what the server said.
     """
-    return _ollama_field(response, "done_reason") == "length"
+    return _ollama_field(response, "done_reason")

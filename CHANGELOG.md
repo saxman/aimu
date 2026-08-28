@@ -1,5 +1,42 @@
 # Changelog
 
+## Unreleased
+
+### Models
+
+- **Fixed** **Every provider now reports how a turn ended, so `TruncatedTurnError` actually
+  fires.** `client.last_output_truncated` has been part of the client contract for a while, and the
+  agent loop turns it into a typed error naming the remedy (`_ToolLoop._raise_if_truncated`, 8 call
+  sites) -- but **only Ollama ever set it**. Its default of `False` means "nobody looked", not "not
+  truncated", so on Anthropic, OpenAI, Gemini, every local OpenAI-compatible server, llama.cpp and
+  HuggingFace the check silently no-opped and a turn cut off before it produced an answer came back
+  as a bare empty string. The consumer was fine; the producer was missing on four of five provider
+  families, and the tests only ever set the flag by hand on a mock.
+  `_ChatStateMixin._record_stop_reason` is now the single seam, mandatory on every request path for
+  the same reason `_record_request` is, and enforced the same way -- by
+  `test_every_client_records_how_the_turn_ended`, parametrized over every installed client x
+  chat/generate x stream/non-stream, rather than by convention. Anthropic reads
+  `response.stop_reason`, the OpenAI-compatible family reads `choices[0].finish_reason` (streaming
+  splits that from `usage` across different chunks, so each is recorded only when present),
+  llama.cpp indexes the same field out of its dicts, and HuggingFace infers it from generated
+  length against `max_new_tokens` since Transformers reports no reason at all.
+  New: **`client.last_stop_reason`** carries the provider's own word for it, so the raw signal is
+  inspectable rather than only its derived bool. `None` means the provider said nothing, which is
+  deliberately distinct from "finished normally".
+
+- **New** **`ModelRefusalError`**, raised when a model's safety classifiers decline a request.
+  Anthropic returns that as **HTTP 200 with `stop_reason: "refusal"` and no text block**, so AIMU
+  returned an empty string and said nothing; inside an agent loop it read as a degenerate turn, so
+  the continuation nudge fired and the run spent its iterations being refused again. Opus 5 and
+  Fable 5 ship the classifiers that produce it, and Anthropic notes that benign security and
+  life-sciences work trips them, so it is reachable in ordinary use. The error carries the
+  `stop_details` category and explanation when present, and is raised *after* usage is recorded so
+  a caller can still see what the declined attempt cost. Being its own class it composes with
+  `FallbackClient(retry_on=(ModelRefusalError,))` -- routing to another model is the vendor's own
+  recommended recovery. Exported from `aimu`, `aimu.models` and `aimu.aio` alongside
+  `ModelConnectionError` and `ContextOverflowError`.
+  Tests: `tests/test_stop_reason_api.py`, `tests/test_request_legibility.py`.
+
 ## v0.26.0 (2026-08-28): the Claude 5 line on anthropic 1.x, reasoning effort that lands, and an output cap that stops truncating
 
 ### Agents

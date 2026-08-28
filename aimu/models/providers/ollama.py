@@ -13,7 +13,7 @@ from .._catalog import Wire
 from .._internal.generate_kwargs import Unsupported
 from .._internal.image_input import _adapt_messages_for_ollama, _build_user_content_blocks, _ollama_split_message
 from .._internal.thinking import pop_thinking
-from .._internal.usage import truncated_from_ollama, usage_from_ollama
+from .._internal.usage import stop_reason_from_ollama, usage_from_ollama
 
 import ollama
 import logging
@@ -238,7 +238,7 @@ class OllamaClient(BaseModelClient):
 
         logger.debug("LLM raw response: %s", response)
         self.last_usage = usage_from_ollama(response)
-        self.last_output_truncated = truncated_from_ollama(response)
+        self._record_stop_reason(stop_reason_from_ollama(response))
 
         self.last_thinking = ""
 
@@ -283,7 +283,7 @@ class OllamaClient(BaseModelClient):
 
         self.last_thinking = ""
         self.last_usage = None
-        self.last_output_truncated = False
+        self._record_stop_reason(None)
 
         response_part = None
         for response_part in response:
@@ -298,7 +298,7 @@ class OllamaClient(BaseModelClient):
         # The final part (done=true) carries the eval counts.
         if response_part is not None:
             self.last_usage = usage_from_ollama(response_part)
-            self.last_output_truncated = truncated_from_ollama(response_part)
+            self._record_stop_reason(stop_reason_from_ollama(response_part))
 
     def _chat(
         self,
@@ -335,7 +335,7 @@ class OllamaClient(BaseModelClient):
 
         logger.debug("LLM raw response: %s", response)
         self.last_usage = usage_from_ollama(response)
-        self.last_output_truncated = truncated_from_ollama(response)
+        self._record_stop_reason(stop_reason_from_ollama(response))
 
         # Single turn: if the model called tools, execute them and return. The model's response
         # to the tool results comes on the next chat() call (the loop lives in Agent).
@@ -360,7 +360,7 @@ class OllamaClient(BaseModelClient):
         self, generate_kwargs: dict, tools: list, response_format: Optional[dict] = None
     ) -> Iterator[StreamChunk]:
         self.last_usage = None
-        self.last_output_truncated = False
+        self._record_stop_reason(None)
 
         # Single turn. Consume the whole stream, collecting tool calls from ANY part (Ollama can
         # emit an empty transitional part before the one carrying tool_calls) and streaming only
@@ -389,7 +389,7 @@ class OllamaClient(BaseModelClient):
             raise
         if turn["last_part"] is not None:
             self.last_usage = usage_from_ollama(turn["last_part"])
-            self.last_output_truncated = truncated_from_ollama(turn["last_part"])
+            self._record_stop_reason(stop_reason_from_ollama(turn["last_part"]))
 
         # If the model called tools, execute them and return; the response to the tool results
         # comes on the next chat() call (the loop lives in Agent). No follow-up turn here.

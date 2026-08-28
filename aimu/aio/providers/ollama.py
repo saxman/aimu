@@ -9,7 +9,7 @@ import ollama
 
 from aimu.models._internal.image_input import _adapt_messages_for_ollama
 from aimu.models._internal.thinking import pop_thinking
-from aimu.models._internal.usage import truncated_from_ollama, usage_from_ollama
+from aimu.models._internal.usage import stop_reason_from_ollama, usage_from_ollama
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
 from aimu.models.providers.ollama import (
     OLLAMA_GENERATE_KWARGS,
@@ -119,7 +119,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         self._record_request(payload)
         response = await self._client.generate(**payload)
         self.last_usage = usage_from_ollama(response)
-        self.last_output_truncated = truncated_from_ollama(response)
+        self._record_stop_reason(stop_reason_from_ollama(response))
 
         self.last_thinking = ""
         if not self.is_thinking_model:
@@ -150,7 +150,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
 
         self.last_thinking = ""
         self.last_usage = None
-        self.last_output_truncated = False
+        self._record_stop_reason(None)
         response_part = None
         async for response_part in response:
             if response_part.thinking:
@@ -161,7 +161,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         # The final part (done=true) carries the eval counts.
         if response_part is not None:
             self.last_usage = usage_from_ollama(response_part)
-            self.last_output_truncated = truncated_from_ollama(response_part)
+            self._record_stop_reason(stop_reason_from_ollama(response_part))
 
     async def _chat(
         self,
@@ -198,7 +198,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             _raise_if_context_overflowed(exc, messages)
             raise
         self.last_usage = usage_from_ollama(response)
-        self.last_output_truncated = truncated_from_ollama(response)
+        self._record_stop_reason(stop_reason_from_ollama(response))
 
         # Single turn: if the model called tools, execute them and return. The model's response
         # to the tool results comes on the next chat() call (the loop lives in Agent).
@@ -221,7 +221,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         self, generate_kwargs: dict, tools: list, response_format: Optional[dict] = None
     ) -> AsyncIterator[StreamChunk]:
         self.last_usage = None
-        self.last_output_truncated = False
+        self._record_stop_reason(None)
 
         think = self._pop_think(generate_kwargs)
         messages = _adapt_messages_for_ollama(self.messages)
@@ -252,7 +252,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             raise
         if turn["last_part"] is not None:
             self.last_usage = usage_from_ollama(turn["last_part"])
-            self.last_output_truncated = truncated_from_ollama(turn["last_part"])
+            self._record_stop_reason(stop_reason_from_ollama(turn["last_part"]))
 
         # If the model called tools, execute them and return; the response to the tool results
         # comes on the next chat() call (the loop lives in Agent). No follow-up turn here.

@@ -34,6 +34,29 @@ def _bind_append(fake):
 
     fake._append_message = _ChatStateMixin._append_message.__get__(fake)
     fake._record_request = lambda *a, **k: None
+    fake._record_response = lambda *a, **k: None
+    fake._record_stream_chunk = lambda *a, **k: None
+    fake._record_stop_reason = lambda *a, **k: None
+    _bind_outcome(fake)
+    return fake
+
+
+def _bind_outcome(fake):
+    """Give a hand-rolled fake the real stop-reason seam and no-op outcome recorders.
+
+    Same reason as ``_record_request`` above: every provider's request path now records how the
+    turn ended (``_record_stop_reason``, whose ``last_output_truncated`` the agent loop turns into
+    a ``TruncatedTurnError``). These fakes assert on thinking and message shape rather than on the
+    outcome fields, so the per-provider recorders are stubbed and the real ones are covered by
+    ``test_stop_reason_api.py`` and ``test_usage_api.py``.
+    """
+    from aimu.models._internal.chat_state import _ChatStateMixin
+
+    fake.last_stop_reason = None
+    fake.last_output_truncated = False
+    fake._record_stop_reason = _ChatStateMixin._record_stop_reason.__get__(fake)
+    fake._record_response = lambda *a, **k: None
+    fake._record_stream_chunk = lambda *a, **k: None
     return fake
 
 
@@ -1073,6 +1096,10 @@ def test_llamacpp_chat_streamed_yields_incrementally():
         _llm=types.SimpleNamespace(create_chat_completion=_stream),
         is_thinking_model=False,
         last_thinking="",
+        _record_stop_reason=lambda *a, **k: None,
+        _record_response=lambda *a, **k: None,
+        _record_stream_chunk=lambda *a, **k: None,
+        _record_generated_length=lambda *a, **k: None,
         messages=[],
     )
     _bind_append(fake)
@@ -1101,6 +1128,10 @@ def test_llamacpp_chat_streamed_reads_reasoning_content_field():
         _llm=types.SimpleNamespace(create_chat_completion=lambda **kw: iter(deltas)),
         is_thinking_model=True,
         last_thinking="",
+        _record_stop_reason=lambda *a, **k: None,
+        _record_response=lambda *a, **k: None,
+        _record_stream_chunk=lambda *a, **k: None,
+        _record_generated_length=lambda *a, **k: None,
         messages=[],
     )
     _bind_append(fake)
@@ -1172,6 +1203,10 @@ def test_openai_compat_chat_streamed_stores_thinking_in_messages():
         model=types.SimpleNamespace(value="fake-model"),
         is_thinking_model=True,
         last_thinking="",
+        _record_stop_reason=lambda *a, **k: None,
+        _record_response=lambda *a, **k: None,
+        _record_stream_chunk=lambda *a, **k: None,
+        _record_generated_length=lambda *a, **k: None,
         last_usage=None,
         messages=[],
     )
@@ -1209,6 +1244,10 @@ def test_openai_compat_chat_streamed_yields_incrementally():
         model=types.SimpleNamespace(value="fake-model"),
         is_thinking_model=False,
         last_thinking="",
+        _record_stop_reason=lambda *a, **k: None,
+        _record_response=lambda *a, **k: None,
+        _record_stream_chunk=lambda *a, **k: None,
+        _record_generated_length=lambda *a, **k: None,
         last_usage=None,
         messages=[],
     )
@@ -1271,6 +1310,10 @@ def test_openai_compat_chat_streamed_reads_reasoning_content_field():
         model=types.SimpleNamespace(value="fake-model"),
         is_thinking_model=True,
         last_thinking="",
+        _record_stop_reason=lambda *a, **k: None,
+        _record_response=lambda *a, **k: None,
+        _record_stream_chunk=lambda *a, **k: None,
+        _record_generated_length=lambda *a, **k: None,
         last_usage=None,
         messages=[],
     )
@@ -1326,6 +1369,10 @@ def test_llamacpp_chat_reads_reasoning_field_alias():
         _llm=types.SimpleNamespace(create_chat_completion=lambda **kw: response),
         is_thinking_model=True,
         last_thinking="",
+        _record_stop_reason=lambda *a, **k: None,
+        _record_response=lambda *a, **k: None,
+        _record_stream_chunk=lambda *a, **k: None,
+        _record_generated_length=lambda *a, **k: None,
         messages=[],
     )
     _bind_append(fake)
@@ -1351,6 +1398,10 @@ def test_llamacpp_chat_streamed_reads_reasoning_field_alias():
         _llm=types.SimpleNamespace(create_chat_completion=lambda **kw: iter(deltas)),
         is_thinking_model=True,
         last_thinking="",
+        _record_stop_reason=lambda *a, **k: None,
+        _record_response=lambda *a, **k: None,
+        _record_stream_chunk=lambda *a, **k: None,
+        _record_generated_length=lambda *a, **k: None,
         messages=[],
     )
     _bind_append(fake)
@@ -1377,6 +1428,9 @@ def test_llamacpp_generate_reads_reasoning_field_alias():
         is_thinking_model=True,
         last_thinking="",
         _record_request=lambda *a, **k: None,
+        _record_response=lambda *a, **k: None,
+        _record_stream_chunk=lambda *a, **k: None,
+        _record_stop_reason=lambda *a, **k: None,
     )
 
     result = LlamaCppClient._generate(fake, "hi", {"max_tokens": 5})
@@ -1461,6 +1515,10 @@ def test_openai_compat_chat_streamed_reads_reasoning_field_alias():
         model=types.SimpleNamespace(value="fake-model"),
         is_thinking_model=True,
         last_thinking="",
+        _record_stop_reason=lambda *a, **k: None,
+        _record_response=lambda *a, **k: None,
+        _record_stream_chunk=lambda *a, **k: None,
+        _record_generated_length=lambda *a, **k: None,
         last_usage=None,
         messages=[],
     )
@@ -1494,6 +1552,9 @@ def test_openai_compat_generate_reads_reasoning_field_alias():
         last_usage=None,
         last_thinking="",
         _record_request=lambda *a, **k: None,
+        _record_response=lambda *a, **k: None,
+        _record_stream_chunk=lambda *a, **k: None,
+        _record_stop_reason=lambda *a, **k: None,
     )
 
     result = OpenAICompatClient._generate(fake, "hi", {"max_tokens": 5})
@@ -1512,7 +1573,13 @@ def test_openai_compat_iter_stream_reads_reasoning_field_alias():
         d = types.SimpleNamespace(tool_calls=None, content=content, reasoning=reasoning)
         return types.SimpleNamespace(usage=None, choices=[types.SimpleNamespace(delta=d)])
 
-    fake = types.SimpleNamespace(is_thinking_model=True, last_thinking="", last_usage=None)
+    fake = types.SimpleNamespace(
+        is_thinking_model=True,
+        last_thinking="",
+        last_usage=None,
+        _record_stream_chunk=lambda *a, **k: None,
+        _record_stop_reason=lambda *a, **k: None,
+    )
 
     chunks = list(OpenAICompatClient._iter_stream(fake, iter([_delta(reasoning="think"), _delta(content="ok")])))
 
@@ -1574,6 +1641,9 @@ def test_llamacpp_tool_call_turn_thinking_preserved():
     )
     fake._record_tool_calls = _stub_record_tool_calls(fake)
     fake._record_request = lambda *a, **k: None
+    fake._record_response = lambda *a, **k: None
+    fake._record_stream_chunk = lambda *a, **k: None
+    fake._record_stop_reason = lambda *a, **k: None
 
     # Single turn: the tool executes and chat() returns (no follow-up). Reasoning from the
     # tool-call turn is attached to the assistant(tool_calls) message; the answer comes next turn.
@@ -1606,6 +1676,9 @@ def test_openai_compat_tool_call_turn_thinking_preserved():
     )
     fake._record_tool_calls = _stub_record_tool_calls(fake)
     fake._record_request = lambda *a, **k: None
+    fake._record_response = lambda *a, **k: None
+    fake._record_stream_chunk = lambda *a, **k: None
+    fake._record_stop_reason = lambda *a, **k: None
 
     # Single turn: the tool executes and chat() returns (no follow-up answer).
     result = OpenAICompatClient._chat(fake, "hi")
@@ -1639,6 +1712,9 @@ def test_openai_compat_preserves_content_alongside_tool_call():
     )
     fake._record_tool_calls = _stub_record_tool_calls(fake)
     fake._record_request = lambda *a, **k: None
+    fake._record_response = lambda *a, **k: None
+    fake._record_stream_chunk = lambda *a, **k: None
+    fake._record_stop_reason = lambda *a, **k: None
 
     result = OpenAICompatClient._chat(fake, "hi")
 
@@ -1669,6 +1745,9 @@ def test_llamacpp_streamed_tool_call_turn_thinking_preserved():
     fake._record_tool_calls = _stub_record_tool_calls(fake)
     fake._iter_stream = lambda stream: LlamaCppClient._iter_stream(fake, stream)
     fake._record_request = lambda *a, **k: None
+    fake._record_response = lambda *a, **k: None
+    fake._record_stream_chunk = lambda *a, **k: None
+    fake._record_stop_reason = lambda *a, **k: None
 
     # Single turn: dispatch the tools and stop (no second stream); answer comes next turn.
     list(LlamaCppClient._chat_streamed(fake, {}, []))
@@ -1703,6 +1782,9 @@ def test_openai_compat_streamed_tool_call_turn_thinking_preserved():
     fake._record_tool_calls = _stub_record_tool_calls(fake)
     fake._iter_stream = lambda stream: OpenAICompatClient._iter_stream(fake, stream)
     fake._record_request = lambda *a, **k: None
+    fake._record_response = lambda *a, **k: None
+    fake._record_stream_chunk = lambda *a, **k: None
+    fake._record_stop_reason = lambda *a, **k: None
 
     # Single turn: dispatch the tools and stop (no second stream); answer comes next turn.
     list(OpenAICompatClient._chat_streamed(fake, {}, []))

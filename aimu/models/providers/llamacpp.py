@@ -241,6 +241,12 @@ class LlamaCppClient(BaseModelClient):
             else:
                 yield StreamChunk(StreamingContentType.GENERATING, text)
 
+    def _record_response(self, response: dict) -> None:
+        """Record how the turn ended. llama-cpp-python returns plain dicts, not SDK objects, so
+        this indexes rather than getattr-s; it reports no usage, hence no last_usage line here."""
+        choices = response.get("choices") or [{}]
+        self._record_stop_reason(choices[0].get("finish_reason"))
+
     def _generate(
         self,
         prompt: str,
@@ -263,6 +269,7 @@ class LlamaCppClient(BaseModelClient):
         _raise_if_prompt_overflows(self._llm, payload["messages"])
         response = self._llm.create_chat_completion(**payload)
         logger.debug("LLM raw response: %s", response)
+        self._record_response(response)
         msg = response["choices"][0]["message"]
         content = msg["content"] or ""
 
@@ -315,6 +322,7 @@ class LlamaCppClient(BaseModelClient):
         _raise_if_prompt_overflows(self._llm, payload["messages"])
         response = self._llm.create_chat_completion(**payload)
         logger.debug("LLM raw response: %s", response)
+        self._record_response(response)
         msg = response["choices"][0]["message"]
 
         self.last_thinking = ""

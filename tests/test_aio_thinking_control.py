@@ -104,7 +104,7 @@ async def test_aio_ollama_maps_thinking_to_the_think_parameter(monkeypatch):
         return {"message": message}
 
     monkeypatch.setattr(aio_ollama, "usage_from_ollama", lambda *a, **k: None)
-    monkeypatch.setattr(aio_ollama, "truncated_from_ollama", lambda *a, **k: False)
+    monkeypatch.setattr(aio_ollama, "stop_reason_from_ollama", lambda *a, **k: None)
     monkeypatch.setattr(ollama, "AsyncClient", lambda **kw: types.SimpleNamespace(pull=lambda *a, **k: None))
     client = aio.client("ollama:qwen3.8:27b")
     client._client._client = types.SimpleNamespace(chat=record, generate=record)

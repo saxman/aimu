@@ -428,6 +428,22 @@ class HuggingFaceClient(BaseModelClient):
 
         return kwargs
 
+    def _record_generated_length(self, generated: int, generate_kwargs: dict) -> None:
+        """Infer the stop reason from how much was generated: Transformers reports none.
+
+        ``generate()`` returns ids, not a reason, so hitting ``max_new_tokens`` is only visible as
+        "generated exactly the cap". A model that naturally stops on the cap boundary is a false
+        positive, which is acceptable here: the value is consumed only where a turn produced
+        nothing usable, and there the choice is between naming the likely cause and saying nothing.
+
+        The streamed path is deliberately not covered -- ``TextIteratorStreamer`` yields decoded
+        text, so counting tokens would mean re-tokenizing the output to answer a question the
+        library does not need answered urgently. It leaves ``last_stop_reason`` at ``None``, which
+        the seam treats as "the provider said nothing" rather than "finished normally".
+        """
+        cap = generate_kwargs.get("max_new_tokens")
+        self._record_stop_reason("length" if cap and generated >= cap else "stop")
+
     def _apply_chat_template(
         self,
         messages: list[dict],
@@ -533,6 +549,7 @@ class HuggingFaceClient(BaseModelClient):
         generated_ids = self._hf_model.generate(**model_inputs, **generate_kwargs)
 
         output_ids = generated_ids[0][len(model_inputs.input_ids[0]) :]
+        self._record_generated_length(len(output_ids), generate_kwargs)
 
         if self._uses_processor_parse_response:
             raw = self._hf_processor.decode(output_ids, skip_special_tokens=False)

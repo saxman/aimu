@@ -122,6 +122,7 @@ def test_hf_generate_sync_records_the_rendered_prompt_and_kwargs():
         model=HuggingFaceModel.QWEN_3_8_27B,
         MODELS=HuggingFaceModel,
         _hf_processor=None,
+        _record_generated_length=lambda *a, **k: None,
         _hf_tokenizer=_Tokenizer(),
         _hf_model=types.SimpleNamespace(device="cpu", generate=lambda **kw: [[0, 1, 2, 3]]),
         _uses_processor_parse_response=False,
@@ -167,6 +168,7 @@ def test_hf_generate_streaming_records_the_rendered_prompt_and_kwargs():
         model=HuggingFaceModel.QWEN_3_8_27B,
         MODELS=HuggingFaceModel,
         _hf_processor=None,
+        _record_generated_length=lambda *a, **k: None,
         _hf_tokenizer=_Tokenizer(),
         _hf_model=types.SimpleNamespace(device="cpu", generate=lambda **kw: None),
         last_thinking=None,
@@ -241,6 +243,9 @@ def test_llamacpp_chat_records_a_copy_of_messages_not_a_live_alias():
     )
     fake._append_message = _ChatStateMixin._append_message.__get__(fake)
     fake._record_request = BaseModelClient._record_request.__get__(fake)
+    fake._record_response = lambda *a, **k: None
+    fake._record_generated_length = lambda *a, **k: None
+    fake._record_stop_reason = lambda *a, **k: None
 
     LlamaCppClient._chat(fake, "hi")
 
@@ -265,6 +270,9 @@ def test_llamacpp_generate_records_kwargs_and_messages():
         events=None,
     )
     fake._record_request = BaseModelClient._record_request.__get__(fake)
+    fake._record_response = lambda *a, **k: None
+    fake._record_generated_length = lambda *a, **k: None
+    fake._record_stop_reason = lambda *a, **k: None
 
     LlamaCppClient._generate(fake, "hi", {"max_tokens": 5})
 
@@ -284,6 +292,9 @@ def test_llamacpp_generate_streamed_records_kwargs_and_messages():
         events=None,
     )
     fake._record_request = BaseModelClient._record_request.__get__(fake)
+    fake._record_response = lambda *a, **k: None
+    fake._record_generated_length = lambda *a, **k: None
+    fake._record_stop_reason = lambda *a, **k: None
     fake._iter_stream = lambda stream: LlamaCppClient._iter_stream(fake, stream)
 
     list(LlamaCppClient._generate_streamed(fake, "hi", {"max_tokens": 5}))
@@ -312,6 +323,9 @@ def test_llamacpp_chat_streamed_records_a_copy_of_messages_not_a_live_alias():
     )
     fake._append_message = _ChatStateMixin._append_message.__get__(fake)
     fake._record_request = BaseModelClient._record_request.__get__(fake)
+    fake._record_response = lambda *a, **k: None
+    fake._record_generated_length = lambda *a, **k: None
+    fake._record_stop_reason = lambda *a, **k: None
 
     list(LlamaCppClient._chat_streamed(fake, {"max_tokens": 5}, []))
 
@@ -368,7 +382,7 @@ class _OllamaObj(dict):
 
 def _ollama_part():
     message = _OllamaObj(role="assistant", thinking=None, tool_calls=None, content="ok")
-    return _OllamaObj(message=message, response="ok", thinking=None)
+    return _OllamaObj(message=message, response="ok", thinking=None, done_reason="stop")
 
 
 class _FakeAnthropicStream:
@@ -385,6 +399,7 @@ class _FakeAnthropicStream:
         return types.SimpleNamespace(
             content=[types.SimpleNamespace(type="text", text="ok")],
             usage=types.SimpleNamespace(input_tokens=1, output_tokens=1),
+            stop_reason="end_turn",
         )
 
 
@@ -405,25 +420,26 @@ class _FakeAsyncAnthropicStream:
         return types.SimpleNamespace(
             content=[types.SimpleNamespace(type="text", text="ok")],
             usage=types.SimpleNamespace(input_tokens=1, output_tokens=1),
+            stop_reason="end_turn",
         )
 
 
 def _openai_compat_create(**kw):
     if kw.get("stream"):
         delta = types.SimpleNamespace(content="ok", tool_calls=None, reasoning_content=None)
-        chunk = types.SimpleNamespace(usage=None, choices=[types.SimpleNamespace(delta=delta)])
+        chunk = types.SimpleNamespace(usage=None, choices=[types.SimpleNamespace(delta=delta, finish_reason="stop")])
         return iter([chunk])
     message = types.SimpleNamespace(content="ok", tool_calls=None, reasoning_content=None)
-    return types.SimpleNamespace(choices=[types.SimpleNamespace(message=message)], usage=None)
+    return types.SimpleNamespace(choices=[types.SimpleNamespace(message=message, finish_reason="stop")], usage=None)
 
 
 async def _async_openai_compat_create(**kw):
     if kw.get("stream"):
         delta = types.SimpleNamespace(content="ok", tool_calls=None, reasoning_content=None)
-        chunk = types.SimpleNamespace(usage=None, choices=[types.SimpleNamespace(delta=delta)])
+        chunk = types.SimpleNamespace(usage=None, choices=[types.SimpleNamespace(delta=delta, finish_reason="stop")])
         return _AsyncIter([chunk])
     message = types.SimpleNamespace(content="ok", tool_calls=None, reasoning_content=None)
-    return types.SimpleNamespace(choices=[types.SimpleNamespace(message=message)], usage=None)
+    return types.SimpleNamespace(choices=[types.SimpleNamespace(message=message, finish_reason="stop")], usage=None)
 
 
 def _drive_ollama(client_cls, monkeypatch, method, stream, prepare=None):
@@ -441,7 +457,8 @@ def _drive_ollama(client_cls, monkeypatch, method, stream, prepare=None):
         lambda **kw: types.SimpleNamespace(pull=lambda *a, **k: None, chat=_call, generate=_call),
     )
     monkeypatch.setattr(ollama_mod, "usage_from_ollama", lambda *a, **k: None)
-    monkeypatch.setattr(ollama_mod, "truncated_from_ollama", lambda *a, **k: False)
+    # stop_reason_from_ollama is deliberately NOT stubbed: the fake part carries done_reason, and
+    # test_every_client_records_how_the_turn_ended asserts the real helper read it.
     model = next(iter(client_cls.MODELS))
     client = client_cls(model)
     if prepare:
@@ -467,7 +484,8 @@ async def _drive_async_ollama(client_cls, monkeypatch, method, stream, prepare=N
         lambda **kw: types.SimpleNamespace(pull=lambda *a, **k: None, chat=_call, generate=_call),
     )
     monkeypatch.setattr(ollama_mod, "usage_from_ollama", lambda *a, **k: None)
-    monkeypatch.setattr(ollama_mod, "truncated_from_ollama", lambda *a, **k: False)
+    # stop_reason_from_ollama is deliberately NOT stubbed: the fake part carries done_reason, and
+    # test_every_client_records_how_the_turn_ended asserts the real helper read it.
     model = next(iter(client_cls.MODELS))
     client = client_cls(model)
     if prepare:
@@ -486,6 +504,7 @@ def _drive_anthropic(client_cls, monkeypatch, method, stream, prepare=None):
         return types.SimpleNamespace(
             content=[types.SimpleNamespace(type="text", text="ok")],
             usage=types.SimpleNamespace(input_tokens=1, output_tokens=1),
+            stop_reason="end_turn",
         )
 
     monkeypatch.setattr(
@@ -512,6 +531,7 @@ async def _drive_async_anthropic(client_cls, monkeypatch, method, stream, prepar
         return types.SimpleNamespace(
             content=[types.SimpleNamespace(type="text", text="ok")],
             usage=types.SimpleNamespace(input_tokens=1, output_tokens=1),
+            stop_reason="end_turn",
         )
 
     monkeypatch.setattr(
@@ -648,6 +668,40 @@ async def test_every_client_records_its_request(client_cls, method, stream, monk
     client = await _drive_any(client_cls, monkeypatch, method, stream)
     name = client_cls.__name__
     assert client.last_request is not None, f"{name}.{method}(stream={stream}) recorded nothing on last_request"
+
+
+@pytest.mark.parametrize("method,stream", _PATHS, ids=[f"{m}-{'stream' if s else 'sync'}" for m, s in _PATHS])
+@pytest.mark.parametrize("client_cls", _clients_to_check(), ids=lambda c: c.__name__)
+async def test_every_client_records_how_the_turn_ended(client_cls, method, stream, monkeypatch):
+    """A shipped client that never records a stop reason silently disables an actionable error.
+
+    ``last_output_truncated`` defaults to ``False``, and that default means "nobody looked", not
+    "not truncated". The agent loop turns it into a ``TruncatedTurnError`` naming the remedy
+    (``_ToolLoop._raise_if_truncated``), so a provider skipping the seam does not merely lose a
+    field -- it makes the error stop firing, and a turn cut off mid-answer comes back as a bare
+    empty string. Before v0.27.0 only Ollama set it, which is exactly the shape of gap this
+    guard exists to prevent recurring.
+
+    Sibling of test_every_client_records_its_request, sharing its harness and its rationale: the
+    rule is cross-cutting, so a test enforces it rather than a convention, and it is parametrized
+    per request path because the seam is per-call-site -- a provider that wired ``_chat`` but not
+    ``_chat_streamed`` would pass a client-level-only check.
+
+    Every shared stub carries the provider's own field with a *non*-truncating value, so this
+    asserts the path captured what the response said rather than merely resetting to ``None``
+    (the streamed paths reset at the top, which a bare "was it called?" check could not tell
+    apart from a real capture).
+    """
+    client = await _drive_any(client_cls, monkeypatch, method, stream)
+    name = client_cls.__name__
+    assert client.last_stop_reason is not None, (
+        f"{name}.{method}(stream={stream}) recorded no stop reason, so last_output_truncated "
+        "stays False whether or not the output was cut off"
+    )
+    assert client.last_output_truncated is False, (
+        f"{name}.{method}(stream={stream}) read a non-truncating stop reason "
+        f"({client.last_stop_reason!r}) as truncation"
+    )
 
 
 async def _drive_any(client_cls, monkeypatch, method, stream, prepare=None):

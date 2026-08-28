@@ -48,7 +48,7 @@ from ._model_client import AsyncModelClient, client, chat
 # already behind aimu's lazy `aio` attribute gate -- deferring further here would add
 # indirection with nothing to show for it on the import-weight guard.
 from .context import summarize_messages
-from aimu.models import ContextOverflowError, ModelConnectionError
+from aimu.models import ContextOverflowError, ModelConnectionError, ModelRefusalError
 from .fallback import AsyncFallbackClient
 from aimu.agents import DegenerateTurnError, TruncatedTurnError
 from .agent import Agent, AsyncRunner
@@ -155,6 +155,7 @@ __all__ = [
     "MCPClient",
     "ModelConnectionError",
     "ContextOverflowError",
+    "ModelRefusalError",
     "OrchestratorAgent",
     "Parallel",
     "PlanExecuteEvaluator",

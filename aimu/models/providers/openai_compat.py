@@ -206,6 +206,25 @@ class OpenAICompatClient(BaseModelClient):
     def STRUCTURED_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_structured_output]
 
+    def _record_response(self, response) -> None:
+        """Record usage and how the turn ended, from a complete (non-streamed) response."""
+        self.last_usage = usage_from_openai(response)
+        choices = getattr(response, "choices", None)
+        self._record_stop_reason(getattr(choices[0], "finish_reason", None) if choices else None)
+
+    def _record_stream_chunk(self, chunk) -> None:
+        """Record whichever of usage / finish_reason a streamed chunk carries.
+
+        Streaming splits the two: ``finish_reason`` rides the last content chunk, ``usage`` rides
+        a terminal chunk whose ``choices`` list is empty. Each is recorded only when present, so
+        one cannot clobber the other with ``None``.
+        """
+        if getattr(chunk, "usage", None):
+            self.last_usage = usage_from_openai(chunk)
+        choices = getattr(chunk, "choices", None)
+        if choices and getattr(choices[0], "finish_reason", None):
+            self._record_stop_reason(choices[0].finish_reason)
+
     def _rewrite_generate_kwargs(self, kwargs: dict) -> dict:
         return self._apply_resolved_thinking(self._route_extra_body_kwargs(kwargs))
 
@@ -276,11 +295,11 @@ class OpenAICompatClient(BaseModelClient):
         """
         self.last_thinking = ""
         self.last_usage = None
+        self._record_stop_reason(None)
         parser = _ThinkingParser() if self.is_thinking_model else None
 
         for chunk in _guard_stream(stream):
-            if getattr(chunk, "usage", None):
-                self.last_usage = usage_from_openai(chunk)
+            self._record_stream_chunk(chunk)
             if not chunk.choices:  # terminal usage chunk (empty choices) or keep-alive
                 continue
             delta = chunk.choices[0].delta
@@ -331,7 +350,7 @@ class OpenAICompatClient(BaseModelClient):
         )
         logger.debug("LLM raw response: %s", response)
         msg = response.choices[0].message
-        self.last_usage = usage_from_openai(response)
+        self._record_response(response)
         content = msg.content or ""
 
         self.last_thinking = ""
@@ -393,7 +412,7 @@ class OpenAICompatClient(BaseModelClient):
         )
         logger.debug("LLM raw response: %s", response)
         msg = response.choices[0].message
-        self.last_usage = usage_from_openai(response)
+        self._record_response(response)
         self.last_thinking = ""
         # Servers that strip <think> tags server-side (llama-server, vLLM/SGLang, mlx-lm) return
         # reasoning in a field of its own, under either of two names; prefer that when present, else
@@ -452,10 +471,10 @@ class OpenAICompatClient(BaseModelClient):
         parser = _ThinkingParser() if self.is_thinking_model else None
         self.last_thinking = ""
         self.last_usage = None
+        self._record_stop_reason(None)
 
         for chunk in stream:
-            if getattr(chunk, "usage", None):
-                self.last_usage = usage_from_openai(chunk)
+            self._record_stream_chunk(chunk)
             if not chunk.choices:  # terminal usage chunk (empty choices) or keep-alive
                 continue
             delta = chunk.choices[0].delta

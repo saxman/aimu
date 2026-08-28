@@ -97,6 +97,15 @@ class _EventScope:
 # has to import the higher-level wrapper classes that define them: ModelClient / AsyncModelClient
 # (`_client`), _AsyncInProcessClient and its HuggingFace/llamacpp subclasses (`_sync`), and
 # _AgenticView / _AsyncAgenticView (`_inner_client`).
+# The stop reasons that mean "output ran out of room" rather than "the model finished". Each
+# backend spells it its own way -- OpenAI-compatible servers and Ollama say "length", Anthropic
+# says "max_tokens" -- and one set beats a per-provider comparison for the same reason the
+# generate_kwargs merge lives on the base: it is a rule that has to hold everywhere.
+TRUNCATED_STOP_REASONS = frozenset({"length", "max_tokens"})
+
+# Anthropic's safety classifiers decline with this rather than an HTTP error.
+REFUSAL_STOP_REASON = "refusal"
+
 _DELEGATE_ATTRS = ("_client", "_sync", "_inner_client")
 # Same idea for a wrapper delegating to *several* clients: FallbackClient / AsyncFallbackClient
 # (`clients`), which tries each in turn by calling each inner client's own public chat()/generate().
@@ -193,6 +202,8 @@ class _ChatStateMixin:
       - ``_system_message``: ``str | None``
       - ``last_thinking``: ``str | None``
       - ``last_usage``: ``dict | None``
+      - ``last_stop_reason``: ``str | None`` (the provider's own word for how the turn ended)
+      - ``last_output_truncated``: ``bool``
       - ``last_structured``: ``Any | None`` (validated object from the most recent ``schema=`` call)
       - ``last_request``: ``Any | None`` (the payload of the most recent request, post-adaptation)
       - ``tools``: list of ``@tool``-decorated callables
@@ -238,6 +249,8 @@ class _ChatStateMixin:
             self._system_message = system_message
         self.last_thinking = ""
         self.last_usage = None
+        self.last_stop_reason = None
+        self.last_output_truncated = False
         self.last_structured = None
         self.last_request = None
 
@@ -504,6 +517,23 @@ class _ChatStateMixin:
         if content:
             message["content"] = content
         self._append_message(message)
+
+    def _record_stop_reason(self, stop_reason: Optional[str]) -> None:
+        """Record how the provider says this turn ended, and derive ``last_output_truncated``.
+
+        The single seam for it, mirroring ``_record_request``: ``last_output_truncated`` is
+        consumed by the agent loop (``_ToolLoop._raise_if_truncated`` turns it into a
+        ``TruncatedTurnError`` naming the remedy), and its default of ``False`` means "nobody
+        looked", not "not truncated". A provider that skips this therefore does not merely lose a
+        field -- it makes an actionable error silently stop firing. Only Ollama set it before
+        v0.27.0, so on every other backend a turn cut off mid-answer surfaced as a bare empty
+        string. A guard test enforces the rule rather than a convention.
+
+        ``None`` is recorded as-is: it means the provider said nothing, which is different from
+        saying the turn finished normally.
+        """
+        self.last_stop_reason = stop_reason
+        self.last_output_truncated = stop_reason in TRUNCATED_STOP_REASONS
 
     def _record_tool_calls(self, tool_calls: list[dict], content: str = "") -> None:
         """Store the assistant turn that requested tools — parse + record, **no execution**.

@@ -30,6 +30,7 @@ from ._base.image import (
 )
 from ._base.shared import (
     ContextOverflowError,
+    ModelRefusalError,
     ModelConnectionError,
     StreamChunk,
     StreamingContentType,
@@ -57,6 +58,7 @@ __all__ = [
     "StreamingContentType",
     "ModelConnectionError",
     "ContextOverflowError",
+    "ModelRefusalError",
     "classproperty",
     # text
     "ModelSpec",

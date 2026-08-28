@@ -14,6 +14,7 @@ from .._internal.sdk_config import sdk_client_kwargs
 from ..base import (
     BaseModelClient,
     ContextOverflowError,
+    ModelRefusalError,
     Model,
     ModelSpec,
     StreamingContentType,
@@ -21,6 +22,7 @@ from ..base import (
     classproperty,
 )
 from .._internal.image_input import _build_user_content_blocks, _openai_blocks_to_anthropic
+from .._internal.chat_state import REFUSAL_STOP_REASON
 from .._internal.thinking import THINKING_KWARG, pop_thinking
 from .._internal.usage import usage_from_anthropic
 
@@ -317,6 +319,42 @@ class AnthropicClient(BaseModelClient):
     def STRUCTURED_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_structured_output]
 
+    def _record_response(self, response) -> None:
+        """Record usage and how the turn ended, and refuse to return a refusal silently.
+
+        One call rather than three lines repeated at six request paths. A path that recorded
+        usage but not the stop reason would leave ``last_output_truncated`` stale from the
+        previous turn, which is worse than never setting it.
+        """
+        self.last_usage = usage_from_anthropic(response)
+        self._record_stop_reason(getattr(response, "stop_reason", None))
+        self._raise_if_refused(response)
+
+    def _raise_if_refused(self, response) -> None:
+        """Turn Anthropic's HTTP-200 refusal into a typed error, or return.
+
+        A declined request is not an HTTP failure: the response is a 200 whose content carries no
+        text block, so every read path here returns an empty string and the caller is told
+        nothing. Opus 5 and Fable 5 ship the classifiers that produce it, and benign security and
+        life-sciences work trips them, so this is reachable in ordinary use rather than only under
+        abuse. Raising rather than returning "" is what lets a FallbackClient recover the request
+        on another model, which is the vendor's own recommended handling.
+        """
+        if self.last_stop_reason != REFUSAL_STOP_REASON:
+            return
+        details = getattr(response, "stop_details", None)
+        category = getattr(details, "category", None)
+        explanation = getattr(details, "explanation", None)
+        described = f" ({category})" if category else ""
+        because = f" {explanation}" if explanation else ""
+        raise ModelRefusalError(
+            f"{self.model.value} declined this request{described} rather than answering it, so the "
+            f"response carries no content.{because} Rephrase, or route the call to another model "
+            "(aimu.models.FallbackClient accepts this error class in retry_on).",
+            category=category,
+            explanation=explanation,
+        )
+
     def _strip_thinking_for_structured(self, generate_kwargs: dict) -> dict:
         """Remove the reserved thinking key before a forced-tool structured-output request.
 
@@ -363,7 +401,7 @@ class AnthropicClient(BaseModelClient):
             _raise_if_context_overflowed(exc)
             raise
         logger.debug("Anthropic raw response (structured): %s", response)
-        self.last_usage = usage_from_anthropic(response)
+        self._record_response(response)
         for block in response.content:
             if block.type == "tool_use":
                 return json.dumps(block.input)
@@ -411,7 +449,7 @@ class AnthropicClient(BaseModelClient):
         except anthropic.BadRequestError as exc:
             _raise_if_context_overflowed(exc)
             raise
-        self.last_usage = usage_from_anthropic(final)
+        self._record_response(final)
         text = "{}"
         for block in final.content:
             if block.type == "tool_use":
@@ -742,7 +780,7 @@ class AnthropicClient(BaseModelClient):
             _raise_if_context_overflowed(exc)
             raise
         logger.debug("Anthropic raw response: %s", response)
-        self.last_usage = usage_from_anthropic(response)
+        self._record_response(response)
 
         self.last_thinking = ""
         content = ""
@@ -795,7 +833,7 @@ class AnthropicClient(BaseModelClient):
                             yield StreamChunk(StreamingContentType.THINKING, delta.thinking)
                         elif delta.type == "text_delta":
                             yield StreamChunk(StreamingContentType.GENERATING, delta.text)
-                self.last_usage = usage_from_anthropic(stream.get_final_message())
+                self._record_response(stream.get_final_message())
         except anthropic.RequestTooLargeError as exc:
             _raise_for_request_too_large(exc)
         except anthropic.BadRequestError as exc:
@@ -869,7 +907,7 @@ class AnthropicClient(BaseModelClient):
             elif block.type == "tool_use":
                 tool_use_blocks.append(block)
 
-        self.last_usage = usage_from_anthropic(response)
+        self._record_response(response)
 
         # Single turn: record the requested tools (with Anthropic's real tool_use ids so tool
         # results match on the next request) and return. The Agent executes them.
@@ -926,7 +964,7 @@ class AnthropicClient(BaseModelClient):
             _raise_if_context_overflowed(exc)
             raise
 
-        self.last_usage = usage_from_anthropic(stream.get_final_message())
+        self._record_response(stream.get_final_message())
 
         if not tool_use_acc:
             # No tool calls; yield buffered chunks and store the assistant message.
