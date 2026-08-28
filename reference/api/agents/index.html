@@ -4543,7 +4543,10 @@ run. This isolates state when a client is shared (e.g. inside a :class:<code>Cha
   the agent sends one forced wrap-up turn with tools disabled, so the model must synthesize an
   answer from the context it has gathered. <code>final_answer_prompt</code> customizes this wrap-up
   prompt; when unset a built-in default is used. This turn is <em>not</em> counted against
-  <code>max_iterations</code>. A natural finish (a real answer) is unaffected.</li>
+  <code>max_iterations</code>. A natural finish (a real answer) is unaffected. The pending calls are
+  first answered with results stating they were not executed and why (logged at <code>WARNING</code>),
+  since the wrap-up prompt is a user message and no provider accepts one on top of an
+  unanswered tool call -- so the transcript stays valid to send, persist, and resume.</li>
 <li><strong>Still degenerate after wrap-up.</strong> If even the wrap-up yields no answer, the agent raises
   :class:<code>~aimu.agents.DegenerateTurnError</code> rather than returning empty output.</li>
 </ul>

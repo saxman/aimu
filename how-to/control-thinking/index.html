@@ -1328,10 +1328,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#anthropic-exact-token-budgets" class="md-nav__link">
+  <a href="#anthropic-exact-token-budgets-haiku-45-only" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Anthropic: exact token budgets
+        Anthropic: exact token budgets (Haiku 4.5 only)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#anthropic-effort-on-the-adaptive-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Anthropic: effort on the adaptive models
       
     </span>
   </a>
@@ -3281,10 +3292,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#anthropic-exact-token-budgets" class="md-nav__link">
+  <a href="#anthropic-exact-token-budgets-haiku-45-only" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Anthropic: exact token budgets
+        Anthropic: exact token budgets (Haiku 4.5 only)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#anthropic-effort-on-the-adaptive-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Anthropic: effort on the adaptive models
       
     </span>
   </a>
@@ -3418,8 +3440,8 @@ though the caller asked to skip them.</p>
 </tr>
 <tr>
 <td>Anthropic</td>
-<td>omits the <code>thinking</code> request parameter</td>
-<td><code>budget_tokens</code>: low 2048, medium 8000, high 16000</td>
+<td><code>{"type": "disabled"}</code> on every model but Haiku 4.5, which omits the parameter</td>
+<td><code>output_config.effort</code> everywhere but Haiku 4.5, which takes <code>budget_tokens</code> (low 2048, medium 8000, high 16000)</td>
 </tr>
 <tr>
 <td>llama.cpp, OpenAI cloud, Gemini</td>
@@ -3431,8 +3453,8 @@ though the caller asked to skip them.</p>
 <p><strong>Among the providers that share Qwen's effort vocabulary</strong> (Ollama, the OpenAI-compatible family,
 HuggingFace), only Qwen 3.8 declares effort-level support today; every other model on those
 providers accepts on/off (<code>True</code>/<code>False</code>) but treats a level as advisory (see above). Anthropic is
-a separate case: all six <code>AnthropicModel</code> members declare effort-level support too, mapped to
-<code>budget_tokens</code> rather than this shared vocabulary (see "Anthropic: exact token budgets" below).
+a separate case: every <code>AnthropicModel</code> member declares effort-level support too, mapped to
+<code>output_config.effort</code>, or on Haiku 4.5 to <code>budget_tokens</code> (see the two Anthropic sections below).
 The last table row is a scope boundary rather than an absolute limitation for two of its
 three providers: OpenAI's o-series models never declare <code>thinking=True</code> in AIMU's catalog, so
 there is nothing to control on that path, and Google's OpenAI-compatible endpoint for Gemini does
@@ -3441,11 +3463,11 @@ plus <code>none</code> to disable reasoning on <code>gemini-2.5-flash</code>). A
 vocabulary does not include the <code>"xhigh"</code> value the shared Qwen mapping sends for <code>"high"</code>, and
 doing this correctly needs a second, Gemini-specific effort vocabulary, which is a deferred
 follow-up. <code>llama.cpp</code> has no mechanism at all on either axis.</p>
-<h2 id="anthropic-exact-token-budgets">Anthropic: exact token budgets<a class="headerlink" href="#anthropic-exact-token-budgets" title="Permanent link">&para;</a></h2>
-<p>The portable levels above map to <code>budget_tokens</code> 2048 / 8000 / 16000. If you need an exact
-number, pass <code>thinking_budget_tokens</code> directly in <code>generate_kwargs</code>; it takes precedence over any
-<code>thinking=</code> level:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"anthropic:claude-sonnet-4-6"</span><span class="p">)</span>
+<h2 id="anthropic-exact-token-budgets-haiku-45-only">Anthropic: exact token budgets (Haiku 4.5 only)<a class="headerlink" href="#anthropic-exact-token-budgets-haiku-45-only" title="Permanent link">&para;</a></h2>
+<p>Haiku 4.5 is the last model on the <code>ENABLED</code> request shape, where a level maps to <code>budget_tokens</code>
+2048 / 8000 / 16000. If you need an exact number, pass <code>thinking_budget_tokens</code> directly in
+<code>generate_kwargs</code>; it takes precedence over any <code>thinking=</code> level:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"anthropic:claude-haiku-4-5"</span><span class="p">)</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="s2">"Design a cache eviction policy."</span><span class="p">,</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">thinking</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
@@ -3453,22 +3475,70 @@ number, pass <code>thinking_budget_tokens</code> directly in <code>generate_kwar
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>This stays a separate, Anthropic-specific parameter rather than folding into <code>thinking=</code>, since
-no other provider has an equivalent numeric knob to translate it to.</p>
-<p>Anthropic's <code>ADAPTIVE</code>-style models (Opus 4.7+, Fable 5) decide for themselves whether and how
-much to think, and their request shape has no budget parameter at all: <code>thinking_budget_tokens</code>
-is dropped on these models whether or not you also pass a <code>thinking=</code> level. Passing a level
-(<code>thinking="low"</code>, etc.) additionally logs a warning naming the level that was ignored.
-<code>thinking=True</code>/<code>thinking=False</code> still work on these models, since they can be told to think or
-not, just not how hard.</p>
+no other provider has an equivalent numeric knob to translate it to. On every other Anthropic
+model it is dropped with a warning naming <code>thinking=</code> as the replacement -- those models have no
+budget parameter at all.</p>
+<h2 id="anthropic-effort-on-the-adaptive-models">Anthropic: effort on the adaptive models<a class="headerlink" href="#anthropic-effort-on-the-adaptive-models" title="Permanent link">&para;</a></h2>
+<p>Every Anthropic model except Haiku 4.5 uses the <code>ADAPTIVE</code> request shape and has no budget
+parameter at all, so <code>thinking_budget_tokens</code> is dropped there. A <code>thinking=</code> level travels as
+<code>output_config.effort</code> instead:</p>
+<table>
+<thead>
+<tr>
+<th><code>thinking=</code></th>
+<th>effort sent</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"low"</code></td>
+<td><code>low</code></td>
+</tr>
+<tr>
+<td><code>"medium"</code></td>
+<td><code>medium</code></td>
+</tr>
+<tr>
+<td><code>"high"</code></td>
+<td><code>xhigh</code>, or <code>high</code> on Opus 4.6 / Sonnet 4.6, which have no <code>xhigh</code></td>
+</tr>
+<tr>
+<td><code>True</code> / <code>None</code></td>
+<td>nothing sent, so the provider's own default (<code>high</code>) applies</td>
+</tr>
+</tbody>
+</table>
+<p><code>"high"</code> maps to <code>xhigh</code> rather than the literal <code>high</code> for the same reason it maps to <code>xhigh</code> on
+Qwen: <code>high</code> is what Anthropic already uses when the parameter is unset, so sending it would make
+<code>thinking="high"</code> a no-op. It is also the vendor's own recommendation for demanding coding and
+agentic work.</p>
+<p><code>max</code> is deliberately out of reach of the three-value portable vocabulary. Pass it explicitly when
+you want it, which also works for any effort value on any model:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"..."</span><span class="p">,</span> <span class="n">generate_kwargs</span><span class="o">=</span><span class="p">{</span><span class="s2">"output_config"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"effort"</span><span class="p">:</span> <span class="s2">"max"</span><span class="p">}})</span>
+</span></code></pre></div>
+<p>A value you pass this way outranks one derived from <code>thinking=</code>, and is merged into any
+<code>output_config</code> already present rather than replacing it. One combination is refused by the API:
+Opus 5 rejects disabled thinking above <code>high</code> effort, so <code>thinking=False</code> alongside an explicit
+<code>xhigh</code>/<code>max</code> lowers the effort to <code>high</code> and warns, rather than quietly re-enabling the reasoning
+you turned off.</p>
+<p>Turning thinking off is where the two styles differ on the wire. On the <code>ENABLED</code>-style models
+(Haiku 4.5 alone, now) an absent <code>thinking</code> parameter <em>is</em> off, so <code>thinking=False</code> sends
+nothing. The adaptive models reason by default when the parameter is absent, so AIMU sends an
+explicit <code>{"type": "disabled"}</code> there instead. <code>CLAUDE_FABLE_5</code> is the one member that cannot
+be turned off at all (it declares <code>thinking_optional=False</code>): <code>thinking=False</code> warns and the call
+proceeds with reasoning on, as it does for any model that cannot honour the request.</p>
+<p>The adaptive models also reject <code>temperature</code>, <code>top_p</code>, and <code>top_k</code> outright, thinking or not, so
+those keys are dropped from every request to them -- including the <code>temperature</code> the Anthropic
+client's own defaults supply.</p>
 <h2 id="on-an-agent">On an agent<a class="headerlink" href="#on-an-agent" title="Permanent link">&para;</a></h2>
 <p><code>Agent</code> (sync and async) takes the same argument, as a standing field and as a per-run override:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="c1"># A field: every run of this agent reasons at high effort.</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">"You are a careful analyst."</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">],</span> <span class="n">thinking</span><span class="o">=</span><span class="s2">"high"</span><span class="p">)</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Audit this quarter's numbers."</span><span class="p">)</span>            <span class="c1"># high, from the field</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"What is the file called again?"</span><span class="p">,</span> <span class="n">thinking</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>   <span class="c1"># off, for this run only</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="c1"># A field: every run of this agent reasons at high effort.</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">"You are a careful analyst."</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">],</span> <span class="n">thinking</span><span class="o">=</span><span class="s2">"high"</span><span class="p">)</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Audit this quarter's numbers."</span><span class="p">)</span>            <span class="c1"># high, from the field</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"What is the file called again?"</span><span class="p">,</span> <span class="n">thinking</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>   <span class="c1"># off, for this run only</span>
 </span></code></pre></div>
 <p><code>None</code> means "use the field", so <code>thinking=False</code> on a run is a real override rather than an
 absent one. The effective value is applied to <strong>every</strong> model turn the run makes, not just the
@@ -3486,14 +3556,14 @@ apply it to. Configure it on the <code>Agent</code>s they wrap, or on the client
 each <code>agent_types</code> spec, alongside <code>"system_message"</code>, <code>"tools"</code>, and <code>"model"</code>, and set it as the
 spawned agent's field. This is the only route to a sub-agent's effort, since the spawn happens
 inside the tool rather than at a call site you control:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">spawn</span> <span class="o">=</span> <span class="n">make_subagent_tool</span><span class="p">(</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="s2">"ollama:qwen3.8:27b"</span><span class="p">,</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">agent_types</span><span class="o">=</span><span class="p">{</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>        <span class="s2">"researcher"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"system_message"</span><span class="p">:</span> <span class="s2">"Research thoroughly."</span><span class="p">,</span> <span class="s2">"thinking"</span><span class="p">:</span> <span class="s2">"high"</span><span class="p">},</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>        <span class="s2">"formatter"</span><span class="p">:</span>  <span class="p">{</span><span class="s2">"system_message"</span><span class="p">:</span> <span class="s2">"Reformat text."</span><span class="p">,</span> <span class="s2">"thinking"</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>        <span class="s2">"generalist"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"system_message"</span><span class="p">:</span> <span class="s2">"Handle the task."</span><span class="p">},</span>   <span class="c1"># field stays None</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="p">},</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">spawn</span> <span class="o">=</span> <span class="n">make_subagent_tool</span><span class="p">(</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="s2">"ollama:qwen3.8:27b"</span><span class="p">,</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">agent_types</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>        <span class="s2">"researcher"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"system_message"</span><span class="p">:</span> <span class="s2">"Research thoroughly."</span><span class="p">,</span> <span class="s2">"thinking"</span><span class="p">:</span> <span class="s2">"high"</span><span class="p">},</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>        <span class="s2">"formatter"</span><span class="p">:</span>  <span class="p">{</span><span class="s2">"system_message"</span><span class="p">:</span> <span class="s2">"Reformat text."</span><span class="p">,</span> <span class="s2">"thinking"</span><span class="p">:</span> <span class="kc">False</span><span class="p">},</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>        <span class="s2">"generalist"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"system_message"</span><span class="p">:</span> <span class="s2">"Handle the task."</span><span class="p">},</span>   <span class="c1"># field stays None</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="p">},</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>The key is read with <code>.get()</code>, so <code>False</code> is carried rather than swallowed. Note the asymmetry
 with <code>"model"</code>: an omitted <code>"model"</code> falls back to the model the factory was built with, while an
@@ -3508,9 +3578,9 @@ since this tier sits <em>above</em> the model card in the precedence chain and a
 shadow a card's own tuned profile.</p>
 <p>A spec's keys are a closed set (<code>system_message</code>, <code>tools</code>, <code>model</code>, <code>thinking</code>, <code>generate_kwargs</code> —
 <code>aimu.tools.builtin.SUBAGENT_SPEC_KEYS</code>), and an unrecognized one raises when the factory is called:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">make_subagent_tool</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">agent_types</span><span class="o">=</span><span class="p">{</span><span class="s2">"r"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"system_message"</span><span class="p">:</span> <span class="s2">"R."</span><span class="p">,</span> <span class="s2">"thinkng"</span><span class="p">:</span> <span class="s2">"high"</span><span class="p">}})</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="c1"># ValueError: agent_types['r'] has unknown key(s): thinkng.</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="c1">#             A spec may carry: generate_kwargs, model, system_message, thinking, tools.</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">make_subagent_tool</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">agent_types</span><span class="o">=</span><span class="p">{</span><span class="s2">"r"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"system_message"</span><span class="p">:</span> <span class="s2">"R."</span><span class="p">,</span> <span class="s2">"thinkng"</span><span class="p">:</span> <span class="s2">"high"</span><span class="p">}})</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="c1"># ValueError: agent_types['r'] has unknown key(s): thinkng.</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="c1">#             A spec may carry: generate_kwargs, model, system_message, thinking, tools.</span>
 </span></code></pre></div>
 <p>This matters most for exactly the value this page is about. A misspelled effort key would otherwise
 leave the spawned agent reasoning at its default, silently, while the caller believed it had asked

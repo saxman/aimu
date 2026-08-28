@@ -3591,10 +3591,13 @@ second question, answered by two <code>ModelSpec</code> flags behind the portabl
 <ul>
 <li><strong>◆ accepts effort levels</strong> (<code>thinking_levels=True</code>), so <code>thinking="low"/"medium"/"high"</code> is
   honoured: the Qwen 3.8 27B family and every Anthropic model. On every other reasoning model a
-  level is warned about and treated as plain on, which is why swapping models never raises.</li>
+  level is warned about and treated as plain on, which is why swapping models never raises.
+  <em>Where</em> the level lands is a second axis, shown in the Anthropic table's Thinking column:
+  <code>effort</code> means it becomes <code>output_config.effort</code> (with <code>high</code> sent as the vendor's <code>xhigh</code>),
+  and its absence means it becomes a <code>budget_tokens</code> figure instead.</li>
 <li><strong>◇ always reasons</strong> (<code>thinking_optional=False</code>), so <code>thinking=False</code> cannot be honoured:
-  <code>GEMINI_2_5_PRO</code> only. The call proceeds and is billed for reasoning; <code>client.last_usage</code>
-  shows the cost.</li>
+  <code>GEMINI_2_5_PRO</code> and <code>CLAUDE_FABLE_5</code>. The call proceeds and is billed for reasoning;
+  <code>client.last_usage</code> shows the cost.</li>
 </ul>
 <p>Note that a model declaring a level is not sufficient on its own: the active provider also has to
 be able to express it. llama.cpp, the OpenAI cloud client and Gemini emit nothing today, so
@@ -3614,38 +3617,52 @@ per-provider mechanisms.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>CLAUDE_FABLE_5</code> ◆</td>
+<td><code>CLAUDE_FABLE_5</code> ◆ ◇</td>
 <td><code>claude-fable-5</code></td>
 <td style="text-align: center;">✅</td>
-<td style="text-align: center;">✅ (adaptive)</td>
+<td style="text-align: center;">✅ (adaptive, effort)</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td><code>CLAUDE_OPUS_5</code> ◆</td>
+<td><code>claude-opus-5</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅ (adaptive, effort)</td>
 <td style="text-align: center;">✅</td>
 </tr>
 <tr>
 <td><code>CLAUDE_OPUS_4_8</code> ◆</td>
 <td><code>claude-opus-4-8</code></td>
 <td style="text-align: center;">✅</td>
-<td style="text-align: center;">✅ (adaptive)</td>
+<td style="text-align: center;">✅ (adaptive, effort)</td>
 <td style="text-align: center;">✅</td>
 </tr>
 <tr>
 <td><code>CLAUDE_OPUS_4_7</code> ◆</td>
 <td><code>claude-opus-4-7</code></td>
 <td style="text-align: center;">✅</td>
-<td style="text-align: center;">✅ (adaptive)</td>
+<td style="text-align: center;">✅ (adaptive, effort)</td>
 <td style="text-align: center;">✅</td>
 </tr>
 <tr>
 <td><code>CLAUDE_OPUS_4_6</code> ◆</td>
 <td><code>claude-opus-4-6</code></td>
 <td style="text-align: center;">✅</td>
-<td style="text-align: center;">✅ (budget)</td>
+<td style="text-align: center;">✅ (adaptive, effort)</td>
+<td style="text-align: center;">✅</td>
+</tr>
+<tr>
+<td><code>CLAUDE_SONNET_5</code> ◆</td>
+<td><code>claude-sonnet-5</code></td>
+<td style="text-align: center;">✅</td>
+<td style="text-align: center;">✅ (adaptive, effort)</td>
 <td style="text-align: center;">✅</td>
 </tr>
 <tr>
 <td><code>CLAUDE_SONNET_4_6</code> ◆</td>
 <td><code>claude-sonnet-4-6</code></td>
 <td style="text-align: center;">✅</td>
-<td style="text-align: center;">✅ (budget)</td>
+<td style="text-align: center;">✅ (adaptive, effort)</td>
 <td style="text-align: center;">✅</td>
 </tr>
 <tr>
