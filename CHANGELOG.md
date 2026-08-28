@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.26.0 (2026-08-28): the Claude 5 line on anthropic 1.x, reasoning effort that lands, and an output cap that stops truncating
 
 ### Agents
 
