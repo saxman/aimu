@@ -52,6 +52,13 @@ class ModelSpec:
     thinking_levels: bool = False
     thinking_optional: bool = True
     nonthinking_generation_kwargs: Optional[dict] = field(default=None)
+    # The vendor effort values this model accepts, when a portable level travels as one.
+    # ``thinking_levels`` answers "is a level meaningful here?"; this answers "and does it go
+    # as an effort value, from which set?" -- a separate question, because a level can also
+    # map to something else entirely (Anthropic's pre-4.7 models take a token budget instead).
+    # A tuple rather than a bool because the vocabulary differs per model: Anthropic's
+    # ``xhigh`` exists on Opus 4.7 and later but not on the 4.6 line.
+    effort_levels: tuple[str, ...] = ()
 
     def __hash__(self) -> int:
         return hash(self.id)
@@ -73,6 +80,11 @@ class ModelSpec:
                     f"{self.id}: thinking_optional=False requires thinking=True "
                     "(a model with no reasoning has nothing to disable)."
                 )
+        if self.effort_levels and not self.thinking_levels:
+            raise ValueError(
+                f"{self.id}: effort_levels requires thinking_levels=True "
+                "(an effort vocabulary is how a level is expressed; without levels it is unreachable)."
+            )
 
 
 class Model(Enum):

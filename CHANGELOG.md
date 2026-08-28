@@ -29,6 +29,30 @@
 
 ### Models
 
+- **New** **`thinking="low"/"medium"/"high"` now steers Anthropic's adaptive models**, via
+  `output_config.effort`. Five of the eight `AnthropicModel` members declared
+  `thinking_levels=True` and then dropped the level with a warning -- the declaration existed only
+  to stop the generic resolver stripping it before the provider saw it, and the provider discarded
+  it anyway. So AIMU's one portable reasoning dial did nothing on its newest and most expensive
+  Anthropic models, which are exactly the ones where effort has the largest cost and quality swing.
+  `low`/`medium` map straight through; `high` maps to the vendor's `xhigh`, because `high` is what
+  Anthropic already uses when the parameter is unset and sending it would be a silent no-op (the
+  same reasoning as `QWEN_REASONING_EFFORT`). `max` stays out of reach of the three-value portable
+  vocabulary; pass `generate_kwargs={"output_config": {"effort": "max"}}` for it, which has always
+  worked and now takes precedence over a derived level.
+  The vocabulary is declared per model as **`ModelSpec.effort_levels`**, a tuple rather than a bool
+  because effort support does not follow `ThinkingStyle`: `xhigh` exists on Opus 4.7+ but not on
+  the 4.6 line, and Haiku 4.5 rejects effort outright. Following the under-declare rule from the
+  original thinking-control design, only the five adaptive members declare one; Opus 4.6, Sonnet
+  4.6 and Haiku 4.5 keep `budget_tokens` unchanged, so this release is additive.
+  One guard comes with it: Opus 5 rejects `thinking: {"type": "disabled"}` combined with `xhigh` or
+  `max` effort, validated independently on every request. AIMU cannot build that pair itself, but a
+  caller passing `output_config` through `generate_kwargs` can, so the disable path lowers such an
+  effort to `high` and warns rather than reversing the disable -- silently re-enabling reasoning
+  the caller turned off is invisible in the response and shows up only on the bill.
+  Design: `docs/superpowers/specs/2026-08-28-anthropic-effort-control-design.md`.
+  Tests: `tests/test_thinking_control.py`, `tests/test_models_api.py`.
+
 - **Changed** **The tier-1 `max_tokens` fallback is no longer 1024.** It is the weakest of the four
   generation-kwarg tiers -- a model card or either caller tier still overrides it -- so what it has
   to get right is the value nobody sets, and 1024 was low enough to truncate an ordinary answer:

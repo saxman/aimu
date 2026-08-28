@@ -36,6 +36,28 @@ _ADAPTIVE_THINKING_MAX_TOKENS_FLOOR = 4096
 # so thinking="medium" and thinking=None agree.
 _THINKING_BUDGETS = {"low": 2048, "medium": _DEFAULT_THINKING_BUDGET, "high": 16000}
 
+# The effort vocabulary of Opus 4.7 and later. Declared on the members that accept it, so the
+# mapping below can read what a given model actually takes rather than assuming one set.
+_EFFORT_LEVELS_4_7 = ("low", "medium", "high", "xhigh", "max")
+
+# Effort values AIMU will not pair with disabled thinking: Opus 5 rejects that combination with a
+# 400, and validates the two independently on every request, so it cannot be settled per client.
+_EFFORT_ABOVE_HIGH = ("xhigh", "max")
+
+
+def _effort_for_level(level: str, effort_levels: tuple[str, ...]) -> str:
+    """Translate a portable thinking level into one of ``effort_levels``.
+
+    ``high`` reaches for ``xhigh`` where the model has it, following the same reasoning as
+    QWEN_REASONING_EFFORT: Anthropic's effort defaults to "high" when the parameter is unset, so
+    mapping to the literal "high" would make thinking="high" a silent no-op. It is also the
+    vendor's own recommendation for demanding coding and agentic work, with "max" held back for
+    correctness-over-cost -- reachable only by passing output_config through generate_kwargs.
+    """
+    if level == "high" and "xhigh" in effort_levels:
+        return "xhigh"
+    return level
+
 
 class ThinkingStyle(Enum):
     """How a model's thinking parameter is expressed in the Anthropic Messages API.
@@ -80,6 +102,7 @@ class AnthropicModel(Model):
             vision=True,
             structured_output=True,
             thinking_levels=True,
+            effort_levels=_EFFORT_LEVELS_4_7,
             # Fable 5 always reasons: omitting the parameter runs adaptive, and an explicit
             # {"type": "disabled"} is a 400. Declaring it here is what makes thinking=False warn
             # and continue instead of reaching _thinking_kwargs and being sent.
@@ -89,19 +112,37 @@ class AnthropicModel(Model):
     )
     CLAUDE_OPUS_5 = (
         ModelSpec(
-            "claude-opus-5", tools=True, thinking=True, vision=True, structured_output=True, thinking_levels=True
+            "claude-opus-5",
+            tools=True,
+            thinking=True,
+            vision=True,
+            structured_output=True,
+            thinking_levels=True,
+            effort_levels=_EFFORT_LEVELS_4_7,
         ),
         ThinkingStyle.ADAPTIVE,
     )
     CLAUDE_OPUS_4_8 = (
         ModelSpec(
-            "claude-opus-4-8", tools=True, thinking=True, vision=True, structured_output=True, thinking_levels=True
+            "claude-opus-4-8",
+            tools=True,
+            thinking=True,
+            vision=True,
+            structured_output=True,
+            thinking_levels=True,
+            effort_levels=_EFFORT_LEVELS_4_7,
         ),
         ThinkingStyle.ADAPTIVE,
     )
     CLAUDE_OPUS_4_7 = (
         ModelSpec(
-            "claude-opus-4-7", tools=True, thinking=True, vision=True, structured_output=True, thinking_levels=True
+            "claude-opus-4-7",
+            tools=True,
+            thinking=True,
+            vision=True,
+            structured_output=True,
+            thinking_levels=True,
+            effort_levels=_EFFORT_LEVELS_4_7,
         ),
         ThinkingStyle.ADAPTIVE,
     )
@@ -110,7 +151,13 @@ class AnthropicModel(Model):
     )
     CLAUDE_SONNET_5 = (
         ModelSpec(
-            "claude-sonnet-5", tools=True, thinking=True, vision=True, structured_output=True, thinking_levels=True
+            "claude-sonnet-5",
+            tools=True,
+            thinking=True,
+            vision=True,
+            structured_output=True,
+            thinking_levels=True,
+            effort_levels=_EFFORT_LEVELS_4_7,
         ),
         ThinkingStyle.ADAPTIVE,
     )
@@ -431,21 +478,64 @@ class AnthropicClient(BaseModelClient):
 
         if resolved is not None and not resolved.enabled:
             # Omission is not "off" here the way it is for the ENABLED style: an absent parameter
-            # runs adaptive on Opus 5 and Sonnet 5, so disabling has to be said out loud. The
-            # explicit form is accepted at the default effort; Opus 5 rejects it only above
-            # "high", an effort level AIMU never requests.
+            # runs adaptive on Opus 5 and Sonnet 5, so disabling has to be said out loud.
             kwargs["thinking"] = {"type": "disabled"}
-            return kwargs
+            return self._cap_effort_for_disabled_thinking(kwargs)
 
         if resolved is not None and resolved.level is not None:
-            self._warn_once(
-                f"{self.model.value} uses adaptive thinking and chooses its own effort; "
-                f"thinking={resolved.level!r} ignored."
-            )
+            kwargs = self._with_effort(kwargs, resolved.level)
         # The model decides whether to think. Give thinking room within the shared max_tokens.
         if kwargs.get("max_tokens", 0) < _ADAPTIVE_THINKING_MAX_TOKENS_FLOOR:
             kwargs["max_tokens"] = _ADAPTIVE_THINKING_MAX_TOKENS_FLOOR
         kwargs["thinking"] = {"type": "adaptive", "display": "summarized"}
+        return kwargs
+
+    def _with_effort(self, kwargs: dict, level: str) -> dict:
+        """Express a portable thinking level as ``output_config.effort``.
+
+        Merged, never assigned: ``output_config`` also carries ``format``, and a caller can
+        already pass one straight through ``generate_kwargs`` today, since AIMU polices only the
+        eight portable keys. That passthrough is tier 4 -- and the only route to ``"max"``, the
+        effort level the three-value portable vocabulary cannot reach -- so a caller's own
+        ``effort`` wins over one derived from ``thinking=``.
+        """
+        effort_levels = self.model.spec.effort_levels
+        if not effort_levels:
+            # An adaptive model with no declared vocabulary: warn and continue, as before. Every
+            # shipped adaptive member declares one, so this covers the next one added without.
+            self._warn_once(
+                f"{self.model.value} uses adaptive thinking and chooses its own effort; thinking={level!r} ignored."
+            )
+            return kwargs
+
+        output_config = dict(kwargs.get("output_config") or {})
+        if "effort" in output_config:
+            return kwargs
+        output_config["effort"] = _effort_for_level(level, effort_levels)
+        kwargs["output_config"] = output_config
+        return kwargs
+
+    def _cap_effort_for_disabled_thinking(self, kwargs: dict) -> dict:
+        """Lower a caller's ``xhigh``/``max`` effort to ``high`` when thinking is disabled.
+
+        Opus 5 rejects that pair with a 400, and validates the two independently on every
+        request, so it cannot be settled once per client. AIMU never builds the pair itself --
+        ``thinking=False`` resolves to ``level=None`` -- so this only ever fires on an effort the
+        caller passed through ``generate_kwargs``.
+
+        The effort is lowered rather than the disable reversed. ``thinking=`` is the supported
+        surface and the caller said off; silently re-enabling reasoning they turned off is the
+        worse failure, being invisible in the response and visible only on the bill.
+        """
+        output_config = kwargs.get("output_config")
+        if not output_config or output_config.get("effort") not in _EFFORT_ABOVE_HIGH:
+            return kwargs
+        requested = output_config["effort"]
+        self._warn_once(
+            f"{self.model.value} rejects thinking=False combined with effort={requested!r}; "
+            "lowering effort to 'high' and keeping thinking off."
+        )
+        kwargs["output_config"] = {**output_config, "effort": "high"}
         return kwargs
 
     # ------------------------------------------------------------------ #

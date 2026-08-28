@@ -177,6 +177,8 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
     _SAMPLING_KWARGS = _SyncAnthropicClient._SAMPLING_KWARGS
     _thinking_kwargs = _SyncAnthropicClient._thinking_kwargs
     _adaptive_thinking_kwargs = _SyncAnthropicClient._adaptive_thinking_kwargs
+    _with_effort = _SyncAnthropicClient._with_effort
+    _cap_effort_for_disabled_thinking = _SyncAnthropicClient._cap_effort_for_disabled_thinking
     _openai_messages_to_anthropic = _SyncAnthropicClient._openai_messages_to_anthropic
     _openai_tools_to_anthropic = _SyncAnthropicClient._openai_tools_to_anthropic
 

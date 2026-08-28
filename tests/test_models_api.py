@@ -236,6 +236,15 @@ def test_model_enum_value_is_string():
     assert isinstance(AnthropicModel.CLAUDE_SONNET_4_6.value, str)
 
 
+def test_effort_levels_requires_thinking_levels():
+    """An effort vocabulary is how a portable level is expressed; declared without levels it is
+    unreachable, which is a silent no-op rather than an error at the point of use."""
+    ModelSpec("ok", thinking=True, thinking_levels=True, effort_levels=("low", "high"))
+
+    with pytest.raises(ValueError, match="effort_levels requires thinking_levels"):
+        ModelSpec("bad", thinking=True, effort_levels=("low",))
+
+
 def test_anthropic_5_series_resolves_and_is_adaptive():
     """The 5-series members are addressable by string and carry the adaptive request shape."""
     from aimu.models import AnthropicModel, resolve_model_string

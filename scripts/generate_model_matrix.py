@@ -124,10 +124,18 @@ def _vision_override_mark(name: str, member) -> str:
 
 
 def _thinking_cell(table_id: str, member) -> str:
-    """Anthropic spells out which request shape (budget vs. adaptive) thinking=True uses."""
+    """Anthropic spells out which request shape (budget vs. adaptive) thinking=True uses, and
+    where a thinking= *level* lands, which is a second and independent axis.
+
+    The level mechanism is read from ``effort_levels`` rather than inferred from the request
+    shape. The two coincide in today's catalog, but they are different facts: a model can accept
+    effort without being adaptive (the 4.6 line does), so inferring one from the other is exactly
+    the coincidence this generator exists to stop encoding.
+    """
     if table_id == "AnthropicModel":
         style = "adaptive" if member.thinking_style is ThinkingStyle.ADAPTIVE else "budget"
-        return f"{_tick(member.supports_thinking)} ({style})"
+        level = ", effort" if member.spec.effort_levels else ""
+        return f"{_tick(member.supports_thinking)} ({style}{level})"
     return _tick(member.supports_thinking)
 
 

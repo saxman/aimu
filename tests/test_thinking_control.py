@@ -561,15 +561,116 @@ def test_anthropic_none_still_drops_top_p(monkeypatch):
     assert "top_p" not in kwargs
 
 
-def test_anthropic_adaptive_warns_and_ignores_a_level(monkeypatch, caplog):
+@pytest.mark.parametrize("level,effort", [("low", "low"), ("medium", "medium"), ("high", "xhigh")])
+def test_anthropic_adaptive_maps_a_level_to_output_config_effort(monkeypatch, level, effort):
+    """The adaptive models have no budget parameter; a level travels as output_config.effort.
+
+    high -> xhigh, not high: "high" is Anthropic's default when effort is unset, so mapping to
+    the literal would make thinking="high" a silent no-op (the QWEN_REASONING_EFFORT reasoning).
+    """
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_OPUS_5, level)
+
+    assert kwargs["output_config"] == {"effort": effort}
+    assert kwargs["thinking"] == {"type": "adaptive", "display": "summarized"}
+    assert "budget_tokens" not in kwargs["thinking"]
+
+
+def test_anthropic_adaptive_emits_no_effort_when_no_level_was_asked_for(monkeypatch):
+    """thinking=None and thinking=True leave the provider's own default (high) in charge."""
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    for thinking in (None, True):
+        kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_OPUS_5, thinking)
+
+        assert "output_config" not in kwargs
+
+
+@pytest.mark.parametrize("model_name", ["CLAUDE_SONNET_4_6", "CLAUDE_HAIKU_4_5", "CLAUDE_OPUS_4_6"])
+def test_anthropic_budget_models_are_untouched_by_the_effort_path(monkeypatch, model_name):
+    """Additive: Haiku 4.5 errors on effort outright, and the 4.6 line keeps its token budget
+    until that migration is taken deliberately. Only members declaring effort_levels emit one."""
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    kwargs = _anthropic_kwargs(monkeypatch, getattr(AnthropicModel, model_name), "low")
+
+    assert kwargs["thinking"] == {"type": "enabled", "budget_tokens": 2048}
+    assert "output_config" not in kwargs
+
+
+def test_anthropic_a_callers_own_effort_outranks_the_derived_one(monkeypatch):
+    """output_config already reaches the wire through generate_kwargs, and is the only route to
+    "max". That passthrough is tier 4, so it must win over a level AIMU derived from thinking=."""
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    kwargs = _anthropic_kwargs(
+        monkeypatch, AnthropicModel.CLAUDE_OPUS_5, "low", generate_kwargs={"output_config": {"effort": "max"}}
+    )
+
+    assert kwargs["output_config"] == {"effort": "max"}
+
+
+def test_anthropic_effort_is_merged_into_output_config_not_assigned(monkeypatch):
+    """output_config also carries format; deriving an effort must not drop it."""
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    kwargs = _anthropic_kwargs(
+        monkeypatch,
+        AnthropicModel.CLAUDE_OPUS_5,
+        "high",
+        generate_kwargs={"output_config": {"format": {"type": "json_schema"}}},
+    )
+
+    assert kwargs["output_config"] == {"format": {"type": "json_schema"}, "effort": "xhigh"}
+
+
+@pytest.mark.parametrize("effort", ["xhigh", "max"])
+def test_anthropic_disabled_thinking_caps_a_callers_effort(monkeypatch, caplog, effort):
+    """Opus 5 rejects disabled thinking above "high" with a 400, validated per request.
+
+    AIMU cannot build the pair itself (thinking=False resolves to level=None), so this only
+    fires on a caller's passthrough. The effort is lowered rather than the disable reversed:
+    silently re-enabling reasoning the caller turned off is invisible except on the bill.
+    """
     from aimu.models.providers.anthropic import AnthropicModel
 
     with caplog.at_level("WARNING"):
-        kwargs = _anthropic_kwargs(monkeypatch, AnthropicModel.CLAUDE_OPUS_4_7, "low")
+        kwargs = _anthropic_kwargs(
+            monkeypatch, AnthropicModel.CLAUDE_OPUS_5, False, generate_kwargs={"output_config": {"effort": effort}}
+        )
 
-    assert kwargs["thinking"] == {"type": "adaptive", "display": "summarized"}
-    assert "budget_tokens" not in kwargs["thinking"]
-    assert any("adaptive" in r.message.lower() for r in caplog.records)
+    assert kwargs["thinking"] == {"type": "disabled"}
+    assert kwargs["output_config"] == {"effort": "high"}
+    assert any(effort in r.message and "thinking=False" in r.message for r in caplog.records)
+
+
+def test_anthropic_disabled_thinking_leaves_a_safe_effort_alone(monkeypatch, caplog):
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    with caplog.at_level("WARNING"):
+        kwargs = _anthropic_kwargs(
+            monkeypatch, AnthropicModel.CLAUDE_OPUS_5, False, generate_kwargs={"output_config": {"effort": "low"}}
+        )
+
+    assert kwargs["output_config"] == {"effort": "low"}
+    assert not [r for r in caplog.records if "lowering effort" in r.message]
+
+
+def test_anthropic_structured_output_derives_no_effort(monkeypatch):
+    """The structured path routes around _thinking_kwargs, which is where the merge lives, so a
+    level dropped for a forced tool cannot leave its effort behind. No provenance tracking needed."""
+    import anthropic
+
+    from aimu.models.providers.anthropic import AnthropicClient, AnthropicModel
+
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **kw: types.SimpleNamespace())
+    client = AnthropicClient(AnthropicModel.CLAUDE_OPUS_5)
+    resolved = client._resolve_generate_kwargs(client._apply_thinking({"max_tokens": 1024}, "high"))
+
+    kwargs = client._strip_thinking_for_structured(resolved)
+
+    assert "output_config" not in kwargs
 
 
 def test_anthropic_adaptive_thinking_off_is_said_out_loud(monkeypatch):

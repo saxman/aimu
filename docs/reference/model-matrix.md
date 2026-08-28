@@ -13,6 +13,9 @@ second question, answered by two `ModelSpec` flags behind the portable
 - **◆ accepts effort levels** (`thinking_levels=True`), so `thinking="low"/"medium"/"high"` is
   honoured: the Qwen 3.8 27B family and every Anthropic model. On every other reasoning model a
   level is warned about and treated as plain on, which is why swapping models never raises.
+  *Where* the level lands is a second axis, shown in the Anthropic table's Thinking column:
+  `effort` means it becomes `output_config.effort` (with `high` sent as the vendor's `xhigh`),
+  and its absence means it becomes a `budget_tokens` figure instead.
 - **◇ always reasons** (`thinking_optional=False`), so `thinking=False` cannot be honoured:
   `GEMINI_2_5_PRO` and `CLAUDE_FABLE_5`. The call proceeds and is billed for reasoning;
   `client.last_usage` shows the cost.
@@ -27,12 +30,12 @@ per-provider mechanisms.
 <!-- generated:AnthropicModel -->
 | Enum member | Model id | Tools | Thinking | Vision |
 |---|---|:---:|:---:|:---:|
-| `CLAUDE_FABLE_5` ◆ ◇ | `claude-fable-5` | ✅ | ✅ (adaptive) | ✅ |
-| `CLAUDE_OPUS_5` ◆ | `claude-opus-5` | ✅ | ✅ (adaptive) | ✅ |
-| `CLAUDE_OPUS_4_8` ◆ | `claude-opus-4-8` | ✅ | ✅ (adaptive) | ✅ |
-| `CLAUDE_OPUS_4_7` ◆ | `claude-opus-4-7` | ✅ | ✅ (adaptive) | ✅ |
+| `CLAUDE_FABLE_5` ◆ ◇ | `claude-fable-5` | ✅ | ✅ (adaptive, effort) | ✅ |
+| `CLAUDE_OPUS_5` ◆ | `claude-opus-5` | ✅ | ✅ (adaptive, effort) | ✅ |
+| `CLAUDE_OPUS_4_8` ◆ | `claude-opus-4-8` | ✅ | ✅ (adaptive, effort) | ✅ |
+| `CLAUDE_OPUS_4_7` ◆ | `claude-opus-4-7` | ✅ | ✅ (adaptive, effort) | ✅ |
 | `CLAUDE_OPUS_4_6` ◆ | `claude-opus-4-6` | ✅ | ✅ (budget) | ✅ |
-| `CLAUDE_SONNET_5` ◆ | `claude-sonnet-5` | ✅ | ✅ (adaptive) | ✅ |
+| `CLAUDE_SONNET_5` ◆ | `claude-sonnet-5` | ✅ | ✅ (adaptive, effort) | ✅ |
 | `CLAUDE_SONNET_4_6` ◆ | `claude-sonnet-4-6` | ✅ | ✅ (budget) | ✅ |
 | `CLAUDE_HAIKU_4_5` ◆ | `claude-haiku-4-5` | ✅ | ✅ (budget) | ✅ |
 <!-- /generated -->

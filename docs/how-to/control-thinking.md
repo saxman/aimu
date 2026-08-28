@@ -63,7 +63,7 @@ though the caller asked to skip them.
 | Ollama native | `think=False` | `think="low"/"medium"/"high"` (its SDK already accepts this exact vocabulary) |
 | OpenAI-compat local servers (vLLM, SGLang, LM Studio, Ollama-OpenAI, oMLX, HF-Serve, llama-server) | `extra_body={"chat_template_kwargs": {"enable_thinking": False}}` | `reasoning_effort`, with `"high"` sent as Qwen's own `"xhigh"` |
 | HuggingFace (in-process) | `enable_thinking=False` template kwarg | `reasoning_effort` template kwarg |
-| Anthropic | `{"type": "disabled"}` on the adaptive models (Opus 4.7+, Sonnet 5), omits the parameter on the rest | `budget_tokens`: low 2048, medium 8000, high 16000 |
+| Anthropic | `{"type": "disabled"}` on the adaptive models (Opus 4.7+, Sonnet 5), omits the parameter on the rest | `output_config.effort` on Opus 4.7+ / Sonnet 5 / Fable 5; `budget_tokens` (low 2048, medium 8000, high 16000) on Opus 4.6 / Sonnet 4.6 / Haiku 4.5 |
 | llama.cpp, OpenAI cloud, Gemini | nothing emitted | nothing emitted |
 
 **Among the providers that share Qwen's effort vocabulary** (Ollama, the OpenAI-compatible family,
@@ -98,12 +98,36 @@ client.chat(
 This stays a separate, Anthropic-specific parameter rather than folding into `thinking=`, since
 no other provider has an equivalent numeric knob to translate it to.
 
-Anthropic's `ADAPTIVE`-style models (Opus 4.7+, Sonnet 5, Fable 5) decide for themselves whether
-and how much to think, and their request shape has no budget parameter at all:
-`thinking_budget_tokens` is dropped on these models whether or not you also pass a `thinking=`
-level. Passing a level (`thinking="low"`, etc.) additionally logs a warning naming the level that
-was ignored. `thinking=True`/`thinking=False` still work on these models, since they can be told
-to think or not, just not how hard.
+## Anthropic: effort on the adaptive models
+
+Anthropic's `ADAPTIVE`-style models (Opus 4.7+, Sonnet 5, Fable 5) have no budget parameter at all,
+so `thinking_budget_tokens` is dropped on them. A `thinking=` level travels as
+`output_config.effort` instead:
+
+| `thinking=` | effort sent |
+| --- | --- |
+| `"low"` | `low` |
+| `"medium"` | `medium` |
+| `"high"` | `xhigh` |
+| `True` / `None` | nothing sent, so the provider's own default (`high`) applies |
+
+`"high"` maps to `xhigh` rather than the literal `high` for the same reason it maps to `xhigh` on
+Qwen: `high` is what Anthropic already uses when the parameter is unset, so sending it would make
+`thinking="high"` a no-op. It is also the vendor's own recommendation for demanding coding and
+agentic work.
+
+`max` is deliberately out of reach of the three-value portable vocabulary. Pass it explicitly when
+you want it, which also works for any effort value on any model:
+
+```python
+client.chat("...", generate_kwargs={"output_config": {"effort": "max"}})
+```
+
+A value you pass this way outranks one derived from `thinking=`, and is merged into any
+`output_config` already present rather than replacing it. One combination is refused by the API:
+Opus 5 rejects disabled thinking above `high` effort, so `thinking=False` alongside an explicit
+`xhigh`/`max` lowers the effort to `high` and warns, rather than quietly re-enabling the reasoning
+you turned off.
 
 Turning thinking off is where the two styles differ on the wire. On the `ENABLED`-style models
 (Opus 4.6, Sonnet 4.6, Haiku 4.5) an absent `thinking` parameter *is* off, so `thinking=False`
