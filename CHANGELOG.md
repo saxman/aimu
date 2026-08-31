@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.27.0 (2026-08-28): every provider says how a turn ended, and a refusal that no longer reads as an empty answer
 
 ### Models
 
