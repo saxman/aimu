@@ -326,6 +326,8 @@ def test_streamchunk_continuing_phase_reports_the_injected_prompt():
         {"kind": PROVENANCE_FINAL_ANSWER, "prompt": "Stop and answer."},
     )
     assert chunk.is_continuing()
+    # "final_answer" spelled out rather than compared to the constant it came from, which would be
+    # the constant against itself: this is one of the two places the suite pins the wire value.
     assert chunk.content["kind"] == "final_answer"
     assert chunk.content["prompt"] == "Stop and answer."
 
@@ -333,6 +335,8 @@ def test_streamchunk_continuing_phase_reports_the_injected_prompt():
 def test_streamchunk_continuing_is_not_text_or_a_tool_call():
     """It carries a dict, so a consumer that treats every unrecognized phase as text would print the
     repr of one. The predicates keep the three apart."""
+    # "continuation" spelled out for the reason above: the pair of literals here is what would fail
+    # if PROVENANCE_CONTINUATION / PROVENANCE_FINAL_ANSWER ever changed value under a consumer.
     chunk = StreamChunk(StreamingContentType.CONTINUING, {"kind": "continuation", "prompt": "Keep going."})
     assert not chunk.is_text()
     assert not chunk.is_tool_call()

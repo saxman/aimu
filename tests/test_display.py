@@ -40,9 +40,6 @@ def test_pretty_print_show_thinking_and_hide_tools():
 def test_pretty_print_names_an_injected_round_and_quotes_the_prompt():
     """The wrap-up tells the model to stop calling tools, which is the opposite of what the nudge says.
     A renderer that showed neither left a run looking like it simply went quiet and came back thinner."""
-    import io
-
-    from aimu.models import StreamChunk, StreamingContentType
 
     def _injected():
         yield StreamChunk(

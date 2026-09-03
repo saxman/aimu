@@ -97,7 +97,7 @@ class WebChannel(Channel):
                 )
             elif chunk.phase == StreamingContentType.CONTINUING:
                 call = chunk.content if isinstance(chunk.content, dict) else {}
-                await self.send_frame({"type": "loop", "reason": call.get("kind"), "text": call.get("prompt", "")})
+                await self.send_frame({"type": "loop", "reason": call.get("kind", ""), "text": call.get("prompt", "")})
         await self.send_frame({"type": "done"})
 
     async def send_frame(self, frame: dict) -> None:

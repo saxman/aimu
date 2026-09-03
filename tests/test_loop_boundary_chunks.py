@@ -60,7 +60,16 @@ def test_sync_forced_wrap_up_announces_itself_and_quotes_the_configured_prompt()
     client = MockModelClient(["tool", "tool", "final answer"])
     agent = SyncAgent(client, max_iterations=2, final_answer_prompt="Stop and answer.")
 
-    assert _boundaries(_sync_chunks(agent)) == [(PROVENANCE_FINAL_ANSWER, "Stop and answer.")]
+    chunks = _sync_chunks(agent)
+    assert _boundaries(chunks) == [(PROVENANCE_FINAL_ANSWER, "Stop and answer.")]
+
+    # iteration is how a renderer decides which round to file the marker under, so it has to be the
+    # injected round's own index and not the round that ran before it. A driver that incremented
+    # after the yield instead of before would leave every other assertion here green.
+    at = next(i for i, c in enumerate(chunks) if c.phase == StreamingContentType.CONTINUING)
+    injected_round = chunks[at + 1 :]
+    assert injected_round  # the round did produce chunks of its own
+    assert {c.iteration for c in injected_round} == {chunks[at].iteration}
 
 
 async def test_async_forced_wrap_up_announces_itself_and_quotes_the_configured_prompt():

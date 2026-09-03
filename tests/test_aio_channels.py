@@ -53,8 +53,6 @@ async def test_cli_send_stream(capsys):
 
 
 async def test_cli_send_stream_shows_an_injected_round(capsys):
-    from aimu.models import StreamChunk, StreamingContentType
-
     async def gen():
         yield StreamChunk(StreamingContentType.CONTINUING, {"kind": "continuation", "prompt": "Keep going."})
         yield StreamChunk(StreamingContentType.GENERATING, "recovered answer")

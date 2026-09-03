@@ -259,7 +259,6 @@ async def test_async_forced_wrap_up_makes_exactly_n_plus_one_calls_with_matching
 async def test_sync_and_async_announce_the_same_boundaries_for_the_same_run():
     """The drivers agree on the injected rounds, not just on how many calls they make. A seam added to
     one streamed driver and forgotten in the other is the drift this file exists to catch."""
-    from aimu.models import StreamingContentType
 
     def kinds(chunks):
         return [c.content["kind"] for c in chunks if c.phase == StreamingContentType.CONTINUING]
@@ -271,4 +270,8 @@ async def test_sync_and_async_announce_the_same_boundaries_for_the_same_run():
     stream = await async_agent.run("never-ending task", stream=True)
     async_kinds = kinds([chunk async for chunk in stream])
 
+    # The wire value is spelled out rather than imported on purpose: an assertion against
+    # PROVENANCE_FINAL_ANSWER would compare the constant with itself and sail through a silent
+    # change to what it holds. This literal and the two in test_models_api.py are the only
+    # places the suite pins these two strings.
     assert sync_kinds == async_kinds == ["final_answer"]

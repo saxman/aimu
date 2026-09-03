@@ -64,6 +64,10 @@ client.chat("hi", stream=True, include=[StreamingContentType.GENERATING])  # enu
 
 Accepts strings or enum members. Omitting `include=` yields all phases.
 
+`include=` is a `chat()` / `generate()` argument, so it does not reach `CONTINUING`: that chunk
+comes from the agent loop above the client, and `Agent.run` takes no `include=`. Drop it on
+`chunk.phase` in your own loop if you do not want it.
+
 ## See also
 
 - [Explanation: StreamChunk model](../explanation/streamchunk-model.md): why one chunk type instead of three

@@ -89,7 +89,7 @@ class CLIChannel(Channel):
             elif chunk.phase == StreamingContentType.CONTINUING:
                 call = chunk.content if isinstance(chunk.content, dict) else {}
                 sys.stdout.write(
-                    ("\n" if section else "") + f"[continuing: {call.get('kind')}] {call.get('prompt', '')}\n"
+                    ("\n" if section else "") + f"[continuing: {call.get('kind', '')}] {call.get('prompt', '')}\n"
                 )
                 sys.stdout.flush()
                 section = None

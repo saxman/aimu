@@ -30,8 +30,8 @@ class _AsyncToolLoop(_BaseToolLoop):
     """Runs the async model<->tools loop over a pure async model client.
 
     Construction and the sync-safe helpers (``_current_tools``, ``_pending``,
-    ``_tag_injected``, ``_wrap_up_prompt``, ``_tool_call_kwargs``, ``_not_approved``)
-    are inherited from :class:`aimu.agents._tool_loop._BaseToolLoop`.
+    ``_tag_injected``, ``_wrap_up_prompt``, ``_boundary_chunk``, ``_tool_call_kwargs``,
+    ``_not_approved``) are inherited from :class:`aimu.agents._tool_loop._BaseToolLoop`.
     """
 
     # ------------------------------------------------------------------ #

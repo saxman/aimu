@@ -12,6 +12,13 @@
   `PROVENANCE_CONTINUATION` / `PROVENANCE_FINAL_ANSWER` the injected message is tagged with, and
   `prompt` is the string actually sent (a configured `continuation_prompt` / `final_answer_prompt`
   reports itself). `StreamChunk.is_continuing()` dispatches on it.
+- **Change** **`StreamingContentType` gains a member, so an exhaustive dispatch over it needs a new
+  arm.** A `match chunk.phase` (or an `if / elif` chain) written to cover every phase will now fall
+  through on a `CONTINUING` chunk, and a consumer that treats an unrecognized phase as text prints
+  the repr of a dict. Only the streamed agent-loop drivers emit it, so a plain
+  `client.chat(stream=True)` never sees one, and there is no way to filter it out of a streamed
+  `Agent.run`: `include=[...]` is a `chat()` / `generate()` argument, and this chunk comes from the
+  loop above them. A consumer that does not want it drops it on `chunk.phase`.
 
 ### Agents
 
@@ -19,11 +26,34 @@
   from one factory on the shared loop base, so the sync and async drivers cannot drift.
   `tests/test_loop_iteration_parity.py` pins that they announce the same boundaries.
 
+### Console output
+
+- **New** `pretty_print()` shows the injected round as a `[continuing: <kind>] <prompt>` line. Not
+  gated by `show_thinking` / `show_tools`: those control volume, and this is one line per injected
+  round.
+
 ### Channels
 
-- **New** `pretty_print()`, `CLIChannel`, and `WebChannel` each show the injected round: a
-  `[continuing: <kind>] <prompt>` line in the terminal, a `{"type": "loop", "reason", "text"}` frame in
-  the browser.
+- **New** `CLIChannel` writes the same `[continuing: <kind>] <prompt>` line, and `WebChannel` sends a
+  `{"type": "loop", "reason", "text"}` frame, where `reason` is the chunk's `kind` and `text` is the
+  prompt. Both are unconditional rather than behind `stream_thinking` / `stream_tools`, for the
+  reason above.
+
+### Examples
+
+- **Fixed** `examples/personal-assistant`'s page renders the `loop` frame instead of dropping it on
+  the floor of a frame chain with no default arm, and resets its answer bubble when one arrives, so
+  an injected round's tokens start a new bubble rather than growing the previous round's.
+
+### Documentation
+
+- **New** `docs/explanation/streamchunk-model.md` argues why this needs a phase of its own rather
+  than a reading of `chunk.iteration`; `docs/reference/stream-phases.md` carries the phase, the
+  predicate, and a sequences row for an injected round, and now says what the iteration counter does
+  *not* tell you; `docs/how-to/build-personal-assistant.md` says why this frame is not behind the
+  channel flags. `CLAUDE.md`'s frame protocol, relay list, enum members, and dispatch helpers all
+  name it, the frame protocol most of all: that enumeration is the contract a page is written
+  against.
 
 ## v0.27.0 (2026-08-28): every provider says how a turn ended, and a refusal that no longer reads as an empty answer
 
