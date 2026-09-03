@@ -257,6 +257,15 @@ blocks. The flags decide what reaches the transport, not how a front end draws i
 to collapse or hide a frame it received. Set either to `False` to drop that content upstream of the
 channel entirely.
 
+One phase is deliberately outside that arrangement. A `CONTINUING` chunk (a round the loop injected
+rather than the model: a nudge after an empty turn, or the forced tools-disabled wrap-up at the round
+cap) always reaches the transport, as a `[continuing: <kind>] <prompt>` line in the terminal and a
+`{"type": "loop", "reason", "text"}` frame in the browser. The flags exist to control volume, and
+this is at most a handful of chunks per run; more to the point, it is the one chunk that explains why
+an answer came back thinner than the question deserved, so a run that suppressed it would be exactly
+the run you most want the explanation for. A page that finds the frame too loud can still collapse
+it, which is the division of labor above working as intended.
+
 ```bash
 pip install aimu[web]
 python examples/personal-assistant/web_assistant.py --model ollama:qwen3:8b --reminder-seconds 20

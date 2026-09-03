@@ -20,12 +20,16 @@ The enum inherits from `str`, so members compare equal to their string values, s
 ```python
 chunk.is_text()             # True for THINKING and GENERATING
 chunk.is_tool_call()        # True for TOOL_CALLING
+chunk.is_continuing()       # True for CONTINUING (both kinds: read content["kind"] for which)
 chunk.is_image_progress()   # True for IMAGE_GENERATING
 chunk.is_audio_progress()   # True for AUDIO_GENERATING
 chunk.is_speech_progress()  # True for SPEECH_GENERATING
+chunk.is_done()             # True for DONE
 ```
 
-These avoid sprinkling phase comparisons through your code.
+These avoid sprinkling phase comparisons through your code. Each is named for its phase and not for
+one of the kinds that phase can carry, which is why `is_continuing()` is also true of the forced
+wrap-up, a round that tells the model to *stop* calling tools.
 
 ## Typical sequences
 
@@ -35,8 +39,14 @@ These avoid sprinkling phase comparisons through your code.
 | Thinking model, no tools | `THINKING*`, then `GENERATING*` |
 | Tool-using model | `THINKING*` (if thinking), `TOOL_CALLING` per call, `GENERATING*` |
 | Tool-using model, multi-round | `TOOL_CALLING* → THINKING*? → GENERATING*` repeated; `chunk.iteration` increments per round (agent context) |
+| A round the loop injected | `CONTINUING`, then that round's own chunks (`THINKING*?`, `TOOL_CALLING*` for a nudge, `GENERATING*`); `chunk.iteration` on the `CONTINUING` chunk is the injected round's own index |
 
 `*` = "one or more chunks".
+
+`chunk.iteration` tells you the round number moved, not who moved it: a tool round, a nudge after an
+empty turn, and the forced wrap-up all advance it identically. `CONTINUING` is what separates the
+last two from the first (see [why it needs its own
+phase](../explanation/streamchunk-model.md#why-continuing-needs-its-own-phase)).
 
 ## Async surface
 
