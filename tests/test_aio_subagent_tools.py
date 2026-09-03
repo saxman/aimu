@@ -528,6 +528,35 @@ async def test_a_specs_generate_kwargs_dict_is_not_shared_with_the_spawned_clien
     assert _FakeAsyncClient.instances[-1].default_generate_kwargs == {"temperature": 0.1}
 
 
+async def test_typed_dispatch_applies_per_type_max_iterations():
+    types = {"deep": {"system_message": "Dig until you are sure.", "max_iterations": 25}}
+    spawn = make_async_subagent_tool(MODEL, agent_types=types)
+    await spawn("deep", "research the topic")
+    assert _RecordingAsyncAgent.instances[-1].max_iterations == 25
+
+
+async def test_typed_dispatch_falls_back_to_the_factory_cap_when_the_spec_omits_it():
+    """Unlike "thinking" and "generate_kwargs", a missing cap has a tier to fall back to: this factory's
+    own. Mirrors tests/test_subagent_tools.py."""
+    spawn = make_async_subagent_tool(MODEL, agent_types={"plain": {"system_message": "Plain."}}, max_iterations=4)
+    await spawn("plain", "task")
+    assert _RecordingAsyncAgent.instances[-1].max_iterations == 4
+
+
+async def test_a_spec_cap_overrides_the_factory_cap_rather_than_being_capped_by_it():
+    types = {"deep": {"system_message": "Dig.", "max_iterations": 30}}
+    spawn = make_async_subagent_tool(MODEL, agent_types=types, max_iterations=4)
+    await spawn("deep", "task")
+    assert _RecordingAsyncAgent.instances[-1].max_iterations == 30
+
+
+def test_a_spec_cap_that_is_not_a_positive_int_raises_at_factory_call_time():
+    """Not async: the rejection happens in the factory, before any spawn. Validation is shared with the
+    sync surface (both call _validate_subagent_config), so this asserts the async factory reaches it."""
+    with pytest.raises(ValueError, match="max_iterations"):
+        make_async_subagent_tool(MODEL, agent_types={"bad": {"system_message": "S.", "max_iterations": 0}})
+
+
 def test_fresh_client_keeps_an_extended_model_string_intact(monkeypatch):
     """An ``@base_url`` model string has to reach the sub-agent's client unresolved.
 

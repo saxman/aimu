@@ -1,6 +1,26 @@
 # Changelog
 
-## v0.29.0 (2026-09-02): the loop says when it is the one talking
+## Unreleased: a sub-agent roster can give one specialist a longer leash, and the loop says when it is the one talking
+
+### Tools
+
+- **New** **A sub-agent spec may declare its own `max_iterations`.** `SUBAGENT_SPEC_KEYS` gains a
+  sixth entry, so an `agent_types` roster can hand one specialist a different tool-loop cap from its
+  peers: a search-heavy researcher that spends every round calling tools gets the rounds it needs
+  while the rest of the roster stays on the factory default. Before this, `max_iterations` was a
+  single value per spawn tool, so the only way to raise one worker's cap was to raise everyone's.
+  The key is the second, after `"model"`, whose **missing-key behavior is to fall back rather than
+  inherit nothing**: a spec omitting it gets whatever `make_subagent_tool(max_iterations=...)` was
+  called with, which is what lets a roster share one default without writing the key into every
+  spec. `"thinking"` and `"generate_kwargs"` cannot work that way, having no factory-level tier
+  beneath them.
+  Validated at factory-call time, alongside `max_depth < 1` and the closed key set: an int below 1
+  is a loop that makes no model call, and `bool` is an `int` subclass, so an unchecked `True` would
+  have been accepted as a cap of 1. A nested spawn tool (`max_depth > 1`) still carries the
+  factory's tier rather than the spec that built it, since it serves the whole roster again.
+  Both surfaces: `make_subagent_tool` and `make_async_subagent_tool`.
+  Tests: `tests/test_subagent_tools.py`, `tests/test_aio_subagent_tools.py`.
+  How-to: [docs/how-to/spawn-subagents.md](docs/how-to/spawn-subagents.md).
 
 ### Models
 
@@ -54,6 +74,7 @@
   channel flags. `CLAUDE.md`'s frame protocol, relay list, enum members, and dispatch helpers all
   name it, the frame protocol most of all: that enumeration is the contract a page is written
   against.
+
 
 ## v0.27.0 (2026-08-28): every provider says how a turn ended, and a refusal that no longer reads as an empty answer
 
