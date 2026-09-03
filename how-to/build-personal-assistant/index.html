@@ -3575,6 +3575,14 @@ lines; <code>WebChannel</code> (same flags) emits <code>thinking</code> / <code>
 blocks. The flags decide what reaches the transport, not how a front end draws it: a page is free
 to collapse or hide a frame it received. Set either to <code>False</code> to drop that content upstream of the
 channel entirely.</p>
+<p>One phase is deliberately outside that arrangement. A <code>CONTINUING</code> chunk (a round the loop injected
+rather than the model: a nudge after an empty turn, or the forced tools-disabled wrap-up at the round
+cap) always reaches the transport, as a <code>[continuing: &lt;kind&gt;] &lt;prompt&gt;</code> line in the terminal and a
+<code>{"type": "loop", "reason", "text"}</code> frame in the browser. The flags exist to control volume, and
+this is at most a handful of chunks per run; more to the point, it is the one chunk that explains why
+an answer came back thinner than the question deserved, so a run that suppressed it would be exactly
+the run you most want the explanation for. A page that finds the frame too loud can still collapse
+it, which is the division of labor above working as intended.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>pip<span class="w"> </span>install<span class="w"> </span>aimu<span class="o">[</span>web<span class="o">]</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>python<span class="w"> </span>examples/personal-assistant/web_assistant.py<span class="w"> </span>--model<span class="w"> </span>ollama:qwen3:8b<span class="w"> </span>--reminder-seconds<span class="w"> </span><span class="m">20</span>
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1"># open http://127.0.0.1:8000</span>

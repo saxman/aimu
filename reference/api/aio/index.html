@@ -6420,9 +6420,9 @@ agent = aio.Agent(client, tools=await mcp.as_tools())
 isolated :class:<code>aimu.aio.Agent</code> per call and awaits its <code>run</code>. Parallelism is free: give the
 parent :class:<code>aimu.aio.Agent</code> <code>concurrent_tool_calls=True</code> and multiple spawn calls in one turn
 overlap under an <code>asyncio.TaskGroup</code>. See the sync docstring for the full contract (generic vs
-typed mode, the per-spec <code>"model"</code> / <code>"thinking"</code> / <code>"generate_kwargs"</code> keys, <code>max_depth</code>
-recursion guard, unknown-<code>agent_type</code> handling, and the <code>tool_approval</code> gate forwarded to every
-spawned sub-agent).</p>
+typed mode, the per-spec <code>"model"</code> / <code>"thinking"</code> / <code>"generate_kwargs"</code> / <code>"max_iterations"</code>
+keys, <code>max_depth</code> recursion guard, unknown-<code>agent_type</code> handling, and the <code>tool_approval</code> gate
+forwarded to every spawned sub-agent).</p>
 <p>In-process providers (HuggingFace, LlamaCpp) are wrapped per spawn via a fresh sync client (the aio
 surface can't construct them from an enum); the process weight cache prevents reloading weights.</p>
 <p>Passing <code>observer</code> (a :class:<code>SubagentObserver</code>) switches each spawn to a streamed child run and

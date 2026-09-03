@@ -2979,6 +2979,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#why-continuing-needs-its-own-phase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why CONTINUING needs its own phase
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#phase-semantics" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3292,6 +3303,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#why-continuing-needs-its-own-phase" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why CONTINUING needs its own phase
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#phase-semantics" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3409,6 +3431,8 @@
 <li>One mental model ("consume an iterator of chunks") covers everything from a CLI print loop to a Streamlit app.</li>
 </ul>
 <p>The <code>include=[...]</code> parameter on <code>chat()</code> and <code>generate()</code> is the only filtering primitive we need; it covers "skip thinking", "skip tool calls", and any combination.</p>
+<h2 id="why-continuing-needs-its-own-phase">Why CONTINUING needs its own phase<a class="headerlink" href="#why-continuing-needs-its-own-phase" title="Permanent link">&para;</a></h2>
+<p><code>chunk.iteration</code> already answers "did the round number move": it increments on every pass through the agent loop, tool round or not. It does not answer "who moved it, and what did they say". A tool round and a framework-injected round both bump <code>iteration</code> the same way, so a consumer watching <code>iteration</code> alone cannot tell one from the other. The two injections a loop can make say opposite things to the model: a continuation nudge after an empty turn leaves tools enabled and asks for another attempt, while the forced wrap-up at the round cap disables tools and asks for whatever answer the model already has. That difference is not cosmetic, so <code>CONTINUING</code> names it directly, carrying the injected prompt and its kind, instead of leaving a consumer to reconstruct it from <code>iteration</code> and guesswork.</p>
 <h2 id="phase-semantics">Phase semantics<a class="headerlink" href="#phase-semantics" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

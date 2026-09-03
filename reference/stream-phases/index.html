@@ -3304,7 +3304,7 @@
 
 
 <h1 id="stream-phases">Stream phases<a class="headerlink" href="#stream-phases" title="Permanent link">&para;</a></h1>
-<p><code>StreamingContentType</code> is a string enum with five values, attached to every <code>StreamChunk</code> via <code>chunk.phase</code>.</p>
+<p><code>StreamingContentType</code> is a string enum with eight values, attached to every <code>StreamChunk</code> via <code>chunk.phase</code>.</p>
 <table>
 <thead>
 <tr>
@@ -3326,6 +3326,12 @@
 <td><code>"tool_calling"</code></td>
 <td>A tool call has just been dispatched and its result is available</td>
 <td><code>dict {"name": str, "arguments": dict, "response": str}</code></td>
+</tr>
+<tr>
+<td><code>CONTINUING</code></td>
+<td><code>"continuing"</code></td>
+<td>A streamed agent-loop driver is about to inject a round of its own (a nudge after an empty turn, or the forced tools-disabled wrap-up at the round cap); emitted once per injected round, immediately before that round's own chunks</td>
+<td><code>dict {"kind": "continuation" \| "final_answer", "prompt": str}</code>, where <code>kind</code> matches the provenance tag written onto the injected message</td>
 </tr>
 <tr>
 <td><code>GENERATING</code></td>
@@ -3363,11 +3369,15 @@
 <h2 id="helpers-on-streamchunk">Helpers on <code>StreamChunk</code><a class="headerlink" href="#helpers-on-streamchunk" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_text</span><span class="p">()</span>             <span class="c1"># True for THINKING and GENERATING</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_tool_call</span><span class="p">()</span>        <span class="c1"># True for TOOL_CALLING</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_image_progress</span><span class="p">()</span>   <span class="c1"># True for IMAGE_GENERATING</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_audio_progress</span><span class="p">()</span>   <span class="c1"># True for AUDIO_GENERATING</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_speech_progress</span><span class="p">()</span>  <span class="c1"># True for SPEECH_GENERATING</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_continuing</span><span class="p">()</span>       <span class="c1"># True for CONTINUING (both kinds: read content["kind"] for which)</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_image_progress</span><span class="p">()</span>   <span class="c1"># True for IMAGE_GENERATING</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_audio_progress</span><span class="p">()</span>   <span class="c1"># True for AUDIO_GENERATING</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_speech_progress</span><span class="p">()</span>  <span class="c1"># True for SPEECH_GENERATING</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_done</span><span class="p">()</span>             <span class="c1"># True for DONE</span>
 </span></code></pre></div>
-<p>These avoid sprinkling phase comparisons through your code.</p>
+<p>These avoid sprinkling phase comparisons through your code. Each is named for its phase and not for
+one of the kinds that phase can carry, which is why <code>is_continuing()</code> is also true of the forced
+wrap-up, a round that tells the model to <em>stop</em> calling tools.</p>
 <h2 id="typical-sequences">Typical sequences<a class="headerlink" href="#typical-sequences" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3393,9 +3403,17 @@
 <td>Tool-using model, multi-round</td>
 <td><code>TOOL_CALLING* → THINKING*? → GENERATING*</code> repeated; <code>chunk.iteration</code> increments per round (agent context)</td>
 </tr>
+<tr>
+<td>A round the loop injected</td>
+<td><code>CONTINUING</code>, then that round's own chunks (<code>THINKING*?</code>, <code>TOOL_CALLING*</code> for a nudge, <code>GENERATING*</code>); <code>chunk.iteration</code> on the <code>CONTINUING</code> chunk is the injected round's own index</td>
+</tr>
 </tbody>
 </table>
 <p><code>*</code> = "one or more chunks".</p>
+<p><code>chunk.iteration</code> tells you the round number moved, not who moved it: a tool round, a nudge after an
+empty turn, and the forced wrap-up all advance it identically. <code>CONTINUING</code> is what separates the
+last two from the first (see <a href="../../explanation/streamchunk-model/#why-continuing-needs-its-own-phase">why it needs its own
+phase</a>).</p>
 <h2 id="async-surface">Async surface<a class="headerlink" href="#async-surface" title="Permanent link">&para;</a></h2>
 <p><code>aimu.aio</code> yields the same <code>StreamChunk</code> type; <code>phase</code>, <code>content</code>, <code>agent</code>, <code>iteration</code> are unchanged. The consumption protocol differs: <code>Iterator[StreamChunk]</code> on the sync surface vs <code>AsyncIterator[StreamChunk]</code> on the async surface. Phase semantics and filtering are identical on both. See <a href="../../how-to/use-async/">how-to: use async</a>.</p>
 <h2 id="filtering">Filtering<a class="headerlink" href="#filtering" title="Permanent link">&para;</a></h2>
@@ -3405,6 +3423,9 @@
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"hi"</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="n">StreamingContentType</span><span class="o">.</span><span class="n">GENERATING</span><span class="p">])</span>  <span class="c1"># enum form</span>
 </span></code></pre></div>
 <p>Accepts strings or enum members. Omitting <code>include=</code> yields all phases.</p>
+<p><code>include=</code> is a <code>chat()</code> / <code>generate()</code> argument, so it does not reach <code>CONTINUING</code>: that chunk
+comes from the agent loop above the client, and <code>Agent.run</code> takes no <code>include=</code>. Drop it on
+<code>chunk.phase</code> in your own loop if you do not want it.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../explanation/streamchunk-model/">Explanation: StreamChunk model</a>: why one chunk type instead of three</li>

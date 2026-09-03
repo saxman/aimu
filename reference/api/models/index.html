@@ -2458,6 +2458,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#aimu.models.StreamChunk.is_continuing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        is_continuing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.models.StreamChunk.is_image_progress" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3934,6 +3945,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#aimu.models.StreamChunk.is_continuing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        is_continuing
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.models.StreamChunk.is_image_progress" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5132,12 +5154,22 @@ string so code can call e.g. <code>ollama.pull(model.value)</code>.</p>
 
 <details class="fields" open>
   <summary>Fields</summary>
-  <p>phase:     content type of this chunk (THINKING, TOOL_CALLING, GENERATING,
+  <p>phase:     content type of this chunk (THINKING, TOOL_CALLING, CONTINUING, GENERATING,
            IMAGE_GENERATING, AUDIO_GENERATING, SPEECH_GENERATING, DONE)
 content:   shape depends on phase:
            - <code>str</code> for THINKING / GENERATING (token).
            - <code>dict {"name", "arguments", "response"}</code> for TOOL_CALLING
              (<code>arguments</code> is the dict the model passed to the tool).
+           - <code>dict {"kind", "prompt"}</code> for CONTINUING: the loop is about to inject a
+             prompt of its own, and the round that follows is that injected turn.
+             <code>kind</code> is <code>PROVENANCE_CONTINUATION</code> (a nudge after an empty turn, tools
+             still enabled) or <code>PROVENANCE_FINAL_ANSWER</code> (the forced wrap-up at the round
+             cap, tools disabled), the same two values the injected message is tagged with
+             in <code>client.messages</code>. <code>prompt</code> is the text actually sent, so an agent
+             configured with its own <code>continuation_prompt</code> / <code>final_answer_prompt</code>
+             reports that rather than the built-in default. The value travels under three
+             names: <code>PROVENANCE_KEY</code> (<code>"provenance"</code>) on the message, <code>kind</code> here on
+             the chunk, and <code>reason</code> in <code>WebChannel</code>'s <code>loop</code> frame.
            - <code>dict {"step", "total_steps", "image", "final", "result"}</code> for
              IMAGE_GENERATING: <code>step</code> is 1-indexed, <code>image</code> is an optional
              <code>PIL.Image</code> (None unless <code>preview_every</code> opted in this step),
@@ -5161,9 +5193,9 @@ agent:     name of the agent that produced this chunk, or <code>None</code> for 
            <code>client.chat()</code> / <code>client.generate()</code> call. Set automatically by
            <code>Agent</code> and workflow runners.
 iteration: zero-based iteration index inside the agent loop, or <code>0</code> for plain chat.</p>
-</details>        <p>Use <code>chunk.is_text()</code> / <code>chunk.is_tool_call()</code> / <code>chunk.is_image_progress()</code> /
-<code>chunk.is_audio_progress()</code> / <code>chunk.is_speech_progress()</code> / <code>chunk.is_done()</code> to
-dispatch on phase without repeating the equality check in user code.</p>
+</details>        <p>Use <code>chunk.is_text()</code> / <code>chunk.is_tool_call()</code> / <code>chunk.is_continuing()</code> /
+<code>chunk.is_image_progress()</code> / <code>chunk.is_audio_progress()</code> / <code>chunk.is_speech_progress()</code> /
+<code>chunk.is_done()</code> to dispatch on phase without repeating the equality check in user code.</p>
 
 
 
@@ -5220,6 +5252,29 @@ dispatch on phase without repeating the equality check in user code.</p>
     <div class="doc doc-contents ">
 
         <p>True if this chunk carries a tool-call result.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.models.StreamChunk.is_continuing" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">is_continuing</span>
+
+
+<a href="#aimu.models.StreamChunk.is_continuing" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">is_continuing</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>True if this chunk announces a round the loop injected (CONTINUING).</p>
+<p>Named for the phase, not for one of its two kinds: it is also True for the forced wrap-up,
+which tells the model to stop rather than to keep working. Read <code>content["kind"]</code> to tell
+the two apart.</p>
 
 
     </div>
