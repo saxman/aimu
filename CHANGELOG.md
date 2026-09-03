@@ -11,7 +11,7 @@
   other and from a tool round. `content` is `{"kind", "prompt"}`, where `kind` is the same
   `PROVENANCE_CONTINUATION` / `PROVENANCE_FINAL_ANSWER` the injected message is tagged with, and
   `prompt` is the string actually sent (a configured `continuation_prompt` / `final_answer_prompt`
-  reports itself). `StreamChunk.is_continuation()` dispatches on it.
+  reports itself). `StreamChunk.is_continuing()` dispatches on it.
 
 ### Agents
 

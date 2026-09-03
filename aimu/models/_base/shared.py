@@ -79,7 +79,9 @@ class StreamChunk(NamedTuple):
                      cap, tools disabled), the same two values the injected message is tagged with
                      in ``client.messages``. ``prompt`` is the text actually sent, so an agent
                      configured with its own ``continuation_prompt`` / ``final_answer_prompt``
-                     reports that rather than the built-in default.
+                     reports that rather than the built-in default. The value travels under three
+                     names: ``PROVENANCE_KEY`` (``"provenance"``) on the message, ``kind`` here on
+                     the chunk, and ``reason`` in ``WebChannel``'s ``loop`` frame.
                    - ``dict {"step", "total_steps", "image", "final", "result"}`` for
                      IMAGE_GENERATING: ``step`` is 1-indexed, ``image`` is an optional
                      ``PIL.Image`` (None unless ``preview_every`` opted in this step),
@@ -104,7 +106,7 @@ class StreamChunk(NamedTuple):
                    ``Agent`` and workflow runners.
         iteration: zero-based iteration index inside the agent loop, or ``0`` for plain chat.
 
-    Use ``chunk.is_text()`` / ``chunk.is_tool_call()`` / ``chunk.is_continuation()`` /
+    Use ``chunk.is_text()`` / ``chunk.is_tool_call()`` / ``chunk.is_continuing()`` /
     ``chunk.is_image_progress()`` / ``chunk.is_audio_progress()`` / ``chunk.is_speech_progress()`` /
     ``chunk.is_done()`` to dispatch on phase without repeating the equality check in user code.
     """
@@ -122,8 +124,13 @@ class StreamChunk(NamedTuple):
         """True if this chunk carries a tool-call result."""
         return self.phase == StreamingContentType.TOOL_CALLING
 
-    def is_continuation(self) -> bool:
-        """True if this chunk announces an injected round (CONTINUING)."""
+    def is_continuing(self) -> bool:
+        """True if this chunk announces a round the loop injected (CONTINUING).
+
+        Named for the phase, not for one of its two kinds: it is also True for the forced wrap-up,
+        which tells the model to stop rather than to keep working. Read ``content["kind"]`` to tell
+        the two apart.
+        """
         return self.phase == StreamingContentType.CONTINUING
 
     def is_image_progress(self) -> bool:

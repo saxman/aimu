@@ -328,9 +328,16 @@ class _BaseToolLoop:
 
         Defined once on the base rather than in each driver because the two streamed drivers are held
         to one definition of loop semantics (``tests/test_loop_iteration_parity.py``), and because the
-        pair of values is the contract: ``kind`` is the same provenance the injected message will be
-        tagged with, so a consumer reading a live stream and one reading stored messages describe the
-        boundary identically.
+        pair of values is the contract: ``kind`` is the same provenance value the injected message will
+        be tagged with, so a consumer reading a live stream and one reading stored messages agree on
+        *which* injection happened.
+
+        They agree on the value and not on the key. The same field is spelled three ways along the
+        way out: ``PROVENANCE_KEY`` (``"provenance"``) on the message in ``client.messages``, ``kind``
+        here on the chunk, and ``reason`` in :class:`~aimu.aio.channels.web.WebChannel`'s ``loop``
+        frame. Re-keying this dict to ``PROVENANCE_KEY`` would close only one of those two gaps (the
+        frame's ``reason`` belongs to a protocol with its own naming), so the three names are stated
+        rather than merged.
         """
         return StreamChunk(
             StreamingContentType.CONTINUING,

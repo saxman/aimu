@@ -325,7 +325,7 @@ def test_streamchunk_continuing_phase_reports_the_injected_prompt():
         StreamingContentType.CONTINUING,
         {"kind": PROVENANCE_FINAL_ANSWER, "prompt": "Stop and answer."},
     )
-    assert chunk.is_continuation()
+    assert chunk.is_continuing()
     assert chunk.content["kind"] == "final_answer"
     assert chunk.content["prompt"] == "Stop and answer."
 
