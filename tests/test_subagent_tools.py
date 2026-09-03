@@ -230,7 +230,7 @@ def test_agent_type_with_an_unknown_key_raises():
 
 
 def test_the_unknown_key_error_names_the_keys_that_are_accepted():
-    with pytest.raises(ValueError, match="generate_kwargs, model, system_message, thinking, tools"):
+    with pytest.raises(ValueError, match="generate_kwargs, max_iterations, model, system_message, thinking, tools"):
         make_subagent_tool(MODEL, agent_types={"bad": {"system_message": "S.", "temperture": 0.2}})
 
 
@@ -249,6 +249,7 @@ def test_every_documented_spec_key_is_accepted():
         "model": MODEL,
         "thinking": "high",
         "generate_kwargs": {"temperature": 0.2},
+        "max_iterations": 25,
     }
     make_subagent_tool(MODEL, agent_types={"full": spec})  # must not raise
 
@@ -276,6 +277,37 @@ def test_a_specs_generate_kwargs_dict_is_not_shared_with_the_spawned_client():
     spawn("cold", "two")
     assert spec_kwargs == {"temperature": 0.1}
     assert _RecordingModelClient.instances[-1].default_generate_kwargs == {"temperature": 0.1}
+
+
+def test_typed_dispatch_applies_per_type_max_iterations():
+    types = {"deep": {"system_message": "Dig until you are sure.", "max_iterations": 25}}
+    spawn = make_subagent_tool(MODEL, agent_types=types)
+    spawn("deep", "research the topic")
+    assert _RecordingAgent.instances[-1].max_iterations == 25
+
+
+def test_typed_dispatch_falls_back_to_the_factory_cap_when_the_spec_omits_it():
+    """Unlike "thinking" and "generate_kwargs", a missing cap has a tier to fall back to: this factory's
+    own. That is what lets a caller set one default across a roster without writing it into each spec."""
+    spawn = make_subagent_tool(MODEL, agent_types={"plain": {"system_message": "Plain."}}, max_iterations=4)
+    spawn("plain", "task")
+    assert _RecordingAgent.instances[-1].max_iterations == 4
+
+
+def test_a_spec_cap_overrides_the_factory_cap_rather_than_being_capped_by_it():
+    """A spec may ask for more than the factory default, not only less."""
+    types = {"deep": {"system_message": "Dig.", "max_iterations": 30}}
+    spawn = make_subagent_tool(MODEL, agent_types=types, max_iterations=4)
+    spawn("deep", "task")
+    assert _RecordingAgent.instances[-1].max_iterations == 30
+
+
+@pytest.mark.parametrize("bad", [0, -1, True, False, 2.5, "10", None])
+def test_a_spec_cap_that_is_not_a_positive_int_raises_at_factory_call_time(bad):
+    """`bool` is an `int` subclass, so `True` would otherwise pass as a cap of 1, and `0` is a loop that
+    makes no model call at all. Both are programmer errors, so they fail where the roster is written."""
+    with pytest.raises(ValueError, match="max_iterations"):
+        make_subagent_tool(MODEL, agent_types={"bad": {"system_message": "S.", "max_iterations": bad}})
 
 
 # ---------------------------------------------------------------------------
