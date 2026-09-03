@@ -1,6 +1,6 @@
 [project]
 name = "aimu"
-version = "0.27.0"
+version = "0.28.0"
 description = "AI Modeling Utilities: A comprehensive generative AI framework that makes it easy to understand what AI models and systems are capable of, and to learn how they work while you use them."
 readme = "README.md"
 requires-python = ">=3.11"

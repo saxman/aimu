@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased: a sub-agent roster can give one specialist a longer leash, and the loop says when it is the one talking
+## v0.28.0 (2026-09-02): a sub-agent roster can give one specialist a longer leash, and the loop says when it is the one talking
 
 ### Tools
 
