@@ -323,6 +323,22 @@ class _BaseToolLoop:
         """The forced tools-disabled wrap-up prompt: the configured one, else the built-in default."""
         return self._final_answer_prompt or DEFAULT_WRAP_UP_PROMPT
 
+    def _boundary_chunk(self, kind: str, prompt: str, iteration: int) -> StreamChunk:
+        """The chunk that opens an injected round, naming which injection this is and what was sent.
+
+        Defined once on the base rather than in each driver because the two streamed drivers are held
+        to one definition of loop semantics (``tests/test_loop_iteration_parity.py``), and because the
+        pair of values is the contract: ``kind`` is the same provenance the injected message will be
+        tagged with, so a consumer reading a live stream and one reading stored messages describe the
+        boundary identically.
+        """
+        return StreamChunk(
+            StreamingContentType.CONTINUING,
+            {"kind": kind, "prompt": prompt},
+            agent=self._agent_name,
+            iteration=iteration,
+        )
+
     def _maybe_compact(self) -> None:
         """Apply the configured ``compaction`` callable to ``self._client.messages``, if any,
         right before the next model turn. No-op when ``compaction`` is unset (the default):
@@ -543,6 +559,7 @@ class _ToolLoop(_BaseToolLoop):
                         self._current_iteration = iteration
                         self._maybe_compact()
                         injected_at = len(self._client.messages)
+                        yield self._boundary_chunk(PROVENANCE_CONTINUATION, self._continuation_prompt, iteration)
                         yield from self._retag(
                             self._client.chat(
                                 self._continuation_prompt,
@@ -565,9 +582,11 @@ class _ToolLoop(_BaseToolLoop):
                     self._settle_pending_tools()
                     self._maybe_compact()
                     injected_at = len(self._client.messages)
+                    prompt = self._wrap_up_prompt()
+                    yield self._boundary_chunk(PROVENANCE_FINAL_ANSWER, prompt, iteration)
                     yield from self._retag(
                         self._client.chat(
-                            self._wrap_up_prompt(),
+                            prompt,
                             generate_kwargs=generate_kwargs,
                             stream=True,
                             use_tools=False,

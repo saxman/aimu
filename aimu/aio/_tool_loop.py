@@ -161,6 +161,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                         self._current_iteration = iteration
                         self._maybe_compact()
                         injected_at = len(self._client.messages)
+                        yield self._boundary_chunk(PROVENANCE_CONTINUATION, self._continuation_prompt, iteration)
                         stream = await self._client.chat(
                             self._continuation_prompt,
                             generate_kwargs=generate_kwargs,
@@ -182,8 +183,10 @@ class _AsyncToolLoop(_BaseToolLoop):
                     self._settle_pending_tools()
                     self._maybe_compact()
                     injected_at = len(self._client.messages)
+                    prompt = self._wrap_up_prompt()
+                    yield self._boundary_chunk(PROVENANCE_FINAL_ANSWER, prompt, iteration)
                     stream = await self._client.chat(
-                        self._wrap_up_prompt(),
+                        prompt,
                         generate_kwargs=generate_kwargs,
                         stream=True,
                         use_tools=False,

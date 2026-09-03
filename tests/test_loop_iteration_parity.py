@@ -254,3 +254,21 @@ async def test_async_forced_wrap_up_makes_exactly_n_plus_one_calls_with_matching
     assert len(turn_finished) == 3
     finished = next(e for e in seen if isinstance(e, RunFinished))
     assert finished.iteration == turn_finished[-1].iteration == 2
+
+
+async def test_sync_and_async_announce_the_same_boundaries_for_the_same_run():
+    """The drivers agree on the injected rounds, not just on how many calls they make. A seam added to
+    one streamed driver and forgotten in the other is the drift this file exists to catch."""
+    from aimu.models import StreamingContentType
+
+    def kinds(chunks):
+        return [c.content["kind"] for c in chunks if c.phase == StreamingContentType.CONTINUING]
+
+    sync_agent = SyncAgent(_AlwaysToolClient(), tools=[_noop_tool], max_iterations=2)
+    sync_kinds = kinds(list(sync_agent.run("never-ending task", stream=True)))
+
+    async_agent = AsyncAgent(_AsyncAlwaysToolClient(), tools=[_noop_tool], max_iterations=2)
+    stream = await async_agent.run("never-ending task", stream=True)
+    async_kinds = kinds([chunk async for chunk in stream])
+
+    assert sync_kinds == async_kinds == ["final_answer"]
