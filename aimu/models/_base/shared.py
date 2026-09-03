@@ -53,6 +53,7 @@ class ModelRefusalError(RuntimeError):
 class StreamingContentType(str, Enum):
     THINKING = "thinking"
     TOOL_CALLING = "tool_calling"
+    CONTINUING = "continuing"
     GENERATING = "generating"
     IMAGE_GENERATING = "image_generating"
     AUDIO_GENERATING = "audio_generating"
@@ -65,12 +66,20 @@ class StreamChunk(NamedTuple):
     ``image_client.generate(stream=True)``, or any streaming tool / workflow.
 
     Fields:
-        phase:     content type of this chunk (THINKING, TOOL_CALLING, GENERATING,
+        phase:     content type of this chunk (THINKING, TOOL_CALLING, CONTINUING, GENERATING,
                    IMAGE_GENERATING, AUDIO_GENERATING, SPEECH_GENERATING, DONE)
         content:   shape depends on phase:
                    - ``str`` for THINKING / GENERATING (token).
                    - ``dict {"name", "arguments", "response"}`` for TOOL_CALLING
                      (``arguments`` is the dict the model passed to the tool).
+                   - ``dict {"kind", "prompt"}`` for CONTINUING: the loop is about to inject a
+                     prompt of its own, and the round that follows is that injected turn.
+                     ``kind`` is ``PROVENANCE_CONTINUATION`` (a nudge after an empty turn, tools
+                     still enabled) or ``PROVENANCE_FINAL_ANSWER`` (the forced wrap-up at the round
+                     cap, tools disabled), the same two values the injected message is tagged with
+                     in ``client.messages``. ``prompt`` is the text actually sent, so an agent
+                     configured with its own ``continuation_prompt`` / ``final_answer_prompt``
+                     reports that rather than the built-in default.
                    - ``dict {"step", "total_steps", "image", "final", "result"}`` for
                      IMAGE_GENERATING: ``step`` is 1-indexed, ``image`` is an optional
                      ``PIL.Image`` (None unless ``preview_every`` opted in this step),
@@ -95,9 +104,9 @@ class StreamChunk(NamedTuple):
                    ``Agent`` and workflow runners.
         iteration: zero-based iteration index inside the agent loop, or ``0`` for plain chat.
 
-    Use ``chunk.is_text()`` / ``chunk.is_tool_call()`` / ``chunk.is_image_progress()`` /
-    ``chunk.is_audio_progress()`` / ``chunk.is_speech_progress()`` / ``chunk.is_done()`` to
-    dispatch on phase without repeating the equality check in user code.
+    Use ``chunk.is_text()`` / ``chunk.is_tool_call()`` / ``chunk.is_continuation()`` /
+    ``chunk.is_image_progress()`` / ``chunk.is_audio_progress()`` / ``chunk.is_speech_progress()`` /
+    ``chunk.is_done()`` to dispatch on phase without repeating the equality check in user code.
     """
 
     phase: StreamingContentType
@@ -112,6 +121,10 @@ class StreamChunk(NamedTuple):
     def is_tool_call(self) -> bool:
         """True if this chunk carries a tool-call result."""
         return self.phase == StreamingContentType.TOOL_CALLING
+
+    def is_continuation(self) -> bool:
+        """True if this chunk announces an injected round (CONTINUING)."""
+        return self.phase == StreamingContentType.CONTINUING
 
     def is_image_progress(self) -> bool:
         """True if this chunk carries image-generation progress (IMAGE_GENERATING)."""

@@ -316,6 +316,29 @@ def test_streamchunk_is_text_helpers():
     assert tool_call.is_tool_call() and not tool_call.is_text()
 
 
+def test_streamchunk_continuing_phase_reports_the_injected_prompt():
+    """The loop injects a prompt of its own twice (a nudge after an empty turn, a forced wrap-up at
+    the round cap). This phase is how a streamed caller learns which one happened and what was said."""
+    from aimu import PROVENANCE_FINAL_ANSWER
+
+    chunk = StreamChunk(
+        StreamingContentType.CONTINUING,
+        {"kind": PROVENANCE_FINAL_ANSWER, "prompt": "Stop and answer."},
+    )
+    assert chunk.is_continuation()
+    assert chunk.content["kind"] == "final_answer"
+    assert chunk.content["prompt"] == "Stop and answer."
+
+
+def test_streamchunk_continuing_is_not_text_or_a_tool_call():
+    """It carries a dict, so a consumer that treats every unrecognized phase as text would print the
+    repr of one. The predicates keep the three apart."""
+    chunk = StreamChunk(StreamingContentType.CONTINUING, {"kind": "continuation", "prompt": "Keep going."})
+    assert not chunk.is_text()
+    assert not chunk.is_tool_call()
+    assert not chunk.is_done()
+
+
 def test_streamchunk_tool_calling_content_keys():
     """TOOL_CALLING chunks carry the model's argument dict alongside name and response."""
     chunk = StreamChunk(
