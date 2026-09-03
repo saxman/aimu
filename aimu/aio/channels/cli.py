@@ -86,6 +86,13 @@ class CLIChannel(Channel):
                 sys.stdout.write(("\n" if section else "") + f"[tool] {_format_tool_call(chunk.content)}\n")
                 sys.stdout.flush()
                 section = None
+            elif chunk.phase == StreamingContentType.CONTINUING:
+                call = chunk.content if isinstance(chunk.content, dict) else {}
+                sys.stdout.write(
+                    ("\n" if section else "") + f"[continuing: {call.get('kind')}] {call.get('prompt', '')}\n"
+                )
+                sys.stdout.flush()
+                section = None
             elif chunk.phase == StreamingContentType.GENERATING:
                 if not chunk.content:
                     continue

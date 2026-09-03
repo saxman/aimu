@@ -72,6 +72,20 @@ async def test_emits_thinking_and_tool_frames_by_default():
     ]
 
 
+async def test_emits_a_loop_frame_for_an_injected_round():
+    ws = _FakeWS()
+    channel = WebChannel(ws)
+
+    async def gen():
+        yield StreamChunk(StreamingContentType.CONTINUING, {"kind": "continuation", "prompt": "Keep going."})
+
+    await channel.send(gen())
+    assert ws.frames == [
+        {"type": "loop", "reason": "continuation", "text": "Keep going."},
+        {"type": "done"},
+    ]
+
+
 async def test_tool_frame_carries_the_call_response():
     # A TOOL_CALLING chunk is emitted after dispatch and carries the tool result, so a page can show
     # what the call returned and not just what it was asked to do.

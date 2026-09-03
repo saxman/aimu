@@ -41,6 +41,11 @@ def pretty_print(
             if show_tools:
                 name = chunk.content.get("name") if isinstance(chunk.content, dict) else chunk.content
                 print(f"\n  [tool] {name}", file=out)
+        elif chunk.phase == StreamingContentType.CONTINUING:
+            # Not gated by show_thinking/show_tools: those control volume, while this is one line
+            # per injected round (a handful per run at most) and it is what explains a thin answer.
+            content = chunk.content if isinstance(chunk.content, dict) else {}
+            print(f"\n  [continuing: {content.get('kind')}] {content.get('prompt', '')}", file=out)
         elif chunk.phase == StreamingContentType.THINKING:
             if show_thinking:
                 print(chunk.content, end="", file=out)

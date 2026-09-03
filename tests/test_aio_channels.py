@@ -52,6 +52,19 @@ async def test_cli_send_stream(capsys):
     assert "ignored" not in out
 
 
+async def test_cli_send_stream_shows_an_injected_round(capsys):
+    from aimu.models import StreamChunk, StreamingContentType
+
+    async def gen():
+        yield StreamChunk(StreamingContentType.CONTINUING, {"kind": "continuation", "prompt": "Keep going."})
+        yield StreamChunk(StreamingContentType.GENERATING, "recovered answer")
+
+    await CLIChannel().send(gen())
+    out = capsys.readouterr().out
+    assert "[continuing: continuation] Keep going." in out
+    assert "recovered answer" in out
+
+
 async def test_cli_send_ignores_reply_to(capsys):
     msg = ChannelMessage(text="ping", sender="someone")
     await CLIChannel().send("pong", reply_to=msg)  # does not raise

@@ -35,3 +35,25 @@ def test_pretty_print_show_thinking_and_hide_tools():
     out = buf.getvalue()
     assert "deliberating" in out
     assert "[tool]" not in out
+
+
+def test_pretty_print_names_an_injected_round_and_quotes_the_prompt():
+    """The wrap-up tells the model to stop calling tools, which is the opposite of what the nudge says.
+    A renderer that showed neither left a run looking like it simply went quiet and came back thinner."""
+    import io
+
+    from aimu.models import StreamChunk, StreamingContentType
+
+    def _injected():
+        yield StreamChunk(
+            StreamingContentType.CONTINUING,
+            {"kind": "final_answer", "prompt": "You have reached the tool-use limit."},
+        )
+        yield StreamChunk(StreamingContentType.GENERATING, "best effort answer")
+
+    buf = io.StringIO()
+    text = pretty_print(_injected(), file=buf)
+
+    assert text == "best effort answer"  # the phase contributes nothing to the returned text
+    assert "[continuing: final_answer]" in buf.getvalue()
+    assert "You have reached the tool-use limit." in buf.getvalue()
