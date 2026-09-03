@@ -1873,7 +1873,7 @@ def _subagent_docstring(agent_types: Optional[dict[str, dict]]) -> str:
 # Every key a typed ``agent_types`` spec may carry. Closed rather than open because an ignored key reads
 # exactly like an applied one: a misspelled ``"thinkng"`` or a hopeful ``"temperature"`` would leave the
 # spawned agent at its default with nothing raised anywhere, and the caller believing otherwise.
-SUBAGENT_SPEC_KEYS = frozenset({"system_message", "tools", "model", "thinking", "generate_kwargs"})
+SUBAGENT_SPEC_KEYS = frozenset({"system_message", "tools", "model", "thinking", "generate_kwargs", "max_iterations"})
 
 
 def _validate_subagent_config(max_depth: int, agent_types: Optional[dict[str, dict]]) -> None:
@@ -1892,6 +1892,12 @@ def _validate_subagent_config(max_depth: int, agent_types: Optional[dict[str, di
                     f"agent_types[{type_name!r}] has unknown key(s): {', '.join(sorted(unknown))}. "
                     f"A spec may carry: {', '.join(sorted(SUBAGENT_SPEC_KEYS))}."
                 )
+            if "max_iterations" in spec:
+                cap = spec["max_iterations"]
+                # `bool` before `int`, because bool is an int subclass: `True` would otherwise be
+                # accepted as a cap of 1. A cap below 1 is a loop that makes no model call at all.
+                if isinstance(cap, bool) or not isinstance(cap, int) or cap < 1:
+                    raise ValueError(f"agent_types[{type_name!r}]['max_iterations'] must be an int >= 1, got {cap!r}.")
 
 
 def make_subagent_tool(
@@ -1929,11 +1935,12 @@ def make_subagent_tool(
       sub-agent using ``system_message`` + ``tools``.
     * Typed (``agent_types`` given): the tool is ``spawn_subagent(agent_type, task)`` over a registry
       of named specialists (each value a dict with ``"system_message"`` and optional ``"tools"`` /
-      ``"model"`` / ``"thinking"`` / ``"generate_kwargs"``, and nothing else -- an unrecognized spec key
-      raises at factory-call time rather than being ignored, since an ignored key reads exactly like an
-      applied one); the available names are listed in the tool description. An unknown ``agent_type``, by
-      contrast, is returned to the model as a tool result (self-correction), not raised: that one is the
-      model's mistake to recover from, where a bad spec key is the programmer's.
+      ``"model"`` / ``"thinking"`` / ``"generate_kwargs"`` / ``"max_iterations"``, and nothing else -- an
+      unrecognized spec key raises at factory-call time rather than being ignored, since an ignored key
+      reads exactly like an applied one); the available names are listed in the tool description. An
+      unknown ``agent_type``, by contrast, is returned to the model as a tool result (self-correction),
+      not raised: that one is the model's mistake to recover from, where a bad spec key is the
+      programmer's.
       ``"thinking"`` takes the same values as :class:`~aimu.agents.Agent`'s field and is read with
       ``.get()``, so a spec omitting it leaves the spawned agent at ``None`` rather than inheriting
       anything from the caller: unlike ``"model"``, which falls back to the model this factory was
@@ -1944,6 +1951,12 @@ def make_subagent_tool(
       default across a roster writes it into each spec. Only the keys a spec names are set, which matters
       because this tier sits *above* the model card in the precedence chain -- a filled-in default would
       shadow a card's own tuned profile.
+      ``"max_iterations"`` is the spawned agent's tool-loop cap, and it is the one key besides ``"model"``
+      with a factory-level tier beneath it: an omitted key falls back to this factory's own
+      ``max_iterations`` rather than inheriting nothing, which is what lets one default cover a roster
+      without being written into each spec. It must be an int >= 1, checked at factory-call time, because
+      ``bool`` is an ``int`` subclass (so ``True`` would read as a cap of 1) and a cap below 1 is a loop
+      that makes no model call at all.
 
     ``max_depth`` (default 1) is the recursion guard: it counts the caller's agent as level 1, so the
     default gives spawned sub-agents *no* spawn tool of their own. ``max_depth=2`` lets one more level
@@ -1994,13 +2007,19 @@ def make_subagent_tool(
         model_override=None,
         thinking=None,
         generate_kwargs=None,
+        max_iter=None,
     ):
         from aimu.agents.agent import Agent
         from aimu.models.model_client import ModelClient
 
         m = model_override if model_override is not None else default_model
+        # Like the model above and unlike thinking or generate_kwargs, this key has a factory-level tier
+        # to fall back to, so a spec omitting it inherits rather than getting nothing.
+        cap = max_iterations if max_iter is None else max_iter
         child_tools = list(agent_tools or [])
         if max_depth > 1:
+            # The factory-level cap, deliberately not `cap`: a nested spawn tool serves the whole roster
+            # again, so it carries the factory's tier rather than the spec that happened to build it.
             child_tools.append(
                 make_subagent_tool(
                     m,
@@ -2026,7 +2045,7 @@ def make_subagent_tool(
             system_message=sys_msg,
             name=name,
             tools=child_tools,
-            max_iterations=max_iterations,
+            max_iterations=cap,
             concurrent_tool_calls=concurrent_tool_calls,
             deps=deps,
             tool_approval=tool_approval,
@@ -2054,6 +2073,7 @@ def make_subagent_tool(
                 model_override=spec.get("model"),
                 thinking=spec.get("thinking"),
                 generate_kwargs=spec.get("generate_kwargs"),
+                max_iter=spec.get("max_iterations"),
             )
             return agent.run(task)
 

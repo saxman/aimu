@@ -269,9 +269,9 @@ def make_async_subagent_tool(
     isolated :class:`aimu.aio.Agent` per call and awaits its ``run``. Parallelism is free: give the
     parent :class:`aimu.aio.Agent` ``concurrent_tool_calls=True`` and multiple spawn calls in one turn
     overlap under an ``asyncio.TaskGroup``. See the sync docstring for the full contract (generic vs
-    typed mode, the per-spec ``"model"`` / ``"thinking"`` / ``"generate_kwargs"`` keys, ``max_depth``
-    recursion guard, unknown-``agent_type`` handling, and the ``tool_approval`` gate forwarded to every
-    spawned sub-agent).
+    typed mode, the per-spec ``"model"`` / ``"thinking"`` / ``"generate_kwargs"`` / ``"max_iterations"``
+    keys, ``max_depth`` recursion guard, unknown-``agent_type`` handling, and the ``tool_approval`` gate
+    forwarded to every spawned sub-agent).
 
     In-process providers (HuggingFace, LlamaCpp) are wrapped per spawn via a fresh sync client (the aio
     surface can't construct them from an enum); the process weight cache prevents reloading weights.
@@ -298,12 +298,17 @@ def make_async_subagent_tool(
         model_override=None,
         thinking=None,
         generate_kwargs=None,
+        max_iter=None,
     ):
         from aimu.aio.agent import Agent
 
         m = model_override if model_override is not None else default_model
+        # See the sync twin: this key has a factory-level tier to fall back to, unlike thinking.
+        cap = max_iterations if max_iter is None else max_iter
         child_tools = list(agent_tools or [])
         if max_depth > 1:
+            # The factory-level cap, deliberately not `cap`: a nested spawn tool serves the whole roster
+            # again, so it carries the factory's tier rather than the spec that happened to build it.
             child_tools.append(
                 make_async_subagent_tool(
                     m,
@@ -329,7 +334,7 @@ def make_async_subagent_tool(
             system_message=sys_msg,
             name=name,
             tools=child_tools,
-            max_iterations=max_iterations,
+            max_iterations=cap,
             concurrent_tool_calls=concurrent_tool_calls,
             deps=deps,
             tool_approval=tool_approval,
@@ -360,6 +365,7 @@ def make_async_subagent_tool(
                 model_override=spec.get("model"),
                 thinking=spec.get("thinking"),
                 generate_kwargs=spec.get("generate_kwargs"),
+                max_iter=spec.get("max_iterations"),
             )
             if observer is None:
                 return await agent.run(task)
