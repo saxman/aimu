@@ -28,6 +28,8 @@
     .thinking::before { content: "thinking"; display: block; font-size: 0.7em; text-transform: uppercase; letter-spacing: 0.05em; font-style: normal; opacity: 0.7; }
     .tool { align-self: flex-start; font-family: ui-monospace, monospace; font-size: 0.8em; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 4px 10px; }
     .tool::before { content: "\1F527  "; }
+    .loop { align-self: flex-start; font-size: 0.8em; color: #3730a3; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 8px; padding: 4px 10px; }
+    .loop::before { content: "\21BB  "; }
     form { display: flex; gap: 8px; padding: 12px 16px; background: #fff; border-top: 1px solid #e5e7eb; }
     #msg { flex: 1; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 1em; }
     button { padding: 10px 18px; border: none; border-radius: 10px; background: #2563eb; color: #fff; font-size: 1em; cursor: pointer; }
@@ -75,6 +77,13 @@
       return `${name || "tool"}(${argStr})`;
     }
 
+    // What each "loop" reason means, in the page's own words. The frame carries the prompt AIMU
+    // sent; these say why it sent one, which is the part a reader of the transcript is missing.
+    const loopReasons = {
+      continuation: "the turn came back empty, so the loop asked for another attempt (tools still on)",
+      final_answer: "the round cap was reached, so the loop turned tools off and asked for an answer",
+    };
+
     ws.onmessage = (event) => {
       const frame = JSON.parse(event.data);
       // Blocks are appended in arrival order (thinking -> tool -> answer, possibly several
@@ -97,6 +106,15 @@
         }
         streamingBubble.textContent += frame.text;
         log.scrollTop = log.scrollHeight;
+      } else if (frame.type === "loop") {
+        // A round AIMU's own loop injected rather than the model. Both accumulators are cleared, and
+        // streamingBubble is the one that matters: an injected round's answer is a *different* answer
+        // (a forced wrap-up answers from what it already has), so letting its tokens grow the
+        // previous round's bubble is how a run ends up looking thinner with nothing saying why. The
+        // marker opens the round, so everything below it belongs to the round.
+        thinkingBlock = null;
+        streamingBubble = null;
+        addBubble("loop", `${loopReasons[frame.reason] || frame.reason || "loop"}\n${frame.text || ""}`);
       } else if (frame.type === "done") {
         streamingBubble = null;
         thinkingBlock = null;
