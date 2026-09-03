@@ -1,11 +1,12 @@
 # Stream phases
 
-`StreamingContentType` is a string enum with five values, attached to every `StreamChunk` via `chunk.phase`.
+`StreamingContentType` is a string enum with eight values, attached to every `StreamChunk` via `chunk.phase`.
 
 | Phase | Value | Emitted when | `chunk.content` type |
 |---|---|---|---|
 | `THINKING` | `"thinking"` | Reasoning model emits internal-monologue tokens | `str` (token) |
 | `TOOL_CALLING` | `"tool_calling"` | A tool call has just been dispatched and its result is available | `dict {"name": str, "arguments": dict, "response": str}` |
+| `CONTINUING` | `"continuing"` | A streamed agent-loop driver is about to inject a round of its own (a nudge after an empty turn, or the forced tools-disabled wrap-up at the round cap); emitted once per injected round, immediately before that round's own chunks | `dict {"kind": "continuation" \| "final_answer", "prompt": str}`, where `kind` matches the provenance tag written onto the injected message |
 | `GENERATING` | `"generating"` | The final response stream | `str` (token) |
 | `IMAGE_GENERATING` | `"image_generating"` | Per-step image-generation progress (HF callback / Gemini start-done) | `dict {"step": int, "total_steps": int, "image": PIL.Image \| None, "final": bool, "result": str \| bytes \| None}` |
 | `AUDIO_GENERATING` | `"audio_generating"` | Per-step audio-generation progress (one final chunk for MusicGen; N progress + 1 final for diffusers) | `dict {"step": int, "total_steps": int, "final": bool, "result": str \| bytes \| tuple \| None, "duration_s": float}` |

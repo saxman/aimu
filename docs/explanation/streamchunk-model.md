@@ -59,6 +59,10 @@ Some libraries (LangChain, OpenLLMetry) model streaming as discrete events with 
 
 The `include=[...]` parameter on `chat()` and `generate()` is the only filtering primitive we need; it covers "skip thinking", "skip tool calls", and any combination.
 
+## Why CONTINUING needs its own phase
+
+`chunk.iteration` already answers "did the round number move": it increments on every pass through the agent loop, tool round or not. It does not answer "who moved it, and what did they say". A tool round and a framework-injected round both bump `iteration` the same way, so a consumer watching `iteration` alone cannot tell one from the other. The two injections a loop can make say opposite things to the model: a continuation nudge after an empty turn leaves tools enabled and asks for another attempt, while the forced wrap-up at the round cap disables tools and asks for whatever answer the model already has. That difference is not cosmetic, so `CONTINUING` names it directly, carrying the injected prompt and its kind, instead of leaving a consumer to reconstruct it from `iteration` and guesswork.
+
 ## Phase semantics
 
 | Phase | When | `content` |

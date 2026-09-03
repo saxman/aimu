@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.29.0 (2026-09-02): the loop says when it is the one talking
+
+### Models
+
+- **New** **A `CONTINUING` stream phase, carrying the prompt the loop injected.** The agent loop
+  puts words in the model's mouth twice: a nudge after an empty turn, and the forced tools-disabled
+  wrap-up at the round cap. Until now a streamed consumer saw only `chunk.iteration` rise, which is
+  also what an ordinary tool round does, so the two injected rounds were indistinguishable from each
+  other and from a tool round. `content` is `{"kind", "prompt"}`, where `kind` is the same
+  `PROVENANCE_CONTINUATION` / `PROVENANCE_FINAL_ANSWER` the injected message is tagged with, and
+  `prompt` is the string actually sent (a configured `continuation_prompt` / `final_answer_prompt`
+  reports itself). `StreamChunk.is_continuation()` dispatches on it.
+
+### Agents
+
+- **New** Both streamed drivers emit that chunk immediately before an injected round's own chunks,
+  from one factory on the shared loop base, so the sync and async drivers cannot drift.
+  `tests/test_loop_iteration_parity.py` pins that they announce the same boundaries.
+
+### Channels
+
+- **New** `pretty_print()`, `CLIChannel`, and `WebChannel` each show the injected round: a
+  `[continuing: <kind>] <prompt>` line in the terminal, a `{"type": "loop", "reason", "text"}` frame in
+  the browser.
+
 ## v0.27.0 (2026-08-28): every provider says how a turn ended, and a refusal that no longer reads as an empty answer
 
 ### Models
