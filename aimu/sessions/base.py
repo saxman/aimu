@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -111,6 +112,14 @@ class SessionStore(ABC):
         correct everywhere and slow anywhere a full read is expensive, and a store that can do better
         overrides it. The same reasoning as :meth:`close`'s default no-op.
 
+        Deep-copies each session's metadata before handing it back, rather than trusting whatever
+        detachment ``get()`` already did. ``SessionSummary.metadata`` promises a caller can mutate it
+        freely, and this default has no way to know how deep an arbitrary subclass's ``get()`` copies:
+        this library's own ``InMemorySessionStore.get`` copies only one level, which is enough for a
+        ``Session`` a caller is expected to fetch, change, and save again, but not enough for a
+        summary nobody saves. Overriding ``list_summaries`` (as ``TinyDBSessionStore`` does) can skip
+        this copy when the override's own read path already returns freshly-built data.
+
         No ordering parameter and no paging, because both need a sort key and every candidate lives
         in ``metadata``, which this library treats as opaque. A caller sorts the result by whichever
         of its own keys it means.
@@ -120,7 +129,7 @@ class SessionStore(ABC):
                 key=session.key,
                 message_count=len(session.messages),
                 memory_namespace=session.memory_namespace,
-                metadata=session.metadata,
+                metadata=deepcopy(session.metadata),
             )
             for session in (self.get(key) for key in self.list_keys())
         ]
