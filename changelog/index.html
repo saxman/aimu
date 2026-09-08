@@ -3105,6 +3105,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#v0290-2026-09-08-a-session-store-can-be-asked-for-metadata-alone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.29.0 (2026-09-08): a session store can be asked for metadata alone
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v0.29.0 (2026-09-08): a session store can be asked for metadata alone">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sessions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v0280-2026-09-02-a-sub-agent-roster-can-give-one-specialist-a-longer-leash-and-the-loop-says-when-it-is-the-one-talking" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5047,6 +5075,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#v0290-2026-09-08-a-session-store-can-be-asked-for-metadata-alone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.29.0 (2026-09-08): a session store can be asked for metadata alone
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v0.29.0 (2026-09-08): a session store can be asked for metadata alone">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sessions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sessions
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v0280-2026-09-02-a-sub-agent-roster-can-give-one-specialist-a-longer-leash-and-the-loop-says-when-it-is-the-one-talking" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6954,6 +7010,26 @@ not this stub.
 -->
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
+<h2 id="v0290-2026-09-08-a-session-store-can-be-asked-for-metadata-alone">v0.29.0 (2026-09-08): a session store can be asked for metadata alone<a class="headerlink" href="#v0290-2026-09-08-a-session-store-can-be-asked-for-metadata-alone" title="Permanent link">&para;</a></h2>
+<h3 id="sessions">Sessions<a class="headerlink" href="#sessions" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>New</strong> <strong><code>SessionSummary</code> and <code>SessionStore.list_summaries()</code>.</strong> A store previously had no way to
+  answer "every session's title and timestamp, without its messages": a caller listing conversations
+  paid one whole-session read per conversation just to discard the transcript. <code>SessionSummary</code> is a
+  frozen dataclass carrying everything a <code>Session</code> does except <code>messages</code>, plus <code>message_count</code> (the
+  one field that is not a projection, since it is computed over the very thing being excluded).
+  <code>list_summaries()</code> is concrete on the <code>SessionStore</code> ABC rather than abstract, the same reasoning as
+  <code>close()</code>'s default no-op: the inherited implementation (walk <code>list_keys()</code> then <code>get()</code> each one) is
+  correct for any existing store and slow only where a full read is expensive, so nothing already
+  subclassing <code>SessionStore</code> breaks. <code>TinyDBSessionStore</code> overrides it with a single table read instead
+  of one file parse per session. <code>InMemorySessionStore</code>'s override returns a deeply-copied <code>metadata</code>,
+  deeper than <code>get()</code>'s one-level copy: a <code>Session</code> from <code>get()</code> is expected to be saved back, so a
+  shared nested value is visible there, but a summary is a read-only snapshot nobody saves, and a
+  caller mutating one must not be able to reach stored state at all. No ordering parameter and no
+  paging: both need a sort key, and every candidate lives in <code>metadata</code>, which this library treats as
+  opaque, so a caller sorts the result by whichever of its own keys it means.
+  Tests: <code>tests/test_sessions.py</code>.</li>
+</ul>
 <h2 id="v0280-2026-09-02-a-sub-agent-roster-can-give-one-specialist-a-longer-leash-and-the-loop-says-when-it-is-the-one-talking">v0.28.0 (2026-09-02): a sub-agent roster can give one specialist a longer leash, and the loop says when it is the one talking<a class="headerlink" href="#v0280-2026-09-02-a-sub-agent-roster-can-give-one-specialist-a-longer-leash-and-the-loop-says-when-it-is-the-one-talking" title="Permanent link">&para;</a></h2>
 <h3 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h3>
 <ul>
