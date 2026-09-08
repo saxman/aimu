@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.29.0 (2026-09-08): a session store can be asked for metadata alone
+
+### Sessions
+
+- **New** **`SessionSummary` and `SessionStore.list_summaries()`.** A store previously had no way to
+  answer "every session's title and timestamp, without its messages": a caller listing conversations
+  paid one whole-session read per conversation just to discard the transcript. `SessionSummary` is a
+  frozen dataclass carrying everything a `Session` does except `messages`, plus `message_count` (the
+  one field that is not a projection, since it is computed over the very thing being excluded).
+  `list_summaries()` is concrete on the `SessionStore` ABC rather than abstract, the same reasoning as
+  `close()`'s default no-op: the inherited implementation (walk `list_keys()` then `get()` each one) is
+  correct for any existing store and slow only where a full read is expensive, so nothing already
+  subclassing `SessionStore` breaks. `TinyDBSessionStore` overrides it with a single table read instead
+  of one file parse per session. `InMemorySessionStore`'s override returns a deeply-copied `metadata`,
+  deeper than `get()`'s one-level copy: a `Session` from `get()` is expected to be saved back, so a
+  shared nested value is visible there, but a summary is a read-only snapshot nobody saves, and a
+  caller mutating one must not be able to reach stored state at all. No ordering parameter and no
+  paging: both need a sort key, and every candidate lives in `metadata`, which this library treats as
+  opaque, so a caller sorts the result by whichever of its own keys it means.
+  Tests: `tests/test_sessions.py`.
+
 ## v0.28.0 (2026-09-02): a sub-agent roster can give one specialist a longer leash, and the loop says when it is the one talking
 
 ### Tools

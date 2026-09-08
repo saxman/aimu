@@ -10,7 +10,7 @@ from pathlib import Path
 
 from tinydb import Query, TinyDB
 
-from aimu.sessions.base import Session, SessionStore
+from aimu.sessions.base import Session, SessionStore, SessionSummary
 
 
 class TinyDBSessionStore(SessionStore):
@@ -52,3 +52,20 @@ class TinyDBSessionStore(SessionStore):
 
     def close(self) -> None:
         self._db.close()
+
+    def list_summaries(self) -> list[SessionSummary]:
+        """Summaries from one table read, projecting the messages out.
+
+        The reason this override exists: the inherited default is one whole-file parse per stored
+        session, and TinyDB's JSON storage re-reads and re-parses the entire file on every operation.
+        Rows come back freshly parsed, so no copy is needed for detachment.
+        """
+        return [
+            SessionSummary(
+                key=row["key"],
+                message_count=len(row.get("messages", [])),
+                memory_namespace=row.get("memory_namespace"),
+                metadata=row.get("metadata", {}),
+            )
+            for row in self._table.all()
+        ]

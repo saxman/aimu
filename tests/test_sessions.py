@@ -48,6 +48,62 @@ def test_in_memory_sessions_are_isolated_by_key():
     assert set(store.list_keys()) == {"a", "b"}
 
 
+def test_list_summaries_reports_metadata_without_messages():
+    store = InMemorySessionStore()
+    store.save(
+        Session(
+            key="a",
+            messages=[{"role": "user", "content": "hi"}],
+            memory_namespace="ns-a",
+            metadata={"title": "First"},
+        )
+    )
+    store.save(Session(key="b", metadata={"title": "Second"}))
+
+    summaries = {s.key: s for s in store.list_summaries()}
+
+    assert summaries["a"].message_count == 1
+    assert summaries["a"].memory_namespace == "ns-a"
+    assert summaries["a"].metadata["title"] == "First"
+    assert summaries["b"].message_count == 0
+    assert summaries["b"].memory_namespace is None
+
+
+def test_list_summaries_metadata_is_detached():
+    """A returned summary must not alias stored state.
+
+    Callers treat a summary as a snapshot and mutate it freely; aliasing would let one caller's edit
+    reach another's read without a save.
+    """
+    store = InMemorySessionStore()
+    store.save(Session(key="a", metadata={"title": "First", "nested": {"n": 1}}))
+
+    summary = store.list_summaries()[0]
+    summary.metadata["title"] = "Changed"
+    summary.metadata["nested"]["n"] = 2
+
+    assert store.get("a").metadata == {"title": "First", "nested": {"n": 1}}
+
+
+def test_tinydb_list_summaries_matches_get(tmp_path):
+    store = TinyDBSessionStore(str(tmp_path / "sessions.json"))
+    store.save(
+        Session(
+            key="a",
+            messages=[{"role": "user", "content": "hi"}],
+            memory_namespace="ns-a",
+            metadata={"title": "First"},
+        )
+    )
+    store.save(Session(key="b", metadata={"title": "Second"}))
+
+    for summary in store.list_summaries():
+        stored = store.get(summary.key)
+        assert summary.message_count == len(stored.messages)
+        assert summary.memory_namespace == stored.memory_namespace
+        assert summary.metadata == stored.metadata
+
+
 def test_delete_removes_session_and_is_noop_when_absent(tmp_path):
     for store in (InMemorySessionStore(), TinyDBSessionStore(str(tmp_path / "sessions.json"))):
         store.save(Session(key="a", messages=[{"role": "user", "content": "A"}]))
