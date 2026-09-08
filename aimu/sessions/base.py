@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -48,6 +49,32 @@ class Session:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class SessionSummary:
+    """One stored session, without its messages.
+
+    Everything a :class:`Session` carries except ``messages``, plus how many of them there are. That
+    definition is the point: a caller listing conversations wants titles and timestamps, and reading
+    every transcript to get them is the cost this type exists to avoid.
+
+    ``message_count`` is the one field that is not a projection, since it is computed over the very
+    thing being excluded. It is here because "how many messages" is the most universal summary fact
+    about a conversation, and recovering it otherwise means the full read again.
+
+    Attributes:
+        key: The session key (see :func:`session_key`).
+        message_count: How many messages the stored session holds.
+        memory_namespace: The stored session's ``memory_namespace``, unchanged.
+        metadata: A detached copy of the stored session's metadata. Mutating it does nothing until
+            the corresponding :class:`Session` is fetched, changed, and saved.
+    """
+
+    key: str
+    message_count: int
+    memory_namespace: Optional[str]
+    metadata: dict[str, Any]
+
+
 class SessionStore(ABC):
     """A store of :class:`Session` state keyed by ``session_key(channel, sender)``.
 
@@ -77,6 +104,35 @@ class SessionStore(ABC):
     def close(self) -> None:
         """Release resources. Default no-op."""
         return None
+
+    def list_summaries(self) -> list[SessionSummary]:
+        """Every stored session without its messages, in unspecified order.
+
+        Concrete rather than abstract, so an existing implementation keeps working: this default is
+        correct everywhere and slow anywhere a full read is expensive, and a store that can do better
+        overrides it. The same reasoning as :meth:`close`'s default no-op.
+
+        Deep-copies each session's metadata before handing it back, rather than trusting whatever
+        detachment ``get()`` already did. ``SessionSummary.metadata`` promises a caller can mutate it
+        freely, and this default has no way to know how deep an arbitrary subclass's ``get()`` copies:
+        this library's own ``InMemorySessionStore.get`` copies only one level, which is enough for a
+        ``Session`` a caller is expected to fetch, change, and save again, but not enough for a
+        summary nobody saves. Overriding ``list_summaries`` (as ``TinyDBSessionStore`` does) can skip
+        this copy when the override's own read path already returns freshly-built data.
+
+        No ordering parameter and no paging, because both need a sort key and every candidate lives
+        in ``metadata``, which this library treats as opaque. A caller sorts the result by whichever
+        of its own keys it means.
+        """
+        return [
+            SessionSummary(
+                key=session.key,
+                message_count=len(session.messages),
+                memory_namespace=session.memory_namespace,
+                metadata=deepcopy(session.metadata),
+            )
+            for session in (self.get(key) for key in self.list_keys())
+        ]
 
 
 class SessionLocks:

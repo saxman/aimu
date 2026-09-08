@@ -6,6 +6,8 @@ Sync, matching the [`MemoryStore`](memory.md) / [`ConversationManager`](history.
 
 ::: aimu.sessions.Session
 
+::: aimu.sessions.SessionSummary
+
 ::: aimu.sessions.SessionStore
 
 ::: aimu.sessions.InMemorySessionStore

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from aimu.sessions.base import Session, SessionStore
+from copy import deepcopy
+
+from aimu.sessions.base import Session, SessionStore, SessionSummary
 
 
 class InMemorySessionStore(SessionStore):
@@ -39,3 +41,21 @@ class InMemorySessionStore(SessionStore):
 
     def delete(self, key: str) -> None:
         self._sessions.pop(key, None)
+
+    def list_summaries(self) -> list[SessionSummary]:
+        """Summaries with deeply-copied metadata.
+
+        Deeper than :meth:`get`'s one-level copy, deliberately. ``get`` hands back a whole
+        ``Session`` a caller is expected to save again, so a shared nested value is visible there;
+        a summary is a read-only snapshot nobody saves, and a caller mutating one must not be able
+        to reach stored state at all.
+        """
+        return [
+            SessionSummary(
+                key=stored.key,
+                message_count=len(stored.messages),
+                memory_namespace=stored.memory_namespace,
+                metadata=deepcopy(stored.metadata),
+            )
+            for stored in self._sessions.values()
+        ]

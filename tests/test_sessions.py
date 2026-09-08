@@ -8,9 +8,47 @@ from aimu.sessions import (
     InMemorySessionStore,
     Session,
     SessionLocks,
+    SessionStore,
     TinyDBSessionStore,
     session_key,
 )
+
+
+class _OneLevelCopySessionStore(SessionStore):
+    """A minimal store overriding only the four abstract methods.
+
+    Its ``get`` copies ``metadata`` one level deep, matching ``InMemorySessionStore``'s own
+    convention (and the shallowest copy this library's docs show a third party). It does not
+    override ``list_summaries``, so this store exercises the ABC's default implementation.
+    """
+
+    def __init__(self) -> None:
+        self._sessions: dict[str, Session] = {}
+
+    def get(self, key: str) -> Session:
+        stored = self._sessions.get(key)
+        if stored is None:
+            return Session(key=key)
+        return Session(
+            key=key,
+            messages=list(stored.messages),
+            memory_namespace=stored.memory_namespace,
+            metadata=dict(stored.metadata),
+        )
+
+    def save(self, session: Session) -> None:
+        self._sessions[session.key] = Session(
+            key=session.key,
+            messages=list(session.messages),
+            memory_namespace=session.memory_namespace,
+            metadata=dict(session.metadata),
+        )
+
+    def list_keys(self) -> list[str]:
+        return list(self._sessions.keys())
+
+    def delete(self, key: str) -> None:
+        self._sessions.pop(key, None)
 
 
 def test_session_key_single_user_defaults():
@@ -46,6 +84,94 @@ def test_in_memory_sessions_are_isolated_by_key():
     assert store.get("a").messages[0]["content"] == "A"
     assert store.get("b").messages[0]["content"] == "B"
     assert set(store.list_keys()) == {"a", "b"}
+
+
+def test_list_summaries_reports_metadata_without_messages():
+    store = InMemorySessionStore()
+    store.save(
+        Session(
+            key="a",
+            messages=[{"role": "user", "content": "hi"}],
+            memory_namespace="ns-a",
+            metadata={"title": "First"},
+        )
+    )
+    store.save(Session(key="b", metadata={"title": "Second"}))
+
+    summaries = {s.key: s for s in store.list_summaries()}
+
+    assert summaries["a"].message_count == 1
+    assert summaries["a"].memory_namespace == "ns-a"
+    assert summaries["a"].metadata["title"] == "First"
+    assert summaries["b"].message_count == 0
+    assert summaries["b"].memory_namespace is None
+
+
+def test_list_summaries_metadata_is_detached():
+    """A returned summary must not alias stored state.
+
+    Callers treat a summary as a snapshot and mutate it freely; aliasing would let one caller's edit
+    reach another's read without a save.
+    """
+    store = InMemorySessionStore()
+    store.save(Session(key="a", metadata={"title": "First", "nested": {"n": 1}}))
+
+    summary = store.list_summaries()[0]
+    summary.metadata["title"] = "Changed"
+    summary.metadata["nested"]["n"] = 2
+
+    assert store.get("a").metadata == {"title": "First", "nested": {"n": 1}}
+
+
+def test_tinydb_list_summaries_matches_get(tmp_path):
+    store = TinyDBSessionStore(str(tmp_path / "sessions.json"))
+    store.save(
+        Session(
+            key="a",
+            messages=[{"role": "user", "content": "hi"}],
+            memory_namespace="ns-a",
+            metadata={"title": "First"},
+        )
+    )
+    store.save(Session(key="b", metadata={"title": "Second"}))
+
+    for summary in store.list_summaries():
+        stored = store.get(summary.key)
+        assert summary.message_count == len(stored.messages)
+        assert summary.memory_namespace == stored.memory_namespace
+        assert summary.metadata == stored.metadata
+
+
+def test_abc_default_list_summaries_deep_copies_metadata_regardless_of_get():
+    """The ABC default must detach metadata on its own, not merely inherit whatever depth ``get()``
+    happens to copy.
+
+    ``_OneLevelCopySessionStore.get`` copies ``metadata`` only one level deep, the same convention
+    ``InMemorySessionStore.get`` uses: shallow copies are the shipped pattern a third party is likely
+    to follow. If the default trusted that copy, a nested value would still alias stored state. This
+    guards the regression the ABC default is not allowed to reintroduce.
+    """
+    store = _OneLevelCopySessionStore()
+    store.save(
+        Session(
+            key="a",
+            messages=[{"role": "user", "content": "hi"}],
+            memory_namespace="ns-a",
+            metadata={"title": "First", "nested": {"n": 1}},
+        )
+    )
+
+    summaries = store.list_summaries()
+    assert len(summaries) == 1
+    summary = summaries[0]
+    assert summary.key == "a"
+    assert summary.message_count == 1
+    assert summary.memory_namespace == "ns-a"
+    assert summary.metadata == {"title": "First", "nested": {"n": 1}}
+
+    summary.metadata["nested"]["n"] = 999
+
+    assert store.get("a").metadata == {"title": "First", "nested": {"n": 1}}
 
 
 def test_delete_removes_session_and_is_noop_when_absent(tmp_path):
