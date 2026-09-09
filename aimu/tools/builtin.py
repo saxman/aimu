@@ -1122,9 +1122,9 @@ def _format_forms(forms: list[dict]) -> str:
 def get_web_content(url: str, max_chars: int = 20000) -> str:
     """Fetches a URL and returns its content as Markdown, for a web page or a PDF.
 
-    Handles HTML pages and PDF documents. A page's publication timestamp is prepended as
-    a "Published:" line when the page exposes one, and a PDF's text is marked with a
-    "## Page N" heading per page so it can be cited.
+    Handles HTML pages, PDF documents, and plain text. A page's publication timestamp is
+    prepended as a "Published:" line when the page exposes one, and a PDF's text is marked
+    with a "## Page N" heading per page so it can be cited.
 
     Anything that is neither a page nor a document (an image, an archive, a video) is
     reported rather than returned, because its bytes are not text and reading them as
@@ -1153,7 +1153,7 @@ def get_web_content(url: str, max_chars: int = 20000) -> str:
         media_type = response.headers.get("content-type", "").split(";")[0].strip() or "an undeclared type"
         return (
             f"This URL returned {media_type} ({_declared_size(response, body)}), which is not a web page "
-            "or a document this tool can read as text. Only HTML pages and PDFs are supported."
+            "or a document this tool can read as text. Only HTML pages, PDFs, and plain text are supported."
         )
 
     if kind == "pdf":
@@ -1164,12 +1164,14 @@ def get_web_content(url: str, max_chars: int = 20000) -> str:
         return _truncate(content, max_chars, parameter="max_chars")
 
     # Decoded here rather than read from ``response.text``, which raises once
-    # ``iter_content`` has consumed a streamed response. ``response.encoding`` is what
-    # requests parsed out of the Content-Type charset, which is the same value ``.text``
-    # would have used; ``errors="replace"`` matches ``.text``'s own behavior, and the
-    # classifier has already ruled out the binary that made replacement characters a
-    # problem in the first place.
-    text = body.decode(response.encoding or "utf-8", errors="replace")
+    # ``iter_content`` has consumed a streamed response. We prefer the charset the server
+    # declared, and fall back to UTF-8 both when it declared none and when it declared one
+    # Python does not recognize (bogus labels like "utf8mb4" are common in the wild); either
+    # way ``errors="replace"`` means a mislabeled page degrades instead of failing outright.
+    try:
+        text = body.decode(response.encoding or "utf-8", errors="replace")
+    except LookupError:
+        text = body.decode("utf-8", errors="replace")
     if kind == "text":
         return _truncate(text, max_chars, parameter="max_chars")
 

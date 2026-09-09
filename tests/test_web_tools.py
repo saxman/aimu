@@ -457,5 +457,50 @@ def test_get_web_content_never_touches_response_text(monkeypatch):
     assert "# Streamed" in get_web_content("http://site.example/")
 
 
+def test_get_web_content_falls_back_when_the_declared_charset_is_unknown(monkeypatch):
+    """A bogus charset label (utf8mb4, unicode, none, ...) is common in the wild; the old
+    get_webpage tolerated it via response.text's own LookupError/TypeError retry, and this
+    tool must not regress to raising out of a call whose whole contract is a string back."""
+    monkeypatch.setattr(
+        builtin.requests,
+        "request",
+        lambda *a, **k: FakeResponse(
+            text="<html><body><h1>Hello</h1></body></html>",
+            headers={"content-type": "text/html"},
+            encoding="utf8mb4",
+        ),
+    )
+    out = get_web_content("http://site.example/")
+    assert "# Hello" in out
+
+
+def test_get_web_content_falls_back_to_utf8_when_no_charset_is_declared(monkeypatch):
+    monkeypatch.setattr(
+        builtin.requests,
+        "request",
+        lambda *a, **k: FakeResponse(
+            text="<html><body><h1>Hello</h1></body></html>",
+            headers={"content-type": "text/html"},
+            encoding=None,
+        ),
+    )
+    out = get_web_content("http://site.example/")
+    assert "# Hello" in out
+
+
+def test_get_web_content_honors_a_declared_non_utf8_charset(monkeypatch):
+    """caf\xe9 (latin-1 "café") decodes to different text under utf-8 with errors="replace":
+    the trailing byte is not a valid utf-8 continuation on its own, so the wrong codec would
+    replace it rather than reproduce "café". This pins that the declared charset is honored."""
+    body = "café".encode("iso-8859-1")
+    monkeypatch.setattr(
+        builtin.requests,
+        "request",
+        lambda *a, **k: FakeResponse(body=body, headers={"content-type": "text/plain"}, encoding="iso-8859-1"),
+    )
+    out = get_web_content("http://site.example/")
+    assert "café" in out
+
+
 def test_get_webpage_is_gone():
     assert not hasattr(builtin, "get_webpage")
