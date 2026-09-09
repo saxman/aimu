@@ -1,7 +1,9 @@
 """Mock-only unit tests for the web-browsing tools.
 
-Covers the stateless ``get_webpage_html`` tool and the stateful ``make_web_tools``
-factory (``find_forms`` / ``submit_form``). No network access; ``requests`` is stubbed.
+Covers the stateless ``get_webpage_html`` and ``get_web_content`` tools, the stateful
+``make_web_tools`` factory (``find_forms`` / ``submit_form``), and the classifier,
+capped read, and ``_truncate`` helpers ``get_web_content`` is built on. No network
+access; ``requests`` is stubbed.
 """
 
 from __future__ import annotations

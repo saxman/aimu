@@ -19,10 +19,13 @@
   say how far it got. An encrypted PDF is opened with an empty password first, since published
   reports routinely carry an owner password alone, which restricts printing while leaving text
   readable; one that needs a real password says so, and a scan with no text layer says that rather
-  than returning an empty document. Any other `text/*` body comes back as-is; anything that is
-  neither a page, a PDF, nor text is refused, reported by media type and size instead of being read
-  as text. No alias is kept for the old name: an alias would double the model-facing surface, and
-  `search` was renamed to `web_search` the same way. Two caps arrive with it: `max_chars` (default
+  than returning an empty document, and an HTML page with no readable text (a JavaScript-rendered
+  shell) says so instead of coming back empty. Any other textual body, plain text, JSON, or XML
+  (including feed formats like RSS and Atom), comes back as-is; a response with no declared
+  `Content-Type`, or one that is not text at all, is refused, reported by media type (or its
+  absence) and size instead of being read as text. No alias is kept for the old name: an alias
+  would double the model-facing surface, and `search` was renamed to `web_search` the same way.
+  Two caps arrive with it: `max_chars` (default
   20,000, matching `get_webpage_html`) on what is returned, whose truncation marker now names the
   parameter to raise; and a 10 MB limit on what is downloaded at all, since `requests.get` allocates
   an entire body before any caller inspects it. An oversized body is refused rather than truncated,

@@ -966,7 +966,7 @@ def _fetch_html(url: str, *, session=None, timeout: int = 15, method: str = "GET
     """Issue an HTTP request and return the raw ``requests.Response``.
 
     Uses *session* (preserving cookies) when given, else a module-level request.
-    ``request_kwargs`` forwards ``params`` / ``data`` to the underlying call.
+    ``request_kwargs`` forwards ``params`` / ``data`` / ``stream`` to the underlying call.
     Raises ``requests.RequestException`` on transport/HTTP errors (callers translate
     to a tool-visible message).
     """

@@ -1,6 +1,6 @@
 # Fetch HTML and submit web forms
 
-The `builtin.web` tools include `get_web_content` (readable text) and `web_search`, but sometimes an
+The `builtin.web` tools include `get_web_content` (Markdown) and `web_search`, but sometimes an
 agent needs to see a page's **raw markup**, discover its **forms**, and **submit** them (a site
 search, a login, a data entry). Two additions cover this:
 
