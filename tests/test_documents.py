@@ -155,3 +155,8 @@ def test_pdf_to_markdown_stops_extracting_a_pathologically_long_document():
     out = pdf_to_markdown(minimal_pdf(many_pages))
     assert "extraction stopped at page" in out
     assert "## Page 60" not in out
+    # Prepended, not appended: get_web_content truncates the return to max_chars (default
+    # 20,000), well under this test's 200,000-char extraction bound, so a note placed at
+    # the end would never survive to reach the model.
+    assert out.startswith("[... this document was too long to extract in full")
+    assert out.index("extraction stopped at page") < out.index("## Page 1")

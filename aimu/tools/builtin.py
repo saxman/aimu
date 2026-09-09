@@ -993,10 +993,11 @@ _PDF_MAGIC = b"%PDF-"
 _HTML_CONTENT_TYPES = ("text/html", "application/xhtml+xml")
 
 # Textual formats that do not start with "text/" but are not the binary-laundered-as-text
-# failure this tool exists to prevent: JSON and XML are structured text, not bytes, and
-# examples/news-summarizer depends on the feed formats specifically. Accepted exactly for
-# the two bare types, and by suffix for every vendor/format variant of either (RSS, Atom,
-# and any future "+json" or "+xml" media type) without enumerating them one by one.
+# failure this tool exists to prevent: JSON and the XML feed formats are structured text,
+# not bytes, and an agent doing research routinely meets a JSON API or an RSS feed.
+# Accepted exactly for the two bare types, and by suffix for every vendor/format variant of
+# either (RSS, Atom, and any future "+json" or "+xml" media type) without enumerating them
+# one by one.
 _TEXTUAL_NON_TEXT_CONTENT_TYPES = ("application/json", "application/xml")
 _TEXTUAL_NON_TEXT_SUFFIXES = ("+json", "+xml")
 

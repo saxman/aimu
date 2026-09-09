@@ -25,11 +25,13 @@
   `Content-Type`, or one that is not text at all, is refused, reported by media type (or its
   absence) and size instead of being read as text. No alias is kept for the old name: an alias
   would double the model-facing surface, and `search` was renamed to `web_search` the same way.
-  Two caps arrive with it: `max_chars` (default
-  20,000, matching `get_webpage_html`) on what is returned, whose truncation marker now names the
-  parameter to raise; and a 10 MB limit on what is downloaded at all, since `requests.get` allocates
-  an entire body before any caller inspects it. An oversized body is refused rather than truncated,
-  because a half-read PDF does not parse and a half-read page silently loses content. New core
+  Three caps arrive with it: `max_chars` (default 20,000, matching `get_webpage_html`) on what is
+  returned, whose truncation marker now names the parameter to raise; a 10 MB limit on what is
+  downloaded at all, since `requests.get` allocates an entire body before any caller inspects it;
+  and, for a PDF specifically, a 200,000-character bound on extraction itself, so a many-page or
+  heavily compressed document cannot burn arbitrary CPU extracting text that `max_chars` would only
+  discard, noting the page it stopped at when it does. An oversized body is refused rather than
+  truncated, because a half-read PDF does not parse and a half-read page silently loses content. New core
   dependencies: `markdownify` (with `beautifulsoup4`) and `pypdf[crypto]`; the `crypto` extra is
   required rather than optional, because pypdf decrypts RC4 natively but raises `DependencyError` for
   the AES that modern PDFs use.

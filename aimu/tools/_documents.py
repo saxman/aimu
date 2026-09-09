@@ -113,8 +113,14 @@ def pdf_to_markdown(data: bytes) -> str:
 
     sections = [f"## Page {number}\n\n{text.strip()}" for number, text in pages if text.strip()]
     if stopped_at is not None:
-        sections.append(
-            f"[... extraction stopped at page {stopped_at}: this document is unusually large; "
-            "ask about a specific page or section instead of the whole document]"
+        # Prepended, not appended: get_web_content truncates the returned Markdown to
+        # max_chars (default 20,000, far below the 200,000-char extraction bound above),
+        # so a note placed at the end would be exactly what gets cut off, leaving the
+        # model told only that the result was shortened, never that extraction itself
+        # stopped short of the document's end.
+        sections.insert(
+            0,
+            f"[... this document was too long to extract in full; extraction stopped at "
+            f"page {stopped_at}, so pages after it are missing]",
         )
     return "\n\n".join(sections)
