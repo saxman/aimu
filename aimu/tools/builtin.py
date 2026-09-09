@@ -969,14 +969,21 @@ def _extract_publish_date(html: str) -> str:
 _DEFAULT_USER_AGENT = "Mozilla/5.0 (compatible; aimu-tools/1.0)"
 
 
-def _truncate(text: str, limit: int) -> str:
+def _truncate(text: str, limit: int, parameter: Optional[str] = None) -> str:
     """Cap *text* at *limit* characters, appending a marker when it was cut.
 
     Raw HTML is token-heavy; an untruncated page can overflow a model's context window.
+
+    *parameter*, when given, is named in the marker so a caller is told how to get the
+    rest, the way ``read_file``'s marker names ``max_lines``. It is optional because
+    ``get_webpage_html``'s limit is fixed and has nothing to name, and because its
+    existing output should not move.
     """
     if limit is None or len(text) <= limit:
         return text
     dropped = len(text) - limit
+    if parameter:
+        return f"{text[:limit]}\n[... truncated {dropped} chars; call again with a larger {parameter} to read more]"
     return f"{text[:limit]}\n[... truncated {dropped} chars]"
 
 

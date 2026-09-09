@@ -15,6 +15,7 @@ from aimu.tools.builtin import (
     _classify,
     _declared_size,
     _read_capped_body,
+    _truncate,
     _WEB_CONTENT_LIMIT_BYTES,
     get_webpage_html,
     make_web_tools,
@@ -292,3 +293,23 @@ def test_declared_size_prefers_content_length():
 def test_declared_size_says_what_it_read_when_no_length_is_declared():
     response = FakeResponse(headers={"content-type": "application/pdf"})
     assert _declared_size(response, b"xxxx") == "4 bytes read"
+
+
+# ---------------------------------------------------------------------------
+# _truncate
+# ---------------------------------------------------------------------------
+
+
+def test_truncate_marker_is_unchanged_without_a_parameter_name():
+    """get_webpage_html's output must not move: its own tests pin this wording."""
+    assert _truncate("x" * 12, 10) == "x" * 10 + "\n[... truncated 2 chars]"
+
+
+def test_truncate_marker_names_the_parameter_when_given_one():
+    out = _truncate("x" * 12, 10, parameter="max_chars")
+    assert "[... truncated 2 chars" in out
+    assert "max_chars" in out
+
+
+def test_truncate_leaves_short_text_alone():
+    assert _truncate("short", 10, parameter="max_chars") == "short"
