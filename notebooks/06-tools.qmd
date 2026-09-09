@@ -118,7 +118,7 @@ print("stored:", notes.items)
 
 ## B - Built-in tools
 
-`aimu.tools.builtin` exposes a small library of general-purpose tools, each decorated with `@aimu.tool` and ready to drop into any agent: `echo`, `get_current_date_and_time`, `get_weather`, `calculate`, `get_webpage`, `search`, `list_directory`, `read_file`. `builtin.ALL_TOOLS` is the full list.
+`aimu.tools.builtin` exposes a small library of general-purpose tools, each decorated with `@aimu.tool` and ready to drop into any agent: `echo`, `get_current_date_and_time`, `get_weather`, `calculate`, `get_web_content`, `web_search`, `list_directory`, `read_file`. `builtin.ALL_TOOLS` is the full list.
 
 These same callables are also registered on the [aimu/tools/mcp.py](../aimu/tools/mcp.py) FastMCP server so they can be reused cross-process. See section D below.
 
@@ -217,7 +217,7 @@ print("agent tools:", [fn.__name__ for fn in agent.tools])
 
 ## F - Web search and retrieval tools
 
-The built-in `search` and `get_webpage` tools demonstrate live external lookups. `search` queries a [SearXNG](https://docs.searxng.org) instance (set `SEARXNG_BASE_URL` to point at your own); `get_webpage` fetches a URL and strips HTML to visible text.
+The built-in `web_search` and `get_web_content` tools demonstrate live external lookups. `web_search` queries a [SearXNG](https://docs.searxng.org) instance (set `SEARXNG_BASE_URL` to point at your own); `get_web_content` fetches a URL and returns it as Markdown, converting an HTML page or a PDF.
 
 ```{python}
 mcp_client = MCPClient(file=str(paths.package / "tools" / "mcp.py"))
@@ -225,10 +225,10 @@ mcp_client.list_tools()
 ```
 
 ```{python}
-mcp_client.call_tool("search", {"query": "Python programming"})
+mcp_client.call_tool("web_search", {"query": "Python programming"})
 ```
 
 ```{python}
-mcp_client.call_tool("get_webpage", {"url": "https://www.python.org/"})
+mcp_client.call_tool("get_web_content", {"url": "https://www.python.org/"})
 ```
 

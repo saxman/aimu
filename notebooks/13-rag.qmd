@@ -189,7 +189,7 @@ print(retrieve(doc_store, "workflows", n_results=1))
 ## Scope
 
 `aimu.rag` ships chunk / retrieve / rerank only. Document **loaders** (PDF, HTML, …) are
-intentionally out of scope: the built-in `read_file` / `get_webpage` tools, or any library
+intentionally out of scope: the built-in `read_file` / `get_web_content` tools, or any library
 that returns text, feed `ingest` directly. Chunks are stored as plain strings (the
 `MemoryStore` contract), so per-chunk metadata is not currently carried.
 

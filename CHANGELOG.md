@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased: a fetched PDF is a document, not mojibake
+
+### Tools
+
+- **Breaking: `get_webpage` is now `get_web_content(url, max_chars=20000)`, and it returns
+  Markdown.** The old tool never asked what it had fetched: it handed `response.text` to an HTML
+  stripper, and `requests` decodes `.text` with `errors="replace"`, so a PDF behind a URL became
+  megabytes of replacement-character noise that a tag stripper passed through almost whole. One
+  user's stored transcripts held four such results, 6.28 MB of compressed PDF body recorded as tool
+  output, each of which had also entered a model's context whole, where it could not fit. Nothing
+  converted the document and nothing reported that it had not been, which is principle 6's silent
+  fallback twice over. The response is now classified by `Content-Type` with the `%PDF-` magic bytes
+  as a tiebreaker (a PDF served as `application/octet-stream` is common, and the header is the half
+  that lies), converted to Markdown, and capped. HTML becomes Markdown rather than bare stripped
+  text, keeping the `Published:` line it already recovered. A PDF becomes its text under one
+  `## Page N` heading per page, so a caller citing a report has a page number and a capped read can
+  say how far it got. An encrypted PDF is opened with an empty password first, since published
+  reports routinely carry an owner password alone, which restricts printing while leaving text
+  readable; one that needs a real password says so, and a scan with no text layer says that rather
+  than returning an empty document. Any other `text/*` body comes back as-is; anything that is
+  neither a page, a PDF, nor text is refused, reported by media type and size instead of being read
+  as text. No alias is kept for the old name: an alias would double the model-facing surface, and
+  `search` was renamed to `web_search` the same way. Two caps arrive with it: `max_chars` (default
+  20,000, matching `get_webpage_html`) on what is returned, whose truncation marker now names the
+  parameter to raise; and a 10 MB limit on what is downloaded at all, since `requests.get` allocates
+  an entire body before any caller inspects it. An oversized body is refused rather than truncated,
+  because a half-read PDF does not parse and a half-read page silently loses content. New core
+  dependencies: `markdownify` (with `beautifulsoup4`) and `pypdf[crypto]`; the `crypto` extra is
+  required rather than optional, because pypdf decrypts RC4 natively but raises `DependencyError` for
+  the AES that modern PDFs use.
+  Tests: `tests/test_documents.py`, `tests/test_web_tools.py`.
+
 ## v0.29.0 (2026-09-08): a session store can be asked for metadata alone
 
 ### Sessions
