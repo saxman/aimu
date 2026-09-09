@@ -3455,7 +3455,7 @@ chunk it used, or <code>"No relevant context found."</code> when the store has n
 </ul>
 <h2 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link">&para;</a></h2>
 <p><code>aimu.rag</code> ships the chunk/retrieve/rerank primitives only. Document <strong>loaders</strong> (PDF,
-HTML, etc.) are intentionally not included. The built-in <code>read_file</code> and <code>get_webpage</code>
+HTML, etc.) are intentionally not included. The built-in <code>read_file</code> and <code>get_web_content</code>
 tools, or any library that returns text, feed <code>ingest</code> directly. Chunks are stored as
 plain strings (the <code>MemoryStore</code> contract), so per-chunk metadata (source, page) is not
 currently carried.</p>
