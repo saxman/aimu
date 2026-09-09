@@ -23,7 +23,7 @@ from aimu.tools.builtin import (  # noqa: F401 (re-exports)
     fs,
     get_current_date_and_time,
     get_weather,
-    get_webpage,
+    get_web_content,
     get_webpage_html,
     list_directory,
     make_command_tool,

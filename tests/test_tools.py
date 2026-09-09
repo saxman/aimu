@@ -291,34 +291,49 @@ def test_search_request_error():
     assert "Error contacting SearXNG" in _response_text(response)
 
 
-def test_get_webpage_returns_text():
-    html = "<html><head><title>Test</title></head><body><h1>Hello</h1><p>World</p></body></html>"
+def _mock_web_response(body: bytes, content_type: str):
+    """A response the streamed fetch can actually read.
+
+    _mock_response returns a MagicMock, whose iter_content yields a MagicMock rather
+    than bytes, so the capped read cannot consume it.
+    """
+    mock = MagicMock()
+    mock.status_code = 200
+    mock.raise_for_status = MagicMock()
+    mock.headers = {"content-type": content_type}
+    mock.encoding = "utf-8"
+    mock.iter_content = lambda chunk_size=1: iter([body])
+    return mock
+
+
+def test_get_web_content_returns_markdown():
+    html = b"<html><head><title>Test</title></head><body><h1>Hello</h1><p>World</p></body></html>"
     client = MCPClient(server=mcp)
-    with patch("aimu.tools.builtin.requests.get", return_value=_mock_response(text=html)):
-        response = client.call_tool("get_webpage", {"url": "https://example.com"})
+    with patch("aimu.tools.builtin.requests.request", return_value=_mock_web_response(html, "text/html")):
+        response = client.call_tool("get_web_content", {"url": "https://example.com"})
 
     text = _response_text(response)
-    assert "Hello" in text
+    assert "# Hello" in text
     assert "World" in text
-    assert "<" not in text  # HTML tags stripped
+    assert "<h1>" not in text  # tags converted, not passed through
 
 
-def test_get_webpage_strips_script_and_style():
-    html = "<html><body><script>alert('x')</script><style>.a{}</style><p>Visible</p></body></html>"
+def test_get_web_content_strips_script_and_style():
+    html = b"<html><body><script>alert('x')</script><style>.a{}</style><p>Visible</p></body></html>"
     client = MCPClient(server=mcp)
-    with patch("aimu.tools.builtin.requests.get", return_value=_mock_response(text=html)):
-        response = client.call_tool("get_webpage", {"url": "https://example.com"})
+    with patch("aimu.tools.builtin.requests.request", return_value=_mock_web_response(html, "text/html")):
+        response = client.call_tool("get_web_content", {"url": "https://example.com"})
 
     text = _response_text(response)
     assert "Visible" in text
     assert "alert" not in text
-    assert ".a" not in text
+    assert ".a{}" not in text
 
 
-def test_get_webpage_request_error():
+def test_get_web_content_request_error():
     client = MCPClient(server=mcp)
-    with patch("aimu.tools.builtin.requests.get", side_effect=requests.RequestException("connection refused")):
-        response = client.call_tool("get_webpage", {"url": "https://example.com"})
+    with patch("aimu.tools.builtin.requests.request", side_effect=requests.RequestException("connection refused")):
+        response = client.call_tool("get_web_content", {"url": "https://example.com"})
 
     assert "Error fetching page" in _response_text(response)
 
@@ -403,7 +418,7 @@ def test_read_file_on_directory():
 
 def test_builtin_web_group_contains_expected_tools():
     names = {t.__name__ for t in builtin.web}
-    assert names == {"get_weather", "get_webpage", "get_webpage_html", "web_search", "wikipedia"}
+    assert names == {"get_weather", "get_web_content", "get_webpage_html", "web_search", "wikipedia"}
 
 
 def test_builtin_fs_group_contains_expected_tools():

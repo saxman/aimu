@@ -17,6 +17,7 @@ from aimu.tools.builtin import (
     _read_capped_body,
     _truncate,
     _WEB_CONTENT_LIMIT_BYTES,
+    get_web_content,
     get_webpage_html,
     make_web_tools,
 )
@@ -313,3 +314,148 @@ def test_truncate_marker_names_the_parameter_when_given_one():
 
 def test_truncate_leaves_short_text_alone():
     assert _truncate("short", 10, parameter="max_chars") == "short"
+
+
+# ---------------------------------------------------------------------------
+# get_web_content
+# ---------------------------------------------------------------------------
+
+ARTICLE_HTML = """
+<html><head><meta property="article:published_time" content="2026-01-02T00:00:00Z"></head>
+<body><h1>Headline</h1><p>Body <em>text</em>.</p></body></html>
+"""
+
+
+def test_get_web_content_returns_markdown_for_html(monkeypatch):
+    monkeypatch.setattr(
+        builtin.requests,
+        "request",
+        lambda *a, **k: FakeResponse(text=ARTICLE_HTML, headers={"content-type": "text/html"}),
+    )
+    out = get_web_content("http://site.example/")
+    assert "# Headline" in out
+    assert "*text*" in out
+
+
+def test_get_web_content_keeps_the_published_line(monkeypatch):
+    monkeypatch.setattr(
+        builtin.requests,
+        "request",
+        lambda *a, **k: FakeResponse(text=ARTICLE_HTML, headers={"content-type": "text/html"}),
+    )
+    out = get_web_content("http://site.example/")
+    assert out.startswith("Published: 2026-01-02T00:00:00Z")
+
+
+def test_get_web_content_extracts_a_pdf(monkeypatch):
+    from tests.test_documents import minimal_pdf
+
+    pdf = minimal_pdf(["Quarterly results follow"])
+    monkeypatch.setattr(
+        builtin.requests,
+        "request",
+        lambda *a, **k: FakeResponse(body=pdf, headers={"content-type": "application/pdf"}),
+    )
+    out = get_web_content("http://site.example/report.pdf")
+    assert "## Page 1" in out
+    assert "Quarterly results follow" in out
+
+
+def test_get_web_content_extracts_a_pdf_served_as_octet_stream(monkeypatch):
+    from tests.test_documents import minimal_pdf
+
+    pdf = minimal_pdf(["Served with the wrong type"])
+    monkeypatch.setattr(
+        builtin.requests,
+        "request",
+        lambda *a, **k: FakeResponse(body=pdf, headers={"content-type": "application/octet-stream"}),
+    )
+    assert "Served with the wrong type" in get_web_content("http://site.example/x")
+
+
+def test_get_web_content_refuses_an_unsupported_type(monkeypatch):
+    monkeypatch.setattr(
+        builtin.requests,
+        "request",
+        lambda *a, **k: FakeResponse(body=b"\x89PNG\r\n", headers={"content-type": "image/png", "content-length": "6"}),
+    )
+    out = get_web_content("http://site.example/x.png")
+    assert "image/png" in out
+    assert "6 bytes" in out
+    assert "PNG" not in out  # the bytes themselves never reach the caller
+
+
+def test_get_web_content_reports_a_password_protected_pdf(monkeypatch):
+    from tests.test_documents import _encrypted_pdf, minimal_pdf
+
+    locked = _encrypted_pdf(minimal_pdf(["Secret"]), user_password="letmein", owner_password="s")
+    monkeypatch.setattr(
+        builtin.requests,
+        "request",
+        lambda *a, **k: FakeResponse(body=locked, headers={"content-type": "application/pdf"}),
+    )
+    assert "password" in get_web_content("http://site.example/locked.pdf")
+
+
+def test_get_web_content_caps_its_return_and_names_the_parameter(monkeypatch):
+    html = "<p>" + ("word " * 20000) + "</p>"
+    monkeypatch.setattr(
+        builtin.requests, "request", lambda *a, **k: FakeResponse(text=html, headers={"content-type": "text/html"})
+    )
+    out = get_web_content("http://site.example/")
+    assert "[... truncated" in out
+    assert "max_chars" in out
+
+
+def test_get_web_content_honors_a_raised_max_chars(monkeypatch):
+    html = "<p>" + ("word " * 20000) + "</p>"
+    monkeypatch.setattr(
+        builtin.requests, "request", lambda *a, **k: FakeResponse(text=html, headers={"content-type": "text/html"})
+    )
+    assert "[... truncated" not in get_web_content("http://site.example/", max_chars=200000)
+
+
+def test_get_web_content_refuses_an_oversized_download(monkeypatch):
+    oversized = b"x" * (_WEB_CONTENT_LIMIT_BYTES + 1)
+    monkeypatch.setattr(
+        builtin.requests,
+        "request",
+        lambda *a, **k: FakeResponse(body=oversized, headers={"content-type": "application/pdf"}),
+    )
+    out = get_web_content("http://site.example/huge.pdf")
+    assert "too large" in out
+    assert str(_WEB_CONTENT_LIMIT_BYTES) in out
+
+
+def test_get_web_content_reports_transport_errors(monkeypatch):
+    def boom(*a, **k):
+        raise requests.ConnectionError("no route")
+
+    monkeypatch.setattr(builtin.requests, "request", boom)
+    assert get_web_content("http://site.example/").startswith("Error fetching page:")
+
+
+def test_get_web_content_never_touches_response_text(monkeypatch):
+    """Pins the streaming contract: requests raises on .text once iter_content ran."""
+
+    class TextRaisingResponse(FakeResponse):
+        @property
+        def text(self):
+            raise RuntimeError("The content for this response was already consumed")
+
+        @text.setter
+        def text(self, value):
+            self._text = value
+
+    monkeypatch.setattr(
+        builtin.requests,
+        "request",
+        lambda *a, **k: TextRaisingResponse(
+            body=b"<html><body><h1>Streamed</h1></body></html>", headers={"content-type": "text/html"}
+        ),
+    )
+    assert "# Streamed" in get_web_content("http://site.example/")
+
+
+def test_get_webpage_is_gone():
+    assert not hasattr(builtin, "get_webpage")

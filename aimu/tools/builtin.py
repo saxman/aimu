@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 from aimu.events import EventSink
 
 from . import _execute_python_worker
+from ._documents import DocumentConversionError, html_to_markdown, pdf_to_markdown
 from .decorator import tool
 
 _logger = logging.getLogger(__name__)
@@ -1144,31 +1145,65 @@ def _format_forms(forms: list[dict]) -> str:
 
 
 @tool
-def get_webpage(url: str) -> str:
-    """Fetches a web page and returns its visible text content with HTML stripped.
+def get_web_content(url: str, max_chars: int = 20000) -> str:
+    """Fetches a URL and returns its content as Markdown, for a web page or a PDF.
 
-    When the page exposes a publication timestamp (in <meta> tags, JSON-LD, or a
-    <time> element), it is prepended as a "Published:" line so the date isn't lost
-    when the HTML is stripped.
+    Handles HTML pages and PDF documents. A page's publication timestamp is prepended as
+    a "Published:" line when the page exposes one, and a PDF's text is marked with a
+    "## Page N" heading per page so it can be cited.
+
+    Anything that is neither a page nor a document (an image, an archive, a video) is
+    reported rather than returned, because its bytes are not text and reading them as
+    text produces noise a model cannot use.
+
+    If the result says it was truncated, call again with a larger max_chars before
+    drawing any conclusion from it: a partial document reads exactly like a complete one.
 
     Args:
-        url: The URL of the page to retrieve.
+        url: The URL to retrieve.
+        max_chars: Maximum characters to return (default 20000).
     """
     try:
-        response = requests.get(
-            url,
-            headers={"User-Agent": "Mozilla/5.0 (compatible; aimu-tools/1.0)"},
-            timeout=15,
-        )
-        response.raise_for_status()
+        response = _fetch_html(url, stream=True)
+        body = _read_capped_body(response)
     except requests.RequestException as e:
         return f"Error fetching page: {e}"
+    except _BodyTooLarge as e:
+        return (
+            f"This resource is too large to fetch: {e.size}, and the limit is {e.limit} bytes. "
+            "Find a smaller version, or a page that summarizes it."
+        )
 
-    published = _extract_publish_date(response.text)
-    extractor = _TextExtractor()
-    extractor.feed(response.text)
-    text = extractor.get_text()
-    return f"Published: {published}\n\n{text}" if published else text
+    kind = _classify(response, body)
+    if kind == "unsupported":
+        media_type = response.headers.get("content-type", "").split(";")[0].strip() or "an undeclared type"
+        return (
+            f"This URL returned {media_type} ({_declared_size(response, body)}), which is not a web page "
+            "or a document this tool can read as text. Only HTML pages and PDFs are supported."
+        )
+
+    if kind == "pdf":
+        try:
+            content = pdf_to_markdown(body)
+        except DocumentConversionError as e:
+            return str(e)
+        return _truncate(content, max_chars, parameter="max_chars")
+
+    # Decoded here rather than read from ``response.text``, which raises once
+    # ``iter_content`` has consumed a streamed response. ``response.encoding`` is what
+    # requests parsed out of the Content-Type charset, which is the same value ``.text``
+    # would have used; ``errors="replace"`` matches ``.text``'s own behavior, and the
+    # classifier has already ruled out the binary that made replacement characters a
+    # problem in the first place.
+    text = body.decode(response.encoding or "utf-8", errors="replace")
+    if kind == "text":
+        return _truncate(text, max_chars, parameter="max_chars")
+
+    published = _extract_publish_date(text)
+    content = html_to_markdown(text)
+    if published:
+        content = f"Published: {published}\n\n{content}"
+    return _truncate(content, max_chars, parameter="max_chars")
 
 
 @tool
@@ -1176,7 +1211,7 @@ def get_webpage_html(url: str) -> str:
     """Fetches a web page and returns its raw HTML markup (tags and all).
 
     Use this when you need to see the page structure, e.g. to locate links, attributes,
-    or form markup. For readable article text instead, use ``get_webpage``. For inspecting
+    or form markup. For readable article text instead, use ``get_web_content``. For inspecting
     and submitting forms with cookie/session persistence, use the tools from
     ``make_web_tools()``.
 
@@ -2244,7 +2279,7 @@ def make_web_tools(
 
 
 # Curated subsets: pass one of these to ``tools=`` instead of importing every function.
-web = [get_weather, get_webpage, get_webpage_html, web_search, wikipedia]
+web = [get_weather, get_web_content, get_webpage_html, web_search, wikipedia]
 fs = [list_directory, read_file]
 compute = [calculate, execute_python, run_command]
 # Grouped apart from ``misc`` because an agent almost always wants a clock regardless of its role: an
@@ -2318,7 +2353,7 @@ ALL_TOOLS = [
     *time,
     get_weather,
     calculate,
-    get_webpage,
+    get_web_content,
     get_webpage_html,
     web_search,
     wikipedia,
