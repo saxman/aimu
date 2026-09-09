@@ -13,8 +13,12 @@ stay testable on literals.
 
 from __future__ import annotations
 
+from io import BytesIO
+
 from bs4 import BeautifulSoup
 from markdownify import MarkdownConverter
+from pypdf import PasswordType, PdfReader
+from pypdf.errors import PdfReadError
 
 # Tags whose *content* is not page content. markdownify's own ``strip`` option removes a
 # tag while keeping its text, which is the opposite of what these need: a <script> body
@@ -42,3 +46,41 @@ def html_to_markdown(html: str) -> str:
     for tag in soup(list(_NON_CONTENT_TAGS)):
         tag.decompose()
     return MarkdownConverter(heading_style="ATX").convert_soup(soup).strip()
+
+
+def pdf_to_markdown(data: bytes) -> str:
+    """*data* as Markdown, one ``## Page N`` heading per page.
+
+    Page markers rather than inferred structure, for two reasons: a caller citing a
+    report wants a page number, and a document later cut by a character cap can then say
+    how far it got in terms the source itself has. pypdf's extraction exposes no heading
+    structure that could be promoted honestly, so nothing else is invented.
+
+    An encrypted PDF is opened with an empty password before anything else is tried.
+    Published reports are routinely encrypted with an owner password alone, which
+    restricts printing and editing while leaving the text readable, and refusing those
+    would refuse the common case.
+    """
+    try:
+        reader = PdfReader(BytesIO(data))
+        if reader.is_encrypted and reader.decrypt("") == PasswordType.NOT_DECRYPTED:
+            raise DocumentConversionError(
+                "This PDF is encrypted and needs a password to open. Ask the user for it, "
+                "or find a copy that is not password protected."
+            )
+        pages = [(number, page.extract_text()) for number, page in enumerate(reader.pages, start=1)]
+    except DocumentConversionError:
+        raise
+    except (PdfReadError, OSError, ValueError) as exc:
+        # pypdf raises PdfReadError for a malformed file, and its parsing reaches for
+        # ValueError and OSError on inputs that are not PDFs at all despite the header.
+        raise DocumentConversionError(f"This PDF could not be read: {exc}") from exc
+
+    if not any(text.strip() for _, text in pages):
+        raise DocumentConversionError(
+            f"This PDF has no extractable text across its {len(pages)} page(s). "
+            "It is most likely a scan, which needs OCR rather than text extraction."
+        )
+
+    sections = [f"## Page {number}\n\n{text.strip()}" for number, text in pages if text.strip()]
+    return "\n\n".join(sections)
