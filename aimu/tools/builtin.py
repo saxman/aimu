@@ -1064,7 +1064,10 @@ def _classify(response, body: bytes) -> str:
     the header alone is what let binary reach a model as text in the first place.
     """
     content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
-    if content_type in _HTML_CONTENT_TYPES:
+    # An HTML content type does not get to override a body that is demonstrably a PDF: a
+    # server stamping text/html on everything is exactly the case the magic-byte check
+    # below exists for, and letting the header win here would launder that PDF as Markdown.
+    if content_type in _HTML_CONTENT_TYPES and not body.startswith(_PDF_MAGIC):
         return "html"
     if body.startswith(_PDF_MAGIC) or content_type == "application/pdf":
         return "pdf"

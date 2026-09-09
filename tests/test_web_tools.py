@@ -310,6 +310,21 @@ def test_classify_falls_back_to_magic_bytes_for_a_lying_content_type():
     assert _classify(response, b"%PDF-1.7 rest of the file") == "pdf"
 
 
+def test_classify_does_not_let_a_lying_html_content_type_override_a_pdf_body():
+    """A server that stamps text/html on every response is a real misconfiguration, not a
+    hypothetical, and the HTML content-type check running first must not let that header
+    override a body that is demonstrably a PDF; that would launder the PDF's bytes into the
+    Markdown path as though they were HTML."""
+    response = FakeResponse(headers={"content-type": "text/html; charset=utf-8"})
+    assert _classify(response, b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>") == "pdf"
+
+
+def test_classify_treats_xhtml_as_html_rather_than_the_plus_xml_text_branch():
+    """application/xhtml+xml is one of the HTML content types and must be caught there,
+    before the +xml suffix check that would otherwise classify it as plain text."""
+    assert _classify(FakeResponse(headers={"content-type": "application/xhtml+xml"}), b"<html/>") == "html"
+
+
 def test_classify_accepts_json_and_xml_and_their_vendor_variants():
     """application/json and application/xml are structured text, not the binary-laundered-
     as-text failure this tool exists to prevent; RSS and Atom feeds are the +xml case
