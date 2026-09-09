@@ -6,10 +6,19 @@ factory (``find_forms`` / ``submit_form``). No network access; ``requests`` is s
 
 from __future__ import annotations
 
+import pytest
 import requests
 
 from aimu.tools import builtin
-from aimu.tools.builtin import get_webpage_html, make_web_tools
+from aimu.tools.builtin import (
+    _BodyTooLarge,
+    _classify,
+    _declared_size,
+    _read_capped_body,
+    _WEB_CONTENT_LIMIT_BYTES,
+    get_webpage_html,
+    make_web_tools,
+)
 
 FORM_HTML = """
 <html><body>
@@ -30,14 +39,23 @@ TWO_FORMS_HTML = """
 
 
 class FakeResponse:
-    def __init__(self, text="", status_code=200, url="http://site.example/"):
+    def __init__(self, text="", status_code=200, url="http://site.example/", headers=None, body=None, encoding="utf-8"):
         self.text = text
         self.status_code = status_code
         self.url = url
+        self.encoding = encoding
+        # A real requests.Response has case-insensitive headers; the tools only ever read
+        # Content-Type and Content-Length, so a plain lowercase dict plus .get is enough.
+        self.headers = headers if headers is not None else {"content-type": "text/html"}
+        self._body = body if body is not None else text.encode("utf-8")
 
     def raise_for_status(self):
         if self.status_code >= 400:
             raise requests.HTTPError(f"{self.status_code}")
+
+    def iter_content(self, chunk_size=1):
+        for start in range(0, len(self._body), chunk_size):
+            yield self._body[start : start + chunk_size]
 
 
 class FakeSession:
@@ -219,3 +237,58 @@ def test_async_reexports_importable():
 def test_get_webpage_html_in_web_subgroup_and_all_tools():
     assert get_webpage_html in builtin.web
     assert get_webpage_html in builtin.ALL_TOOLS
+
+
+# ---------------------------------------------------------------------------
+# fetch cap and classification
+# ---------------------------------------------------------------------------
+
+
+def test_read_capped_body_returns_the_whole_small_body():
+    response = FakeResponse(body=b"hello there")
+    assert _read_capped_body(response) == b"hello there"
+
+
+def test_read_capped_body_refuses_an_oversized_body():
+    oversized = b"x" * (_WEB_CONTENT_LIMIT_BYTES + 1)
+    response = FakeResponse(body=oversized, headers={"content-type": "application/pdf"})
+    with pytest.raises(_BodyTooLarge):
+        _read_capped_body(response)
+
+
+def test_read_capped_body_stops_reading_at_the_cap():
+    """The point of the cap is not allocating the rest, so it must stop, not read then check."""
+    read = {"bytes": 0}
+
+    class CountingResponse(FakeResponse):
+        def iter_content(self, chunk_size=1):
+            while True:
+                read["bytes"] += chunk_size
+                yield b"x" * chunk_size
+
+    with pytest.raises(_BodyTooLarge):
+        _read_capped_body(CountingResponse())
+    assert read["bytes"] < _WEB_CONTENT_LIMIT_BYTES * 2
+
+
+def test_classify_reads_content_type_first():
+    assert _classify(FakeResponse(headers={"content-type": "text/html; charset=utf-8"}), b"<p>x</p>") == "html"
+    assert _classify(FakeResponse(headers={"content-type": "application/pdf"}), b"%PDF-1.7 ...") == "pdf"
+    assert _classify(FakeResponse(headers={"content-type": "text/plain"}), b"plain") == "text"
+    assert _classify(FakeResponse(headers={"content-type": "image/png"}), b"\x89PNG") == "unsupported"
+
+
+def test_classify_falls_back_to_magic_bytes_for_a_lying_content_type():
+    """A PDF served as application/octet-stream is common; the header is the half that lies."""
+    response = FakeResponse(headers={"content-type": "application/octet-stream"})
+    assert _classify(response, b"%PDF-1.7 rest of the file") == "pdf"
+
+
+def test_declared_size_prefers_content_length():
+    response = FakeResponse(headers={"content-type": "application/pdf", "content-length": "4096"})
+    assert _declared_size(response, b"xx") == "4096 bytes"
+
+
+def test_declared_size_says_what_it_read_when_no_length_is_declared():
+    response = FakeResponse(headers={"content-type": "application/pdf"})
+    assert _declared_size(response, b"xxxx") == "4 bytes read"

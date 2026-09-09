@@ -995,6 +995,84 @@ def _fetch_html(url: str, *, session=None, timeout: int = 15, method: str = "GET
     return response
 
 
+# What get_web_content will read off the wire before giving up. requests.get pulls an
+# entire body into memory before any caller inspects it, so without this a 500 MB file
+# behind a URL is a 500 MB allocation regardless of what the tool returns. Beside
+# _COMMAND_OUTPUT_LIMIT_BYTES rather than exposed as a tool parameter: it protects this
+# process, not the model's context, and the model has no basis on which to raise it.
+_WEB_CONTENT_LIMIT_BYTES = 10 * 1024 * 1024
+
+# Read in 64 KB chunks: small enough that the cap is enforced long before the excess is
+# allocated, large enough that a normal page is one or two iterations.
+_WEB_CONTENT_CHUNK_BYTES = 64 * 1024
+
+_PDF_MAGIC = b"%PDF-"
+
+_HTML_CONTENT_TYPES = ("text/html", "application/xhtml+xml")
+
+
+class _BodyTooLarge(Exception):
+    """A response body exceeded ``_WEB_CONTENT_LIMIT_BYTES``.
+
+    Carries the numbers the tool's message needs, so the limit is stated once here and
+    phrased once at the call site.
+    """
+
+    def __init__(self, limit: int, size: str):
+        super().__init__(f"body exceeds {limit} bytes")
+        self.limit = limit
+        self.size = size
+
+
+def _read_capped_body(response) -> bytes:
+    """The response body, refusing rather than truncating past the cap.
+
+    Refusing is the point: a half-read PDF does not parse, and a half-read HTML page
+    silently loses content, which is the failure mode this tool exists to remove. The
+    read stops at the cap instead of reading everything and checking afterwards, since
+    not allocating the rest is the whole reason the cap exists.
+    """
+    chunks: list[bytes] = []
+    total = 0
+    for chunk in response.iter_content(chunk_size=_WEB_CONTENT_CHUNK_BYTES):
+        if not chunk:
+            continue
+        chunks.append(chunk)
+        total += len(chunk)
+        if total > _WEB_CONTENT_LIMIT_BYTES:
+            raise _BodyTooLarge(_WEB_CONTENT_LIMIT_BYTES, _declared_size(response, b"", total))
+    return b"".join(chunks)
+
+
+def _declared_size(response, body: bytes, read: Optional[int] = None) -> str:
+    """A size phrase that never claims to be a total it cannot know.
+
+    ``Content-Length`` when the response declares one, otherwise the count actually
+    read, said in those words so a reader is not told a partial figure is the whole.
+    """
+    declared = response.headers.get("content-length")
+    if declared:
+        return f"{declared} bytes"
+    return f"{read if read is not None else len(body)} bytes read"
+
+
+def _classify(response, body: bytes) -> str:
+    """Which converter a fetched response wants: ``html``, ``pdf``, ``text``, or ``unsupported``.
+
+    ``Content-Type`` first, magic bytes second, because the header is the half that
+    lies: a PDF served as ``application/octet-stream`` is common enough that trusting
+    the header alone is what let binary reach a model as text in the first place.
+    """
+    content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
+    if body.startswith(_PDF_MAGIC) or content_type == "application/pdf":
+        return "pdf"
+    if content_type in _HTML_CONTENT_TYPES:
+        return "html"
+    if content_type.startswith("text/"):
+        return "text"
+    return "unsupported"
+
+
 class _FormExtractor(HTMLParser):
     """Collects ``<form>`` elements and their fields from raw HTML.
 
