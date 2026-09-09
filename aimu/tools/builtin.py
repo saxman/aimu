@@ -914,37 +914,11 @@ def make_command_tool(*, env_passthrough: tuple[str, ...] = ()) -> Callable:
 run_command = make_command_tool()
 
 
-class _TextExtractor(HTMLParser):
-    """Strips HTML tags and decodes entities, collecting visible text."""
-
-    SKIP_TAGS = {"script", "style", "head", "meta", "link", "noscript"}
-
-    def __init__(self):
-        super().__init__(convert_charrefs=True)
-        self._parts: list[str] = []
-        self._skip = 0
-
-    def handle_starttag(self, tag, attrs):  # noqa: ARG002
-        if tag in self.SKIP_TAGS:
-            self._skip += 1
-
-    def handle_endtag(self, tag):
-        if tag in self.SKIP_TAGS and self._skip:
-            self._skip -= 1
-
-    def handle_data(self, data):
-        if not self._skip:
-            self._parts.append(data)
-
-    def get_text(self) -> str:
-        text = " ".join(self._parts)
-        return re.sub(r"\s+", " ", text).strip()
-
-
-# Publication timestamps hide in machine-readable HTML that _TextExtractor strips out
-# (<head>/<meta>) or in attributes it ignores (<time datetime>). These patterns recover
-# them in priority order: <meta> tags (either attribute ordering), JSON-LD datePublished,
-# then <time>. The matched value is usually ISO 8601.
+# Publication timestamps hide in machine-readable HTML that html_to_markdown's
+# _NON_CONTENT_TAGS drops outright (<head>, and so <meta> along with it) or in attributes
+# that are not text either way (<time datetime>). These patterns recover them in priority
+# order: <meta> tags (either attribute ordering), JSON-LD datePublished, then <time>. The
+# matched value is usually ISO 8601.
 _META_DATE_KEYS = r"article:published_time|datePublished|pubdate|publishdate|date|dc\.date|sailthru\.date"
 _PUBLISH_DATE_PATTERNS = [
     rf'<meta[^>]+(?:property|name)=["\'](?:{_META_DATE_KEYS})["\'][^>]*\bcontent=["\']([^"\']+)["\']',
