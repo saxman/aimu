@@ -25,6 +25,15 @@ from pypdf.errors import DependencyError, PdfReadError
 # is code, not prose, and it would otherwise be converted right into the output.
 _NON_CONTENT_TAGS = ("script", "style", "head", "noscript", "template")
 
+# Stop extracting a PDF's text once the accumulated total is safely past anything a
+# caller could use. The download cap in builtin.py bounds compressed bytes on the wire,
+# not what a PDF expands to once decompressed and extracted, so a heavily compressed or
+# many-thousand-page PDF that fits under that cap could otherwise burn arbitrary CPU
+# extracting text that get_web_content's own _truncate then throws away. Ten times
+# get_web_content's default max_chars (20,000) is generously above it, so an ordinary
+# report is never affected.
+_MAX_EXTRACTED_CHARS = 200_000
+
 
 class DocumentConversionError(Exception):
     """A document could not be converted, for a reason worth telling the caller.
@@ -64,6 +73,11 @@ def pdf_to_markdown(data: bytes) -> str:
     Published reports are routinely encrypted with an owner password alone, which
     restricts printing and editing while leaving the text readable, and refusing those
     would refuse the common case.
+
+    Extraction stops once the accumulated text passes ``_MAX_EXTRACTED_CHARS``, noting
+    where it stopped, rather than extracting every page of a pathologically large or
+    highly compressed document before the caller's own character cap discards most of
+    it anyway.
     """
     try:
         reader = PdfReader(BytesIO(data))
@@ -72,7 +86,16 @@ def pdf_to_markdown(data: bytes) -> str:
                 "This PDF is encrypted and needs a password to open. Ask the user for it, "
                 "or find a copy that is not password protected."
             )
-        pages = [(number, page.extract_text()) for number, page in enumerate(reader.pages, start=1)]
+        pages: list[tuple[int, str]] = []
+        stopped_at: int | None = None
+        total_chars = 0
+        for number, page in enumerate(reader.pages, start=1):
+            text = page.extract_text()
+            pages.append((number, text))
+            total_chars += len(text)
+            if total_chars > _MAX_EXTRACTED_CHARS:
+                stopped_at = number
+                break
     except DocumentConversionError:
         raise
     except (PdfReadError, DependencyError, NotImplementedError, OSError, ValueError) as exc:
@@ -89,4 +112,9 @@ def pdf_to_markdown(data: bytes) -> str:
         )
 
     sections = [f"## Page {number}\n\n{text.strip()}" for number, text in pages if text.strip()]
+    if stopped_at is not None:
+        sections.append(
+            f"[... extraction stopped at page {stopped_at}: this document is unusually large; "
+            "ask about a specific page or section instead of the whole document]"
+        )
     return "\n\n".join(sections)

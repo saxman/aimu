@@ -27,7 +27,10 @@ def test_html_to_markdown_converts_structure():
 
 
 def test_html_to_markdown_drops_script_and_style_content():
-    html = "<html><head><title>T</title></head><body><script>alert('x')</script><style>.a{}</style><p>Visible</p></body></html>"
+    html = (
+        "<html><head><title>T</title></head><body>"
+        "<script>alert('x')</script><style>.a{}</style><p>Visible</p></body></html>"
+    )
     out = html_to_markdown(html)
     assert "Visible" in out
     assert "alert" not in out
@@ -140,3 +143,15 @@ def test_pdf_to_markdown_omits_a_page_with_no_text_but_keeps_later_numbering():
     assert "## Page 2" not in out
     assert "## Page 3" in out
     assert "Page three text" in out
+
+
+def test_pdf_to_markdown_stops_extracting_a_pathologically_long_document():
+    """The download cap bounds compressed bytes on the wire, not what a PDF expands to once
+    decompressed and extracted, so a many-page document must stop extraction on its own
+    rather than trusting the caller's character cap to bound the work. Each page here holds
+    5,000 characters; comfortably more than _MAX_EXTRACTED_CHARS (200,000) accumulates well
+    before all 60 pages are visited."""
+    many_pages = ["word " * 1000] * 60  # 5,000 chars/page * 60 = 300,000 total
+    out = pdf_to_markdown(minimal_pdf(many_pages))
+    assert "extraction stopped at page" in out
+    assert "## Page 60" not in out
