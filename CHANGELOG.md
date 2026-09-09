@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased: a fetched PDF is a document, not mojibake
+## v0.30.0 (2026-09-09): a fetched PDF is a document, not mojibake
 
 ### Tools
 
