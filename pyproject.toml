@@ -12,6 +12,12 @@ dependencies = [
     "requests",
     "python-dotenv",
     "pydantic>=2",
+    # HTML and PDF to Markdown for the get_web_content tool. markdownify pulls
+    # beautifulsoup4; pypdf's crypto extra pulls cryptography, which is required rather
+    # than optional: pypdf decrypts RC4 natively but raises DependencyError for AES, and
+    # AES is what modern published PDFs use.
+    "markdownify",
+    "pypdf[crypto]",
     # Windows ships no system tz database, so zoneinfo (used by the built-in time
     # tools) has no data to read without this.
     "tzdata; sys_platform == 'win32'"
