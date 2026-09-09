@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 from aimu.events import EventSink
 
 from . import _execute_python_worker
+from ._documents import DocumentConversionError, html_to_markdown, pdf_to_markdown
 from .decorator import tool
 
 _logger = logging.getLogger(__name__)
@@ -913,37 +914,11 @@ def make_command_tool(*, env_passthrough: tuple[str, ...] = ()) -> Callable:
 run_command = make_command_tool()
 
 
-class _TextExtractor(HTMLParser):
-    """Strips HTML tags and decodes entities, collecting visible text."""
-
-    SKIP_TAGS = {"script", "style", "head", "meta", "link", "noscript"}
-
-    def __init__(self):
-        super().__init__(convert_charrefs=True)
-        self._parts: list[str] = []
-        self._skip = 0
-
-    def handle_starttag(self, tag, attrs):  # noqa: ARG002
-        if tag in self.SKIP_TAGS:
-            self._skip += 1
-
-    def handle_endtag(self, tag):
-        if tag in self.SKIP_TAGS and self._skip:
-            self._skip -= 1
-
-    def handle_data(self, data):
-        if not self._skip:
-            self._parts.append(data)
-
-    def get_text(self) -> str:
-        text = " ".join(self._parts)
-        return re.sub(r"\s+", " ", text).strip()
-
-
-# Publication timestamps hide in machine-readable HTML that _TextExtractor strips out
-# (<head>/<meta>) or in attributes it ignores (<time datetime>). These patterns recover
-# them in priority order: <meta> tags (either attribute ordering), JSON-LD datePublished,
-# then <time>. The matched value is usually ISO 8601.
+# Publication timestamps hide in machine-readable HTML that html_to_markdown's
+# _NON_CONTENT_TAGS drops outright (<head>, and so <meta> along with it) or in attributes
+# that are not text either way (<time datetime>). These patterns recover them in priority
+# order: <meta> tags (either attribute ordering), JSON-LD datePublished, then <time>. The
+# matched value is usually ISO 8601.
 _META_DATE_KEYS = r"article:published_time|datePublished|pubdate|publishdate|date|dc\.date|sailthru\.date"
 _PUBLISH_DATE_PATTERNS = [
     rf'<meta[^>]+(?:property|name)=["\'](?:{_META_DATE_KEYS})["\'][^>]*\bcontent=["\']([^"\']+)["\']',
@@ -969,14 +944,21 @@ def _extract_publish_date(html: str) -> str:
 _DEFAULT_USER_AGENT = "Mozilla/5.0 (compatible; aimu-tools/1.0)"
 
 
-def _truncate(text: str, limit: int) -> str:
+def _truncate(text: str, limit: int, parameter: Optional[str] = None) -> str:
     """Cap *text* at *limit* characters, appending a marker when it was cut.
 
     Raw HTML is token-heavy; an untruncated page can overflow a model's context window.
+
+    *parameter*, when given, is named in the marker so a caller is told how to get the
+    rest, the way ``read_file``'s marker names ``max_lines``. It is optional because
+    ``get_webpage_html``'s limit is fixed and has nothing to name, and because its
+    existing output should not move.
     """
     if limit is None or len(text) <= limit:
         return text
     dropped = len(text) - limit
+    if parameter:
+        return f"{text[:limit]}\n[... truncated {dropped} chars; call again with a larger {parameter} to read more]"
     return f"{text[:limit]}\n[... truncated {dropped} chars]"
 
 
@@ -984,7 +966,7 @@ def _fetch_html(url: str, *, session=None, timeout: int = 15, method: str = "GET
     """Issue an HTTP request and return the raw ``requests.Response``.
 
     Uses *session* (preserving cookies) when given, else a module-level request.
-    ``request_kwargs`` forwards ``params`` / ``data`` to the underlying call.
+    ``request_kwargs`` forwards ``params`` / ``data`` / ``stream`` to the underlying call.
     Raises ``requests.RequestException`` on transport/HTTP errors (callers translate
     to a tool-visible message).
     """
@@ -993,6 +975,108 @@ def _fetch_html(url: str, *, session=None, timeout: int = 15, method: str = "GET
     response = requester.request(method, url, headers=headers, timeout=timeout, **request_kwargs)
     response.raise_for_status()
     return response
+
+
+# What get_web_content will read off the wire before giving up. requests.get pulls an
+# entire body into memory before any caller inspects it, so without this a 500 MB file
+# behind a URL is a 500 MB allocation regardless of what the tool returns. Beside
+# _COMMAND_OUTPUT_LIMIT_BYTES rather than exposed as a tool parameter: it protects this
+# process, not the model's context, and the model has no basis on which to raise it.
+_WEB_CONTENT_LIMIT_BYTES = 10 * 1024 * 1024
+
+# Read in 64 KB chunks: small enough that the cap is enforced long before the excess is
+# allocated, large enough that a normal page is one or two iterations.
+_WEB_CONTENT_CHUNK_BYTES = 64 * 1024
+
+_PDF_MAGIC = b"%PDF-"
+
+_HTML_CONTENT_TYPES = ("text/html", "application/xhtml+xml")
+
+# Textual formats that do not start with "text/" but are not the binary-laundered-as-text
+# failure this tool exists to prevent: JSON and the XML feed formats are structured text,
+# not bytes, and an agent doing research routinely meets a JSON API or an RSS feed.
+# Accepted exactly for the two bare types, and by suffix for every vendor/format variant of
+# either (RSS, Atom, and any future "+json" or "+xml" media type) without enumerating them
+# one by one.
+_TEXTUAL_NON_TEXT_CONTENT_TYPES = ("application/json", "application/xml")
+_TEXTUAL_NON_TEXT_SUFFIXES = ("+json", "+xml")
+
+
+class _BodyTooLarge(Exception):
+    """A response body exceeded ``_WEB_CONTENT_LIMIT_BYTES``.
+
+    Carries the numbers the tool's message needs, so the limit is stated once here and
+    phrased once at the call site.
+    """
+
+    def __init__(self, limit: int, size: str):
+        super().__init__(f"body exceeds {limit} bytes")
+        self.limit = limit
+        self.size = size
+
+
+def _read_capped_body(response) -> bytes:
+    """The response body, refusing rather than truncating past the cap.
+
+    Refusing is the point: a half-read PDF does not parse, and a half-read HTML page
+    silently loses content, which is the failure mode this tool exists to remove. The
+    read stops at the cap instead of reading everything and checking afterwards, since
+    not allocating the rest is the whole reason the cap exists.
+    """
+    chunks: list[bytes] = []
+    total = 0
+    for chunk in response.iter_content(chunk_size=_WEB_CONTENT_CHUNK_BYTES):
+        if not chunk:
+            continue
+        chunks.append(chunk)
+        total += len(chunk)
+        if total > _WEB_CONTENT_LIMIT_BYTES:
+            # Report what was actually read, not ``Content-Length``: that header describes
+            # the encoded (e.g. gzipped) body while ``iter_content`` yields decoded bytes, so
+            # for a compressed over-cap response the two numbers disagree, and a message built
+            # from the header can claim a size smaller than the very limit it says was
+            # exceeded. "read so far" also says plainly that this is a partial count, not a
+            # total the read never reached.
+            raise _BodyTooLarge(_WEB_CONTENT_LIMIT_BYTES, f"{total} bytes read so far")
+    return b"".join(chunks)
+
+
+def _declared_size(response, body: bytes) -> str:
+    """A size phrase that never claims to be a total it cannot know.
+
+    ``Content-Length`` when the response declares one, otherwise the length of *body*,
+    said as a read count so a reader is not told a partial figure is the whole. Used for
+    the unsupported-type message, where the body was read to completion (or is small
+    enough that it was), so ``Content-Length`` is a trustworthy answer rather than a
+    stand-in for a partial read; the cap's own refusal states its read count directly
+    instead, since that path stops mid-body and never has a size to trust.
+    """
+    declared = response.headers.get("content-length")
+    if declared:
+        return f"{declared} bytes"
+    return f"{len(body)} bytes read"
+
+
+def _classify(response, body: bytes) -> str:
+    """Which converter a fetched response wants: ``html``, ``pdf``, ``text``, or ``unsupported``.
+
+    ``Content-Type`` first, magic bytes second, because the header is the half that
+    lies: a PDF served as ``application/octet-stream`` is common enough that trusting
+    the header alone is what let binary reach a model as text in the first place.
+    """
+    content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
+    # An HTML content type does not get to override a body that is demonstrably a PDF: a
+    # server stamping text/html on everything is exactly the case the magic-byte check
+    # below exists for, and letting the header win here would launder that PDF as Markdown.
+    if content_type in _HTML_CONTENT_TYPES and not body.startswith(_PDF_MAGIC):
+        return "html"
+    if body.startswith(_PDF_MAGIC) or content_type == "application/pdf":
+        return "pdf"
+    if content_type.startswith("text/"):
+        return "text"
+    if content_type in _TEXTUAL_NON_TEXT_CONTENT_TYPES or content_type.endswith(_TEXTUAL_NON_TEXT_SUFFIXES):
+        return "text"
+    return "unsupported"
 
 
 class _FormExtractor(HTMLParser):
@@ -1059,31 +1143,83 @@ def _format_forms(forms: list[dict]) -> str:
 
 
 @tool
-def get_webpage(url: str) -> str:
-    """Fetches a web page and returns its visible text content with HTML stripped.
+def get_web_content(url: str, max_chars: int = 20000) -> str:
+    """Fetches a URL and returns its content as Markdown, for a web page or a document.
 
-    When the page exposes a publication timestamp (in <meta> tags, JSON-LD, or a
-    <time> element), it is prepended as a "Published:" line so the date isn't lost
-    when the HTML is stripped.
+    Handles HTML pages, PDF documents, and any textual body: plain text, JSON, and XML
+    (including feed formats like RSS and Atom). A page's publication timestamp is
+    prepended as a "Published:" line when the page exposes one, and a PDF's text is
+    marked with a "## Page N" heading per page so it can be cited.
+
+    A response that declares no Content-Type, or declares one that is not text (an
+    image, an archive, a video), is reported rather than returned: guessing "text" for
+    an undeclared body is exactly how binary reached a model as noise before this tool
+    existed.
+
+    If the result says it was truncated, call again with a larger max_chars before
+    drawing any conclusion from it: a partial document reads exactly like a complete one.
 
     Args:
-        url: The URL of the page to retrieve.
+        url: The URL to retrieve.
+        max_chars: Maximum characters to return (default 20000).
     """
     try:
-        response = requests.get(
-            url,
-            headers={"User-Agent": "Mozilla/5.0 (compatible; aimu-tools/1.0)"},
-            timeout=15,
-        )
-        response.raise_for_status()
+        response = _fetch_html(url, stream=True)
+        body = _read_capped_body(response)
     except requests.RequestException as e:
         return f"Error fetching page: {e}"
+    except _BodyTooLarge as e:
+        return (
+            f"This resource is too large to fetch: {e.size}, and the limit is {e.limit} bytes. "
+            "Find a smaller version, or a page that summarizes it."
+        )
 
-    published = _extract_publish_date(response.text)
-    extractor = _TextExtractor()
-    extractor.feed(response.text)
-    text = extractor.get_text()
-    return f"Published: {published}\n\n{text}" if published else text
+    kind = _classify(response, body)
+    if kind == "unsupported":
+        media_type = response.headers.get("content-type", "").split(";")[0].strip()
+        size = _declared_size(response, body)
+        if not media_type:
+            return (
+                f"This URL's response declared no content type ({size}), so it cannot be read as "
+                "text. Only HTML pages, PDFs, and textual content (plain text, JSON, or XML) are supported."
+            )
+        return (
+            f"This URL returned {media_type} ({size}), which is not a web page or a document this "
+            "tool can read as text. Only HTML pages, PDFs, and textual content (plain text, JSON, or XML) "
+            "are supported."
+        )
+
+    if kind == "pdf":
+        try:
+            content = pdf_to_markdown(body)
+        except DocumentConversionError as e:
+            return str(e)
+        return _truncate(content, max_chars, parameter="max_chars")
+
+    # Decoded here rather than read from ``response.text``, which raises once
+    # ``iter_content`` has consumed a streamed response. We prefer the charset the server
+    # declared, and fall back to UTF-8 both when it declared none, when it declared one
+    # Python does not recognize (bogus labels like "utf8mb4" are common in the wild, which
+    # raises LookupError), and when the declared value is not a usable codec name at all
+    # (TypeError); either way ``errors="replace"`` means a mislabeled page degrades instead
+    # of failing outright.
+    try:
+        text = body.decode(response.encoding or "utf-8", errors="replace")
+    except (LookupError, TypeError):
+        text = body.decode("utf-8", errors="replace")
+    if kind == "text":
+        return _truncate(text, max_chars, parameter="max_chars")
+
+    content = html_to_markdown(text)
+    if not content.strip():
+        return (
+            "This page has no readable text once its markup is stripped, which usually means it is "
+            "JavaScript-rendered rather than server-rendered. Try get_webpage_html to see the raw markup."
+        )
+    published = _extract_publish_date(text)
+    if published:
+        content = f"Published: {published}\n\n{content}"
+    return _truncate(content, max_chars, parameter="max_chars")
 
 
 @tool
@@ -1091,7 +1227,7 @@ def get_webpage_html(url: str) -> str:
     """Fetches a web page and returns its raw HTML markup (tags and all).
 
     Use this when you need to see the page structure, e.g. to locate links, attributes,
-    or form markup. For readable article text instead, use ``get_webpage``. For inspecting
+    or form markup. For readable article text instead, use ``get_web_content``. For inspecting
     and submitting forms with cookie/session persistence, use the tools from
     ``make_web_tools()``.
 
@@ -2159,7 +2295,7 @@ def make_web_tools(
 
 
 # Curated subsets: pass one of these to ``tools=`` instead of importing every function.
-web = [get_weather, get_webpage, get_webpage_html, web_search, wikipedia]
+web = [get_weather, get_web_content, get_webpage_html, web_search, wikipedia]
 fs = [list_directory, read_file]
 compute = [calculate, execute_python, run_command]
 # Grouped apart from ``misc`` because an agent almost always wants a clock regardless of its role: an
@@ -2233,7 +2369,7 @@ ALL_TOOLS = [
     *time,
     get_weather,
     calculate,
-    get_webpage,
+    get_web_content,
     get_webpage_html,
     web_search,
     wikipedia,

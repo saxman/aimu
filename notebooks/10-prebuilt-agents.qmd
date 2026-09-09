@@ -53,8 +53,8 @@ print("Worker tools:", [t.__name__ for t in model_client.tools])
 # Requires SEARXNG_BASE_URL env var pointing to a SearXNG instance
 from aimu.tools import builtin
 
-agent = ResearchReportAgent(model_client, worker_tools=[builtin.web_search, builtin.get_webpage])
-# Workers can now call: web_search(query, num_results), get_webpage(url).
+agent = ResearchReportAgent(model_client, worker_tools=[builtin.web_search, builtin.get_web_content])
+# Workers can now call: web_search(query, num_results), get_web_content(url).
 # The orchestrator will dispatch all three workers concurrently.
 ```
 

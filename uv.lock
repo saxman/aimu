@@ -57,7 +57,9 @@ version = "0.29.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp" },
+    { name = "markdownify" },
     { name = "pydantic" },
+    { name = "pypdf", extra = ["crypto"] },
     { name = "python-dotenv" },
     { name = "requests" },
     { name = "tinydb" },
@@ -181,6 +183,7 @@ requires-dist = [
     { name = "jupytext", marker = "extra == 'notebooks'" },
     { name = "kernels", marker = "extra == 'hf'", specifier = ">=0.12,<0.13" },
     { name = "llama-cpp-python", marker = "extra == 'llamacpp'" },
+    { name = "markdownify" },
     { name = "mistral-common", marker = "extra == 'hf'" },
     { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.6" },
     { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.5" },
@@ -191,6 +194,7 @@ requires-dist = [
     { name = "pillow", marker = "extra == 'google'" },
     { name = "pillow", marker = "extra == 'hf'" },
     { name = "pydantic", specifier = ">=2" },
+    { name = "pypdf", extras = ["crypto"] },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "pytest-asyncio", marker = "extra == 'dev'" },
     { name = "python-dotenv" },
@@ -2857,6 +2861,19 @@ wheels = [
 ]
 
 [[package]]
+name = "markdownify"
+version = "1.2.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "beautifulsoup4" },
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/92/ab/d1297139c0e2ceb151ae564c8c4f57ac0155d8f1f8b4cbd5d6523c82ea36/markdownify-1.2.3.tar.gz", hash = "sha256:1a176f05522c8a2cb1dd3ab9d307dcdadbed5c26ae717855bfc42b3b6d38d937", size = 18852, upload-time = "2026-06-30T20:27:39.06Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/04/10/fa543d484e8b1199243fe20eedd02cc5af050edebce98a7293a5773df592/markdownify-1.2.3-py3-none-any.whl", hash = "sha256:a189a0bedfd14009030fde5f85bb6f77c56897cb839b5c25315dd7d4e3e290ba", size = 15732, upload-time = "2026-06-30T20:27:38.094Z" },
+]
+
+[[package]]
 name = "markupsafe"
 version = "3.0.3"
 source = { registry = "https://pypi.org/simple" }
@@ -5026,6 +5043,20 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/21/a9/5f0c535ba3b08fe09270c16808e053a968868242ecbd5676d4e3a488bf28/pymdown_extensions-11.0.1.tar.gz", hash = "sha256:dd2905ae6fc5b75582fafb139a1266ffc754705efa902aa50067fa7ff4f94ec0", size = 857113, upload-time = "2026-07-02T17:59:22.955Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d6/54/da572c98c0b77626a91b5d3b89f0231d8bff5125c225420908632f8b342d/pymdown_extensions-11.0.1-py3-none-any.whl", hash = "sha256:db3943a62bab7e03af1364f0c4083e64b91fb097675a4b6cceccfbe9a77e5eb2", size = 269455, upload-time = "2026-07-02T17:59:21.271Z" },
+]
+
+[[package]]
+name = "pypdf"
+version = "6.18.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c2/c3/9fa0666f280552bd3833562d985b785fce1ddb3804937edd2fd6a3f2bdb3/pypdf-6.18.0.tar.gz", hash = "sha256:ae58b7d93c22c169ffb02c3b06321c45c4f223b4916536568adb57d789d95d01", size = 7024871, upload-time = "2026-09-07T16:48:16.444Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c7/a5/d5922a078c9a612327681d4793404f82998f4d66213add6fdc0659245856/pypdf-6.18.0-py3-none-any.whl", hash = "sha256:05b762b77bcb9dcb4a7c91fcf5dded585b25bee7269ab3d3001d7c55fa1b324b", size = 393848, upload-time = "2026-09-07T16:48:14.254Z" },
+]
+
+[package.optional-dependencies]
+crypto = [
+    { name = "cryptography" },
 ]
 
 [[package]]

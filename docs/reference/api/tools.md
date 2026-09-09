@@ -80,7 +80,7 @@ variable reaches the child beyond its default allowlist.
 
 ::: aimu.tools.builtin.execute_python_in_process
 
-::: aimu.tools.builtin.get_webpage
+::: aimu.tools.builtin.get_web_content
 
 ::: aimu.tools.builtin.get_webpage_html
 

@@ -115,7 +115,7 @@ Any `MemoryStore` works with `ingest` / `retrieve`:
 ## Scope
 
 `aimu.rag` ships the chunk/retrieve/rerank primitives only. Document **loaders** (PDF,
-HTML, etc.) are intentionally not included. The built-in `read_file` and `get_webpage`
+HTML, etc.) are intentionally not included. The built-in `read_file` and `get_web_content`
 tools, or any library that returns text, feed `ingest` directly. Chunks are stored as
 plain strings (the `MemoryStore` contract), so per-chunk metadata (source, page) is not
 currently carried.

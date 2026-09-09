@@ -69,7 +69,7 @@ def search_recent_news(query: str, num_results: int = 8) -> str:
 # prepends a "Published:" line from article metadata), the clock, and an in-process
 # Python REPL so the model can compute the 24-hour cutoff deterministically instead
 # of guessing.
-TOOLS = [search_recent_news, builtin.get_webpage, builtin.get_current_date_and_time, builtin.execute_python]
+TOOLS = [search_recent_news, builtin.get_web_content, builtin.get_current_date_and_time, builtin.execute_python]
 
 # Cap output length per turn so a long multi-article digest isn't truncated mid-stream.
 # 8192 leaves headroom for a thinking model's reasoning plus a ~10-article summary.
@@ -93,7 +93,7 @@ SYSTEM = (
     "Summarize concisely and always include a publication date and source link for every article. "
     "Use search_recent_news with SHORT queries (2-4 words, e.g. 'AI model release' or "
     "'OpenAI') to find fresh, news-grade articles; long keyword-stuffed queries return "
-    "nothing. Read each result's 'Published:' date. If a search result has no date, fetch the article with get_webpage to read "
+    "nothing. Read each result's 'Published:' date. If a search result has no date, fetch the article with get_web_content to read "
     "its 'Published:' metadata. Determine the current time with get_current_date_and_time, and use "
     "execute_python with the datetime module to check whether each publication time is within the "
     "last 24 hours rather than estimating. Prefer primary news sources over social media posts. "
