@@ -545,6 +545,24 @@ def test_get_web_content_falls_back_when_the_declared_charset_is_unknown(monkeyp
     assert "# Hello" in out
 
 
+def test_get_web_content_falls_back_when_the_declared_charset_is_not_a_string(monkeypatch):
+    """bytes.decode raises TypeError, not LookupError, when the encoding argument itself is
+    not a usable codec name (e.g. requests handed back something other than a str). The
+    decode guard's own rationale cites response.text's LookupError/TypeError retry, so both
+    must be caught."""
+    monkeypatch.setattr(
+        builtin.requests,
+        "request",
+        lambda *a, **k: FakeResponse(
+            text="<html><body><h1>Hello</h1></body></html>",
+            headers={"content-type": "text/html"},
+            encoding=12345,
+        ),
+    )
+    out = get_web_content("http://site.example/")
+    assert "# Hello" in out
+
+
 def test_get_web_content_falls_back_to_utf8_when_no_charset_is_declared(monkeypatch):
     monkeypatch.setattr(
         builtin.requests,
@@ -571,6 +589,22 @@ def test_get_web_content_honors_a_declared_non_utf8_charset(monkeypatch):
     )
     out = get_web_content("http://site.example/")
     assert "café" in out
+
+
+def test_get_web_content_reports_a_javascript_shell_page_instead_of_returning_empty(monkeypatch):
+    """html_to_markdown on a page with no prose (a JS-rendered shell) returns "", which would
+    otherwise flow out of the tool as an empty tool result. pdf_to_markdown already refuses
+    this for PDFs; the HTML path must say something too, rather than reading as an empty
+    document."""
+    shell_html = "<html><head><script>var x = 1;</script></head><body></body></html>"
+    monkeypatch.setattr(
+        builtin.requests,
+        "request",
+        lambda *a, **k: FakeResponse(text=shell_html, headers={"content-type": "text/html"}),
+    )
+    out = get_web_content("http://site.example/app")
+    assert "no readable text" in out
+    assert "get_webpage_html" in out
 
 
 def test_get_webpage_is_gone():

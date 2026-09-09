@@ -1194,18 +1194,25 @@ def get_web_content(url: str, max_chars: int = 20000) -> str:
 
     # Decoded here rather than read from ``response.text``, which raises once
     # ``iter_content`` has consumed a streamed response. We prefer the charset the server
-    # declared, and fall back to UTF-8 both when it declared none and when it declared one
-    # Python does not recognize (bogus labels like "utf8mb4" are common in the wild); either
-    # way ``errors="replace"`` means a mislabeled page degrades instead of failing outright.
+    # declared, and fall back to UTF-8 both when it declared none, when it declared one
+    # Python does not recognize (bogus labels like "utf8mb4" are common in the wild, which
+    # raises LookupError), and when the declared value is not a usable codec name at all
+    # (TypeError); either way ``errors="replace"`` means a mislabeled page degrades instead
+    # of failing outright.
     try:
         text = body.decode(response.encoding or "utf-8", errors="replace")
-    except LookupError:
+    except (LookupError, TypeError):
         text = body.decode("utf-8", errors="replace")
     if kind == "text":
         return _truncate(text, max_chars, parameter="max_chars")
 
-    published = _extract_publish_date(text)
     content = html_to_markdown(text)
+    if not content.strip():
+        return (
+            "This page has no readable text once its markup is stripped, which usually means it is "
+            "JavaScript-rendered rather than server-rendered. Try get_webpage_html to see the raw markup."
+        )
+    published = _extract_publish_date(text)
     if published:
         content = f"Published: {published}\n\n{content}"
     return _truncate(content, max_chars, parameter="max_chars")
