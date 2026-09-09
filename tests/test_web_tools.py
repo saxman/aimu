@@ -301,9 +301,27 @@ def test_classify_reads_content_type_first():
 
 
 def test_classify_falls_back_to_magic_bytes_for_a_lying_content_type():
-    """A PDF served as application/octet-stream is common; the header is the half that lies."""
+    """A PDF served as application/octet-stream is common; the header is the half that lies.
+    application/octet-stream is not one of the HTML content types, so it falls through the
+    (now-first) HTML check unaffected and still reaches the magic-byte check."""
     response = FakeResponse(headers={"content-type": "application/octet-stream"})
     assert _classify(response, b"%PDF-1.7 rest of the file") == "pdf"
+
+
+def test_classify_accepts_json_and_xml_and_their_vendor_variants():
+    """application/json and application/xml are structured text, not the binary-laundered-
+    as-text failure this tool exists to prevent; RSS and Atom feeds are the +xml case
+    examples/news-summarizer depends on."""
+    assert _classify(FakeResponse(headers={"content-type": "application/json"}), b"{}") == "text"
+    assert _classify(FakeResponse(headers={"content-type": "application/xml"}), b"<a/>") == "text"
+    assert _classify(FakeResponse(headers={"content-type": "application/rss+xml"}), b"<rss/>") == "text"
+    assert _classify(FakeResponse(headers={"content-type": "application/atom+xml"}), b"<feed/>") == "text"
+
+
+def test_classify_refuses_a_response_with_no_content_type():
+    """Guessing "text" for an undeclared body is the same failure mode this tool exists to
+    remove, in a different shape, so an absent Content-Type stays refused deliberately."""
+    assert _classify(FakeResponse(headers={}), b"anything") == "unsupported"
 
 
 def test_declared_size_prefers_content_length():
@@ -403,6 +421,39 @@ def test_get_web_content_refuses_an_unsupported_type(monkeypatch):
     assert "image/png" in out
     assert "6 bytes" in out
     assert "PNG" not in out  # the bytes themselves never reach the caller
+
+
+def test_get_web_content_returns_json_as_is(monkeypatch):
+    body = b'{"result": "ok"}'
+    monkeypatch.setattr(
+        builtin.requests,
+        "request",
+        lambda *a, **k: FakeResponse(body=body, headers={"content-type": "application/json"}),
+    )
+    out = get_web_content("http://site.example/api")
+    assert out == '{"result": "ok"}'
+
+
+def test_get_web_content_returns_an_atom_feed_as_is(monkeypatch):
+    body = b"<feed><entry><title>Item</title></entry></feed>"
+    monkeypatch.setattr(
+        builtin.requests,
+        "request",
+        lambda *a, **k: FakeResponse(body=body, headers={"content-type": "application/atom+xml"}),
+    )
+    out = get_web_content("http://site.example/feed")
+    assert "<title>Item</title>" in out
+
+
+def test_get_web_content_refuses_a_response_with_no_content_type(monkeypatch):
+    monkeypatch.setattr(
+        builtin.requests,
+        "request",
+        lambda *a, **k: FakeResponse(body=b"mystery bytes", headers={}),
+    )
+    out = get_web_content("http://site.example/x")
+    assert "declared no content type" in out
+    assert "13 bytes" in out  # len(b"mystery bytes")
 
 
 def test_get_web_content_reports_a_password_protected_pdf(monkeypatch):

@@ -992,6 +992,14 @@ _PDF_MAGIC = b"%PDF-"
 
 _HTML_CONTENT_TYPES = ("text/html", "application/xhtml+xml")
 
+# Textual formats that do not start with "text/" but are not the binary-laundered-as-text
+# failure this tool exists to prevent: JSON and XML are structured text, not bytes, and
+# examples/news-summarizer depends on the feed formats specifically. Accepted exactly for
+# the two bare types, and by suffix for every vendor/format variant of either (RSS, Atom,
+# and any future "+json" or "+xml" media type) without enumerating them one by one.
+_TEXTUAL_NON_TEXT_CONTENT_TYPES = ("application/json", "application/xml")
+_TEXTUAL_NON_TEXT_SUFFIXES = ("+json", "+xml")
+
 
 class _BodyTooLarge(Exception):
     """A response body exceeded ``_WEB_CONTENT_LIMIT_BYTES``.
@@ -1056,11 +1064,13 @@ def _classify(response, body: bytes) -> str:
     the header alone is what let binary reach a model as text in the first place.
     """
     content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
-    if body.startswith(_PDF_MAGIC) or content_type == "application/pdf":
-        return "pdf"
     if content_type in _HTML_CONTENT_TYPES:
         return "html"
+    if body.startswith(_PDF_MAGIC) or content_type == "application/pdf":
+        return "pdf"
     if content_type.startswith("text/"):
+        return "text"
+    if content_type in _TEXTUAL_NON_TEXT_CONTENT_TYPES or content_type.endswith(_TEXTUAL_NON_TEXT_SUFFIXES):
         return "text"
     return "unsupported"
 
@@ -1130,15 +1140,17 @@ def _format_forms(forms: list[dict]) -> str:
 
 @tool
 def get_web_content(url: str, max_chars: int = 20000) -> str:
-    """Fetches a URL and returns its content as Markdown, for a web page or a PDF.
+    """Fetches a URL and returns its content as Markdown, for a web page or a document.
 
-    Handles HTML pages, PDF documents, and plain text. A page's publication timestamp is
-    prepended as a "Published:" line when the page exposes one, and a PDF's text is marked
-    with a "## Page N" heading per page so it can be cited.
+    Handles HTML pages, PDF documents, and any textual body: plain text, JSON, and XML
+    (including feed formats like RSS and Atom). A page's publication timestamp is
+    prepended as a "Published:" line when the page exposes one, and a PDF's text is
+    marked with a "## Page N" heading per page so it can be cited.
 
-    Anything that is neither a page nor a document (an image, an archive, a video) is
-    reported rather than returned, because its bytes are not text and reading them as
-    text produces noise a model cannot use.
+    A response that declares no Content-Type, or declares one that is not text (an
+    image, an archive, a video), is reported rather than returned: guessing "text" for
+    an undeclared body is exactly how binary reached a model as noise before this tool
+    existed.
 
     If the result says it was truncated, call again with a larger max_chars before
     drawing any conclusion from it: a partial document reads exactly like a complete one.
@@ -1160,10 +1172,17 @@ def get_web_content(url: str, max_chars: int = 20000) -> str:
 
     kind = _classify(response, body)
     if kind == "unsupported":
-        media_type = response.headers.get("content-type", "").split(";")[0].strip() or "an undeclared type"
+        media_type = response.headers.get("content-type", "").split(";")[0].strip()
+        size = _declared_size(response, body)
+        if not media_type:
+            return (
+                f"This URL's response declared no content type ({size}), so it cannot be read as "
+                "text. Only HTML pages, PDFs, and textual content (plain text, JSON, or XML) are supported."
+            )
         return (
-            f"This URL returned {media_type} ({_declared_size(response, body)}), which is not a web page "
-            "or a document this tool can read as text. Only HTML pages, PDFs, and plain text are supported."
+            f"This URL returned {media_type} ({size}), which is not a web page or a document this "
+            "tool can read as text. Only HTML pages, PDFs, and textual content (plain text, JSON, or XML) "
+            "are supported."
         )
 
     if kind == "pdf":
