@@ -18,7 +18,7 @@ from io import BytesIO
 from bs4 import BeautifulSoup
 from markdownify import MarkdownConverter
 from pypdf import PasswordType, PdfReader
-from pypdf.errors import PdfReadError
+from pypdf.errors import DependencyError, PdfReadError
 
 # Tags whose *content* is not page content. markdownify's own ``strip`` option removes a
 # tag while keeping its text, which is the opposite of what these need: a <script> body
@@ -49,12 +49,16 @@ def html_to_markdown(html: str) -> str:
 
 
 def pdf_to_markdown(data: bytes) -> str:
-    """*data* as Markdown, one ``## Page N`` heading per page.
+    """*data* as Markdown, one ``## Page N`` heading per page with extractable text.
 
-    Page markers rather than inferred structure, for two reasons: a caller citing a
-    report wants a page number, and a document later cut by a character cap can then say
-    how far it got in terms the source itself has. pypdf's extraction exposes no heading
-    structure that could be promoted honestly, so nothing else is invented.
+    Pages with no extractable text are omitted rather than emitting empty headings.
+    A document whose figures are full-page images would otherwise contribute a run of
+    empty sections, inflating the model's context for zero content. The numbering of
+    the pages that do appear is unaffected, so both reasons for page markers still hold:
+    a caller citing a report refers to a page number, and a document later cut by a
+    character cap still reports how far it got in terms the source itself has.
+    pypdf's extraction exposes no heading structure that could be promoted honestly, so
+    nothing else is invented.
 
     An encrypted PDF is opened with an empty password before anything else is tried.
     Published reports are routinely encrypted with an owner password alone, which
@@ -71,9 +75,11 @@ def pdf_to_markdown(data: bytes) -> str:
         pages = [(number, page.extract_text()) for number, page in enumerate(reader.pages, start=1)]
     except DocumentConversionError:
         raise
-    except (PdfReadError, OSError, ValueError) as exc:
-        # pypdf raises PdfReadError for a malformed file, and its parsing reaches for
-        # ValueError and OSError on inputs that are not PDFs at all despite the header.
+    except (PdfReadError, DependencyError, NotImplementedError, OSError, ValueError) as exc:
+        # pypdf raises PdfReadError for a malformed file, DependencyError for missing
+        # decompression dependencies, NotImplementedError for unsupported encryption
+        # filters or /V versions, and ValueError or OSError on inputs that are not PDFs
+        # at all despite the header.
         raise DocumentConversionError(f"This PDF could not be read: {exc}") from exc
 
     if not any(text.strip() for _, text in pages):

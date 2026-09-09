@@ -130,3 +130,13 @@ def test_pdf_to_markdown_reports_a_pdf_with_no_text_layer():
 def test_pdf_to_markdown_reports_unparseable_bytes():
     with pytest.raises(DocumentConversionError, match="could not be read"):
         pdf_to_markdown(b"%PDF-1.4 this is not really a pdf")
+
+
+def test_pdf_to_markdown_omits_a_page_with_no_text_but_keeps_later_numbering():
+    """Blank pages are skipped to avoid inflating context with empty sections."""
+    out = pdf_to_markdown(minimal_pdf(["Page one text", "", "Page three text"]))
+    assert "## Page 1" in out
+    assert "Page one text" in out
+    assert "## Page 2" not in out
+    assert "## Page 3" in out
+    assert "Page three text" in out
