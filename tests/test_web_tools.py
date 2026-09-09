@@ -258,6 +258,26 @@ def test_read_capped_body_refuses_an_oversized_body():
         _read_capped_body(response)
 
 
+def test_read_capped_body_allows_exactly_the_cap():
+    """The comparison is strictly greater-than; a body of exactly the cap must not raise."""
+    exact = b"x" * _WEB_CONTENT_LIMIT_BYTES
+    response = FakeResponse(body=exact, headers={"content-type": "application/pdf"})
+    assert len(_read_capped_body(response)) == _WEB_CONTENT_LIMIT_BYTES
+
+
+def test_read_capped_body_reports_the_read_count_not_a_smaller_declared_length():
+    """Content-Length describes the encoded body while iter_content yields decoded bytes,
+    so a gzipped response can declare a small length and still stream past the cap. The
+    refusal must report what was actually read, not the header, or the message
+    contradicts itself (e.g. "2000000 bytes, and the limit is 10485760 bytes")."""
+    oversized = b"x" * (_WEB_CONTENT_LIMIT_BYTES + 1)
+    response = FakeResponse(body=oversized, headers={"content-type": "application/pdf", "content-length": "2000000"})
+    with pytest.raises(_BodyTooLarge) as excinfo:
+        _read_capped_body(response)
+    assert "2000000" not in excinfo.value.size
+    assert "bytes read" in excinfo.value.size
+
+
 def test_read_capped_body_stops_reading_at_the_cap():
     """The point of the cap is not allocating the rest, so it must stop, not read then check."""
     read = {"bytes": 0}

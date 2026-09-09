@@ -1022,20 +1022,30 @@ def _read_capped_body(response) -> bytes:
         chunks.append(chunk)
         total += len(chunk)
         if total > _WEB_CONTENT_LIMIT_BYTES:
-            raise _BodyTooLarge(_WEB_CONTENT_LIMIT_BYTES, _declared_size(response, b"", total))
+            # Report what was actually read, not ``Content-Length``: that header describes
+            # the encoded (e.g. gzipped) body while ``iter_content`` yields decoded bytes, so
+            # for a compressed over-cap response the two numbers disagree, and a message built
+            # from the header can claim a size smaller than the very limit it says was
+            # exceeded. "read so far" also says plainly that this is a partial count, not a
+            # total the read never reached.
+            raise _BodyTooLarge(_WEB_CONTENT_LIMIT_BYTES, f"{total} bytes read so far")
     return b"".join(chunks)
 
 
-def _declared_size(response, body: bytes, read: Optional[int] = None) -> str:
+def _declared_size(response, body: bytes) -> str:
     """A size phrase that never claims to be a total it cannot know.
 
-    ``Content-Length`` when the response declares one, otherwise the count actually
-    read, said in those words so a reader is not told a partial figure is the whole.
+    ``Content-Length`` when the response declares one, otherwise the length of *body*,
+    said as a read count so a reader is not told a partial figure is the whole. Used for
+    the unsupported-type message, where the body was read to completion (or is small
+    enough that it was), so ``Content-Length`` is a trustworthy answer rather than a
+    stand-in for a partial read; the cap's own refusal states its read count directly
+    instead, since that path stops mid-body and never has a size to trust.
     """
     declared = response.headers.get("content-length")
     if declared:
         return f"{declared} bytes"
-    return f"{read if read is not None else len(body)} bytes read"
+    return f"{len(body)} bytes read"
 
 
 def _classify(response, body: bytes) -> str:
