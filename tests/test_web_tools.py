@@ -18,6 +18,8 @@ from aimu.tools.builtin import (
     _declared_size,
     _read_capped_body,
     _truncate,
+    _window,
+    _window_complaint,
     _WEB_CONTENT_LIMIT_BYTES,
     get_web_content,
     get_webpage_html,
@@ -91,8 +93,31 @@ def test_get_webpage_html_truncates_long_pages(monkeypatch):
     big = "x" * 25000
     monkeypatch.setattr(builtin.requests, "request", lambda *a, **k: FakeResponse(text=big))
     out = get_webpage_html("http://site.example/")
-    assert "[... truncated" in out
+    assert "truncated: showing characters 1-20000 of 25000" in out
+    assert "call get_webpage_html with offset=20001 to continue" in out
     assert len(out) < len(big)
+
+
+def test_get_webpage_html_offset_reaches_markup_past_the_first_window(monkeypatch):
+    # The form or link a caller is after is routinely past a real page's head and nav, and
+    # this tool's window is fixed, so offset is the only way to it.
+    page = "x" * 20000 + '<form action="/login" method="post"></form>'
+    monkeypatch.setattr(builtin.requests, "request", lambda *a, **k: FakeResponse(text=page))
+
+    out = get_webpage_html("http://site.example/", offset=20001)
+
+    assert '<form action="/login"' in out
+    assert "truncated" not in out
+
+
+def test_get_webpage_html_rejects_a_non_positive_offset(monkeypatch):
+    calls = []
+    monkeypatch.setattr(builtin.requests, "request", lambda *a, **k: calls.append(1) or FakeResponse(text="x"))
+
+    out = get_webpage_html("http://site.example/", offset=0)
+
+    assert "1-indexed" in out
+    assert calls == []  # and it did not spend a request finding that out
 
 
 def test_get_webpage_html_reports_errors(monkeypatch):
@@ -352,23 +377,46 @@ def test_declared_size_says_what_it_read_when_no_length_is_declared():
 
 
 # ---------------------------------------------------------------------------
-# _truncate
+# _truncate / _window
 # ---------------------------------------------------------------------------
 
 
-def test_truncate_marker_is_unchanged_without_a_parameter_name():
-    """get_webpage_html's output must not move: its own tests pin this wording."""
+def test_truncate_marker_is_unchanged():
+    """submit_form's output must not move: it is the one caller left that cannot page."""
     assert _truncate("x" * 12, 10) == "x" * 10 + "\n[... truncated 2 chars]"
 
 
-def test_truncate_marker_names_the_parameter_when_given_one():
-    out = _truncate("x" * 12, 10, parameter="max_chars")
-    assert "[... truncated 2 chars" in out
-    assert "max_chars" in out
-
-
 def test_truncate_leaves_short_text_alone():
-    assert _truncate("short", 10, parameter="max_chars") == "short"
+    assert _truncate("short", 10) == "short"
+
+
+def test_window_marker_names_the_next_offset():
+    out = _window("abcdefghij", offset=1, limit=4, unit="character", tool="get_web_content")
+    assert out.startswith("abcd")
+    assert "characters 1-4 of 10" in out
+    assert "call get_web_content with offset=5 to continue" in out
+
+
+def test_window_serves_lines_and_characters_from_one_implementation():
+    """The unit differs; the marker, the arithmetic, and the last-window silence do not."""
+    chars = _window("abcdef", offset=3, limit=2, unit="character", tool="t")
+    lines = _window(["a", "b", "c", "d", "e", "f"], offset=3, limit=2, unit="line", tool="t", join="\n")
+
+    assert chars.startswith("cd") and lines.startswith("c\nd")
+    assert "characters 3-4 of 6" in chars
+    assert "lines 3-4 of 6" in lines
+
+
+def test_window_does_not_mark_a_final_window():
+    assert _window("abcdef", offset=5, limit=100, unit="character", tool="t") == "ef"
+
+
+def test_window_complaint_catches_an_unusable_request():
+    assert "1-indexed" in _window_complaint(offset=0, limit=10, limit_name="max_chars", unit="character")
+    assert "max_chars must be 1 or greater" in _window_complaint(
+        offset=1, limit=0, limit_name="max_chars", unit="character"
+    )
+    assert _window_complaint(offset=1, limit=10, limit_name="max_chars", unit="character") is None
 
 
 # ---------------------------------------------------------------------------
@@ -485,14 +533,16 @@ def test_get_web_content_reports_a_password_protected_pdf(monkeypatch):
     assert "password" in get_web_content("http://site.example/locked.pdf")
 
 
-def test_get_web_content_caps_its_return_and_names_the_parameter(monkeypatch):
+def test_get_web_content_caps_its_return_and_names_the_continuation(monkeypatch):
     html = "<p>" + ("word " * 20000) + "</p>"
     monkeypatch.setattr(
         builtin.requests, "request", lambda *a, **k: FakeResponse(text=html, headers={"content-type": "text/html"})
     )
     out = get_web_content("http://site.example/")
-    assert "[... truncated" in out
-    assert "max_chars" in out
+    # The remedy named is the one that does not re-read what this call already returned;
+    # raising max_chars to swallow the whole document is what the cap exists to prevent.
+    assert "truncated: showing characters 1-20000 of" in out
+    assert "call get_web_content with offset=20001 to continue" in out
 
 
 def test_get_web_content_honors_a_raised_max_chars(monkeypatch):
@@ -626,3 +676,86 @@ def test_get_web_content_reports_a_javascript_shell_page_instead_of_returning_em
 
 def test_get_webpage_is_gone():
     assert not hasattr(builtin, "get_webpage")
+
+
+# ---------------------------------------------------------------------------
+# get_web_content windowing
+# ---------------------------------------------------------------------------
+
+
+def test_get_web_content_truncation_marker_names_the_next_offset(monkeypatch):
+    body = "<html><body><p>" + ("word " * 6000) + "</p></body></html>"
+    monkeypatch.setattr(builtin.requests, "request", lambda *a, **k: FakeResponse(text=body))
+
+    out = get_web_content("http://site.example/", max_chars=500)
+
+    assert "truncated: showing characters 1-500 of" in out
+    assert "call get_web_content with offset=501 to continue" in out
+
+
+def test_get_web_content_offset_reads_a_later_window(monkeypatch):
+    body = "<html><body><p>" + ("A" * 400) + "TARGET" + "</p></body></html>"
+    monkeypatch.setattr(builtin.requests, "request", lambda *a, **k: FakeResponse(text=body))
+
+    first = get_web_content("http://site.example/", max_chars=100)
+    assert "TARGET" not in first
+
+    later = get_web_content("http://site.example/", max_chars=400, offset=101)
+    assert "TARGET" in later
+
+
+def test_get_web_content_pages_a_document_larger_than_one_window(monkeypatch):
+    body = "<html><body><p>" + ("word " * 2000) + "</p></body></html>"
+    monkeypatch.setattr(builtin.requests, "request", lambda *a, **k: FakeResponse(text=body))
+
+    seen, offset = "", 1
+    while True:
+        lines = get_web_content("http://site.example/", max_chars=1000, offset=offset).splitlines()
+        truncated = bool(lines) and lines[-1].startswith("... (truncated")
+        seen += "\n".join(lines[:-1] if truncated else lines)
+        if not truncated:
+            break
+        offset += 1000
+
+    whole = get_web_content("http://site.example/", max_chars=10**6)
+    assert seen == whole
+    assert "truncated" not in whole
+
+
+def test_get_web_content_offset_past_the_end_says_how_long_it_is(monkeypatch):
+    monkeypatch.setattr(builtin.requests, "request", lambda *a, **k: FakeResponse(text="<p>short</p>"))
+
+    out = get_web_content("http://site.example/", offset=99999)
+
+    assert "past the end" in out
+    assert "characters" in out
+
+
+def test_get_web_content_rejects_a_non_positive_offset_without_fetching(monkeypatch):
+    calls = []
+    monkeypatch.setattr(builtin.requests, "request", lambda *a, **k: calls.append(1) or FakeResponse(text="<p>x</p>"))
+
+    out = get_web_content("http://site.example/", offset=-5)
+
+    assert "1-indexed" in out
+    assert calls == []
+
+
+def test_get_web_content_windows_a_pdf_too(monkeypatch):
+    # A PDF is the body most likely to exceed one window, and the path that converts it is
+    # separate from the HTML one, so it needs its own proof that the window applies there.
+    from tests.test_documents import minimal_pdf
+
+    pdf = minimal_pdf(["alpha " * 200, "beta " * 200])
+    monkeypatch.setattr(
+        builtin.requests,
+        "request",
+        lambda *a, **k: FakeResponse(text="", headers={"content-type": "application/pdf"}, body=pdf),
+    )
+
+    first = get_web_content("http://site.example/doc.pdf", max_chars=300)
+    assert "truncated: showing characters 1-300 of" in first
+    assert "call get_web_content with offset=301 to continue" in first
+
+    later = get_web_content("http://site.example/doc.pdf", max_chars=300, offset=301)
+    assert "alpha" in later or "beta" in later

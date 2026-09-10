@@ -234,6 +234,60 @@ def test_read_missing_document_returns_message_not_raise(doc_tools):
     assert "No document found" in result and "/nope.md" in result
 
 
+def test_read_document_windows_a_long_document_and_names_the_next_offset(doc_tools):
+    # The store holds documents the user drops in, which can be paper-sized. Returning one
+    # whole is how a single read spends the context window the rest of the task needs.
+    save = _by_name(doc_tools, "save_document")
+    read = _by_name(doc_tools, "read_document")
+    save("/papers/long.md", "\n".join(f"line {i}" for i in range(3000)))
+
+    out = read("/papers/long.md", max_lines=10)
+
+    assert out.startswith("line 0")
+    assert "truncated: showing lines 1-10 of 3000" in out
+    assert "call read_document with offset=11 to continue" in out
+
+
+def test_read_document_pages_a_document_larger_than_one_window(doc_tools):
+    save = _by_name(doc_tools, "save_document")
+    read = _by_name(doc_tools, "read_document")
+    body = [f"line {i}" for i in range(2500)]
+    save("/papers/long.md", "\n".join(body))
+
+    seen, offset = [], 1
+    while True:
+        lines = read("/papers/long.md", max_lines=1000, offset=offset).splitlines()
+        truncated = bool(lines) and lines[-1].startswith("... (truncated")
+        seen.extend(lines[:-1] if truncated else lines)
+        if not truncated:
+            break
+        offset += 1000
+
+    assert seen == body
+
+
+def test_read_document_offset_past_the_end_says_how_long_it_is(doc_tools):
+    save = _by_name(doc_tools, "save_document")
+    read = _by_name(doc_tools, "read_document")
+    save("/notes/a.md", "one\ntwo\nthree")
+
+    out = read("/notes/a.md", offset=99)
+
+    assert "past the end" in out and "3 lines" in out
+
+
+def test_read_document_rejects_a_non_positive_offset(doc_tools):
+    read = _by_name(doc_tools, "read_document")
+    assert "1-indexed" in read("/notes/a.md", offset=0)
+
+
+def test_read_document_advertises_its_window_to_the_model(doc_tools):
+    read = _by_name(doc_tools, "read_document")
+    params = read.__tool_spec__["function"]["parameters"]
+    assert {"max_lines", "offset"} <= set(params["properties"])
+    assert params["required"] == ["path"]
+
+
 def test_search_documents_finds_substring(doc_tools):
     save = _by_name(doc_tools, "save_document")
     search = _by_name(doc_tools, "search_documents")

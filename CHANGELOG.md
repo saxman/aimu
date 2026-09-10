@@ -4,6 +4,38 @@
 
 ### Tools
 
+- **Every capped read a caller can safely repeat now takes an `offset`, and their truncation
+  notices name the call that continues from where they stopped.** A cap with no offset is not a
+  smaller read, it is an unreachable tail: the only remedy such a tool can offer is a bigger cap,
+  and on exactly the documents where the cap bites, a bigger cap overflows the context window the
+  cap was protecting. Four tools had that shape. `read_file` and `read_document` take
+  `max_lines=2000, offset=1` (1-indexed lines), `get_web_content` takes `max_chars=20000, offset=1`
+  (1-indexed characters), and `get_webpage_html` takes `offset=1` against its fixed 20,000-character
+  window -- fixed rather than caller-raisable because raw markup costs several times the tokens of
+  the text it carries, so `offset` is deliberately the only way to the rest, and the form or link a
+  caller is after is routinely past a real page's head and navigation. Each marker now reads
+  `truncated: showing lines 1-2000 of 24709; call read_file with offset=2001 to continue`: the
+  window returned, the size of the gap, and the exact next call. A non-positive `offset` or cap, and
+  an `offset` past the end, come back as teaching strings naming the real size rather than raising,
+  matching how the rest of `builtin.py` reports a model-fixable argument mistake; the web tools check
+  the window *before* fetching, so a bad offset costs no network round trip. Reading from the default
+  `offset=1` is unchanged everywhere, including on an empty file or document.
+
+  Two deliberate exceptions. `submit_form`'s response body keeps the old un-paged `_truncate`
+  marker: continuing that read would mean submitting the form again, and the tool exists to send
+  POSTs. `aimu.memory.document_mcp`'s `memory_read` is also unchanged, because its whole purpose is
+  drop-in compatibility with Anthropic's Managed Agents Memory API, whose `view` command spells a
+  window `view_range`; adding AIMU-flavored parameters there would break the property that justifies
+  the module's existence, so matching `view_range` is a separate decision.
+
+  The window, the marker, and the argument complaints live in one place (`_window` /
+  `_window_complaint` / `_past_end` in `aimu/tools/builtin.py`), which is what keeps four markers
+  from drifting into four dialects; `_window` slices a `str` for character windows and a list of
+  lines for line windows, since slicing and `join.join` behave identically on both. `_truncate`'s
+  `parameter=` argument is gone, having had exactly one caller left that could name a remedy.
+  Tests: `tests/test_web_tools.py` (window helpers, both web tools, the PDF path, the no-fetch
+  guard), `tests/test_memory_tools.py` (`read_document` paging), `tests/test_tools.py` (`read_file`).
+
 - **New: `read_file(path, max_lines=2000, offset=1)` reads a window, and its truncation notice
   names the offset that continues the read.** The tool had a cap and no way past it: `max_lines`
   could only be raised, so the only route to the end of a long file was to re-read it from the top

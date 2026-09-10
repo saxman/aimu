@@ -943,22 +943,73 @@ def _extract_publish_date(html: str) -> str:
 
 _DEFAULT_USER_AGENT = "Mozilla/5.0 (compatible; aimu-tools/1.0)"
 
+# Raw markup costs several times the tokens of the text it carries, so the per-call window
+# stays fixed and ``offset`` is the way to the rest, rather than a caller-raisable cap that
+# invites swallowing a whole page of it.
+_HTML_WINDOW_CHARS = 20000
 
-def _truncate(text: str, limit: int, parameter: Optional[str] = None) -> str:
+
+# ---- Windowed reads ----------------------------------------------------------
+#
+# Every tool here that returns part of something larger returns the same shape: a window,
+# plus a marker naming the call that continues from where it stopped. A cap with no offset
+# is not a smaller read, it is an unreachable tail, and the only remedy such a tool can
+# offer is a bigger cap: on exactly the documents where the cap bites, that overflows the
+# context window the cap was protecting. One helper serves every windowed tool so the four
+# markers cannot drift apart.
+
+
+def _window_complaint(*, offset: int, limit: int, limit_name: str, unit: str) -> Optional[str]:
+    """Return a model-facing complaint about an unusable window request, else None.
+
+    Returned rather than raised, like this module's other model-facing argument
+    complaints, so the model corrects its own next call instead of the run failing on a
+    mistake it could have fixed.
+    """
+    if offset < 1:
+        return f"offset must be 1 or greater (it is 1-indexed; the first {unit} is offset=1), got {offset}"
+    if limit < 1:
+        return f"{limit_name} must be 1 or greater, got {limit}"
+    return None
+
+
+def _past_end(*, offset: int, total: int, unit: str, describe: str) -> str:
+    """Report an offset past the end of *describe*, naming its real size to correct against."""
+    return f"offset {offset} is past the end of {describe}: it has {total} {unit}s"
+
+
+def _window(units, *, offset: int, limit: int, unit: str, tool: str, join: str = "") -> str:
+    """Return *limit* units from 1-indexed *offset*, marked when more remains.
+
+    *units* is a ``str`` (character windows) or a list of lines; slicing and ``join.join``
+    behave identically on both, so line-windowed and character-windowed tools share this
+    one implementation.
+    """
+    start = offset - 1
+    window = units[start : start + limit]
+    last = start + len(window)
+    content = join.join(window)
+    if last < len(units):
+        # Name the window and the total, so the model sees the size of the gap rather than
+        # only that something was cut, and name the exact call that continues from here.
+        content += (
+            f"\n... (truncated: showing {unit}s {offset}-{last} of {len(units)}; "
+            f"call {tool} with offset={last + 1} to continue)"
+        )
+    return content
+
+
+def _truncate(text: str, limit: int) -> str:
     """Cap *text* at *limit* characters, appending a marker when it was cut.
 
-    Raw HTML is token-heavy; an untruncated page can overflow a model's context window.
-
-    *parameter*, when given, is named in the marker so a caller is told how to get the
-    rest, the way ``read_file``'s marker names the offset that continues the read. It is
-    optional because ``get_webpage_html``'s limit is fixed and has nothing to name, and
-    because its existing output should not move.
+    For output that cannot be paged rather than merely capped: ``submit_form``'s response
+    body is the result of a request that may have written something, so continuing the read
+    would mean submitting the form again. Everything a caller can safely re-read instead
+    uses ``_window``.
     """
     if limit is None or len(text) <= limit:
         return text
     dropped = len(text) - limit
-    if parameter:
-        return f"{text[:limit]}\n[... truncated {dropped} chars; call again with a larger {parameter} to read more]"
     return f"{text[:limit]}\n[... truncated {dropped} chars]"
 
 
@@ -1143,7 +1194,7 @@ def _format_forms(forms: list[dict]) -> str:
 
 
 @tool
-def get_web_content(url: str, max_chars: int = 20000) -> str:
+def get_web_content(url: str, max_chars: int = 20000, offset: int = 1) -> str:
     """Fetches a URL and returns its content as Markdown, for a web page or a document.
 
     Handles HTML pages, PDF documents, and any textual body: plain text, JSON, and XML
@@ -1156,13 +1207,27 @@ def get_web_content(url: str, max_chars: int = 20000) -> str:
     an undeclared body is exactly how binary reached a model as noise before this tool
     existed.
 
-    If the result says it was truncated, call again with a larger max_chars before
+    If the result says it was truncated, call again with the offset it names before
     drawing any conclusion from it: a partial document reads exactly like a complete one.
+    Paging with offset is how a document larger than one window gets read whole. Each
+    call re-fetches and re-converts the URL, so prefer a window large enough to answer
+    the question over a walk through a long document in small steps.
 
     Args:
         url: The URL to retrieve.
         max_chars: Maximum characters to return (default 20000).
+        offset: 1-indexed character to start reading from (default 1, the start).
     """
+    complaint = _window_complaint(offset=offset, limit=max_chars, limit_name="max_chars", unit="character")
+    if complaint:
+        # Checked before the fetch: a bad window is not worth a network round trip.
+        return complaint
+
+    def windowed(content: str) -> str:
+        if offset > len(content) and offset > 1:
+            return _past_end(offset=offset, total=len(content), unit="character", describe=url)
+        return _window(content, offset=offset, limit=max_chars, unit="character", tool="get_web_content")
+
     try:
         response = _fetch_html(url, stream=True)
         body = _read_capped_body(response)
@@ -1194,7 +1259,7 @@ def get_web_content(url: str, max_chars: int = 20000) -> str:
             content = pdf_to_markdown(body)
         except DocumentConversionError as e:
             return str(e)
-        return _truncate(content, max_chars, parameter="max_chars")
+        return windowed(content)
 
     # Decoded here rather than read from ``response.text``, which raises once
     # ``iter_content`` has consumed a streamed response. We prefer the charset the server
@@ -1208,7 +1273,7 @@ def get_web_content(url: str, max_chars: int = 20000) -> str:
     except (LookupError, TypeError):
         text = body.decode("utf-8", errors="replace")
     if kind == "text":
-        return _truncate(text, max_chars, parameter="max_chars")
+        return windowed(text)
 
     content = html_to_markdown(text)
     if not content.strip():
@@ -1219,11 +1284,11 @@ def get_web_content(url: str, max_chars: int = 20000) -> str:
     published = _extract_publish_date(text)
     if published:
         content = f"Published: {published}\n\n{content}"
-    return _truncate(content, max_chars, parameter="max_chars")
+    return windowed(content)
 
 
 @tool
-def get_webpage_html(url: str) -> str:
+def get_webpage_html(url: str, offset: int = 1) -> str:
     """Fetches a web page and returns its raw HTML markup (tags and all).
 
     Use this when you need to see the page structure, e.g. to locate links, attributes,
@@ -1232,17 +1297,33 @@ def get_webpage_html(url: str) -> str:
     ``make_web_tools()``.
 
     Note: this fetches server-rendered HTML only; it does not execute JavaScript, so
-    pages built client-side (SPAs) will return their pre-render markup. Long pages are
-    truncated to keep the output within a model's context window.
+    pages built client-side (SPAs) will return their pre-render markup. Markup is
+    token-heavy, so the window per call is fixed; if the result says it was truncated,
+    call again with the offset it names to continue. The form or link you are looking
+    for is often past the first window of a real page's head and navigation.
 
     Args:
         url: The URL of the page to retrieve.
+        offset: 1-indexed character to start reading from (default 1, the start).
     """
+    complaint = _window_complaint(
+        offset=offset, limit=_HTML_WINDOW_CHARS, limit_name="the HTML window", unit="character"
+    )
+    if complaint:
+        return complaint
     try:
         response = _fetch_html(url)
     except requests.RequestException as e:
         return f"Error fetching page: {e}"
-    return _truncate(response.text, 20000)
+    if offset > len(response.text) and offset > 1:
+        return _past_end(offset=offset, total=len(response.text), unit="character", describe=url)
+    return _window(
+        response.text,
+        offset=offset,
+        limit=_HTML_WINDOW_CHARS,
+        unit="character",
+        tool="get_webpage_html",
+    )
 
 
 @tool
@@ -1379,35 +1460,17 @@ def read_file(path: str, max_lines: int = 2000, offset: int = 1) -> str:
         return f"File does not exist: {path}"
     if not p.is_file():
         return f"Not a file: {path}"
-    # Returned rather than raised, like this module's other model-facing argument complaints, so
-    # the model can correct its own next call instead of the run failing on a fixable mistake.
-    if offset < 1:
-        return f"offset must be 1 or greater (it is 1-indexed; the first line is offset=1), got {offset}"
-    if max_lines < 1:
-        return f"max_lines must be 1 or greater, got {max_lines}"
+    complaint = _window_complaint(offset=offset, limit=max_lines, limit_name="max_lines", unit="line")
+    if complaint:
+        return complaint
     try:
         lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError as e:
         return f"Error reading file: {e}"
     # An empty file read from the top is a legitimate whole-file read, not a bad offset.
     if offset > len(lines) and offset > 1:
-        return f"offset {offset} is past the end of {path}: the file has {len(lines)} lines"
-
-    start = offset - 1
-    window = lines[start : start + max_lines]
-    content = "\n".join(window)
-    last = start + len(window)
-    if last < len(lines):
-        # Name the window and the total, so the model can see how much it is missing rather than
-        # just that something was cut, and name the exact call that continues from here. Naming
-        # offset rather than a larger max_lines matters most on the files where truncation
-        # actually bites: re-reading a 25,000-line file from the top with a raised cap is the
-        # remedy that overflows the context window this marker is trying to protect.
-        content += (
-            f"\n... (truncated: showing lines {offset}-{last} of {len(lines)}; "
-            f"call read_file with offset={last + 1} to continue)"
-        )
-    return content
+        return _past_end(offset=offset, total=len(lines), unit="line", describe=path)
+    return _window(lines, offset=offset, limit=max_lines, unit="line", tool="read_file", join="\n")
 
 
 # ---- Image generation (diffusion) --------------------------------------------
@@ -1902,7 +1965,7 @@ def _excerpt(content: str, path: str) -> str:
     return (
         content[:SEARCH_EXCERPT_CHARS]
         + f"\n... (excerpt of {len(content)} characters; "
-        + f"call read_document('{path}') for the full text)"
+        + f"call read_document('{path}') to read it, paging with offset if it is long)"
     )
 
 
@@ -1935,16 +1998,32 @@ def make_document_tools(store):
         return f"Saved {path}."
 
     @tool
-    def read_document(path: str) -> str:
-        """Read the full contents of a stored document by path.
+    def read_document(path: str, max_lines: int = 2000, offset: int = 1) -> str:
+        """Read a stored document by path, up to max_lines lines starting at line offset.
+
+        If the result says it was truncated, call again with the offset it names before
+        drawing any conclusion from it: a partial document reads exactly like a complete
+        one. The store holds documents the user provides, which can be paper-sized, so
+        paging is how one gets read whole without spending the context window the rest of
+        the task needs.
 
         Args:
             path: The document path to read, e.g. "/notes/standup.md".
+            max_lines: Maximum number of lines to return (default 2000).
+            offset: 1-indexed line to start reading from (default 1, the start).
         """
+        complaint = _window_complaint(offset=offset, limit=max_lines, limit_name="max_lines", unit="line")
+        if complaint:
+            return complaint
         try:
-            return store.read(path)
+            content = store.read(path)
         except KeyError:
             return f"No document found at {path}."
+        lines = content.splitlines()
+        # An empty document read from the top is a legitimate whole-document read.
+        if offset > len(lines) and offset > 1:
+            return _past_end(offset=offset, total=len(lines), unit="line", describe=path)
+        return _window(lines, offset=offset, limit=max_lines, unit="line", tool="read_document", join="\n")
 
     @tool
     def list_documents() -> str:
