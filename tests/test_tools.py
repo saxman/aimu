@@ -610,7 +610,8 @@ def test_close_lets_a_long_lived_client_be_torn_down_deterministically():
 
 def test_read_file_reports_how_much_it_truncated(tmp_path):
     # A default that silently returns the first pages of a long document is how a model ends up
-    # synthesizing from an introduction; the notice has to say what was left behind.
+    # synthesizing from an introduction; the notice has to say what was left behind, and the
+    # remedy it names has to be the one that does not re-read what was already returned.
     from aimu.tools import builtin
 
     doc = tmp_path / "paper.md"
@@ -619,7 +620,101 @@ def test_read_file_reports_how_much_it_truncated(tmp_path):
     text = builtin.read_file(str(doc), max_lines=10)
 
     assert "500" in text  # the total line count, so the model knows the size of the gap
-    assert "max_lines" in text  # and how to get the rest
+    assert "lines 1-10" in text  # which window it actually got
+    assert "offset=11" in text  # and the exact call that continues from where this one stopped
+
+
+def test_read_file_offset_reads_a_later_window(tmp_path):
+    from aimu.tools import builtin
+
+    doc = tmp_path / "paper.md"
+    doc.write_text("\n".join(f"line {i}" for i in range(1000)))
+
+    text = builtin.read_file(str(doc), max_lines=3, offset=101)
+
+    # offset is 1-indexed, so line 101 of the file is "line 100".
+    assert text.splitlines()[:3] == ["line 100", "line 101", "line 102"]
+    assert "offset=104" in text
+
+
+def test_read_file_paginates_a_file_larger_than_any_one_window(tmp_path):
+    # The reason offset exists: a file too large to return at once is still readable whole,
+    # without a single call that floods the context window.
+    from aimu.tools import builtin
+
+    doc = tmp_path / "huge.py"
+    doc.write_text("\n".join(f"line {i}" for i in range(2500)))
+
+    seen = []
+    offset = 1
+    while True:
+        lines = builtin.read_file(str(doc), max_lines=1000, offset=offset).splitlines()
+        # The marker is its own trailing line, so a caller pages on the last line rather than
+        # searching the whole window for the word (which a file discussing truncation would hit).
+        truncated = lines and lines[-1].startswith("... (truncated")
+        seen.extend(lines[:-1] if truncated else lines)
+        if not truncated:
+            break
+        offset += 1000
+
+    assert seen == [f"line {i}" for i in range(2500)]
+
+
+def test_read_file_last_window_is_not_marked_truncated(tmp_path):
+    from aimu.tools import builtin
+
+    doc = tmp_path / "paper.md"
+    doc.write_text("\n".join(f"line {i}" for i in range(100)))
+
+    text = builtin.read_file(str(doc), max_lines=10, offset=91)
+
+    assert "line 99" in text
+    assert "truncated" not in text
+
+
+def test_read_file_offset_past_the_end_says_how_long_the_file_is(tmp_path):
+    # Returned rather than raised, so the model can correct its own next call.
+    from aimu.tools import builtin
+
+    doc = tmp_path / "paper.md"
+    doc.write_text("\n".join(f"line {i}" for i in range(50)))
+
+    text = builtin.read_file(str(doc), offset=500)
+
+    assert "50 lines" in text
+    assert "line 0" not in text
+
+
+def test_read_file_rejects_a_non_positive_offset(tmp_path):
+    from aimu.tools import builtin
+
+    doc = tmp_path / "paper.md"
+    doc.write_text("line 0\nline 1\n")
+
+    text = builtin.read_file(str(doc), offset=0)
+
+    assert "1-indexed" in text
+    assert "line 0" not in text
+
+
+def test_read_file_reads_an_empty_file_without_complaining_about_offset(tmp_path):
+    from aimu.tools import builtin
+
+    doc = tmp_path / "empty.md"
+    doc.write_text("")
+
+    assert builtin.read_file(str(doc)) == ""
+
+
+def test_read_file_advertises_offset_to_the_model(tmp_path):
+    # A window parameter the tool spec does not describe is a parameter the model never uses.
+    from aimu.tools import builtin
+
+    params = builtin.read_file.__tool_spec__["function"]["parameters"]["properties"]
+
+    assert "offset" in params
+    assert "offset" not in builtin.read_file.__tool_spec__["function"]["parameters"]["required"]
+    assert params["offset"]["description"]
 
 
 def test_read_file_default_reads_a_document_sized_file_whole(tmp_path):

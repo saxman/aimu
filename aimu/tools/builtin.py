@@ -950,9 +950,9 @@ def _truncate(text: str, limit: int, parameter: Optional[str] = None) -> str:
     Raw HTML is token-heavy; an untruncated page can overflow a model's context window.
 
     *parameter*, when given, is named in the marker so a caller is told how to get the
-    rest, the way ``read_file``'s marker names ``max_lines``. It is optional because
-    ``get_webpage_html``'s limit is fixed and has nothing to name, and because its
-    existing output should not move.
+    rest, the way ``read_file``'s marker names the offset that continues the read. It is
+    optional because ``get_webpage_html``'s limit is fixed and has nothing to name, and
+    because its existing output should not move.
     """
     if limit is None or len(text) <= limit:
         return text
@@ -1361,32 +1361,51 @@ def list_directory(path: str) -> str:
 
 
 @tool
-def read_file(path: str, max_lines: int = 2000) -> str:
-    """Reads a local file and returns its contents, capped at max_lines lines.
+def read_file(path: str, max_lines: int = 2000, offset: int = 1) -> str:
+    """Reads a local file and returns up to max_lines lines starting at line offset.
 
-    If the result says it was truncated, call again with a larger max_lines before drawing any
-    conclusion from it: a partial document reads exactly like a complete one.
+    If the result says it was truncated, call again with the offset it names before drawing any
+    conclusion from it: a partial document reads exactly like a complete one. Paging with offset
+    is how a file larger than one window gets read whole; raising max_lines to swallow a large
+    file in one call spends the context window the rest of the task needs.
 
     Args:
         path: Path to the file to read.
         max_lines: Maximum number of lines to return (default 2000).
+        offset: 1-indexed line to start reading from (default 1, the start of the file).
     """
     p = Path(path)
     if not p.exists():
         return f"File does not exist: {path}"
     if not p.is_file():
         return f"Not a file: {path}"
+    # Returned rather than raised, like this module's other model-facing argument complaints, so
+    # the model can correct its own next call instead of the run failing on a fixable mistake.
+    if offset < 1:
+        return f"offset must be 1 or greater (it is 1-indexed; the first line is offset=1), got {offset}"
+    if max_lines < 1:
+        return f"max_lines must be 1 or greater, got {max_lines}"
     try:
         lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
     except OSError as e:
         return f"Error reading file: {e}"
-    content = "\n".join(lines[:max_lines])
-    if len(lines) > max_lines:
-        # Name the total, so the model can see how much it is missing rather than just that
-        # something was cut, and name the parameter that gets the rest.
+    # An empty file read from the top is a legitimate whole-file read, not a bad offset.
+    if offset > len(lines) and offset > 1:
+        return f"offset {offset} is past the end of {path}: the file has {len(lines)} lines"
+
+    start = offset - 1
+    window = lines[start : start + max_lines]
+    content = "\n".join(window)
+    last = start + len(window)
+    if last < len(lines):
+        # Name the window and the total, so the model can see how much it is missing rather than
+        # just that something was cut, and name the exact call that continues from here. Naming
+        # offset rather than a larger max_lines matters most on the files where truncation
+        # actually bites: re-reading a 25,000-line file from the top with a raised cap is the
+        # remedy that overflows the context window this marker is trying to protect.
         content += (
-            f"\n... (truncated: showing {max_lines} of {len(lines)} lines; "
-            f"call read_file with a larger max_lines to read the rest)"
+            f"\n... (truncated: showing lines {offset}-{last} of {len(lines)}; "
+            f"call read_file with offset={last + 1} to continue)"
         )
     return content
 

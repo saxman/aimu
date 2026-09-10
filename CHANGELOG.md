@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+### Tools
+
+- **New: `read_file(path, max_lines=2000, offset=1)` reads a window, and its truncation notice
+  names the offset that continues the read.** The tool had a cap and no way past it: `max_lines`
+  could only be raised, so the only route to the end of a long file was to re-read it from the top
+  with a bigger cap, and the truncation marker said exactly that. On a 24,709-line source file that
+  advice is unusable in both directions -- the cap hides the rest, and lifting it floods the context
+  window the rest of the task needs -- which left an agent able to see that a file was too long and
+  unable to do anything about it. `offset` is the 1-indexed line to start from, so a file larger
+  than any one window is now readable whole by paging, and the marker reads
+  `truncated: showing lines 1-2000 of 24709; call read_file with offset=2001 to continue`: the
+  window it returned, the size of the gap, and the exact next call. A non-positive `offset` or
+  `max_lines`, and an `offset` past the end of the file, come back as teaching strings naming the
+  file's real line count rather than raising, matching how the rest of this module reports a
+  model-fixable argument mistake. Reading from the default `offset=1` is unchanged, including on an
+  empty file. Tests: `tests/test_tools.py::test_read_file_paginates_a_file_larger_than_any_one_window`,
+  `::test_read_file_offset_reads_a_later_window`,
+  `::test_read_file_reports_how_much_it_truncated`,
+  `::test_read_file_offset_past_the_end_says_how_long_the_file_is`,
+  `::test_read_file_rejects_a_non_positive_offset`,
+  `::test_read_file_advertises_offset_to_the_model`.
+
 ## v0.30.0 (2026-09-09): a fetched PDF is a document, not mojibake
 
 ### Tools

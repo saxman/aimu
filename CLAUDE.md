@@ -409,7 +409,7 @@ AIMU supports two tool registration routes that can be combined on the same clie
   - `search(query, num_results)`: Web search via SearXNG (`SEARXNG_BASE_URL` env var)
   - `wikipedia(query)`: Wikipedia article summary
   - `list_directory(path)`: Lists files and subdirectories
-  - `read_file(path, max_lines=2000)`: Reads local file contents. The cap was 200, which is under a fifth of a typical paper, so the failure mode was a model synthesizing confidently from an introduction; the truncation notice now names the total line count and the parameter that returns the rest
+  - `read_file(path, max_lines=2000, offset=1)`: Reads a window of a local file: up to `max_lines` lines starting at the 1-indexed `offset`. The cap was 200, which is under a fifth of a typical paper, so the failure mode was a model synthesizing confidently from an introduction. The truncation notice names the window it returned, the total line count, and the exact `offset=` call that continues from where it stopped, which is the remedy that scales: a 25,000-line file is readable whole by paging, while the notice's old advice to raise `max_lines` overflows the context window on exactly the files where truncation bites. A non-positive `offset`/`max_lines`, or an `offset` past the end, is returned as a teaching string (with the file's real line count) rather than raised, so the model corrects its own next call
 
 - **[aimu/tools/mcp.py](aimu/tools/mcp.py)**: thin FastMCP server that registers `builtin.ALL_TOOLS` for cross-process use. Run standalone: `python -m aimu.tools.mcp`. Single source of truth; the same callables back both routes.
 
