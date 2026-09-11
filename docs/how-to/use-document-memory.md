@@ -43,15 +43,26 @@ Two rules govern what counts as a document:
   not documents anyone placed there.
 
 For a *read-only* folder of reference material, consider `builtin.fs` (`list_directory` +
-`read_file`) instead: no store object, no write surface. `DocumentStore` earns its keep when the
+`read_file`) instead: no store object, and no write surface once you scope the group with
+`builtin.select(builtin.fs, exclude=builtin.unscoped)`, since `builtin.fs` itself now carries
+`write_file` and `edit_file`. `DocumentStore` earns its keep when the
 agent also writes back.
 
 ## Edit existing documents
 
 ```python
 store.edit("/preferences.md", old_str="concise", new_str="detailed")
-# Replaces the first occurrence of "concise" with "detailed"
-# Raises ValueError if the old_str isn't found
+# Replaces the one occurrence of "concise" with "detailed"
+# Raises ValueError if "concise" is absent, or appears more than once
+```
+
+`old_str` must match exactly once. Two matches raise and write nothing, rather than
+changing whichever came first: a partial edit is discovered later, by whoever reads the
+document, which is the worst time to discover it. Include surrounding text to make the
+match unique. If you really do mean the first of several, say so where it can be seen:
+
+```python
+store.write(path, store.read(path).replace(old_str, new_str, 1))
 ```
 
 ## Search

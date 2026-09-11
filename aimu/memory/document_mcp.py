@@ -123,11 +123,15 @@ def memory_write(path: str, content: str) -> dict:
 @mcp.tool()
 def memory_edit(path: str, old_str: str, new_str: str) -> dict:
     """
-    Edit an existing memory by replacing *old_str* with *new_str*.
+    Edit an existing memory by replacing the one occurrence of *old_str* with *new_str*.
+
+    *old_str* must appear exactly once. If it appears zero times, or more than once,
+    nothing is written and the count is reported: include enough surrounding text to make
+    the match unique rather than retrying with the same ambiguous string.
 
     Args:
         path:    Memory path of the document to edit.
-        old_str: Exact substring to find and replace.
+        old_str: Exact substring to find, unique within the memory.
         new_str: Replacement text.
 
     Returns:
@@ -135,7 +139,7 @@ def memory_edit(path: str, old_str: str, new_str: str) -> dict:
 
     Raises:
         KeyError:   If no memory exists at *path*.
-        ValueError: If *old_str* is not found in the memory content.
+        ValueError: If *old_str* is absent, or appears more than once.
     """
     _store.edit(path, old_str, new_str)
     updated = _store.read(path)

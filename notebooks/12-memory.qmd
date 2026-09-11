@@ -208,7 +208,7 @@ print(content)
 
 ## K - Editing Documents
 
-`edit(path, old_str, new_str)` replaces the first occurrence of `old_str` with `new_str` in the named document. Raises `ValueError` if `old_str` is not found.
+`edit(path, old_str, new_str)` replaces the **one** occurrence of `old_str` with `new_str` in the named document. Raises `ValueError` if `old_str` is absent, or appears more than once, writing nothing either way; include surrounding text to make the match unique.
 
 ```{python}
 print("Before edit:")

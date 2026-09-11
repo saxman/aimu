@@ -67,7 +67,7 @@ Wraps `DocumentStore` with path-addressed memory tools (AIMU's own names and par
 - `memory_search(query)`
 - `memory_read(path)`
 - `memory_write(path, content)`
-- `memory_edit(path, old_str, new_str)`
+- `memory_edit(path, old_str, new_str)` — `old_str` must match exactly once; zero or many raises and writes nothing
 - `memory_delete(path)`
 
 Reads `DOCUMENT_STORE_PATH` (default: in-memory).

@@ -212,22 +212,38 @@ class DocumentStore(MemoryStore):
     @synchronized
     def edit(self, path: str, old_str: str, new_str: str) -> None:
         """
-        Replace the first occurrence of *old_str* with *new_str* in the
-        document at *path*.
+        Replace the one occurrence of *old_str* with *new_str* in the document at *path*.
+
+        *old_str* must appear exactly once.  Zero matches and two-or-more matches both
+        raise, and nothing is written either way: replacing the *first* of several
+        matches answers a question the caller did not ask, and it does so silently, in
+        the file, where the mistake is discovered later by whoever reads it.  Include
+        enough surrounding text to make the match unique.
+
+        To genuinely intend the first of several, say so where it can be seen::
+
+            store.write(path, store.read(path).replace(old_str, new_str, 1))
 
         Args:
             path:    Memory path of the document to edit.
-            old_str: Exact substring to find.
+            old_str: Exact substring to find, unique within the document.
             new_str: Replacement text.
 
         Raises:
             KeyError:   If no document exists at *path*.
-            ValueError: If *old_str* is not found in the document.
+            ValueError: If *old_str* is absent, or appears more than once.
         """
         content = self.read(path)
-        if old_str not in content:
+        occurrences = content.count(old_str)
+        if occurrences == 0:
             raise ValueError(f"{old_str!r} not found in document at {path!r}")
-        self.write(path, content.replace(old_str, new_str, 1))
+        if occurrences > 1:
+            raise ValueError(
+                f"{old_str!r} appears {occurrences} times in document at {path!r}, so it is "
+                "unclear which to change; nothing was written. Include surrounding text to "
+                "make it unique."
+            )
+        self.write(path, content.replace(old_str, new_str))
 
     @synchronized
     def list_paths(self, prefix: Optional[str] = None) -> list[str]:

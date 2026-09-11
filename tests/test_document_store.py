@@ -59,10 +59,33 @@ def test_read_missing_path_raises(store):
         store.read("/does-not-exist.md")
 
 
-def test_edit_replaces_first_occurrence(store):
-    store.write("/doc.md", "foo foo bar")
+def test_edit_replaces_a_unique_occurrence(store):
+    store.write("/doc.md", "foo bar")
     store.edit("/doc.md", "foo", "baz")
-    assert store.read("/doc.md") == "baz foo bar"
+    assert store.read("/doc.md") == "baz bar"
+
+
+def test_edit_refuses_an_ambiguous_match_and_writes_nothing(store):
+    # This replaced the first of several until v0.31, which answered a question the caller
+    # did not ask, silently, in the file. The count is in the message because "not unique"
+    # without it gives the caller nothing to aim at.
+    store.write("/doc.md", "foo foo bar")
+
+    with pytest.raises(ValueError) as excinfo:
+        store.edit("/doc.md", "foo", "baz")
+
+    assert "appears 2 times" in str(excinfo.value)
+    assert store.read("/doc.md") == "foo foo bar"
+
+
+def test_edit_ambiguity_raises_the_same_type_as_a_missing_match(store):
+    # The new failure keeps the old exception type on purpose: a caller already writing
+    # `except ValueError` around edit() stays correct across this change.
+    store.write("/doc.md", "foo foo")
+
+    for old in ("foo", "nope"):
+        with pytest.raises(ValueError):
+            store.edit("/doc.md", old, "baz")
 
 
 def test_edit_missing_path_raises(store):
@@ -351,6 +374,18 @@ def test_mcp_memory_search(mcp_store):
 
 def test_mcp_memory_search_empty(mcp_store):
     assert document_mcp.memory_search("anything") == []
+
+
+def test_mcp_memory_edit_refuses_an_ambiguous_match(mcp_store):
+    # The model-facing path is where an ambiguous edit hurts most: the model cannot see
+    # which occurrence changed without reading the memory back.
+    document_mcp.memory_write("/doc.md", "timeout = 30\nretries = 3\ntimeout = 30\n")
+
+    with pytest.raises(ValueError) as excinfo:
+        document_mcp.memory_edit("/doc.md", "timeout = 30", "timeout = 60")
+
+    assert "appears 2 times" in str(excinfo.value)
+    assert document_mcp.memory_read("/doc.md") == "timeout = 30\nretries = 3\ntimeout = 30"
 
 
 def test_mcp_memory_edit(mcp_store):

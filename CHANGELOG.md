@@ -117,6 +117,34 @@
 
 ### Memory
 
+- **Breaking: `DocumentStore.edit` (and `memory_edit`) now require `old_str` to match exactly
+  once.** It replaced the *first* of several matches, which answers a question the caller did not
+  ask, and answers it silently, in the file, where the mistake is found later by whoever reads the
+  document. Zero matches and two-or-more matches now both raise and write nothing, and the
+  two-or-more message names the count, because "not unique" without it gives the caller nothing to
+  aim at. This was deliberate, documented behaviour pinned by a test
+  (`test_edit_replaces_first_occurrence`, `"foo foo bar"` -> `"baz foo bar"`), so it is a real
+  contract change and not a bug fix: anyone relying on first-of-several will now see a `ValueError`.
+  Two things soften it. The exception **type is unchanged** -- the absent-match case already raised
+  `ValueError`, so code already writing `except ValueError` around `edit()` stays correct across the
+  change. And the escape hatch is a legible one-liner that says what it does at the call site rather
+  than hiding it in a default:
+
+      store.write(path, store.read(path).replace(old_str, new_str, 1))
+
+  The reason to take the break is that v0.31 added `edit_file` with exactly-one semantics, and a
+  library holding two edit primitives with opposite ambiguity rules is a trap regardless of which
+  one a reader happens to learn first. The model-facing path is where it bites hardest: through
+  `memory_edit`, a model cannot see which occurrence changed without reading the memory back.
+  Tests: `tests/test_document_store.py::test_edit_refuses_an_ambiguous_match_and_writes_nothing`,
+  `::test_edit_ambiguity_raises_the_same_type_as_a_missing_match`,
+  `::test_mcp_memory_edit_refuses_an_ambiguous_match`.
+
+- Corrected two now-false claims that `builtin.fs` has no write surface (`CLAUDE.md`,
+  `docs/how-to/use-document-memory.md`), left behind by adding `write_file` / `edit_file` to that
+  group. Both now point at `builtin.select(builtin.fs, exclude=builtin.unscoped)` for the read-only
+  scope they were describing.
+
 - **`memory_read` windows like the rest, and the "drop-in compatible with Anthropic's memory API"
   claim is gone from five places, because it was not true.** `memory_read` had the same unreachable
   tail as the other capped reads and was initially left alone to preserve wire compatibility with
