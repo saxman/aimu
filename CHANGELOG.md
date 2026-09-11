@@ -4,6 +4,30 @@
 
 ### Tools
 
+- **New: `edit_document` in `make_document_tools`, and `save_document` now warns against saving a
+  partial read back.** The group had no edit tool, so the only way for an agent to change one line
+  of a stored document was `read_document` + `save_document`. That became destructive when
+  `read_document` started windowing earlier in this release: `read_document` returns one window,
+  `save_document` replaces the whole document, so the round-trip deleted everything past the window
+  -- silently, with the truncation marker written into the file as content, and the tool answering
+  `Saved /paper.md.` A 3,000-line document came back 51 lines long. `edit_document(path, old_str,
+  new_str)` wraps `DocumentStore.edit`, so it changes part of a document without reading or
+  re-emitting the rest, and it inherits the unique-match rule: zero or many matches writes nothing
+  and returns the count. Like `read_document`, it reports a miss as a message rather than raising,
+  which is this group's convention and the opposite of `document_mcp`'s `memory_edit`.
+
+  Neither the tool nor the store can tell a full rewrite from a window, so the guard has to be
+  language the model reads: `save_document`'s description now says that content becomes the entire
+  document, that a truncated read is one window of it, and that `edit_document` is what changes part
+  of one. The destructive combination is pinned by
+  `tests/test_memory_tools.py::test_saving_back_a_windowed_read_would_truncate_the_document`, which
+  asserts both the truncation and the presence of that warning, so the hazard cannot return
+  unnoticed if the docstring is ever rewritten.
+
+- Corrected the last remnant of the retracted Anthropic-compatibility claim, in
+  `docs/how-to/use-document-memory.md`'s MCP section ("matching Anthropic's API naming"), missed
+  when the other six were fixed.
+
 - **New: `write_file` and `edit_file`, in the `fs` group.** `builtin.fs` was read-only, so an
   agent that had to write reached for `run_command` or `execute_python` -- the opt-in,
   isolation-disclaimed tools -- and a shell heredoc write is strictly worse than an edit: invisible

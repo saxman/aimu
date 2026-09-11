@@ -206,7 +206,7 @@ def _by_name(tools, name):
 
 def test_document_tools_names_and_specs(doc_tools):
     names = {t.__tool_spec__["function"]["name"] for t in doc_tools}
-    assert names == {"save_document", "read_document", "list_documents", "search_documents"}
+    assert names == {"save_document", "read_document", "edit_document", "list_documents", "search_documents"}
     for t in doc_tools:
         assert t.__tool_is_async__ is False
         assert t.__tool_is_streaming__ is False
@@ -232,6 +232,79 @@ def test_read_missing_document_returns_message_not_raise(doc_tools):
     read = _by_name(doc_tools, "read_document")
     result = read("/nope.md")
     assert "No document found" in result and "/nope.md" in result
+
+
+def test_edit_document_changes_part_without_touching_the_rest(doc_tools):
+    # The reason this tool exists: without it, the only way to change a line of a long
+    # document is read_document + save_document, and read_document returns a *window*, so
+    # saving it back deletes everything outside the window. See the test below.
+    save = _by_name(doc_tools, "save_document")
+    edit = _by_name(doc_tools, "edit_document")
+    read = _by_name(doc_tools, "read_document")
+    save("/paper.md", "\n".join(f"line {i}" for i in range(3000)))
+
+    result = edit("/paper.md", "line 7\n", "line seven\n")
+
+    assert "replaced 1 occurrence" in result
+    whole = read("/paper.md", max_lines=5000)
+    assert len(whole.splitlines()) == 3000
+    assert "line seven" in whole
+    assert "line 2999" in whole
+
+
+def test_saving_back_a_windowed_read_would_truncate_the_document(doc_tools):
+    """The hazard edit_document exists to remove, pinned so it cannot return unnoticed.
+
+    read_document returns one window of a long document. save_document replaces the whole
+    thing. So the read-modify-save round-trip an agent would otherwise have to use destroys
+    everything past the window, silently, and reports success. This test documents that the
+    combination is destructive; save_document's docstring is what steers the model away from
+    it, and edit_document is what it should reach for instead.
+    """
+    save = _by_name(doc_tools, "save_document")
+    read = _by_name(doc_tools, "read_document")
+    save("/paper.md", "\n".join(f"line {i}" for i in range(3000)))
+
+    window = read("/paper.md", max_lines=50)
+    save("/paper.md", window)  # what an agent without edit_document has to do
+
+    assert len(read("/paper.md", max_lines=5000).splitlines()) == 51  # 50 + the marker
+    # The tool's own docstring must carry the warning, since neither the tool nor the store
+    # can tell a full rewrite from a window.
+    assert "truncated" in save.__doc__
+    assert "edit_document" in save.__doc__
+
+
+def test_edit_document_refuses_an_ambiguous_match(doc_tools):
+    save = _by_name(doc_tools, "save_document")
+    edit = _by_name(doc_tools, "edit_document")
+    original = "timeout = 30\nretries = 3\ntimeout = 30"
+    save("/conf.md", original)
+
+    result = edit("/conf.md", "timeout = 30", "timeout = 60")
+
+    # The store's own message, surfaced bare rather than behind a prefix that repeated it.
+    assert "appears 2 times" in result
+    assert "nothing was written" in result.lower()
+    assert _by_name(doc_tools, "read_document")("/conf.md") == original
+
+
+def test_edit_document_reports_a_missing_document_rather_than_raising(doc_tools):
+    # This group's convention: a miss is a message the model can act on, unlike
+    # document_mcp's memory_edit, which raises.
+    result = _by_name(doc_tools, "edit_document")("/nope.md", "a", "b")
+    assert "No document found" in result and "/nope.md" in result
+
+
+def test_edit_document_reports_a_missing_match(doc_tools):
+    save = _by_name(doc_tools, "save_document")
+    edit = _by_name(doc_tools, "edit_document")
+    save("/a.md", "hello world")
+
+    result = edit("/a.md", "not-here", "x")
+
+    assert "not found" in result
+    assert _by_name(doc_tools, "read_document")("/a.md") == "hello world"
 
 
 def test_read_document_windows_a_long_document_and_names_the_next_offset(doc_tools):

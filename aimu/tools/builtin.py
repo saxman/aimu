@@ -2029,10 +2029,11 @@ def _excerpt(content: str, path: str) -> str:
 
 
 def make_document_tools(store):
-    """Build ``save_document``, ``read_document``, ``list_documents``, and ``search_documents`` tools.
+    """Build ``save_document``, ``read_document``, ``edit_document``, ``list_documents``, and
+    ``search_documents`` tools.
 
     Bound to a :class:`~aimu.memory.DocumentStore` (the path-keyed store), these expose its
-    richer write/read/list/full-text-search API as agent tools. Their names are deliberately
+    richer write/read/edit/list/full-text-search API as agent tools. Their names are deliberately
     distinct from :func:`make_memory_tools` (``store_memory`` / ``search_memories`` / ``list_memories``)
     so an agent can carry **both** at once: a `SemanticMemoryStore` for short facts and a
     `DocumentStore` for longer documents the user provides as reference::
@@ -2047,7 +2048,12 @@ def make_document_tools(store):
 
     @tool
     def save_document(path: str, content: str) -> str:
-        """Save a document at a path for later retrieval (create or overwrite).
+        """Save a document at a path, creating it or replacing the whole thing.
+
+        content becomes the entire document. If you read a document and it said it was
+        truncated, what you read is one window of it: saving that back would delete
+        everything outside the window. To change part of a document, use edit_document,
+        which leaves the rest untouched.
 
         Args:
             path: A document path, e.g. "/notes/standup.md".
@@ -2055,6 +2061,37 @@ def make_document_tools(store):
         """
         store.write(path, content)
         return f"Saved {path}."
+
+    @tool
+    def edit_document(path: str, old_str: str, new_str: str) -> str:
+        """Replace one exact occurrence of old_str with new_str in a stored document.
+
+        Use this rather than save_document to change part of a document: it leaves the rest
+        untouched, and it does not require reading or re-emitting the whole thing.
+
+        old_str must appear exactly once. If it appears zero times, or more than once,
+        nothing is written and the count is returned: include enough surrounding text to
+        make it unique rather than retrying with the same ambiguous string.
+
+        Args:
+            path: The document path to edit, e.g. "/notes/standup.md".
+            old_str: Exact text to find, unique within the document.
+            new_str: Text to replace it with. Pass an empty string to delete it.
+        """
+        # Returned, not raised: this group reports a miss to the model as a message (see
+        # read_document) so it can correct its own next call. The document_mcp server makes
+        # the opposite choice for memory_edit, which raises; that divergence between the
+        # in-process and cross-process surfaces is deliberate and documented.
+        try:
+            store.edit(path, old_str, new_str)
+        except KeyError:
+            return f"No document found at {path}."
+        except ValueError as exc:
+            # Surfaced bare, the way the tool loop surfaces a ToolArgumentError: the store's
+            # message already names the count and says nothing was written, and a prefix here
+            # only said it a second time.
+            return str(exc)
+        return f"Edited {path}: replaced 1 occurrence."
 
     @tool
     def read_document(path: str, max_lines: int = 2000, offset: int = 1) -> str:
@@ -2121,7 +2158,7 @@ def make_document_tools(store):
             return "No matching documents found."
         return "\n\n".join(f"{m['path']}:\n{_excerpt(m['content'], m['path'])}" for m in matches)
 
-    return [save_document, read_document, list_documents, search_documents]
+    return [save_document, read_document, edit_document, list_documents, search_documents]
 
 
 DEFAULT_SUBAGENT_SYSTEM_MESSAGE = (

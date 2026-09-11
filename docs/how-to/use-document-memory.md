@@ -111,7 +111,7 @@ Pass the result to `make_tools(..., memory_store=store)` to combine memory with 
 
 ### Path-based document tools
 
-`make_memory_tools` exposes the generic `MemoryStore` interface (store / search / list). To give an agent the document store's richer path-based API, use `make_document_tools(store)`, which returns `save_document(path, content)`, `read_document(path)`, `list_documents()`, and `search_documents(query)`:
+`make_memory_tools` exposes the generic `MemoryStore` interface (store / search / list). To give an agent the document store's richer path-based API, use `make_document_tools(store)`, which returns `save_document(path, content)`, `read_document(path, max_lines=2000, offset=1)`, `edit_document(path, old_str, new_str)`, `list_documents()`, and `search_documents(query)`:
 
 ```python
 from aimu.tools.builtin import make_document_tools
@@ -121,13 +121,20 @@ agent.tools += make_document_tools(store)
 
 Because these tool names are distinct from `make_memory_tools`' (`store_memory` etc.), one agent can carry both: a `SemanticMemoryStore` for facts and a `DocumentStore` for documents. These are the in-process counterpart to the `aimu.memory.document_mcp` server below.
 
+**Reach for `edit_document` rather than `save_document` to change part of a document.**
+`read_document` returns a *window* of a long document and `save_document` replaces the whole
+thing, so the read-modify-save round-trip deletes everything outside the window, silently,
+and still reports success. `edit_document` leaves the rest untouched and needs no re-emission
+of text the model already read. Neither the tool nor the store can tell a full rewrite from a
+window, so `save_document`'s own description is what steers the model away from it.
+
 ## Expose as MCP tools
 
 ```bash
 DOCUMENT_STORE_PATH=./doc_store python -m aimu.memory.document_mcp
 ```
 
-Registers `memory_list`, `memory_search`, `memory_read`, `memory_write`, `memory_edit`, `memory_delete` (matching Anthropic's API naming).
+Registers `memory_list`, `memory_search`, `memory_read`, `memory_write`, `memory_edit`, `memory_delete` — AIMU's own names and parameters. They are **not** wire-compatible with Anthropic's memory tool (whose commands are `view` / `create` / `str_replace` / `insert` / `delete` / `rename`) or with its Managed Agents memory stores (id-addressed, and reached inside a session as a mounted filesystem). Unlike the in-process tools above, these raise rather than returning a message on a miss.
 
 ## When to pick this vs semantic memory
 
