@@ -61,7 +61,7 @@ Reads `MEMORY_STORE_PATH` (default: in-memory).
 DOCUMENT_STORE_PATH=./.aimu/docs python -m aimu.memory.document_mcp
 ```
 
-Wraps `DocumentStore` with tools matching Anthropic's Managed Agents Memory API:
+Wraps `DocumentStore` with path-addressed memory tools (AIMU's own names and parameters, not wire-compatible with Anthropic's memory tool or its Managed Agents memory stores):
 
 - `memory_list(path_prefix)`
 - `memory_search(query)`

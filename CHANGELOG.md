@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+### Memory
+
+- **`memory_read` windows like the rest, and the "drop-in compatible with Anthropic's memory API"
+  claim is gone from five places, because it was not true.** `memory_read` had the same unreachable
+  tail as the other capped reads and was initially left alone to preserve wire compatibility with
+  Anthropic's Managed Agents Memory API, whose `view` command was believed to spell a window
+  `view_range`. Checking rather than recalling: `view_range` belongs to the **text editor** tool
+  (`text_editor_20250728`), and neither memory surface is what this module resembles. Anthropic's
+  client-side memory tool (`memory_20250818`) has commands `view` / `create` / `str_replace` /
+  `insert` / `delete` / `rename`; its Managed Agents memory stores expose
+  `list` / `retrieve` / `create` / `update` / `delete`, where `retrieve` takes a `mem_...` id rather
+  than a path, and a session reaches a store as a filesystem mounted at `/mnt/memory/<name>/` read
+  with ordinary file tools -- there are no dedicated memory tools inside a session at all. AIMU's
+  `memory_list` / `memory_search` / `memory_read` / `memory_write` / `memory_edit` / `memory_delete`
+  match neither: different names from the first, different addressing from the second, plus a
+  `memory_search` that exists in neither. So there was no compatibility property to protect, and the
+  claim was misinforming anyone who read it. `memory_read(path, max_lines=2000, offset=1)` now
+  windows with AIMU's own spelling, consistent with `read_file` and `read_document` -- which is also
+  the closest thing to how Anthropic's own agents read memory, since they read the mount with file
+  tools. A missing path still raises `KeyError`: that is this server's documented contract, distinct
+  from the `read_document` tool's "not found" string. The claim was corrected in `document_mcp.py`,
+  `document_store.py`, `CLAUDE.md` (two lines), `docs/how-to/use-document-memory.md`,
+  `docs/reference/cli.md`, and `README.md`. Tests: `tests/test_document_store.py`.
+
+- The window helpers moved to a new private `aimu/_window.py` so `aimu.memory` can share them
+  without importing `aimu.tools`, whose package `__init__` eagerly imports `builtin` and would drag
+  `requests` and the whole built-in tool set into an MCP server that wants neither.
+  `aimu.tools.builtin` re-exports them under their former private names, so its call sites and tests
+  are unchanged.
+
 ### Tools
 
 - **Every capped read a caller can safely repeat now takes an `offset`, and their truncation
@@ -21,12 +51,10 @@
   the window *before* fetching, so a bad offset costs no network round trip. Reading from the default
   `offset=1` is unchanged everywhere, including on an empty file or document.
 
-  Two deliberate exceptions. `submit_form`'s response body keeps the old un-paged `_truncate`
-  marker: continuing that read would mean submitting the form again, and the tool exists to send
-  POSTs. `aimu.memory.document_mcp`'s `memory_read` is also unchanged, because its whole purpose is
-  drop-in compatibility with Anthropic's Managed Agents Memory API, whose `view` command spells a
-  window `view_range`; adding AIMU-flavored parameters there would break the property that justifies
-  the module's existence, so matching `view_range` is a separate decision.
+  One deliberate exception: `submit_form`'s response body keeps the old un-paged `_truncate`
+  marker, because continuing that read would mean submitting the form again, and the tool exists to
+  send POSTs. `aimu.memory.document_mcp`'s `memory_read` is windowed too -- see the next entry for
+  why the compatibility argument against it turned out to be false.
 
   The window, the marker, and the argument complaints live in one place (`_window` /
   `_window_complaint` / `_past_end` in `aimu/tools/builtin.py`), which is what keeps four markers

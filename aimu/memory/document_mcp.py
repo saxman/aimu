@@ -1,9 +1,17 @@
 """
 aimu.memory.document_mcp: MCP server exposing DocumentStore as memory tools.
 
-Tool names and semantics match Anthropic's Managed Agents Memory API so that
-this server can be used as a drop-in replacement for Anthropic's hosted
-memory stores in local or self-hosted deployments.
+The tools are path-addressed and named after what they do (``memory_read``,
+``memory_write``, ...), which is the same *shape* as Anthropic's memory tool but not the
+same interface: that tool's commands are ``view`` / ``create`` / ``str_replace`` /
+``insert`` / ``delete`` / ``rename``, and the Managed Agents memory-store API is different
+again (``list`` / ``retrieve`` / ``create`` / ``update`` / ``delete``, where ``retrieve``
+takes a ``mem_...`` id rather than a path, and a session reaches the store as a mounted
+filesystem through ordinary file tools). This server is therefore **not** wire-compatible
+with either, and nothing written against Anthropic's API can be pointed at it unchanged.
+It is a local memory backend for AIMU agents that borrows the good idea, and its parameters
+follow AIMU's own conventions -- ``memory_read`` windows with ``max_lines`` / ``offset``,
+exactly like ``read_file`` and ``read_document``.
 
 The storage path is configured with the DOCUMENT_STORE_PATH environment
 variable (defaults to an ephemeral in-memory store).
@@ -24,6 +32,7 @@ import os
 
 from fastmcp import FastMCP
 
+from aimu._window import past_end, window, window_complaint
 from aimu.memory.document_store import DocumentStore
 
 _DEFAULT_PERSIST_PATH = os.environ.get("DOCUMENT_STORE_PATH")  # None → ephemeral
@@ -64,20 +73,35 @@ def memory_search(query: str) -> list[dict]:
 
 
 @mcp.tool()
-def memory_read(path: str) -> str:
+def memory_read(path: str, max_lines: int = 2000, offset: int = 1) -> str:
     """
-    Read the content of a memory at the given path.
+    Read a memory at the given path, up to max_lines lines starting at line offset.
+
+    If the result says it was truncated, call again with the offset it names before drawing
+    any conclusion from it: a partial document reads exactly like a complete one. The store
+    is a directory a user can drop files into, so a memory can be paper-sized; paging is how
+    one gets read whole without spending the context window the rest of the task needs.
 
     Args:
         path: Memory path, e.g. ``"/preferences.md"``.
+        max_lines: Maximum number of lines to return (default 2000).
+        offset: 1-indexed line to start reading from (default 1, the start).
 
     Returns:
-        The full text content of the memory.
+        Up to *max_lines* lines of the memory from *offset*. When more remains, a trailing
+        marker names the total and the offset that continues the read.
 
     Raises:
         KeyError: If no memory exists at *path*.
     """
-    return _store.read(path)
+    complaint = window_complaint(offset=offset, limit=max_lines, limit_name="max_lines", unit="line")
+    if complaint:
+        return complaint
+    lines = _store.read(path).splitlines()
+    # An empty memory read from the top is a legitimate whole-memory read, not a bad offset.
+    if offset > len(lines) and offset > 1:
+        return past_end(offset=offset, total=len(lines), unit="line", describe=path)
+    return window(lines, offset=offset, limit=max_lines, unit="line", tool="memory_read", join="\n")
 
 
 @mcp.tool()

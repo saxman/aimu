@@ -270,6 +270,51 @@ def test_mcp_memory_write_and_read(mcp_store):
     assert content == "Use concise responses."
 
 
+def test_mcp_memory_read_windows_a_long_memory(mcp_store):
+    # The store is a directory a user can drop files into, so a memory can be paper-sized.
+    # Returning one whole is how a single read spends the context window the task needs.
+    document_mcp.memory_write("/paper.md", "\n".join(f"line {i}" for i in range(3000)))
+
+    out = document_mcp.memory_read("/paper.md", max_lines=10)
+
+    assert out.startswith("line 0")
+    assert "truncated: showing lines 1-10 of 3000" in out
+    assert "call memory_read with offset=11 to continue" in out
+
+
+def test_mcp_memory_read_pages_a_memory_larger_than_one_window(mcp_store):
+    body = [f"line {i}" for i in range(2500)]
+    document_mcp.memory_write("/paper.md", "\n".join(body))
+
+    seen, offset = [], 1
+    while True:
+        lines = document_mcp.memory_read("/paper.md", max_lines=1000, offset=offset).splitlines()
+        truncated = bool(lines) and lines[-1].startswith("... (truncated")
+        seen.extend(lines[:-1] if truncated else lines)
+        if not truncated:
+            break
+        offset += 1000
+
+    assert seen == body
+
+
+def test_mcp_memory_read_offset_past_the_end_says_how_long_it_is(mcp_store):
+    document_mcp.memory_write("/a.md", "one\ntwo\nthree")
+    out = document_mcp.memory_read("/a.md", offset=99)
+    assert "past the end" in out and "3 lines" in out
+
+
+def test_mcp_memory_read_rejects_a_non_positive_offset(mcp_store):
+    document_mcp.memory_write("/a.md", "one")
+    assert "1-indexed" in document_mcp.memory_read("/a.md", offset=0)
+
+
+def test_mcp_memory_read_still_raises_on_a_missing_path(mcp_store):
+    # This server's documented contract, unlike the read_document tool's "not found" string.
+    with pytest.raises(KeyError):
+        document_mcp.memory_read("/nope.md")
+
+
 def test_mcp_memory_write_returns_metadata(mcp_store):
     result = document_mcp.memory_write("/doc.md", "hello")
     assert result["path"] == "/doc.md"

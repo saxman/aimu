@@ -483,7 +483,7 @@ AIMU supports two tool registration routes that can be combined on the same clie
   - Constructor: `SemanticMemoryStore(collection_name="memories", persist_path=None)`; `persist_path=None` → ephemeral
 
 - **[aimu/memory/document_store.py](aimu/memory/document_store.py)**: `DocumentStore(MemoryStore)`: path-based document store
-  - Mirrors Anthropic's Managed Agents Memory API for drop-in compatibility
+  - Borrows the shape of Anthropic's memory tool (path-addressed plain-text documents). **Not wire-compatible with it**: that tool's commands are `view`/`create`/`str_replace`/`insert`/`delete`/`rename`, and the Managed Agents memory-store API is different again (`list`/`retrieve`/`create`/`update`/`delete`, with `retrieve` taking a `mem_...` id rather than a path, and a session reaching the store as a mounted filesystem via ordinary file tools). Nothing written against either can be pointed at this unchanged; the docs claimed drop-in compatibility for both until v0.31
   - `write(path, content)`: Create/overwrite document at path (recommended ≤ 100 KB)
   - `read(path)`: Retrieve document; raises `KeyError` if not found
   - `edit(path, old_str, new_str)`: Replace first occurrence; raises `ValueError` if not found
@@ -498,7 +498,7 @@ AIMU supports two tool registration routes that can be combined on the same clie
   - `search_memories(search_request)`, `add_memories(memories)`, `delete_memory(memory)`, `list_memories()`
   - Storage path via `MEMORY_STORE_PATH` env var; run: `python -m aimu.memory.mcp`
 
-- **[aimu/memory/document_mcp.py](aimu/memory/document_mcp.py)**: FastMCP server exposing `DocumentStore` as tools (matches Anthropic's Managed Agents Memory API naming)
+- **[aimu/memory/document_mcp.py](aimu/memory/document_mcp.py)**: FastMCP server exposing `DocumentStore` as tools. Named for what they do, in the spirit of Anthropic's memory tool but not its interface (see the `DocumentStore` note above). `memory_read(path, max_lines=2000, offset=1)` windows like `read_file` / `read_document`, using AIMU's own parameter spelling, since there is no external contract to match
   - `memory_list(path_prefix)`, `memory_search(query)`, `memory_read(path)`, `memory_write(path, content)`, `memory_edit(path, old_str, new_str)`, `memory_delete(path)`
   - Storage path via `DOCUMENT_STORE_PATH` env var; run: `python -m aimu.memory.document_mcp`
 

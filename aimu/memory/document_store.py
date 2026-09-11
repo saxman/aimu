@@ -1,9 +1,11 @@
 """
 aimu.memory.document_store: Path-based document memory store.
 
-Follows Anthropic's Managed Agents Memory API pattern: documents are
-addressed by path (e.g. "/preferences.md"), stored as plain text, and
-retrieved via full-text search or exact path lookup.
+Borrows the shape of Anthropic's memory tool: documents are addressed by path
+(e.g. "/preferences.md"), stored as plain text, and retrieved via full-text
+search or exact path lookup.  The method names and signatures are AIMU's own,
+not that tool's command set -- see ``aimu.memory.document_mcp`` for why this is
+a local backend rather than a drop-in for anything of Anthropic's.
 
 Persistence modes:
   - Ephemeral (persist_path=None): in-memory dict, lost on process exit.
@@ -34,7 +36,7 @@ class DocumentStore(MemoryStore):
 
     Implements the :class:`MemoryStore` abstract interface so it can be swapped
     with :class:`SemanticMemoryStore` in any application, and adds the richer
-    path-based API that mirrors Anthropic's Managed Agents Memory tools.
+    path-based API in the spirit of Anthropic's memory tool (not its interface).
 
     Thread-safe: every public method is serialized on a re-entrant per-instance
     lock, so the in-memory dict and on-disk files stay consistent when the store

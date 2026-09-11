@@ -1,6 +1,6 @@
 # Use document memory
 
-`DocumentStore` is a path-based document store that mirrors [Anthropic's Managed Agents Memory API](https://docs.claude.com/en/api/memory), with drop-in compatible naming for `write`, `read`, `edit`, `list`, `search`, `delete`.
+`DocumentStore` is a path-based document store in the spirit of [Anthropic's memory tool](https://docs.claude.com/en/api/memory): documents addressed by path, stored as plain text, retrieved by lookup or full-text search. Its method names (`write`, `read`, `edit`, `list_paths`, `search_full_text`, `delete`) are AIMU's own; it is **not** a drop-in replacement for anything of Anthropic's, whose memory tool spells these `view`/`create`/`str_replace`/`insert`/`delete`/`rename` and whose Managed Agents memory stores are id-addressed and reached as a mounted filesystem.
 
 ## Basic usage
 
