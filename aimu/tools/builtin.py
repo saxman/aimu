@@ -1436,6 +1436,95 @@ def read_file(path: str, max_lines: int = 2000, offset: int = 1) -> str:
     return _window(lines, offset=offset, limit=max_lines, unit="line", tool="read_file", join="\n")
 
 
+# ``write_file`` and ``edit_file`` put writes in the same ``fs`` group as the reads, so a host
+# granting ``tools=builtin.fs`` grants both. That is deliberate, and it is the point at which
+# scoping stops being optional: use :func:`select` to hand over a narrower list, and
+# ``tool_approval`` to confirm the calls you do allow (docs/how-to/gate-tool-calls.md).
+#
+# Like ``execute_python`` and ``run_command``, these are isolation-free: the child of this
+# process is this user, so any path this user can write, the model can write, including a
+# dotfile, a shell profile, or this repository's own source. There is no project-root
+# confinement, deliberately -- a root check that a symlink or a relative path can walk out of
+# reads as containment while providing none, and the honest statement is the one above.
+
+
+@tool
+def write_file(path: str, content: str) -> str:
+    """Writes content to a file, creating it or replacing what is already there.
+
+    This replaces the whole file. To change part of one, use edit_file, which leaves the rest
+    untouched and fails loudly if what you meant to change is not where you thought.
+
+    Args:
+        path: Path to the file to write. Parent directories are created as needed.
+        content: The full text to write.
+    """
+    p = Path(path)
+    if p.exists() and not p.is_file():
+        return f"Not a file: {path}"
+    try:
+        existed = p.exists()
+        # Reported below, so an overwrite is legible in the transcript as an overwrite. Read
+        # before the write, and tolerantly: the size of what was replaced is worth reporting
+        # even for a file this tool could not have produced.
+        previous_lines = len(p.read_text(encoding="utf-8", errors="replace").splitlines()) if existed else 0
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(content, encoding="utf-8")
+    except OSError as e:
+        return f"Error writing file: {e}"
+    written = len(content.splitlines())
+    if existed:
+        # Name what was destroyed. A bare "wrote N lines" reads the same whether the file was
+        # new or held a thousand lines of someone else's work a moment ago.
+        return f"Overwrote {path}: {written} lines written, {previous_lines} lines replaced."
+    return f"Created {path}: {written} lines written."
+
+
+@tool
+def edit_file(path: str, old_str: str, new_str: str) -> str:
+    """Replaces one exact occurrence of old_str with new_str in a file.
+
+    old_str must appear exactly once. If it appears zero times, or more than once, nothing is
+    written and the count is returned: include enough surrounding context to make it unique
+    rather than retrying with the same ambiguous string.
+
+    Args:
+        path: Path to the file to edit.
+        old_str: Exact text to find, unique within the file.
+        new_str: Text to replace it with. Pass an empty string to delete it.
+    """
+    p = Path(path)
+    if not p.exists():
+        return f"File does not exist: {path}"
+    if not p.is_file():
+        return f"Not a file: {path}"
+    try:
+        # Strict, unlike read_file: that one substitutes U+FFFD for undecodable bytes so a model
+        # can still read a mostly-text file, which is harmless when the result is only displayed.
+        # Here the decoded text is written back, so the same tolerance would silently replace
+        # every such byte in the user's file.
+        content = p.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return f"Cannot edit {path}: it is not valid UTF-8 text, and editing it would corrupt it."
+    except OSError as e:
+        return f"Error reading file: {e}"
+
+    occurrences = content.count(old_str)
+    if occurrences == 0:
+        return f"No match in {path}: that exact text does not appear. Check whitespace and indentation."
+    if occurrences > 1:
+        return (
+            f"Ambiguous edit in {path}: that text appears {occurrences} times, so it is unclear "
+            "which to change. Nothing was written. Include surrounding lines to make it unique."
+        )
+
+    try:
+        p.write_text(content.replace(old_str, new_str), encoding="utf-8")
+    except OSError as e:
+        return f"Error writing file: {e}"
+    return f"Edited {path}: replaced 1 occurrence."
+
+
 # ---- Image generation (diffusion) --------------------------------------------
 #
 # Diffusion deps (``diffusers``, ``torch``, ``Pillow``) are heavy. The client is
@@ -1624,6 +1713,7 @@ def make_tools(
     speech_client=None,
     memory_store=None,
     allow_code_execution: bool = False,
+    allow_file_writes: bool = False,
 ):
     """Assemble the standard tool list for a chat client.
 
@@ -1642,6 +1732,10 @@ def make_tools(
     - If *allow_code_execution* is ``True``, appends :func:`execute_python` (the
       subprocess-backed tool). Read its docstring first: it is isolation, not
       containment.
+    - If *allow_file_writes* is ``True``, appends :func:`write_file` and
+      :func:`edit_file`. Off by default for the same reason code execution is: the
+      returned list is handed to an agent wholesale, and a caller asking for "the
+      standard tools" is not thereby asking to have their files rewritten.
     """
     tools = list(ALL_TOOLS)
     if image_client is not None:
@@ -1659,6 +1753,8 @@ def make_tools(
         tools.extend(make_memory_tools(memory_store))
     if allow_code_execution:
         tools.append(execute_python)
+    if allow_file_writes:
+        tools.extend([write_file, edit_file])
     return tools
 
 
@@ -2357,7 +2453,74 @@ def make_web_tools(
 
 # Curated subsets: pass one of these to ``tools=`` instead of importing every function.
 web = [get_weather, get_web_content, get_webpage_html, web_search, wikipedia]
-fs = [list_directory, read_file]
+
+
+def select(tools, *, include=None, exclude=None) -> list[Callable]:
+    """Narrow a tool list, by name or by tool, refusing a selector that matches nothing.
+
+    *include* keeps only the named tools; *exclude* drops them; passing both applies
+    *include* first. Each may hold tool names (``"read_file"``), the tool objects
+    themselves, or a group to pass whole (``exclude=builtin.fs``), so blocking a group and
+    re-allowing one member reads as what it is::
+
+        # everything except the filesystem, plus reading
+        tools = builtin.select(builtin.ALL_TOOLS, exclude=builtin.fs) + [builtin.read_file]
+
+        # the filesystem, minus the parts that write
+        tools = builtin.select(builtin.fs, exclude=["write_file", "edit_file"])
+
+        # let it write files, but never run a command
+        tools = builtin.select(builtin.ALL_TOOLS + builtin.fs, exclude=builtin.compute)
+
+    The result is deduplicated by name, so concatenating overlapping groups (as the third
+    example does) is safe.
+
+    The reason this exists rather than a list comprehension is the ``ValueError``: a
+    comprehension filtering on a misspelled name silently keeps the tool you meant to
+    remove, and that failure is invisible at the call site -- it surfaces only as an agent
+    doing something you thought you had forbidden. Only **string** selectors are checked,
+    because only they can be misspelled: a tool passed by reference already failed at the
+    call site if its attribute name was wrong, and a group legitimately names tools the list
+    may not hold (``exclude=builtin.fs`` against ``ALL_TOOLS``, which carries only that
+    group's read members). Deliberately not a pattern language -- no globs, no precedence
+    rules to learn, and ``exclude=builtin.fs`` already says what ``fs.*`` would.
+    """
+
+    def parse(selector) -> tuple[set[str], set[str]]:
+        """Return (every name in *selector*, just the ones given as strings)."""
+        if selector is None:
+            return set(), set()
+        if isinstance(selector, str) or callable(selector):
+            selector = [selector]
+        spelled = {s for s in selector if isinstance(s, str)}
+        return {s if isinstance(s, str) else s.__name__ for s in selector}, spelled
+
+    available = {fn.__name__ for fn in tools}
+    wanted, wanted_spelled = parse(include)
+    unwanted, unwanted_spelled = parse(exclude)
+    unknown = (wanted_spelled | unwanted_spelled) - available
+    if unknown:
+        raise ValueError(
+            f"select() got {sorted(unknown)}, which name no tool in the given list. Available: {sorted(available)}"
+        )
+
+    chosen = tools if include is None else [fn for fn in tools if fn.__name__ in wanted]
+    kept = [fn for fn in chosen if fn.__name__ not in unwanted]
+
+    # Deduplicate by name, keeping the last of each -- which is the entry dispatch would have
+    # resolved to anyway, so an intentional override still wins. Groups overlap now that
+    # ``unscoped`` cuts across ``fs`` and ``compute``, so concatenating two of them is normal
+    # and would otherwise advertise the same tool twice: wasted tokens on every request, and a
+    # duplicate name some providers reject outright.
+    by_name = {fn.__name__: fn for fn in kept}
+    return list(by_name.values())
+
+
+# Reads and writes together: a host handing over ``fs`` is handing over the filesystem, and
+# :func:`select` is how it hands over less. ``ALL_TOOLS`` below lists the read members
+# individually rather than splatting this group, on the ``compute`` precedent -- see the note
+# there for why "everything" stops short of the destructive members.
+fs = [list_directory, read_file, write_file, edit_file]
 compute = [calculate, execute_python, run_command]
 # Grouped apart from ``misc`` because an agent almost always wants a clock regardless of its role: an
 # assistant scoped to filesystem work still has to resolve "by tomorrow morning". Bundled with ``echo``
@@ -2366,6 +2529,25 @@ compute = [calculate, execute_python, run_command]
 # ``datetime``), and adding such an import would be silently rebound by this assignment.
 time = [get_current_date_and_time, convert_time]
 misc = [echo]
+
+# The one group organized by reach rather than by subject, and the only one ``ALL_TOOLS``
+# leaves out. These four let the model name a target anywhere this user can reach -- arbitrary
+# code, an arbitrary command, an arbitrary path -- so what they touch is bounded by the account
+# running the process and nothing else. Every other built-in either reads, computes, or writes
+# somewhere AIMU chose (``generate_image`` saves under ``paths.output``), which is why the split
+# is drawn here and not at "has a side effect".
+#
+# Named for what it is rather than ``ALL_SAFE_TOOLS``' complement, because safety is a property
+# of a deployment and not of a tool: ``get_web_content`` will fetch an internal endpoint if the
+# model names one, ``web_search`` hands the query to whatever SearXNG instance is configured, and
+# ``generate_image`` spends real money on a cloud provider. Calling the remainder "safe" would
+# promise something no list can deliver -- so this group is the named one, and the absence of a
+# ``SAFE_TOOLS`` alias is deliberate.
+#
+# Use it to grant (``tools=builtin.web + builtin.unscoped``) or, more often, to deny:
+#
+#     builtin.select(builtin.ALL_TOOLS + builtin.fs, exclude=builtin.unscoped)
+unscoped = [execute_python, run_command, write_file, edit_file]
 image = [generate_image]
 audio = [generate_audio]
 speech = [generate_speech]
@@ -2434,7 +2616,13 @@ ALL_TOOLS = [
     get_webpage_html,
     web_search,
     wikipedia,
-    *fs,
+    # The read members of ``fs``, not ``*fs``: this list is what ``make_tools()`` starts from and
+    # what ``python -m aimu.tools.mcp`` serves cross-process, so "every built-in" has always meant
+    # every *non-destructive* built-in -- the same reason ``calculate`` appears here and the rest
+    # of ``compute`` does not. Opt in with ``make_tools(allow_file_writes=True)``, or by passing
+    # ``builtin.fs`` directly.
+    list_directory,
+    read_file,
     *image,
     *audio,
     *speech,

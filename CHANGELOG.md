@@ -2,37 +2,68 @@
 
 ## Unreleased
 
-### Memory
-
-- **`memory_read` windows like the rest, and the "drop-in compatible with Anthropic's memory API"
-  claim is gone from five places, because it was not true.** `memory_read` had the same unreachable
-  tail as the other capped reads and was initially left alone to preserve wire compatibility with
-  Anthropic's Managed Agents Memory API, whose `view` command was believed to spell a window
-  `view_range`. Checking rather than recalling: `view_range` belongs to the **text editor** tool
-  (`text_editor_20250728`), and neither memory surface is what this module resembles. Anthropic's
-  client-side memory tool (`memory_20250818`) has commands `view` / `create` / `str_replace` /
-  `insert` / `delete` / `rename`; its Managed Agents memory stores expose
-  `list` / `retrieve` / `create` / `update` / `delete`, where `retrieve` takes a `mem_...` id rather
-  than a path, and a session reaches a store as a filesystem mounted at `/mnt/memory/<name>/` read
-  with ordinary file tools -- there are no dedicated memory tools inside a session at all. AIMU's
-  `memory_list` / `memory_search` / `memory_read` / `memory_write` / `memory_edit` / `memory_delete`
-  match neither: different names from the first, different addressing from the second, plus a
-  `memory_search` that exists in neither. So there was no compatibility property to protect, and the
-  claim was misinforming anyone who read it. `memory_read(path, max_lines=2000, offset=1)` now
-  windows with AIMU's own spelling, consistent with `read_file` and `read_document` -- which is also
-  the closest thing to how Anthropic's own agents read memory, since they read the mount with file
-  tools. A missing path still raises `KeyError`: that is this server's documented contract, distinct
-  from the `read_document` tool's "not found" string. The claim was corrected in `document_mcp.py`,
-  `document_store.py`, `CLAUDE.md` (two lines), `docs/how-to/use-document-memory.md`,
-  `docs/reference/cli.md`, and `README.md`. Tests: `tests/test_document_store.py`.
-
-- The window helpers moved to a new private `aimu/_window.py` so `aimu.memory` can share them
-  without importing `aimu.tools`, whose package `__init__` eagerly imports `builtin` and would drag
-  `requests` and the whole built-in tool set into an MCP server that wants neither.
-  `aimu.tools.builtin` re-exports them under their former private names, so its call sites and tests
-  are unchanged.
-
 ### Tools
+
+- **New: `write_file` and `edit_file`, in the `fs` group.** `builtin.fs` was read-only, so an
+  agent that had to write reached for `run_command` or `execute_python` -- the opt-in,
+  isolation-disclaimed tools -- and a shell heredoc write is strictly worse than an edit: invisible
+  as an edit in the event stream, ungateable per path, and it fails in ways the model cannot read
+  back. `write_file(path, content)` creates or replaces a file whole and **reports which of the two
+  happened**, with the line count it destroyed, because a bare "wrote N lines" reads identically
+  whether the file was new or held someone else's work a moment ago, and the transcript is the only
+  record. `edit_file(path, old_str, new_str)` replaces **exactly one** occurrence: zero matches or
+  more than one writes nothing and returns the count, since replace-first applies an ambiguous edit
+  to whichever match came first, which is a silently wrong edit. It also reads **strictly** rather
+  than with `read_file`'s `errors="replace"`: that tolerance exists so a model can read a
+  mostly-text file, and writing the decoded result back would replace every undecodable byte in the
+  user's file with U+FFFD. Neither tool confines writes to a project root, deliberately -- a root
+  check a symlink or a relative path can walk out of reads as containment while providing none, so
+  the docstring states the exposure the way `execute_python`'s does instead.
+
+  **Change -- `builtin.fs` now grants write access.** The writes are *in* the group, not quarantined
+  beside it, so any existing `tools=builtin.fs` call site has gained the ability to modify files with
+  no change to its own code. That is the intended design: scoping is the host's job, and it is now a
+  job the host has to actually do. Two things make it doable, and one keeps the blast radius from
+  widening on its own:
+
+- **New: `builtin.select(tools, include=None, exclude=None)`** narrows a tool list by name or by
+  tool, and accepts a whole group, so a deny-then-allow scope reads as what it is:
+  `select(ALL_TOOLS, exclude=builtin.fs) + [read_file]`, or
+  `select(ALL_TOOLS + fs, exclude=builtin.unscoped)`. It earns its place over a list comprehension
+  through one `ValueError`: a comprehension filtering on a misspelled name silently keeps the tool
+  you meant to remove, and that failure is invisible at the call site -- it surfaces only as an agent
+  doing something you believed you had forbidden. **Only string selectors are validated**, because
+  only they can be misspelled; a tool passed by reference already raised at the call site if its
+  attribute name was wrong, and a group legitimately names tools the target list does not hold.
+  Deliberately not a pattern language: no globs and no precedence rules, since `exclude=builtin.fs`
+  already says what `fs.*` would. The result is deduplicated by name (keeping the entry dispatch
+  would have resolved to anyway), because groups overlap now that `unscoped` cuts across `fs` and
+  `compute`, so concatenating two of them is normal and would otherwise advertise the same tool
+  twice -- wasted tokens on every request, and a duplicate name some providers reject.
+
+- **New: `builtin.unscoped`** -- `execute_python`, `run_command`, `write_file`, `edit_file` -- the one
+  group organized by *reach* rather than by subject, and exactly what `ALL_TOOLS` leaves out. What
+  those four share is that the **model names the target**: arbitrary code, an arbitrary command, an
+  arbitrary path, bounded by the account running the process and nothing else. Every other built-in
+  reads, computes, or writes somewhere AIMU chose (`generate_image` saves under `paths.output`),
+  which is why the line is drawn there rather than at "has a side effect".
+
+  There is deliberately **no `SAFE_TOOLS` / `ALL_SAFE_TOOLS` complement.** Safety is a property of a
+  deployment, not of a tool: `get_web_content` will fetch an internal endpoint if the model names
+  one, `web_search` hands the query to whatever SearXNG instance is configured, and `generate_image`
+  spends real money. Naming the remainder "safe" would promise what no list can deliver, and this
+  project has already had to retract one confident claim of that shape. So the *risky* set is the one
+  with a name, and the absence of its complement is the design.
+
+  `ALL_TOOLS` keeps its meaning (every built-in except those four) rather than being redefined to
+  include them: it is what `make_tools()` starts from and what `python -m aimu.tools.mcp` serves
+  cross-process, so redefining it would have handed a shell and a file writer to every existing MCP
+  deployment without a line of their code changing. `make_tools(allow_file_writes=True)` is the
+  opt-in, mirroring `allow_code_execution`.
+  Tests: `tests/test_tools.py::test_unscoped_group_is_exactly_what_all_tools_leaves_out` (fails if a
+  new built-in lands in neither `ALL_TOOLS` nor `unscoped`), `::test_there_is_no_safe_tools_alias`,
+  plus the `write_file` / `edit_file` / `select` cases.
+
 
 - **Every capped read a caller can safely repeat now takes an `offset`, and their truncation
   notices name the call that continues from where they stopped.** A cap with no offset is not a
@@ -83,6 +114,36 @@
   `::test_read_file_offset_past_the_end_says_how_long_the_file_is`,
   `::test_read_file_rejects_a_non_positive_offset`,
   `::test_read_file_advertises_offset_to_the_model`.
+
+### Memory
+
+- **`memory_read` windows like the rest, and the "drop-in compatible with Anthropic's memory API"
+  claim is gone from five places, because it was not true.** `memory_read` had the same unreachable
+  tail as the other capped reads and was initially left alone to preserve wire compatibility with
+  Anthropic's Managed Agents Memory API, whose `view` command was believed to spell a window
+  `view_range`. Checking rather than recalling: `view_range` belongs to the **text editor** tool
+  (`text_editor_20250728`), and neither memory surface is what this module resembles. Anthropic's
+  client-side memory tool (`memory_20250818`) has commands `view` / `create` / `str_replace` /
+  `insert` / `delete` / `rename`; its Managed Agents memory stores expose
+  `list` / `retrieve` / `create` / `update` / `delete`, where `retrieve` takes a `mem_...` id rather
+  than a path, and a session reaches a store as a filesystem mounted at `/mnt/memory/<name>/` read
+  with ordinary file tools -- there are no dedicated memory tools inside a session at all. AIMU's
+  `memory_list` / `memory_search` / `memory_read` / `memory_write` / `memory_edit` / `memory_delete`
+  match neither: different names from the first, different addressing from the second, plus a
+  `memory_search` that exists in neither. So there was no compatibility property to protect, and the
+  claim was misinforming anyone who read it. `memory_read(path, max_lines=2000, offset=1)` now
+  windows with AIMU's own spelling, consistent with `read_file` and `read_document` -- which is also
+  the closest thing to how Anthropic's own agents read memory, since they read the mount with file
+  tools. A missing path still raises `KeyError`: that is this server's documented contract, distinct
+  from the `read_document` tool's "not found" string. The claim was corrected in `document_mcp.py`,
+  `document_store.py`, `CLAUDE.md` (two lines), `docs/how-to/use-document-memory.md`,
+  `docs/reference/cli.md`, and `README.md`. Tests: `tests/test_document_store.py`.
+
+- The window helpers moved to a new private `aimu/_window.py` so `aimu.memory` can share them
+  without importing `aimu.tools`, whose package `__init__` eagerly imports `builtin` and would drag
+  `requests` and the whole built-in tool set into an MCP server that wants neither.
+  `aimu.tools.builtin` re-exports them under their former private names, so its call sites and tests
+  are unchanged.
 
 ## v0.30.0 (2026-09-09): a fetched PDF is a document, not mojibake
 

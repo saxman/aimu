@@ -27,7 +27,7 @@ The `aimu.tools.builtin` module ships ready-made `@tool` functions grouped by do
 | Group | Tools |
 |---|---|
 | `builtin.web` | `get_weather`, `get_webpage`, `get_webpage_html`, `web_search`, `wikipedia` |
-| `builtin.fs` | `list_directory`, `read_file` |
+| `builtin.fs` | `list_directory`, `read_file`, `write_file`, `edit_file` |
 | `builtin.compute` | `calculate`, `execute_python`, `run_command` |
 | `builtin.time` | `get_current_date_and_time`, `convert_time` |
 | `builtin.misc` | `echo` |
@@ -91,6 +91,20 @@ variable reaches the child beyond its default allowlist.
 ::: aimu.tools.builtin.list_directory
 
 ::: aimu.tools.builtin.read_file
+
+::: aimu.tools.builtin.write_file
+
+::: aimu.tools.builtin.edit_file
+
+## Scoping what an agent gets
+
+`builtin.fs` carries writes as well as reads, so handing over a group is a decision, not a
+default. `select` narrows one, and `builtin.unscoped` names the tools that can reach any target
+the running account can — the group to deny when an agent should stay inside its own work.
+There is no `SAFE_TOOLS` complement, deliberately: safety is a property of a deployment rather
+than of a tool, and a list named for it would promise what it cannot deliver.
+
+::: aimu.tools.builtin.select
 
 ## Tool factories
 

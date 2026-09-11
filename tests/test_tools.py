@@ -423,7 +423,7 @@ def test_builtin_web_group_contains_expected_tools():
 
 def test_builtin_fs_group_contains_expected_tools():
     names = {t.__name__ for t in builtin.fs}
-    assert names == {"list_directory", "read_file"}
+    assert names == {"list_directory", "read_file", "write_file", "edit_file"}
 
 
 def test_builtin_all_tools_still_exposed():
@@ -715,6 +715,209 @@ def test_read_file_advertises_offset_to_the_model(tmp_path):
     assert "offset" in params
     assert "offset" not in builtin.read_file.__tool_spec__["function"]["parameters"]["required"]
     assert params["offset"]["description"]
+
+
+# ---------------------------------------------------------------------------
+# write_file / edit_file
+# ---------------------------------------------------------------------------
+
+
+def test_write_file_creates_a_file_and_says_so(tmp_path):
+    target = tmp_path / "notes" / "new.md"
+
+    result = builtin.write_file(str(target), "one\ntwo")
+
+    assert target.read_text() == "one\ntwo"
+    assert "Created" in result and "2 lines" in result
+    assert "Overwrote" not in result
+
+
+def test_write_file_reports_an_overwrite_as_an_overwrite(tmp_path):
+    # A bare "wrote N lines" reads identically whether the file was new or held someone
+    # else's work a moment ago. The transcript is the only record that it was destroyed.
+    target = tmp_path / "existing.md"
+    target.write_text("\n".join(f"line {i}" for i in range(40)))
+
+    result = builtin.write_file(str(target), "replaced")
+
+    assert target.read_text() == "replaced"
+    assert "Overwrote" in result
+    assert "40 lines replaced" in result
+
+
+def test_write_file_reports_an_os_error_rather_than_raising(tmp_path):
+    result = builtin.write_file(str(tmp_path), "content")
+    assert "Not a file" in result
+
+
+def test_edit_file_replaces_a_unique_occurrence(tmp_path):
+    target = tmp_path / "config.py"
+    target.write_text("DEBUG = False\nPORT = 8080\n")
+
+    result = builtin.edit_file(str(target), "PORT = 8080", "PORT = 9090")
+
+    assert target.read_text() == "DEBUG = False\nPORT = 9090\n"
+    assert "replaced 1 occurrence" in result
+
+
+def test_edit_file_refuses_an_ambiguous_edit_and_writes_nothing(tmp_path):
+    # The whole reason to prefer this over replace-first: an ambiguous edit applied to
+    # whichever match came first is a silently wrong edit.
+    target = tmp_path / "config.py"
+    original = "timeout = 30\nretries = 3\ntimeout = 30\n"
+    target.write_text(original)
+
+    result = builtin.edit_file(str(target), "timeout = 30", "timeout = 60")
+
+    assert target.read_text() == original  # nothing written
+    assert "appears 2 times" in result
+    assert "Nothing was written" in result
+
+
+def test_edit_file_reports_a_missing_match_without_writing(tmp_path):
+    target = tmp_path / "config.py"
+    target.write_text("PORT = 8080\n")
+
+    result = builtin.edit_file(str(target), "PORT = 1234", "PORT = 9090")
+
+    assert target.read_text() == "PORT = 8080\n"
+    assert "No match" in result
+
+
+def test_edit_file_can_delete_text(tmp_path):
+    target = tmp_path / "a.txt"
+    target.write_text("keep\nremove me\nkeep\n")
+
+    builtin.edit_file(str(target), "remove me\n", "")
+
+    assert target.read_text() == "keep\nkeep\n"
+
+
+def test_edit_file_refuses_a_file_it_would_corrupt(tmp_path):
+    # read_file decodes with errors="replace" so a model can still read a mostly-text file.
+    # Doing that here and writing the result back would replace every undecodable byte in
+    # the user's file with U+FFFD, so this path has to be strict.
+    target = tmp_path / "data.bin"
+    target.write_bytes(b"text \xff\xfe more text")
+
+    result = builtin.edit_file(str(target), "text", "TEXT")
+
+    assert target.read_bytes() == b"text \xff\xfe more text"
+    assert "not valid UTF-8" in result
+
+
+def test_edit_file_missing_path(tmp_path):
+    assert "does not exist" in builtin.edit_file(str(tmp_path / "nope.md"), "a", "b")
+
+
+# ---------------------------------------------------------------------------
+# Tool scoping: groups, ALL_TOOLS, select()
+# ---------------------------------------------------------------------------
+
+
+def test_fs_group_carries_writes_and_all_tools_does_not():
+    # Handing over builtin.fs hands over the filesystem; "every built-in" stays
+    # non-destructive, the same split compute already has for execute_python/run_command.
+    fs_names = {fn.__name__ for fn in builtin.fs}
+    all_names = {fn.__name__ for fn in builtin.ALL_TOOLS}
+
+    assert {"write_file", "edit_file"} <= fs_names
+    assert {"write_file", "edit_file"}.isdisjoint(all_names)
+    assert {"list_directory", "read_file"} <= all_names
+
+
+def test_select_narrows_a_group_by_name():
+    scoped = builtin.select(builtin.fs, exclude=["write_file", "edit_file"])
+    assert [fn.__name__ for fn in scoped] == ["list_directory", "read_file"]
+
+
+def test_select_blocks_a_whole_group_then_re_allows_one_member():
+    tools = builtin.select(builtin.ALL_TOOLS, exclude=builtin.fs) + [builtin.read_file]
+
+    names = [fn.__name__ for fn in tools]
+    assert "read_file" in names
+    assert "list_directory" not in names
+    assert names.count("read_file") == 1
+
+
+def test_select_include_keeps_only_what_is_named():
+    scoped = builtin.select(builtin.fs, include={"read_file"})
+    assert [fn.__name__ for fn in scoped] == ["read_file"]
+
+
+def test_select_accepts_tool_objects_as_well_as_names():
+    scoped = builtin.select(builtin.fs, exclude=[builtin.write_file, builtin.edit_file])
+    assert [fn.__name__ for fn in scoped] == ["list_directory", "read_file"]
+
+
+def test_unscoped_group_is_exactly_what_all_tools_leaves_out():
+    # The group is organized by reach, not subject, and is the one thing ALL_TOOLS omits.
+    # If a new built-in lets the model name an arbitrary target, it belongs in both this
+    # group and this assertion; if it lands in neither, ALL_TOOLS silently grew a tool that
+    # can reach the whole account.
+    every_builtin = {
+        fn.__name__ for group in (builtin.web, builtin.fs, builtin.compute, builtin.time, builtin.misc) for fn in group
+    }
+    in_all = {fn.__name__ for fn in builtin.ALL_TOOLS}
+    unscoped = {fn.__name__ for fn in builtin.unscoped}
+
+    assert unscoped == {"execute_python", "run_command", "write_file", "edit_file"}
+    assert every_builtin - in_all == unscoped
+    assert unscoped.isdisjoint(in_all)
+
+
+def test_there_is_no_safe_tools_alias():
+    # Safety is a property of a deployment, not of a tool: get_web_content will fetch an
+    # internal endpoint if the model names one. A list promising otherwise is the kind of
+    # claim this codebase has had to retract before.
+    assert not hasattr(builtin, "SAFE_TOOLS")
+    assert not hasattr(builtin, "ALL_SAFE_TOOLS")
+
+
+def test_select_denies_the_unscoped_group_across_subjects():
+    # unscoped cuts across fs and compute, so one exclude covers both subjects.
+    scoped = builtin.select(builtin.ALL_TOOLS + builtin.fs + builtin.compute, exclude=builtin.unscoped)
+
+    names = [fn.__name__ for fn in scoped]
+    assert {"read_file", "list_directory", "calculate"} <= set(names)
+    assert set(names).isdisjoint({"write_file", "edit_file", "execute_python", "run_command"})
+
+
+def test_select_grants_writes_while_denying_the_shell():
+    scoped = builtin.select(builtin.ALL_TOOLS + builtin.fs, exclude=builtin.compute)
+
+    names = {fn.__name__ for fn in scoped}
+    assert {"write_file", "edit_file", "read_file"} <= names
+    assert names.isdisjoint({"execute_python", "run_command", "calculate"})
+
+
+def test_select_deduplicates_overlapping_groups():
+    # Groups overlap by design now that unscoped cuts across fs and compute, so
+    # concatenating two of them is normal. A duplicated name costs tokens on every request
+    # and is rejected outright by some providers.
+    scoped = builtin.select(builtin.ALL_TOOLS + builtin.fs)
+
+    names = [fn.__name__ for fn in scoped]
+    assert len(names) == len(set(names))
+    assert "read_file" in names
+
+
+def test_select_accepts_a_group_naming_tools_the_list_does_not_hold():
+    # exclude=builtin.fs against ALL_TOOLS names write_file/edit_file, which ALL_TOOLS does
+    # not carry. That is a legitimate deny, not a typo, so it must not raise.
+    scoped = builtin.select(builtin.ALL_TOOLS, exclude=builtin.fs)
+    assert "read_file" not in {fn.__name__ for fn in scoped}
+
+
+def test_select_raises_on_a_selector_that_matches_nothing():
+    # The reason select() exists instead of a comprehension: a misspelled name in
+    # `if t.__name__ != "write_files"` silently keeps the tool you meant to remove, and the
+    # failure only surfaces as an agent doing something you thought you had forbidden.
+    with pytest.raises(ValueError) as excinfo:
+        builtin.select(builtin.fs, exclude=["write_files"])
+
+    assert "write_files" in str(excinfo.value)
+    assert "read_file" in str(excinfo.value)  # names what was actually available
 
 
 def test_read_file_default_reads_a_document_sized_file_whole(tmp_path):

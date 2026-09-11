@@ -170,7 +170,7 @@ agent = Agent(client, tools=builtin.web + builtin.fs)
 | Group | Functions |
 |---|---|
 | `builtin.web` | `get_weather`, `get_web_content`, `get_webpage_html`, `web_search`, `wikipedia` |
-| `builtin.fs` | `list_directory`, `read_file` |
+| `builtin.fs` | `list_directory`, `read_file`, `write_file`, `edit_file` |
 | `builtin.compute` | `calculate` |
 | `builtin.time` | `get_current_date_and_time`, `convert_time` |
 | `builtin.misc` | `echo` |
