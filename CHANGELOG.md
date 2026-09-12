@@ -44,7 +44,7 @@
   Worth being exact about what this buys: it bounds growth spread over many rounds, which is the
   common shape, and it cannot save a worker from one oversized tool result. `trim_messages` will not
   drop the most recent group without orphaning the call it answers, so a tool able to return megabytes
-  still has to cap itself, which is why `get_web_content` and `read_file` window their own output.
+  still has to cap itself, which is why `get_web_content` and `read_file` cap what one call returns.
 
 ### Tools
 
