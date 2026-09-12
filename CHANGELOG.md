@@ -16,13 +16,32 @@
   and returns the count. Like `read_document`, it reports a miss as a message rather than raising,
   which is this group's convention and the opposite of `document_mcp`'s `memory_edit`.
 
-  Neither the tool nor the store can tell a full rewrite from a window, so the guard has to be
-  language the model reads: `save_document`'s description now says that content becomes the entire
-  document, that a truncated read is one window of it, and that `edit_document` is what changes part
-  of one. The destructive combination is pinned by
-  `tests/test_memory_tools.py::test_saving_back_a_windowed_read_would_truncate_the_document`, which
-  asserts both the truncation and the presence of that warning, so the hazard cannot return
-  unnoticed if the docstring is ever rewritten.
+  **Change -- `save_document` now refuses to replace a document it has not shown you in full.**
+  A docstring warning was the first attempt, and a documented foot-gun is the fallback, not the
+  fix. `make_document_tools` now keeps a per-factory set of digests of the document texts it has
+  shown the model *entire*, and `save_document` will not replace an existing document whose current
+  text is absent from it: read-before-replace, the rule Claude Code's own `Write` tool enforces, for
+  the same reason. A full read grants the permission, a **truncated read revokes** it (a model
+  reading a window is working from a partial view, whatever it knew before -- including having
+  authored the document, since it would not be reading a window if it still held the text), a
+  successful `save_document` grants it, and `edit_document` carries it across an edit the model
+  itself chose. Creating a new document needs no read. The refusal names the document's real line
+  count, so a full read can be sized, and names `edit_document` as the alternative.
+
+  Keyed by digest rather than by path on purpose: it needs no path canonicalization, so it cannot
+  drift from `DocumentStore._normalize`'s `..`-collapsing rules, and it expires on its own -- a
+  document a user or another process changed after the read no longer matches, and the permission
+  lapses exactly when it should. The tracking is per `make_document_tools(...)` call and in-process,
+  so two agents sharing one store each answer for what they have read. `store.write()` is
+  deliberately unguarded: a programmatic caller holds the document, and this exists to stop a
+  *model* discarding text it has never seen. `save_document`'s description still carries the
+  warning, since the guard refuses after the fact and the description is what stops the attempt.
+  Tests: `tests/test_memory_tools.py::test_saving_back_a_windowed_read_is_refused`,
+  `::test_reading_a_document_in_full_permits_replacing_it`,
+  `::test_replacing_an_unread_document_is_refused`,
+  `::test_an_out_of_band_change_revokes_the_permission_to_replace`,
+  `::test_an_edit_after_a_full_read_still_permits_replacing`,
+  `::test_creating_a_new_document_needs_no_read`.
 
 - Corrected the last remnant of the retracted Anthropic-compatibility claim, in
   `docs/how-to/use-document-memory.md`'s MCP section ("matching Anthropic's API naming"), missed

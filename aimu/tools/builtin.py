@@ -7,6 +7,7 @@ or cross-process (``python -m aimu.tools.mcp``).
 """
 
 import datetime
+import hashlib
 import logging
 import os
 import re
@@ -2046,20 +2047,52 @@ def make_document_tools(store):
     ``aimu.memory.document_mcp`` instead.
     """
 
+    # Digests of document texts this tool set has shown the model *in full*. save_document
+    # will not replace a document whose current text is not in here: a whole-document write
+    # destroys everything it does not repeat, and a model that has only seen one window of a
+    # document cannot know what it is discarding. Read-before-replace, the rule Claude Code's
+    # own Write tool enforces, for the same reason.
+    #
+    # Keyed by digest rather than by path deliberately. It needs no path canonicalization (so
+    # it cannot drift from the store's own `..`-collapsing normalization), and it expires on
+    # its own: if the document changed out-of-band after the read -- a user editing the
+    # directory, another agent, a prior edit_document -- its text no longer matches and the
+    # permission lapses, which is exactly when it should.
+    shown_whole: set[str] = set()
+
+    def digest(content: str) -> str:
+        return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
     @tool
     def save_document(path: str, content: str) -> str:
         """Save a document at a path, creating it or replacing the whole thing.
 
-        content becomes the entire document. If you read a document and it said it was
-        truncated, what you read is one window of it: saving that back would delete
-        everything outside the window. To change part of a document, use edit_document,
-        which leaves the rest untouched.
+        content becomes the entire document, so everything not repeated in it is deleted.
+        Replacing a document you have not read in full is refused: to change part of one,
+        use edit_document, which leaves the rest untouched and needs no re-reading.
 
         Args:
             path: A document path, e.g. "/notes/standup.md".
             content: The full text of the document.
         """
+        try:
+            existing = store.read(path)
+        except KeyError:
+            existing = None
+
+        if existing is not None and digest(existing) not in shown_whole:
+            total = len(existing.splitlines())
+            return (
+                f"Refusing to replace {path}: you have not been shown its current text in full "
+                f"({total} {'line' if total == 1 else 'lines'}), so a replacement would delete "
+                "content you have never seen. Read it in full first (read_document with max_lines "
+                f"at least {total}), or use edit_document to change part of it without replacing "
+                "the rest."
+            )
+
         store.write(path, content)
+        # The model authored this text, so it has seen this document whole by definition.
+        shown_whole.add(digest(content))
         return f"Saved {path}."
 
     @tool
@@ -2083,6 +2116,7 @@ def make_document_tools(store):
         # the opposite choice for memory_edit, which raises; that divergence between the
         # in-process and cross-process surfaces is deliberate and documented.
         try:
+            before = store.read(path)
             store.edit(path, old_str, new_str)
         except KeyError:
             return f"No document found at {path}."
@@ -2091,6 +2125,11 @@ def make_document_tools(store):
             # message already names the count and says nothing was written, and a prefix here
             # only said it a second time.
             return str(exc)
+        # Carry a whole-document read across the edit. A model that had seen the document
+        # entire made a change it chose, so it still knows the result; without this, its own
+        # edit would revoke the permission to replace it later.
+        if digest(before) in shown_whole:
+            shown_whole.add(digest(store.read(path)))
         return f"Edited {path}: replaced 1 occurrence."
 
     @tool
@@ -2119,6 +2158,15 @@ def make_document_tools(store):
         # An empty document read from the top is a legitimate whole-document read.
         if offset > len(lines) and offset > 1:
             return _past_end(offset=offset, total=len(lines), unit="line", describe=path)
+        if offset == 1 and len(lines) <= max_lines:
+            # The whole document reached the model, so save_document may now replace it.
+            shown_whole.add(digest(content))
+        else:
+            # A windowed read is positive evidence that the model is working from a partial
+            # view of this document, whatever it knew earlier in the run -- including having
+            # authored it, since it would not be reading a window if it still had the text.
+            # So the read revokes the permission rather than merely failing to grant it.
+            shown_whole.discard(digest(content))
         return _window(lines, offset=offset, limit=max_lines, unit="line", tool="read_document", join="\n")
 
     @tool

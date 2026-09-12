@@ -123,10 +123,17 @@ Because these tool names are distinct from `make_memory_tools`' (`store_memory` 
 
 **Reach for `edit_document` rather than `save_document` to change part of a document.**
 `read_document` returns a *window* of a long document and `save_document` replaces the whole
-thing, so the read-modify-save round-trip deletes everything outside the window, silently,
-and still reports success. `edit_document` leaves the rest untouched and needs no re-emission
-of text the model already read. Neither the tool nor the store can tell a full rewrite from a
-window, so `save_document`'s own description is what steers the model away from it.
+thing, so the read-modify-save round-trip would delete everything outside the window. It is
+refused: `save_document` will not replace a document whose current text it has not shown the
+model in full, so an agent that read one window gets an error naming `edit_document` instead
+of a quietly truncated document.
+
+A full read grants permission to replace; a truncated read takes it back; creating a new
+document needs no read at all; and a document changed out-of-band after the read no longer
+matches, so the permission lapses. The tracking is per `make_document_tools(...)` call and
+in-process, so two agents over one store each answer for what they have read. A programmatic
+caller is unaffected -- `store.write()` has no such guard, because the caller holds the
+document and the tools exist to keep a *model* from discarding text it has never seen.
 
 ## Expose as MCP tools
 

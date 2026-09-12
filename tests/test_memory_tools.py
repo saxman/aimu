@@ -252,27 +252,96 @@ def test_edit_document_changes_part_without_touching_the_rest(doc_tools):
     assert "line 2999" in whole
 
 
-def test_saving_back_a_windowed_read_would_truncate_the_document(doc_tools):
-    """The hazard edit_document exists to remove, pinned so it cannot return unnoticed.
+def test_saving_back_a_windowed_read_is_refused(doc_tools):
+    """The hazard, now blocked in code rather than warned about in a docstring.
 
-    read_document returns one window of a long document. save_document replaces the whole
-    thing. So the read-modify-save round-trip an agent would otherwise have to use destroys
-    everything past the window, silently, and reports success. This test documents that the
-    combination is destructive; save_document's docstring is what steers the model away from
-    it, and edit_document is what it should reach for instead.
+    read_document returns one window of a long document and save_document replaces the whole
+    thing, so the read-modify-save round-trip used to delete everything past the window --
+    silently, reporting success. save_document now refuses to replace a document whose full
+    text it has not shown the model.
+
+    The document is created through the tool here on purpose: authoring it grants the
+    permission, and the windowed read has to take that permission back. A model reading a
+    window of a document it wrote no longer holds the text, which is why it is reading.
     """
     save = _by_name(doc_tools, "save_document")
     read = _by_name(doc_tools, "read_document")
-    save("/paper.md", "\n".join(f"line {i}" for i in range(3000)))
+    body = "\n".join(f"line {i}" for i in range(3000))
+    save("/paper.md", body)
 
     window = read("/paper.md", max_lines=50)
-    save("/paper.md", window)  # what an agent without edit_document has to do
+    result = save("/paper.md", window)
 
-    assert len(read("/paper.md", max_lines=5000).splitlines()) == 51  # 50 + the marker
-    # The tool's own docstring must carry the warning, since neither the tool nor the store
-    # can tell a full rewrite from a window.
-    assert "truncated" in save.__doc__
-    assert "edit_document" in save.__doc__
+    assert "Refusing to replace" in result
+    assert "3000" in result  # the size it would have destroyed, so a full read can be sized
+    assert "edit_document" in result  # and the tool that does the job safely
+    assert read("/paper.md", max_lines=5000).splitlines() == body.splitlines()
+
+
+def test_reading_a_document_in_full_permits_replacing_it(doc_tools):
+    # The guard must not block the legitimate rewrite: a model that has seen the whole
+    # document knows what it is discarding.
+    save = _by_name(doc_tools, "save_document")
+    read = _by_name(doc_tools, "read_document")
+    save("/short.md", "one\ntwo\nthree")
+
+    read("/short.md")  # fits in one window, so this is a complete read
+    assert save("/short.md", "replaced") == "Saved /short.md."
+    assert read("/short.md") == "replaced"
+
+
+def test_replacing_an_unread_document_is_refused(doc_tools):
+    # A fresh tool set has shown the model nothing, so it cannot knowingly replace what is
+    # already there -- the same read-before-write rule Claude Code's own Write tool enforces.
+    store = DocumentStore()
+    store.write("/prior.md", "written by someone else")
+    tools = {t.__name__: t for t in make_document_tools(store)}
+
+    result = tools["save_document"]("/prior.md", "clobbered")
+
+    assert "Refusing to replace" in result
+    assert store.read("/prior.md") == "written by someone else"
+
+
+def test_creating_a_new_document_needs_no_read(doc_tools):
+    save = _by_name(doc_tools, "save_document")
+    assert save("/brand-new.md", "hello") == "Saved /brand-new.md."
+
+
+def test_an_out_of_band_change_revokes_the_permission_to_replace(doc_tools, doc_store):
+    # The digest key expires on its own: whoever changed the document after the read holds
+    # content the model has never seen, so the whole-document write must stop.
+    save = _by_name(doc_tools, "save_document")
+    read = _by_name(doc_tools, "read_document")
+    save("/shared.md", "original")
+    read("/shared.md")
+
+    doc_store.write("/shared.md", "changed by a user in the directory")
+    result = save("/shared.md", "replaced")
+
+    assert "Refusing to replace" in result
+    assert doc_store.read("/shared.md") == "changed by a user in the directory"
+
+
+def test_an_edit_after_a_full_read_still_permits_replacing(doc_tools):
+    # A model that saw the document whole and then made a change it chose still knows the
+    # result, so its own edit must not revoke the permission.
+    save = _by_name(doc_tools, "save_document")
+    read = _by_name(doc_tools, "read_document")
+    edit = _by_name(doc_tools, "edit_document")
+    save("/notes.md", "alpha\nbeta")
+
+    read("/notes.md")
+    edit("/notes.md", "beta", "gamma")
+
+    assert save("/notes.md", "rewritten") == "Saved /notes.md."
+
+
+def test_save_document_still_warns_in_the_text_the_model_reads(doc_tools):
+    # The guard refuses after the fact; the description is what stops the model trying.
+    description = _by_name(doc_tools, "save_document").__tool_spec__["function"]["description"]
+    assert "deleted" in description
+    assert "edit_document" in description
 
 
 def test_edit_document_refuses_an_ambiguous_match(doc_tools):
