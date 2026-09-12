@@ -125,6 +125,16 @@
   the window *before* fetching, so a bad offset costs no network round trip. Reading from the default
   `offset=1` is unchanged everywhere, including on an empty file or document.
 
+  On `get_web_content` the advice being replaced was worse than merely unhelpful. v0.30.0's cap is
+  what stands between a worker and a document like the 2,047,329-character PDF body one production
+  run decoded as text and fed to a 200k-context worker in a single call -- a failure compaction
+  cannot rescue, since `trim_messages` will not drop the most recent group. But the marker that cap
+  emitted read `call again with a larger max_chars to read more`, and the docstring said the same,
+  so a model that followed the tool's own instruction on such a document handed itself the whole
+  thing and reproduced exactly the failure the cap had just prevented. The offset is the remedy that
+  does not undo the cap. (Credit for the production trace: a parallel session working on sub-agent
+  context overflow.)
+
   One deliberate exception: `submit_form`'s response body keeps the old un-paged `_truncate`
   marker, because continuing that read would mean submitting the form again, and the tool exists to
   send POSTs. `aimu.memory.document_mcp`'s `memory_read` is windowed too -- see the next entry for
