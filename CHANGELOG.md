@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.31.0 (2026-09-11): a truncated read names the call that continues it, the fs group writes, and a full sub-agent is its own context
 
 ### Sub-agents
 
