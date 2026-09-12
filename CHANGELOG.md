@@ -2,6 +2,50 @@
 
 ## Unreleased
 
+### Sub-agents
+
+- **Fix: a sub-agent that runs out of context no longer reads as the *parent's* conversation being
+  too long.** Every provider composes `ContextOverflowError` for whoever built the client, so its
+  message ends "shorten the conversation, advertise fewer tools, or compact history first". The tool
+  loop hands an uncaught exception to the model verbatim as ``Tool 'spawn_subagent' raised an error:
+  <message>``, and at that one seam the reader is a *different agent* than the one whose window
+  filled, so "the conversation" resolves to the parent's own. The failure is not hypothetical: a
+  delegating assistant read it exactly that way, told its user "this conversation has grown too long
+  to spawn another worker", and stopped delegating for the rest of the run, while the real cause was
+  a single 2 MB tool result inside one child that had been alive for four rounds. An evaluation of
+  that transcript then concluded the parent's history was being passed to its workers, which it never
+  is: a spawn is built fresh per call and `Agent` has no `messages` parameter at all.
+
+  `make_subagent_tool` and `make_async_subagent_tool` now catch `ContextOverflowError` from the child
+  and return a tool result naming the *sub-agent's* window as the one that filled, saying plainly that
+  the caller's conversation is neither the cause nor something the child ever saw, and giving the
+  parent something it can act on (delegate again narrower, split the work, tell the worker to page
+  long documents). Returned rather than raised because a full child is the model's to recover from,
+  like an unknown `agent_type` and unlike a bad spec key. The provider's own sentence is kept as
+  evidence and explicitly disclaimed rather than dropped, so which backend refused is still on the
+  record, and a WARNING is logged so the operator's copy does not depend on the model mentioning it.
+  Only `ContextOverflowError` is converted; every other child failure propagates as before. On the
+  async surface the catch sits *outside* `_run_observed`, so an `observer` still receives
+  `finished(..., error=ContextOverflowError)` and a front end's spawn card is still marked failed:
+  display keeps the error, and only the model gets the explanation.
+
+- **New: `compaction` on both spawn factories, and `"compaction"` in `SUBAGENT_SPEC_KEYS`.**
+  `Agent` has taken a `compaction` callable since it was introduced, but nothing could route one into
+  a spawned worker: not the factory, and not a spec, since the spec key set is closed. A worker that
+  filled its window therefore died in it, with no way to express otherwise. It is now a factory
+  argument applied to every spawn, and a per-specialist spec key. Like `"model"` and
+  `"max_iterations"` it has a factory-level tier beneath it, and unlike either it is read by
+  **membership** rather than `.get()`, because `"compaction": None` written into a spec is a decision
+  (turn the factory's policy off for this one specialist) that a lookup could not tell from an absent
+  key. A non-callable value raises `ValueError` at factory-call time, where a programmer can act on
+  it, rather than as a `TypeError` from inside a child's tool loop, where the parent *model* would
+  see it and try to recover from it.
+
+  Worth being exact about what this buys: it bounds growth spread over many rounds, which is the
+  common shape, and it cannot save a worker from one oversized tool result. `trim_messages` will not
+  drop the most recent group without orphaning the call it answers, so a tool able to return megabytes
+  still has to cap itself, which is why `get_web_content` and `read_file` window their own output.
+
 ### Tools
 
 - **New: `edit_document` in `make_document_tools`, and `save_document` now warns against saving a

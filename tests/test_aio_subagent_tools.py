@@ -14,7 +14,7 @@ import pytest
 from aimu.aio.agent import Agent as _RealAsyncAgent
 from aimu.aio.tools import builtin as _aio_builtin
 from aimu.aio.tools.builtin import make_async_subagent_tool
-from aimu.models import OllamaModel, StreamChunk, StreamingContentType
+from aimu.models import ContextOverflowError, OllamaModel, StreamChunk, StreamingContentType
 
 # Capture the real fresh-client builder and Agent before the autouse fixture patches the module
 # attributes, so a test can restore either one and exercise the genuine, unfaked behavior.
@@ -48,6 +48,7 @@ class _RecordingAsyncAgent:
         tool_approval=None,
         thinking=None,
         events=None,
+        compaction=None,
     ):
         self.model_client = model_client
         self.system_message = system_message
@@ -59,6 +60,7 @@ class _RecordingAsyncAgent:
         self.tool_approval = tool_approval
         self.thinking = thinking
         self.events = events
+        self.compaction = compaction
         self.enter = None
         self.exit = None
         _RecordingAsyncAgent.instances.append(self)
@@ -633,3 +635,116 @@ async def test_spawn_without_events_reports_nowhere():
         agent_types={"worker": {"system_message": "you are a worker", "tools": []}},
     )
     await spawn("worker", "do the thing")  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# A child that runs out of context
+# ---------------------------------------------------------------------------
+
+# The sync twin's tests carry the same constant and the same reasoning: this is a real provider
+# message, and its "Shorten the conversation" clause is the half that misreads at this seam.
+OVERFLOW_MESSAGE = (
+    "The request no longer fits the model's context window: Anthropic rejected the prompt as too "
+    "long. Shorten the conversation, advertise fewer tools, or compact history first "
+    "(aimu.context.trim_messages / summarize_messages)."
+)
+
+
+class _OverflowingAgent(_RecordingAsyncAgent):
+    async def run(self, task, *args, **kwargs):
+        raise ContextOverflowError(OVERFLOW_MESSAGE)
+
+
+async def test_a_full_child_becomes_a_tool_result_rather_than_an_exception(monkeypatch):
+    monkeypatch.setattr("aimu.aio.agent.Agent", _OverflowingAgent)
+    result = await make_async_subagent_tool(MODEL)("summarize X")
+    assert "sub-agent" in result
+    assert "Your conversation is not the cause" in result
+    assert OVERFLOW_MESSAGE in result
+
+
+async def test_the_overflow_result_names_which_specialist_filled_up(monkeypatch):
+    monkeypatch.setattr("aimu.aio.agent.Agent", _OverflowingAgent)
+    spawn = make_async_subagent_tool(MODEL, agent_types=TYPES)
+    assert "'researcher'" in await spawn("researcher", "dig into X")
+
+
+async def test_an_observed_spawn_still_reports_the_overflow_as_a_failure(monkeypatch):
+    """Display keeps the exception; only the parent model gets the explanation.
+
+    The catch sits outside ``_run_observed`` precisely so a front end's spawn card is still marked
+    failed. Catching inside would leave the card looking like a normal completion whose answer happens
+    to be an apology.
+    """
+    monkeypatch.setattr("aimu.aio.agent.Agent", _OverflowingAgent)
+    observer = _RecordingObserver()
+    spawn = make_async_subagent_tool(MODEL, agent_types=TYPES, observer=observer)
+    result = await spawn("researcher", "find X")
+    assert "Your conversation is not the cause" in result
+    kind, _spawn_id, _partial, error = observer.events[-1]
+    assert kind == "finished"
+    assert isinstance(error, ContextOverflowError)
+
+
+async def test_other_child_failures_still_propagate(monkeypatch):
+    class _BrokenAgent(_RecordingAsyncAgent):
+        async def run(self, task, *args, **kwargs):
+            raise RuntimeError("the child broke")
+
+    monkeypatch.setattr("aimu.aio.agent.Agent", _BrokenAgent)
+    with pytest.raises(RuntimeError, match="the child broke"):
+        await make_async_subagent_tool(MODEL)("summarize X")
+
+
+# ---------------------------------------------------------------------------
+# compaction
+# ---------------------------------------------------------------------------
+
+
+def _noop_compaction(messages):
+    return messages
+
+
+def _other_compaction(messages):
+    return messages
+
+
+async def test_the_factory_compaction_reaches_every_spawned_agent():
+    await make_async_subagent_tool(MODEL, compaction=_noop_compaction)("task")
+    assert _RecordingAsyncAgent.instances[-1].compaction is _noop_compaction
+
+
+async def test_a_spec_compaction_overrides_the_factory_one():
+    types = {"heavy": {"system_message": "Read a lot.", "compaction": _other_compaction}}
+    await make_async_subagent_tool(MODEL, agent_types=types, compaction=_noop_compaction)("heavy", "task")
+    assert _RecordingAsyncAgent.instances[-1].compaction is _other_compaction
+
+
+async def test_a_spec_omitting_compaction_inherits_the_factory_one():
+    await make_async_subagent_tool(MODEL, agent_types=TYPES, compaction=_noop_compaction)("writer", "task")
+    assert _RecordingAsyncAgent.instances[-1].compaction is _noop_compaction
+
+
+async def test_a_spec_can_turn_the_factory_compaction_off():
+    types = {"short": {"system_message": "Answer briefly.", "compaction": None}}
+    await make_async_subagent_tool(MODEL, agent_types=types, compaction=_noop_compaction)("short", "task")
+    assert _RecordingAsyncAgent.instances[-1].compaction is None
+
+
+async def test_no_compaction_by_default():
+    await make_async_subagent_tool(MODEL)("task")
+    assert _RecordingAsyncAgent.instances[-1].compaction is None
+
+
+async def test_a_nested_spawn_tool_carries_the_factory_compaction():
+    spawn = make_async_subagent_tool(MODEL, max_depth=2, compaction=_noop_compaction)
+    await spawn("task")
+    nested = [t for t in _RecordingAsyncAgent.instances[-1].tools if getattr(t, "__name__", "") == "spawn_subagent"]
+    assert nested, "depth 2 should have injected a nested spawn tool"
+    await nested[0]("deeper task")
+    assert _RecordingAsyncAgent.instances[-1].compaction is _noop_compaction
+
+
+def test_a_non_callable_compaction_raises_at_factory_call_time():
+    with pytest.raises(ValueError, match="compaction must be a callable"):
+        make_async_subagent_tool(MODEL, compaction="trim")

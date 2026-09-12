@@ -28,7 +28,7 @@ The tool the model sees is `spawn_subagent(task: str) -> str`. Give each sub-age
 
 ## Typed sub-agents (a registry of specialists)
 
-Pass `agent_types` to switch the tool to `spawn_subagent(agent_type, task)`, mirroring Claude Code's `subagent_type` + `prompt`. Each entry is a dict with `system_message` and optional `tools` / `model` / `thinking` (see [Control thinking effort](control-thinking.md)) / `generate_kwargs` / `max_iterations` — those six keys and no others. `generate_kwargs` is a dict assigned to the spawned client's `default_generate_kwargs`, so one specialist can run at a cold temperature while another runs at a long context window; like `thinking` and unlike `model`, an omitted `generate_kwargs` inherits nothing, since there is no factory-level generation tier to fall back to. `max_iterations` is that specialist's tool-loop cap, and it goes the other way: like `model` and unlike the two keys above, an omitted `max_iterations` falls back to the one this factory was built with, so a roster can share a default and let a single search-heavy specialist run longer. The available type names are listed in the tool description, so the model knows the menu.
+Pass `agent_types` to switch the tool to `spawn_subagent(agent_type, task)`, mirroring Claude Code's `subagent_type` + `prompt`. Each entry is a dict with `system_message` and optional `tools` / `model` / `thinking` (see [Control thinking effort](control-thinking.md)) / `generate_kwargs` / `max_iterations` / `compaction` — those seven keys and no others. `generate_kwargs` is a dict assigned to the spawned client's `default_generate_kwargs`, so one specialist can run at a cold temperature while another runs at a long context window; like `thinking` and unlike `model`, an omitted `generate_kwargs` inherits nothing, since there is no factory-level generation tier to fall back to. `max_iterations` is that specialist's tool-loop cap, and it goes the other way: like `model` and unlike the two keys above, an omitted `max_iterations` falls back to the one this factory was built with, so a roster can share a default and let a single search-heavy specialist run longer. `compaction` is the third key with a factory-level tier, and the one read by *membership* rather than by lookup: an absent key inherits the factory's callable, while `"compaction": None` written into a spec turns it off for that one specialist. Those two cases are indistinguishable to a `.get()`, which is why this key alone is read that way. The available type names are listed in the tool description, so the model knows the menu.
 
 ```python
 spawn = make_subagent_tool(
@@ -41,7 +41,7 @@ spawn = make_subagent_tool(
 agent = Agent(client, "Delegate to researcher then writer.", tools=[spawn], concurrent_tool_calls=True)
 ```
 
-An unknown `agent_type` is returned to the model as a tool result (so it self-corrects), not raised. Programmer errors — `max_depth < 1`, an empty `agent_types`, a type missing `system_message`, a spec carrying a key outside the six above, or a `max_iterations` that is not an int >= 1 — raise `ValueError` at `make_subagent_tool(...)` call time.
+An unknown `agent_type` is returned to the model as a tool result (so it self-corrects), not raised. Programmer errors — `max_depth < 1`, an empty `agent_types`, a type missing `system_message`, a spec carrying a key outside the seven above, a `max_iterations` that is not an int >= 1, or a `compaction` that is not callable — raise `ValueError` at `make_subagent_tool(...)` call time.
 
 The spec key set is closed on purpose, because an ignored key reads exactly like an applied one: a misspelled `thinkng` or a hopeful `temperature` would leave the spawned agent at its default with nothing raised anywhere. Note the split in who is expected to recover: a bad *spec key* is the programmer's mistake and raises, while a bad *`agent_type`* is the model's and comes back as a tool result it can retry from.
 
@@ -54,6 +54,29 @@ Caveats:
 - Genuine overlap is for **cloud** models (each sub-agent makes independent network requests). A single **local** model serializes on the GIL/CUDA, and concurrent in-process client construction touches the shared weight cache — warm it once or spawn serially for HuggingFace/LlamaCpp.
 - Provider rate limits are the practical ceiling (same as `Parallel` / `ResearchReportAgent`).
 - A `deps` object shared across concurrent spawns must be thread-safe/async-safe.
+
+## When a sub-agent runs out of context
+
+A sub-agent starts from the task string alone, so what fills its window is the output of the tools *it* called. Two things follow.
+
+**Give a long-running worker a `compaction` callable** and every spawned agent trims its own messages before each model turn, exactly as [`Agent(compaction=...)`](manage-context.md) does. The parent's conversation is never touched; this reaches the child's messages only.
+
+```python
+from aimu.context import trim_messages
+from aimu.tools.builtin import make_subagent_tool, web
+
+spawn = make_subagent_tool(
+    "anthropic:claude-sonnet-4-6",
+    tools=web,
+    compaction=lambda messages: trim_messages(messages, max_tokens=100_000),
+)
+```
+
+That bounds growth **spread over many rounds**, which is the common shape. It cannot save a worker from a *single* tool result too large for the window: `trim_messages` will not drop the most recent group without orphaning the call it answers, so a tool that can return megabytes has to cap itself. The built-in `get_web_content` and `read_file` both window their output for this reason.
+
+**A child that overflows anyway comes back as a tool result, not an exception**, and the result names the sub-agent's own window as the one that filled. This is not cosmetic. Every provider composes `ContextOverflowError` for whoever built the client, so the message ends "shorten the conversation, advertise fewer tools, or compact history first". Uncaught, the tool loop hands that to the **parent** model verbatim as ``Tool 'spawn_subagent' raised an error: ...``, where "the conversation" reads as the parent's own. A delegating assistant that read it that way told its user the conversation had grown too long to spawn another worker and stopped delegating, while the real cause was one oversized tool result inside one child. The provider's sentence is still included as evidence, and explicitly disclaimed.
+
+Only `ContextOverflowError` is converted. Any other failure inside a spawn still propagates to the caller. With an `observer` attached (async, see below), the observer's `finished` callback still receives the exception, so a front end's spawn card is still marked failed: display keeps the error, and only the model gets the explanation.
 
 ## Bound recursion with `max_depth`
 
