@@ -6,6 +6,7 @@ the tests exercise the factory's wiring (spec shape, isolation, depth guard, dis
 
 from __future__ import annotations
 
+import logging
 import time
 
 import pytest
@@ -13,6 +14,7 @@ import pytest
 # Captured at module load, before the autouse fixture below replaces the attribute with a
 # recording fake; importing it fresh inside a test would just re-fetch the fake.
 from aimu.agents.agent import Agent as _RealAgent
+from aimu.models import ContextOverflowError
 from aimu.tools.builtin import make_subagent_tool
 
 
@@ -47,6 +49,7 @@ class _RecordingAgent:
         tool_approval=None,
         thinking=None,
         events=None,
+        compaction=None,
     ):
         self.model_client = model_client
         self.system_message = system_message
@@ -58,12 +61,19 @@ class _RecordingAgent:
         self.tool_approval = tool_approval
         self.thinking = thinking
         self.events = events
+        self.compaction = compaction
         self.enter = None
         self.exit = None
         _RecordingAgent.instances.append(self)
 
+    # Set per test to make the child's run fail instead of answering. Reset by the autouse fixture,
+    # so one test's failure mode cannot leak into the next.
+    raises: BaseException | None = None
+
     def run(self, task, *args, **kwargs):
         self.enter = time.perf_counter()
+        if type(self).raises is not None:
+            raise type(self).raises
         time.sleep(0.2)  # long enough to detect concurrent overlap
         self.exit = time.perf_counter()
         return f"[{self.name}] answered: {task}"
@@ -73,6 +83,7 @@ class _RecordingAgent:
 def patch_agent_and_client(monkeypatch):
     _RecordingModelClient.instances = []
     _RecordingAgent.instances = []
+    _RecordingAgent.raises = None
     monkeypatch.setattr("aimu.models.model_client.ModelClient", _RecordingModelClient)
     monkeypatch.setattr("aimu.agents.agent.Agent", _RecordingAgent)
     yield
@@ -463,3 +474,126 @@ def test_spawn_without_events_reports_nowhere():
         agent_types={"worker": {"system_message": "you are a worker", "tools": []}},
     )
     spawn("worker", "do the thing")  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# A child that runs out of context
+# ---------------------------------------------------------------------------
+
+# A real provider message, kept verbatim: the point of these tests is what the parent model reads,
+# and the misattributing half is the "Shorten the conversation" clause this one actually carries.
+OVERFLOW_MESSAGE = (
+    "The request no longer fits the model's context window: Anthropic rejected the prompt as too "
+    "long. Shorten the conversation, advertise fewer tools, or compact history first "
+    "(aimu.context.trim_messages / summarize_messages)."
+)
+
+
+def test_a_full_child_becomes_a_tool_result_rather_than_an_exception():
+    """Uncaught, this reaches the parent model as ``Tool 'spawn_subagent' raised an error: ...``.
+
+    Every provider composes that message for whoever built the client, so it says to shorten "the
+    conversation" and advertise fewer tools. Read by the *parent*, both resolve against the parent's
+    own conversation, which is not what filled: the child is built fresh per call and never sees it.
+    """
+    _RecordingAgent.raises = ContextOverflowError(OVERFLOW_MESSAGE)
+    spawn = make_subagent_tool(MODEL)
+    result = spawn("summarize X")
+    assert "sub-agent" in result
+    assert "Your conversation is not the cause" in result
+
+
+def test_the_overflow_result_names_which_specialist_filled_up():
+    _RecordingAgent.raises = ContextOverflowError(OVERFLOW_MESSAGE)
+    spawn = make_subagent_tool(MODEL, agent_types=TYPES)
+    assert "'researcher'" in spawn("researcher", "dig into X")
+
+
+def test_the_overflow_result_keeps_the_providers_own_sentence_as_evidence():
+    """Dropping it would hide which backend refused and why, so it is disclaimed instead."""
+    _RecordingAgent.raises = ContextOverflowError(OVERFLOW_MESSAGE)
+    result = make_subagent_tool(MODEL)("summarize X")
+    assert OVERFLOW_MESSAGE in result
+    assert f'"{OVERFLOW_MESSAGE}"' in result
+    assert "That quoted remediation is addressed to the program" in result
+
+
+def test_a_full_child_is_logged_even_though_the_model_gets_a_string(caplog):
+    """The operator's copy must not depend on the model choosing to mention it."""
+    _RecordingAgent.raises = ContextOverflowError(OVERFLOW_MESSAGE)
+    with caplog.at_level(logging.WARNING, logger="aimu.tools.builtin"):
+        make_subagent_tool(MODEL, agent_types=TYPES)("writer", "write it up")
+    assert any("ran out of context" in r.getMessage() for r in caplog.records)
+
+
+def test_other_child_failures_still_propagate():
+    """Only the misattributing error is converted; a broken tool is still the caller's to see."""
+    _RecordingAgent.raises = RuntimeError("the child broke")
+    with pytest.raises(RuntimeError, match="the child broke"):
+        make_subagent_tool(MODEL)("summarize X")
+
+
+# ---------------------------------------------------------------------------
+# compaction
+# ---------------------------------------------------------------------------
+
+
+def _noop_compaction(messages):
+    return messages
+
+
+def _other_compaction(messages):
+    return messages
+
+
+def test_the_factory_compaction_reaches_every_spawned_agent():
+    spawn = make_subagent_tool(MODEL, compaction=_noop_compaction)
+    spawn("task")
+    assert _RecordingAgent.instances[-1].compaction is _noop_compaction
+
+
+def test_a_spec_compaction_overrides_the_factory_one():
+    types = {"heavy": {"system_message": "Read a lot.", "compaction": _other_compaction}}
+    spawn = make_subagent_tool(MODEL, agent_types=types, compaction=_noop_compaction)
+    spawn("heavy", "task")
+    assert _RecordingAgent.instances[-1].compaction is _other_compaction
+
+
+def test_a_spec_omitting_compaction_inherits_the_factory_one():
+    spawn = make_subagent_tool(MODEL, agent_types=TYPES, compaction=_noop_compaction)
+    spawn("writer", "task")
+    assert _RecordingAgent.instances[-1].compaction is _noop_compaction
+
+
+def test_a_spec_can_turn_the_factory_compaction_off():
+    """``"compaction": None`` is a decision, and ``.get()`` could not tell it from an absent key."""
+    types = {"short": {"system_message": "Answer briefly.", "compaction": None}}
+    spawn = make_subagent_tool(MODEL, agent_types=types, compaction=_noop_compaction)
+    spawn("short", "task")
+    assert _RecordingAgent.instances[-1].compaction is None
+
+
+def test_no_compaction_by_default():
+    make_subagent_tool(MODEL)("task")
+    assert _RecordingAgent.instances[-1].compaction is None
+
+
+def test_a_nested_spawn_tool_carries_the_factory_compaction():
+    """The factory tier, like the cap: a nested tool serves the whole roster again."""
+    spawn = make_subagent_tool(MODEL, max_depth=2, compaction=_noop_compaction)
+    spawn("task")
+    nested = [t for t in _RecordingAgent.instances[-1].tools if getattr(t, "__name__", "") == "spawn_subagent"]
+    assert nested, "depth 2 should have injected a nested spawn tool"
+    nested[0]("deeper task")
+    assert _RecordingAgent.instances[-1].compaction is _noop_compaction
+
+
+def test_a_non_callable_compaction_raises_at_factory_call_time():
+    with pytest.raises(ValueError, match="compaction must be a callable"):
+        make_subagent_tool(MODEL, compaction="trim")
+
+
+def test_a_non_callable_spec_compaction_raises_at_factory_call_time():
+    types = {"bad": {"system_message": "x", "compaction": 5}}
+    with pytest.raises(ValueError, match=r"agent_types\['bad'\]\['compaction'\]"):
+        make_subagent_tool(MODEL, agent_types=types)

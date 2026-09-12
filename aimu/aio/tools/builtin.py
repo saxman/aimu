@@ -13,7 +13,7 @@ from typing import Any, Callable, Optional, Protocol
 from uuid import uuid4
 
 from aimu.events import EventSink
-from aimu.models import StreamChunk, StreamingContentType
+from aimu.models import ContextOverflowError, StreamChunk, StreamingContentType
 from aimu.tools.builtin import (  # noqa: F401 (re-exports)
     DEFAULT_SUBAGENT_SYSTEM_MESSAGE,
     calculate,
@@ -38,7 +38,7 @@ from aimu.tools.builtin import (  # noqa: F401 (re-exports)
     web,
     wikipedia,
 )
-from aimu.tools.builtin import _subagent_docstring, _validate_subagent_config
+from aimu.tools.builtin import _subagent_docstring, _subagent_overflow_result, _validate_subagent_config
 from aimu.tools.decorator import tool
 
 logger = logging.getLogger(__name__)
@@ -262,6 +262,7 @@ def make_async_subagent_tool(
     tool_name: str = "spawn_subagent",
     observer: Optional[SubagentObserver] = None,
     events: Optional[EventSink] = None,
+    compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
 ) -> Callable:
     """Async twin of :func:`aimu.tools.builtin.make_subagent_tool`.
 
@@ -280,6 +281,12 @@ def make_async_subagent_tool(
     reports it as it happens, without making this a streaming tool (which would disable the parent's
     concurrent dispatch). Nested spawns inherit it.
 
+    ``compaction`` is the ``list[dict] -> list[dict]`` callable each spawned agent applies before every
+    model turn, so a long-running worker trims its own context rather than dying in it; a spec's own
+    ``"compaction"`` key overrides it, and ``"compaction": None`` in a spec turns it off. When a child
+    runs out of context anyway, the ``ContextOverflowError`` becomes a tool result attributing the full
+    window to the sub-agent rather than to the caller, which is what an uncaught one would imply.
+
     ``events`` is the sink each spawned child reports to. It has to be passed explicitly: a spawn
     builds a fresh client per call, which is outside the client family a caller's scoped per-run
     override reaches, so a delegated run is otherwise invisible to a caller measuring the whole
@@ -288,7 +295,7 @@ def make_async_subagent_tool(
     """
     from aimu.models.base import BaseModelClient
 
-    _validate_subagent_config(max_depth, agent_types)
+    _validate_subagent_config(max_depth, agent_types, compaction)
     default_model = model.model if isinstance(model, BaseModelClient) else model
 
     def _build_agent(
@@ -299,6 +306,7 @@ def make_async_subagent_tool(
         thinking=None,
         generate_kwargs=None,
         max_iter=None,
+        compact=None,
     ):
         from aimu.aio.agent import Agent
 
@@ -323,6 +331,7 @@ def make_async_subagent_tool(
                     tool_name=tool_name,
                     observer=observer,
                     events=events,
+                    compaction=compaction,
                 )
             )
         client = _fresh_async_subagent_client(m)
@@ -340,15 +349,29 @@ def make_async_subagent_tool(
             tool_approval=tool_approval,
             thinking=thinking,
             events=events,
+            compaction=compact,
         )
+
+    async def _dispatch(agent, agent_type: Optional[str], task: str) -> str:
+        """Run one spawn, turning a full child window into a tool result rather than an exception.
+
+        The catch sits *outside* ``_run_observed`` on purpose: the observer still hears ``finished``
+        with the exception, so a front end's spawn card is still marked failed, while the parent model
+        gets the message that names whose context filled. Display keeps the error; the model gets the
+        explanation. See :func:`aimu.tools.builtin._subagent_overflow_result`.
+        """
+        try:
+            if observer is None:
+                return await agent.run(task)
+            return await _run_observed(agent, agent_type, task, observer)
+        except ContextOverflowError as exc:
+            return _subagent_overflow_result(agent_type, exc)
 
     if agent_types is None:
 
         async def spawn_subagent(task: str) -> str:
-            agent = _build_agent(system_message, tools, name="subagent")
-            if observer is None:
-                return await agent.run(task)
-            return await _run_observed(agent, None, task, observer)
+            agent = _build_agent(system_message, tools, name="subagent", compact=compaction)
+            return await _dispatch(agent, None, task)
 
     else:
 
@@ -366,10 +389,11 @@ def make_async_subagent_tool(
                 thinking=spec.get("thinking"),
                 generate_kwargs=spec.get("generate_kwargs"),
                 max_iter=spec.get("max_iterations"),
+                # Membership, not `.get()`: see the sync twin. A spec naming `"compaction": None` is
+                # turning the factory's policy off, not omitting the key.
+                compact=spec["compaction"] if "compaction" in spec else compaction,
             )
-            if observer is None:
-                return await agent.run(task)
-            return await _run_observed(agent, agent_type, task, observer)
+            return await _dispatch(agent, agent_type, task)
 
     spawn_subagent.__name__ = tool_name
     spawn_subagent.__qualname__ = tool_name

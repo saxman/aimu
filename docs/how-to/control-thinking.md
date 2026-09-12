@@ -202,13 +202,14 @@ since this tier sits *above* the model card in the precedence chain and a filled
 shadow a card's own tuned profile.
 
 A spec's keys are a closed set (`system_message`, `tools`, `model`, `thinking`, `generate_kwargs`,
-`max_iterations` — `aimu.tools.builtin.SUBAGENT_SPEC_KEYS`), and an unrecognized one raises when the
-factory is called:
+`max_iterations`, `compaction` — `aimu.tools.builtin.SUBAGENT_SPEC_KEYS`), and an unrecognized one
+raises when the factory is called:
 
 ```python
 make_subagent_tool(model, agent_types={"r": {"system_message": "R.", "thinkng": "high"}})
 # ValueError: agent_types['r'] has unknown key(s): thinkng.
-#             A spec may carry: generate_kwargs, max_iterations, model, system_message, thinking, tools.
+#             A spec may carry: compaction, generate_kwargs, max_iterations, model, system_message,
+#             thinking, tools.
 ```
 
 This matters most for exactly the value this page is about. A misspelled effort key would otherwise

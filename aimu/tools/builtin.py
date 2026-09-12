@@ -27,6 +27,9 @@ from dotenv import load_dotenv
 from aimu._window import past_end, window, window_complaint
 from aimu.events import EventSink
 
+# The leaf module rather than `aimu.models`, whose package __init__ reaches back into `aimu.tools`.
+from aimu.models._base.shared import ContextOverflowError
+
 from . import _execute_python_worker
 from ._documents import DocumentConversionError, html_to_markdown, pdf_to_markdown
 from .decorator import tool
@@ -2251,13 +2254,27 @@ def _subagent_docstring(agent_types: Optional[dict[str, dict]]) -> str:
 # Every key a typed ``agent_types`` spec may carry. Closed rather than open because an ignored key reads
 # exactly like an applied one: a misspelled ``"thinkng"`` or a hopeful ``"temperature"`` would leave the
 # spawned agent at its default with nothing raised anywhere, and the caller believing otherwise.
-SUBAGENT_SPEC_KEYS = frozenset({"system_message", "tools", "model", "thinking", "generate_kwargs", "max_iterations"})
+SUBAGENT_SPEC_KEYS = frozenset(
+    {"system_message", "tools", "model", "thinking", "generate_kwargs", "max_iterations", "compaction"}
+)
 
 
-def _validate_subagent_config(max_depth: int, agent_types: Optional[dict[str, dict]]) -> None:
+def _check_compaction(compaction, where: str) -> None:
+    """Reject a non-callable compaction at factory-call time, naming where it came from.
+
+    Deferring this to the first spawn would surface it as a ``TypeError`` from inside the child's tool
+    loop, i.e. as a *tool* failure the parent model would try to recover from, which is the wrong reader
+    for a programmer error.
+    """
+    if compaction is not None and not callable(compaction):
+        raise ValueError(f"{where} must be a callable taking and returning list[dict], got {compaction!r}.")
+
+
+def _validate_subagent_config(max_depth: int, agent_types: Optional[dict[str, dict]], compaction=None) -> None:
     """Raise ``ValueError`` for programmer errors at factory-call time (failures apparent)."""
     if max_depth < 1:
         raise ValueError(f"max_depth must be >= 1 (got {max_depth}).")
+    _check_compaction(compaction, "compaction")
     if agent_types is not None:
         if not agent_types:
             raise ValueError("agent_types must be a non-empty dict, or None for a generic sub-agent.")
@@ -2276,6 +2293,38 @@ def _validate_subagent_config(max_depth: int, agent_types: Optional[dict[str, di
                 # accepted as a cap of 1. A cap below 1 is a loop that makes no model call at all.
                 if isinstance(cap, bool) or not isinstance(cap, int) or cap < 1:
                     raise ValueError(f"agent_types[{type_name!r}]['max_iterations'] must be an int >= 1, got {cap!r}.")
+            if "compaction" in spec:
+                _check_compaction(spec["compaction"], f"agent_types[{type_name!r}]['compaction']")
+
+
+def _subagent_overflow_result(agent_type: Optional[str], exc: BaseException) -> str:
+    """The tool result for a spawn whose child ran out of context, written for the *parent model*.
+
+    A ``ContextOverflowError`` message is composed for whoever built the client ("shorten the
+    conversation, advertise fewer tools, compact history first"), and an uncaught exception reaches the
+    model verbatim as ``Tool 'spawn_subagent' raised an error: <message>``. At this one seam the reader
+    is a *different agent* than the one whose window filled, so that advice resolves against the
+    parent's conversation instead of the child's. Observed: a delegating assistant read it that way,
+    told its user the conversation had grown too long to spawn another worker, and stopped delegating,
+    while the actual cause was a single oversized tool result inside one child.
+
+    Returned rather than raised, because a full child is the model's to recover from (delegate again,
+    narrower), like an unknown ``agent_type`` and unlike a bad spec key. The provider's own sentence is
+    kept as evidence and disclaimed rather than dropped, since dropping it would hide which backend
+    refused and why. A WARNING is logged either way, so the operator's copy of this does not depend on
+    the model choosing to mention it.
+    """
+    who = f" {agent_type!r}" if agent_type else ""
+    _logger.warning("A spawned sub-agent%s ran out of context: %s", who, exc)
+    return (
+        f"The sub-agent{who} started this task and filled its own context window before it could "
+        "answer, so there is no result. Your conversation is not the cause, and none of it was sent: a "
+        "sub-agent is built fresh for each call and starts from the task string alone, so what filled "
+        f'its window is the tool output this task fetched. The provider reported: "{exc}" That quoted '
+        "remediation is addressed to the program that built the sub-agent, not to you. Delegate again "
+        "with a narrower task, split the work across several sub-agents, or tell the sub-agent to read "
+        "long documents in windows rather than whole."
+    )
 
 
 def make_subagent_tool(
@@ -2291,6 +2340,7 @@ def make_subagent_tool(
     tool_approval: Optional[Callable] = None,
     tool_name: str = "spawn_subagent",
     events: Optional[EventSink] = None,
+    compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
 ) -> Callable:
     """Build a ``spawn_subagent`` tool that delegates subtasks to fresh, isolated sub-agents.
 
@@ -2313,9 +2363,10 @@ def make_subagent_tool(
       sub-agent using ``system_message`` + ``tools``.
     * Typed (``agent_types`` given): the tool is ``spawn_subagent(agent_type, task)`` over a registry
       of named specialists (each value a dict with ``"system_message"`` and optional ``"tools"`` /
-      ``"model"`` / ``"thinking"`` / ``"generate_kwargs"`` / ``"max_iterations"``, and nothing else -- an
-      unrecognized spec key raises at factory-call time rather than being ignored, since an ignored key
-      reads exactly like an applied one); the available names are listed in the tool description. An
+      ``"model"`` / ``"thinking"`` / ``"generate_kwargs"`` / ``"max_iterations"`` / ``"compaction"``, and
+      nothing else -- an unrecognized spec key raises at factory-call time rather than being ignored,
+      since an ignored key reads exactly like an applied one); the available names are listed in the
+      tool description. An
       unknown ``agent_type``, by contrast, is returned to the model as a tool result (self-correction),
       not raised: that one is the model's mistake to recover from, where a bad spec key is the
       programmer's.
@@ -2335,6 +2386,20 @@ def make_subagent_tool(
       without being written into each spec. It must be an int >= 1, checked at factory-call time, because
       ``bool`` is an ``int`` subclass (so ``True`` would read as a cap of 1) and a cap below 1 is a loop
       that makes no model call at all.
+      ``"compaction"`` is the callable :class:`~aimu.agents.Agent` applies before every model turn, and it
+      is read by *membership* rather than ``.get()``: an absent key falls back to this factory's own
+      ``compaction`` (a third key with a factory tier, alongside ``"model"`` and ``"max_iterations"``),
+      while a spec naming ``"compaction": None`` turns that policy off for one specialist. Those two
+      cases are indistinguishable to ``.get()``, which is why this key does not follow the others.
+
+    A spawned sub-agent that runs out of context does not raise: the ``ContextOverflowError`` becomes a
+    tool result naming the *sub-agent's* window as the one that filled. Uncaught, it would reach the
+    parent model as ``Tool 'spawn_subagent' raised an error: <message>``, and every provider's message
+    tells its reader to shorten *the conversation*, which at this seam is the wrong conversation. See
+    :func:`_subagent_overflow_result`. ``compaction`` is the other half of that story and the half that
+    prevents the failure rather than explaining it, though only for growth spread over many rounds: a
+    single tool result too large for the window is the *tool's* to cap, since compaction cannot drop the
+    most recent group without orphaning the call it answers.
 
     ``max_depth`` (default 1) is the recursion guard: it counts the caller's agent as level 1, so the
     default gives spawned sub-agents *no* spawn tool of their own. ``max_depth=2`` lets one more level
@@ -2361,6 +2426,10 @@ def make_subagent_tool(
             per-run override reaches, so a delegated run is otherwise invisible to a caller
             measuring the whole turn. Set on the child :class:`~aimu.agents.Agent` (its own
             ``events`` field), not passed to its ``run``.
+        compaction: A ``list[dict] -> list[dict]`` callable applied before every model turn of every
+            spawned agent, so a long-running worker trims its own context rather than dying in it.
+            The parent's conversation is untouched: this reaches the child's messages only. A spec's
+            own ``"compaction"`` overrides it, and ``"compaction": None`` in a spec turns it off.
 
     Example::
 
@@ -2373,7 +2442,7 @@ def make_subagent_tool(
     """
     from aimu.models.base import BaseModelClient
 
-    _validate_subagent_config(max_depth, agent_types)
+    _validate_subagent_config(max_depth, agent_types, compaction)
 
     # Normalize to an enum/string the sub-agent client is rebuilt from each call (never share a live client).
     default_model = model.model if isinstance(model, BaseModelClient) else model
@@ -2386,6 +2455,7 @@ def make_subagent_tool(
         thinking=None,
         generate_kwargs=None,
         max_iter=None,
+        compact=None,
     ):
         from aimu.agents.agent import Agent
         from aimu.models.model_client import ModelClient
@@ -2411,6 +2481,7 @@ def make_subagent_tool(
                     tool_approval=tool_approval,
                     tool_name=tool_name,
                     events=events,
+                    compaction=compaction,
                 )
             )
         client = ModelClient(m)
@@ -2429,12 +2500,17 @@ def make_subagent_tool(
             tool_approval=tool_approval,
             thinking=thinking,
             events=events,
+            compaction=compact,
         )
 
     if agent_types is None:
 
         def spawn_subagent(task: str) -> str:
-            return _build_agent(system_message, tools, name="subagent").run(task)
+            agent = _build_agent(system_message, tools, name="subagent", compact=compaction)
+            try:
+                return agent.run(task)
+            except ContextOverflowError as exc:
+                return _subagent_overflow_result(None, exc)
 
     else:
 
@@ -2452,8 +2528,15 @@ def make_subagent_tool(
                 thinking=spec.get("thinking"),
                 generate_kwargs=spec.get("generate_kwargs"),
                 max_iter=spec.get("max_iterations"),
+                # Membership, not ``.get()``: a spec naming ``"compaction": None`` is turning the
+                # factory's policy *off* for this one specialist, which ``.get()`` cannot distinguish
+                # from a spec that never mentioned the key.
+                compact=spec["compaction"] if "compaction" in spec else compaction,
             )
-            return agent.run(task)
+            try:
+                return agent.run(task)
+            except ContextOverflowError as exc:
+                return _subagent_overflow_result(agent_type, exc)
 
     spawn_subagent.__name__ = tool_name
     spawn_subagent.__qualname__ = tool_name
