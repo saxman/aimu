@@ -3385,13 +3385,13 @@
 <h2 id="document-memory-server">Document memory server<a class="headerlink" href="#document-memory-server" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nv">DOCUMENT_STORE_PATH</span><span class="o">=</span>./.aimu/docs<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>aimu.memory.document_mcp
 </span></code></pre></div>
-<p>Wraps <code>DocumentStore</code> with tools matching Anthropic's Managed Agents Memory API:</p>
+<p>Wraps <code>DocumentStore</code> with path-addressed memory tools (AIMU's own names and parameters, not wire-compatible with Anthropic's memory tool or its Managed Agents memory stores):</p>
 <ul>
 <li><code>memory_list(path_prefix)</code></li>
 <li><code>memory_search(query)</code></li>
 <li><code>memory_read(path)</code></li>
 <li><code>memory_write(path, content)</code></li>
-<li><code>memory_edit(path, old_str, new_str)</code></li>
+<li><code>memory_edit(path, old_str, new_str)</code> — <code>old_str</code> must match exactly once; zero or many raises and writes nothing</li>
 <li><code>memory_delete(path)</code></li>
 </ul>
 <p>Reads <code>DOCUMENT_STORE_PATH</code> (default: in-memory).</p>

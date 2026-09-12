@@ -2628,6 +2628,50 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.write_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        write_file
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.edit_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        edit_file
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scoping-what-an-agent-gets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scoping what an agent gets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.select" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        select
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tool-factories" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3826,6 +3870,50 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.write_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        write_file
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.edit_file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        edit_file
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scoping-what-an-agent-gets" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scoping what an agent gets
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.select" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        select
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tool-factories" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4240,7 +4328,7 @@ the connection.</p>
 </tr>
 <tr>
 <td><code>builtin.fs</code></td>
-<td><code>list_directory</code>, <code>read_file</code></td>
+<td><code>list_directory</code>, <code>read_file</code>, <code>write_file</code>, <code>edit_file</code></td>
 </tr>
 <tr>
 <td><code>builtin.compute</code></td>
@@ -4672,7 +4760,7 @@ when installed.</p>
 
 
 <a href="#aimu.tools.builtin.get_web_content" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_web_content</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">max_chars</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20000</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_web_content</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">max_chars</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20000</span><span class="p">,</span> <span class="n">offset</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -4686,8 +4774,11 @@ marked with a "## Page N" heading per page so it can be cited.</p>
 image, an archive, a video), is reported rather than returned: guessing "text" for
 an undeclared body is exactly how binary reached a model as noise before this tool
 existed.</p>
-<p>If the result says it was truncated, call again with a larger max_chars before
-drawing any conclusion from it: a partial document reads exactly like a complete one.</p>
+<p>If the result says it was truncated, call again with the offset it names before
+drawing any conclusion from it: a partial document reads exactly like a complete one.
+Paging with offset is how a document larger than one window gets read whole. Each
+call re-fetches and re-converts the URL, so prefer a window large enough to answer
+the question over a walk through a long document in small steps.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4733,6 +4824,22 @@ drawing any conclusion from it: a partial document reads exactly like a complete
                   <code>20000</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>offset</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>1-indexed character to start reading from (default 1, the start).</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -4749,7 +4856,7 @@ drawing any conclusion from it: a partial document reads exactly like a complete
 
 
 <a href="#aimu.tools.builtin.get_webpage_html" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_webpage_html</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_webpage_html</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">offset</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -4760,8 +4867,10 @@ or form markup. For readable article text instead, use <code>get_web_content</co
 and submitting forms with cookie/session persistence, use the tools from
 <code>make_web_tools()</code>.</p>
 <p>Note: this fetches server-rendered HTML only; it does not execute JavaScript, so
-pages built client-side (SPAs) will return their pre-render markup. Long pages are
-truncated to keep the output within a model's context window.</p>
+pages built client-side (SPAs) will return their pre-render markup. Markup is
+token-heavy, so the window per call is fixed; if the result says it was truncated,
+call again with the offset it names to continue. The form or link you are looking
+for is often past the first window of a real page's head and navigation.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4789,6 +4898,22 @@ truncated to keep the output within a model's context window.</p>
             </td>
             <td>
                 <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>offset</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>1-indexed character to start reading from (default 1, the start).</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
             </td>
           </tr>
       </tbody>
@@ -5015,14 +5140,16 @@ engines). Comma-separated for multiple, e.g. "news,science".</p>
 
 
 <a href="#aimu.tools.builtin.read_file" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">read_file</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">max_lines</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2000</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">read_file</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">max_lines</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2000</span><span class="p">,</span> <span class="n">offset</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
 
-        <p>Reads a local file and returns its contents, capped at max_lines lines.</p>
-<p>If the result says it was truncated, call again with a larger max_lines before drawing any
-conclusion from it: a partial document reads exactly like a complete one.</p>
+        <p>Reads a local file and returns up to max_lines lines starting at line offset.</p>
+<p>If the result says it was truncated, call again with the offset it names before drawing any
+conclusion from it: a partial document reads exactly like a complete one. Paging with offset
+is how a file larger than one window gets read whole; raising max_lines to swallow a large
+file in one call spends the context window the rest of the task needs.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -5068,8 +5195,229 @@ conclusion from it: a partial document reads exactly like a complete one.</p>
                   <code>2000</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>offset</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>1-indexed line to start reading from (default 1, the start of the file).</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
       </tbody>
     </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.tools.builtin.write_file" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.tools.builtin.write_file</span>
+
+
+<a href="#aimu.tools.builtin.write_file" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">write_file</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">content</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Writes content to a file, creating it or replacing what is already there.</p>
+<p>This replaces the whole file. To change part of one, use edit_file, which leaves the rest
+untouched and fails loudly if what you meant to change is not where you thought.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>path</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Path to the file to write. Parent directories are created as needed.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>content</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The full text to write.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.tools.builtin.edit_file" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.tools.builtin.edit_file</span>
+
+
+<a href="#aimu.tools.builtin.edit_file" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">edit_file</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">old_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">new_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Replaces one exact occurrence of old_str with new_str in a file.</p>
+<p>old_str must appear exactly once. If it appears zero times, or more than once, nothing is
+written and the count is returned: include enough surrounding context to make it unique
+rather than retrying with the same ambiguous string.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>path</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Path to the file to edit.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>old_str</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Exact text to find, unique within the file.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>new_str</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Text to replace it with. Pass an empty string to delete it.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div><h2 id="scoping-what-an-agent-gets">Scoping what an agent gets<a class="headerlink" href="#scoping-what-an-agent-gets" title="Permanent link">&para;</a></h2>
+<p><code>builtin.fs</code> carries writes as well as reads, so handing over a group is a decision, not a
+default. <code>select</code> narrows one, and <code>builtin.unscoped</code> names the tools that can reach any target
+the running account can — the group to deny when an agent should stay inside its own work.
+There is no <code>SAFE_TOOLS</code> complement, deliberately: safety is a property of a deployment rather
+than of a tool, and a list named for it would promise what it cannot deliver.</p>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.tools.builtin.select" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.tools.builtin.select</span>
+
+
+<a href="#aimu.tools.builtin.select" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">select</span><span class="p">(</span><span class="n">tools</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">include</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">exclude</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Narrow a tool list, by name or by tool, refusing a selector that matches nothing.</p>
+<p><em>include</em> keeps only the named tools; <em>exclude</em> drops them; passing both applies
+<em>include</em> first. Each may hold tool names (<code>"read_file"</code>), the tool objects
+themselves, or a group to pass whole (<code>exclude=builtin.fs</code>), so blocking a group and
+re-allowing one member reads as what it is::</p>
+<div class="language-text highlight"><pre><span></span><code># everything except the filesystem, plus reading
+tools = builtin.select(builtin.ALL_TOOLS, exclude=builtin.fs) + [builtin.read_file]
+
+# the filesystem, minus the parts that write
+tools = builtin.select(builtin.fs, exclude=["write_file", "edit_file"])
+
+# let it write files, but never run a command
+tools = builtin.select(builtin.ALL_TOOLS + builtin.fs, exclude=builtin.compute)
+</code></pre></div>
+<p>The result is deduplicated by name, so concatenating overlapping groups (as the third
+example does) is safe.</p>
+<p>The reason this exists rather than a list comprehension is the <code>ValueError</code>: a
+comprehension filtering on a misspelled name silently keeps the tool you meant to
+remove, and that failure is invisible at the call site -- it surfaces only as an agent
+doing something you thought you had forbidden. Only <strong>string</strong> selectors are checked,
+because only they can be misspelled: a tool passed by reference already failed at the
+call site if its attribute name was wrong, and a group legitimately names tools the list
+may not hold (<code>exclude=builtin.fs</code> against <code>ALL_TOOLS</code>, which carries only that
+group's read members). Deliberately not a pattern language -- no globs, no precedence
+rules to learn, and <code>exclude=builtin.fs</code> already says what <code>fs.*</code> would.</p>
 
 
     </div>
@@ -5181,7 +5529,7 @@ ingested into it) is a meaningful, explicit choice.</p>
 
 
 <a href="#aimu.tools.builtin.make_subagent_tool" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_subagent_tool</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">system_message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_SUBAGENT_SYSTEM_MESSAGE</span><span class="p">,</span> <span class="n">tools</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">agent_types</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">max_iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">concurrent_tool_calls</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">deps</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_approval</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'spawn_subagent'</span><span class="p">,</span> <span class="n">events</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EventSink</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_subagent_tool</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">system_message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_SUBAGENT_SYSTEM_MESSAGE</span><span class="p">,</span> <span class="n">tools</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">agent_types</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">max_iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">concurrent_tool_calls</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">deps</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_approval</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'spawn_subagent'</span><span class="p">,</span> <span class="n">events</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EventSink</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">compaction</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -5204,9 +5552,10 @@ the GIL/CUDA, and a shared <code>deps</code> object handed to concurrent spawns 
   sub-agent using <code>system_message</code> + <code>tools</code>.</li>
 <li>Typed (<code>agent_types</code> given): the tool is <code>spawn_subagent(agent_type, task)</code> over a registry
   of named specialists (each value a dict with <code>"system_message"</code> and optional <code>"tools"</code> /
-  <code>"model"</code> / <code>"thinking"</code> / <code>"generate_kwargs"</code> / <code>"max_iterations"</code>, and nothing else -- an
-  unrecognized spec key raises at factory-call time rather than being ignored, since an ignored key
-  reads exactly like an applied one); the available names are listed in the tool description. An
+  <code>"model"</code> / <code>"thinking"</code> / <code>"generate_kwargs"</code> / <code>"max_iterations"</code> / <code>"compaction"</code>, and
+  nothing else -- an unrecognized spec key raises at factory-call time rather than being ignored,
+  since an ignored key reads exactly like an applied one); the available names are listed in the
+  tool description. An
   unknown <code>agent_type</code>, by contrast, is returned to the model as a tool result (self-correction),
   not raised: that one is the model's mistake to recover from, where a bad spec key is the
   programmer's.
@@ -5225,8 +5574,21 @@ the GIL/CUDA, and a shared <code>deps</code> object handed to concurrent spawns 
   <code>max_iterations</code> rather than inheriting nothing, which is what lets one default cover a roster
   without being written into each spec. It must be an int &gt;= 1, checked at factory-call time, because
   <code>bool</code> is an <code>int</code> subclass (so <code>True</code> would read as a cap of 1) and a cap below 1 is a loop
-  that makes no model call at all.</li>
+  that makes no model call at all.
+  <code>"compaction"</code> is the callable :class:<code>~aimu.agents.Agent</code> applies before every model turn, and it
+  is read by <em>membership</em> rather than <code>.get()</code>: an absent key falls back to this factory's own
+  <code>compaction</code> (a third key with a factory tier, alongside <code>"model"</code> and <code>"max_iterations"</code>),
+  while a spec naming <code>"compaction": None</code> turns that policy off for one specialist. Those two
+  cases are indistinguishable to <code>.get()</code>, which is why this key does not follow the others.</li>
 </ul>
+<p>A spawned sub-agent that runs out of context does not raise: the <code>ContextOverflowError</code> becomes a
+tool result naming the <em>sub-agent's</em> window as the one that filled. Uncaught, it would reach the
+parent model as <code>Tool 'spawn_subagent' raised an error: &lt;message&gt;</code>, and every provider's message
+tells its reader to shorten <em>the conversation</em>, which at this seam is the wrong conversation. See
+:func:<code>_subagent_overflow_result</code>. <code>compaction</code> is the other half of that story and the half that
+prevents the failure rather than explaining it, though only for growth spread over many rounds: a
+single tool result too large for the window is the <em>tool's</em> to cap, since compaction cannot drop the
+most recent group without orphaning the call it answers.</p>
 <p><code>max_depth</code> (default 1) is the recursion guard: it counts the caller's agent as level 1, so the
 default gives spawned sub-agents <em>no</em> spawn tool of their own. <code>max_depth=2</code> lets one more level
 spawn, and so on; the nested tool is rebuilt with a decremented depth, so recursion is finite.</p>
@@ -5426,6 +5788,25 @@ builds a fresh client per call, which is outside the client family a caller's sc
 per-run override reaches, so a delegated run is otherwise invisible to a caller
 measuring the whole turn. Set on the child :class:<code>~aimu.agents.Agent</code> (its own
 <code>events</code> field), not passed to its <code>run</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>compaction</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="typing.Callable">Callable</span>[[<span title="list">list</span>[<span title="dict">dict</span>]], <span title="list">list</span>[<span title="dict">dict</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A <code>list[dict] -&gt; list[dict]</code> callable applied before every model turn of every
+spawned agent, so a long-running worker trims its own context rather than dying in it.
+The parent's conversation is untouched: this reaches the child's messages only. A spec's
+own <code>"compaction"</code> overrides it, and <code>"compaction": None</code> in a spec turns it off.</p>
               </div>
             </td>
             <td>

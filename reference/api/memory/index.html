@@ -4246,7 +4246,7 @@ it. Type the variable as <code>SemanticMemoryStore</code> to use it.</p>
         <p>Path-addressed document store backed by the filesystem or an in-memory dict.</p>
 <p>Implements the :class:<code>MemoryStore</code> abstract interface so it can be swapped
 with :class:<code>SemanticMemoryStore</code> in any application, and adds the richer
-path-based API that mirrors Anthropic's Managed Agents Memory tools.</p>
+path-based API in the spirit of Anthropic's memory tool (not its interface).</p>
 <p>Thread-safe: every public method is serialized on a re-entrant per-instance
 lock, so the in-memory dict and on-disk files stay consistent when the store
 is shared across concurrent threads or turns (<code>edit</code> -&gt; <code>read</code> + <code>write</code>
@@ -4445,8 +4445,15 @@ store is ephemeral (in-memory only).</p>
 
     <div class="doc doc-contents ">
 
-        <p>Replace the first occurrence of <em>old_str</em> with <em>new_str</em> in the
-document at <em>path</em>.</p>
+        <p>Replace the one occurrence of <em>old_str</em> with <em>new_str</em> in the document at <em>path</em>.</p>
+<p><em>old_str</em> must appear exactly once.  Zero matches and two-or-more matches both
+raise, and nothing is written either way: replacing the <em>first</em> of several
+matches answers a question the caller did not ask, and it does so silently, in
+the file, where the mistake is discovered later by whoever reads it.  Include
+enough surrounding text to make the match unique.</p>
+<p>To genuinely intend the first of several, say so where it can be seen::</p>
+<div class="language-text highlight"><pre><span></span><code>store.write(path, store.read(path).replace(old_str, new_str, 1))
+</code></pre></div>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -4485,7 +4492,7 @@ document at <em>path</em>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Exact substring to find.</p>
+                <p>Exact substring to find, unique within the document.</p>
               </div>
             </td>
             <td>
@@ -4537,7 +4544,7 @@ document at <em>path</em>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If <em>old_str</em> is not found in the document.</p>
+                <p>If <em>old_str</em> is absent, or appears more than once.</p>
               </div>
             </td>
           </tr>

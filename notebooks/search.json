@@ -950,7 +950,7 @@
     "href": "12-memory.html#k---editing-documents",
     "title": "Memory",
     "section": "K - Editing Documents",
-    "text": "K - Editing Documents\nedit(path, old_str, new_str) replaces the first occurrence of old_str with new_str in the named document. Raises ValueError if old_str is not found.\n\nprint(\"Before edit:\")\nprint(docs.read(\"/preferences.md\"))\n\ndocs.edit(\"/preferences.md\", \"concise responses\", \"detailed, thorough responses\")\n\nprint(\"\\nAfter edit:\")\nprint(docs.read(\"/preferences.md\"))",
+    "text": "K - Editing Documents\nedit(path, old_str, new_str) replaces the one occurrence of old_str with new_str in the named document. Raises ValueError if old_str is absent, or appears more than once, writing nothing either way; include surrounding text to make the match unique.\n\nprint(\"Before edit:\")\nprint(docs.read(\"/preferences.md\"))\n\ndocs.edit(\"/preferences.md\", \"concise responses\", \"detailed, thorough responses\")\n\nprint(\"\\nAfter edit:\")\nprint(docs.read(\"/preferences.md\"))",
     "crumbs": [
       "Notebooks",
       "Memory"
