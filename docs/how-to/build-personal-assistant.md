@@ -109,6 +109,28 @@ write_skill("format-standup", "Format a standup update.",
             "# Standup\n\nThree bullets: Yesterday, Today, Blockers.", skills_dir=".agents/skills")
 ```
 
+### Revising a skill it already wrote
+
+A first attempt at a skill is often wrong, and `author_skill` refuses to clobber, so changing one is
+a second tool:
+
+```python
+from aimu.skills import make_skill_update_tool
+update_skill = make_skill_update_tool(manager, skills_dir)  # update_skill(skill_name, description, body)
+```
+
+`update_skill(name, *, description=None, body=None, skills_dir)` writes only the fields you pass and
+puts every other key in the file back as it was, including the spec's optional `license`,
+`compatibility`, and `allowed-tools`. That is why it exists rather than `write_skill(overwrite=True)`,
+which emits `name`, `description`, and `metadata` and drops the rest. It cannot rename a skill (the
+name is its directory, its catalogue entry, and the prefix of every `{skill}__{stem}` script tool)
+and takes no `metadata`, which is the host's provenance record rather than the model's.
+
+Which half of a revision the model sees right away differs, and the tool's reply says so: a new
+**body** applies at the next `activate_skill`, which reads it from disk, while a new **description**
+reaches the skill catalogue in a fresh conversation, since the catalogue is injected into a system
+prompt that is not rewritten mid-run.
+
 ## Scripts in skills (author and run code)
 
 A skill can bundle executable helper scripts. AIMU registers every `scripts/*.py` and `scripts/*.sh`
@@ -136,7 +158,12 @@ new `{skill}__{stem}` tool to the agent's tool list, so the assistant can author
 within the same turn:
 
 ```python
-from aimu.skills import SkillManager, make_skill_authoring_tool, make_skill_script_tool
+from aimu.skills import (
+    SkillManager,
+    make_skill_authoring_tool,
+    make_skill_script_tool,
+    make_skill_update_tool,
+)
 from aimu import aio
 
 skills_dir = ".agents/skills"
@@ -150,6 +177,7 @@ agent = aio.SkillAgent(
 )
 agent.tools = [
     make_skill_authoring_tool(manager, skills_dir),     # author_skill(name, description, body)
+    make_skill_update_tool(manager, skills_dir),        # update_skill(skill_name, description, body)
     make_skill_script_tool(agent, manager, skills_dir), # add_skill_script(skill_name, filename, content)
 ]
 ```

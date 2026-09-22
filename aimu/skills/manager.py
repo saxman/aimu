@@ -4,8 +4,7 @@ import logging
 from pathlib import Path
 from typing import Iterable, Optional
 
-import yaml
-
+from aimu.skills.frontmatter import load_frontmatter, split_frontmatter
 from aimu.skills.skill import AgentSkill
 from aimu.skills.validate import SkillSpecError, validate_frontmatter
 
@@ -120,15 +119,19 @@ class SkillManager:
         except OSError as exc:
             raise SkillLoadError(f"could not read {skill_md}: {exc}") from exc
 
-        if not content.startswith("---"):
-            raise SkillLoadError(f"{skill_md}: missing YAML frontmatter (must start with ---)")
+        fm_str, _ = split_frontmatter(content)
+        if fm_str is None:
+            detail = (
+                "unclosed YAML frontmatter (no closing ---)"
+                if content.startswith("---")
+                else "missing YAML frontmatter (must start with ---)"
+            )
+            raise SkillLoadError(f"{skill_md}: {detail}")
 
-        end = content.find("---", 3)
-        if end == -1:
-            raise SkillLoadError(f"{skill_md}: unclosed YAML frontmatter (no closing ---)")
-
-        fm_str = content[3:end]
-        fm = self._load_yaml(fm_str, skill_md)
+        try:
+            fm = load_frontmatter(fm_str)
+        except ValueError as exc:
+            raise SkillLoadError(f"{skill_md}: {exc}") from exc
 
         try:
             validate_frontmatter(fm, directory_name=skill_md.parent.name)
@@ -144,28 +147,6 @@ class SkillManager:
             metadata=dict(fm.get("metadata") or {}),
             allowed_tools=tuple(str(fm.get("allowed-tools", "")).split()),
         )
-
-    @staticmethod
-    def _load_yaml(fm_str: str, skill_md: Path) -> dict:
-        try:
-            return yaml.safe_load(fm_str) or {}
-        except yaml.YAMLError:
-            pass
-        # Lenient fallback: quote bare values that contain colons (common authoring mistake).
-        fixed_lines = []
-        for line in fm_str.splitlines():
-            stripped = line.lstrip()
-            if ":" in stripped and not stripped.startswith("-") and not stripped.startswith("#"):
-                key, _, value = stripped.partition(":")
-                value = value.strip()
-                if value and not (value.startswith('"') or value.startswith("'") or value.startswith("|")):
-                    indent = " " * (len(line) - len(stripped))
-                    line = f'{indent}{key}: "{value}"'
-            fixed_lines.append(line)
-        try:
-            return yaml.safe_load("\n".join(fixed_lines)) or {}
-        except yaml.YAMLError as exc:
-            raise SkillLoadError(f"{skill_md}: unparseable YAML frontmatter: {exc}") from exc
 
     def catalog_prompt(self) -> str:
         """Return an XML skill catalog suitable for injection into a system prompt.

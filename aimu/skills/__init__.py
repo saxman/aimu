@@ -2,7 +2,14 @@ from typing import TYPE_CHECKING
 
 from importlib import import_module as _import_module
 
-from aimu.skills.authoring import make_skill_authoring_tool, make_skill_script_tool, write_skill
+from aimu.skills.authoring import (
+    make_skill_authoring_tool,
+    make_skill_script_tool,
+    make_skill_update_tool,
+    update_skill,
+    write_skill,
+    write_skill_script,
+)
 from aimu.skills.manager import SkillLoadError, SkillManager, SkillNotFoundError
 from aimu.skills.skill import AgentSkill, script_tool_name
 from aimu.skills.validate import SkillSpecError, validate_frontmatter
@@ -45,7 +52,10 @@ __all__ = [
     "build_skills_server",
     "make_skill_authoring_tool",
     "make_skill_script_tool",
+    "make_skill_update_tool",
     "script_tool_name",
     "validate_frontmatter",
+    "update_skill",
     "write_skill",
+    "write_skill_script",
 ]
