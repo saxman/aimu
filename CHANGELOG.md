@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.32.0 (2026-09-21): a skill's prose is editable, and a script write leaves it alone
 
 ### Skills
 
