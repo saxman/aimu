@@ -24,6 +24,41 @@
   `update_skill`). Tests:
   `tests/test_aio_skill_authoring.py::test_add_skill_script_preserves_every_frontmatter_key`.
 
+- **New: `update_skill(name, *, description=None, body=None, skills_dir)` and
+  `make_skill_update_tool(manager, skills_dir)`, so an agent can revise a skill it already wrote.**
+  `author_skill` refuses to clobber and `add_skill_script` only writes scripts, which left a skill's
+  prose unreachable once it existed: an agent could fix a skill's *scripts* forever while the
+  instructions a first attempt most often gets wrong stayed frozen, and the only advice the library
+  had for a wrong skill was to author a second one under a different name. The async `@tool
+  update_skill(skill_name, description=None, body=None)` calls it and then `manager.refresh()`;
+  unlike `add_skill_script` it needs no agent, since editing a skill's text changes none of its
+  tools. Only what is passed is written, and every other key in the file is read and put back as it
+  was, which is why this is not `write_skill(overwrite=True)`. There is no rename (the name is the
+  skill's directory, its catalogue entry, and the prefix of every `{skill}__{stem}` tool, and the
+  spec requires the frontmatter name and the directory to agree) and no `metadata` parameter (it is
+  a host's provenance record, and an update path able to rewrite it would be more capable than the
+  create path, which cannot set it either). A missing skill or a call with nothing to change comes
+  back as a sentence the model can act on; a malformed file on disk still raises. The refresh limit
+  is the one `author_skill` already had, now stated per field in the tool's own reply: a new body
+  applies at the next `activate_skill`, which reads it from disk, while a new description reaches
+  the catalogue in a fresh conversation. Tests: eleven in
+  `tests/test_aio_skill_authoring.py`, from `::test_update_skill_replaces_the_description_and_keeps_every_other_key`.
+
+- **New module `aimu/skills/frontmatter.py`: `split_frontmatter`, `load_frontmatter`,
+  `render_frontmatter`.** The `SKILL.md` format had three partial copies of itself (discovery's
+  fence-finding in `SkillManager._parse`, a second copy in `AgentSkill.load_body`, and a
+  hand-built emitter in `write_skill`), and editing a skill needs all three at once: read the file,
+  change one field, write the rest back unchanged. One place is what makes "unchanged" true.
+  `SkillManager._load_yaml` moved there as `load_frontmatter` (same lenient fallback, now raising
+  plain `ValueError` for the caller to wrap, so the module depends on nothing else in the package);
+  both of `_parse`'s frontmatter error messages are unchanged.
+
+- **Change: `write_skill` renders its frontmatter through `yaml.safe_dump`, so a value needing
+  quotes gets them.** A description containing `": "` is the ordinary case and used to be written
+  bare, producing a file that loaded only through the lenient fallback meant for hand-written
+  skills. Simple values render exactly as before. Tests:
+  `::test_write_skill_quotes_a_description_containing_a_colon`.
+
 ## v0.31.0 (2026-09-11): a truncated read names the call that continues it, the fs group writes, and a full sub-agent is its own context
 
 ### Sub-agents

@@ -328,3 +328,176 @@ async def test_add_skill_script_preserves_every_frontmatter_key(tmp_path):
 
     assert (skill_dir / "scripts" / "run.py").read_text() == "print(1)\n"
     assert (skill_dir / "SKILL.md").read_text() == original  # a script write does not touch SKILL.md
+
+
+# ---------------------------------------------------------------------------
+# Revising an existing skill's prose (update_skill)
+#
+# author_skill refuses to clobber, and add_skill_script only writes scripts, so before
+# update_skill an agent could create a skill and revise its *scripts* forever while its
+# instructions -- the part a first attempt most often gets wrong -- were unreachable.
+# ---------------------------------------------------------------------------
+
+
+CURATED = (
+    "---\n"
+    "name: curated\n"
+    "description: The original description.\n"
+    "license: Apache-2.0\n"
+    "compatibility: Requires uv.\n"
+    "allowed-tools: Read Bash(git:*)\n"
+    "version: '2'\n"
+    "metadata:\n"
+    "  author: someone\n"
+    "---\n"
+    "\n"
+    "# Curated\n"
+    "\n"
+    "The original body.\n"
+)
+
+
+def _curated(skills_dir):
+    skill_dir = skills_dir / "curated"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text(CURATED, encoding="utf-8")
+    return skill_dir / "SKILL.md"
+
+
+def test_update_skill_replaces_the_description_and_keeps_every_other_key(tmp_path):
+    from aimu.skills import update_skill
+
+    _curated(tmp_path)
+    update_skill("curated", description="A better description.", skills_dir=tmp_path)
+
+    skill = SkillManager(skill_dirs=[str(tmp_path)]).skills["curated"]
+    assert skill.description == "A better description."
+    assert skill.load_body() == "# Curated\n\nThe original body."  # untouched
+    assert skill.license_info == "Apache-2.0"
+    assert skill.compatibility == "Requires uv."
+    assert skill.allowed_tools == ("Read", "Bash(git:*)")
+    assert skill.metadata == {"author": "someone"}
+    assert "version: '2'" in skill.path.read_text()  # a key outside the spec survives too
+
+
+def test_update_skill_replaces_the_body_and_keeps_the_description(tmp_path):
+    from aimu.skills import update_skill
+
+    _curated(tmp_path)
+    update_skill("curated", body="# Curated\n\nA better body.", skills_dir=tmp_path)
+
+    skill = SkillManager(skill_dirs=[str(tmp_path)]).skills["curated"]
+    assert skill.load_body() == "# Curated\n\nA better body."
+    assert skill.description == "The original description."
+    assert skill.license_info == "Apache-2.0"
+
+
+def test_update_skill_replaces_both(tmp_path):
+    from aimu.skills import update_skill
+
+    _curated(tmp_path)
+    update_skill("curated", description="Both changed.", body="New body.", skills_dir=tmp_path)
+
+    skill = SkillManager(skill_dirs=[str(tmp_path)]).skills["curated"]
+    assert (skill.description, skill.load_body()) == ("Both changed.", "New body.")
+
+
+def test_update_skill_requires_something_to_change(tmp_path):
+    from aimu.skills import update_skill
+
+    path = _curated(tmp_path)
+    with pytest.raises(ValueError, match="description"):
+        update_skill("curated", skills_dir=tmp_path)
+    assert path.read_text() == CURATED  # nothing written
+
+
+def test_update_skill_rejects_an_empty_description(tmp_path):
+    from aimu.skills import update_skill
+
+    path = _curated(tmp_path)
+    with pytest.raises(ValueError):
+        update_skill("curated", description="   ", skills_dir=tmp_path)
+    assert path.read_text() == CURATED
+
+
+def test_update_skill_rejects_an_unknown_skill(tmp_path):
+    from aimu.skills import update_skill
+
+    with pytest.raises(FileNotFoundError, match="author_skill"):
+        update_skill("nope", description="x", skills_dir=tmp_path)
+
+
+def test_update_skill_cannot_rename_a_skill(tmp_path):
+    # The name is the skill's address: its directory, its catalogue entry, and the prefix of every
+    # {skill}__{stem} script tool. There is no rename parameter, and a name/directory disagreement
+    # would make the skill undiscoverable, so the spec check has to still run on an update.
+    from aimu.skills import update_skill
+
+    _curated(tmp_path)
+    path = update_skill("curated", description="Still curated.", skills_dir=tmp_path)
+    assert "name: curated\n" in path.read_text()
+
+
+def test_write_skill_quotes_a_description_containing_a_colon(tmp_path):
+    # write_skill used to emit an unquoted scalar, producing invalid YAML that loaded only because
+    # the manager has a lenient fallback parser. Rendering it properly means the fallback is for
+    # hand-written files, not for files AIMU wrote itself.
+    import yaml
+
+    path = write_skill("colon", "Do this: then that.", "# Body", skills_dir=tmp_path)
+    frontmatter = path.read_text().split("---")[1]
+    assert yaml.safe_load(frontmatter)["description"] == "Do this: then that."
+
+
+# --- the tool surface ---
+
+
+def test_make_skill_update_tool_spec(tmp_path):
+    from aimu.skills import make_skill_update_tool
+
+    tool = make_skill_update_tool(SkillManager(skill_dirs=[str(tmp_path)]), tmp_path)
+    assert tool.__tool_is_async__ is True
+    assert tool.__tool_spec__["function"]["name"] == "update_skill"
+    assert set(tool.__tool_spec__["function"]["parameters"]["properties"]) == {"skill_name", "description", "body"}
+    # Only the skill's name is required: an update names one field or the other, or both.
+    assert tool.__tool_spec__["function"]["parameters"]["required"] == ["skill_name"]
+
+
+async def test_update_skill_tool_writes_and_refreshes(tmp_path):
+    from aimu.skills import make_skill_update_tool
+
+    write_skill("evolve", "First try.", "# Evolve\n\nFirst instructions.", skills_dir=tmp_path)
+    manager = SkillManager(skill_dirs=[str(tmp_path)])
+    assert manager.skills["evolve"].description == "First try."
+
+    tool = make_skill_update_tool(manager, tmp_path)
+    msg = await tool(skill_name="evolve", body="# Evolve\n\nBetter instructions.")
+
+    assert "evolve" in msg
+    assert manager.skills["evolve"].load_body() == "# Evolve\n\nBetter instructions."
+
+
+async def test_update_skill_tool_reports_an_unknown_skill_instead_of_raising(tmp_path):
+    from aimu.skills import make_skill_update_tool
+
+    write_skill("known", "Known.", "# Known", skills_dir=tmp_path)
+    manager = SkillManager(skill_dirs=[str(tmp_path)])
+    tool = make_skill_update_tool(manager, tmp_path)
+
+    msg = await tool(skill_name="nope", description="x")
+
+    assert "not found" in msg
+    assert "known" in msg  # lists what exists, so the model can correct the name
+
+
+async def test_update_skill_tool_reports_nothing_to_change_instead_of_raising(tmp_path):
+    from aimu.skills import make_skill_update_tool
+
+    write_skill("known", "Known.", "# Known", skills_dir=tmp_path)
+    manager = SkillManager(skill_dirs=[str(tmp_path)])
+    tool = make_skill_update_tool(manager, tmp_path)
+
+    msg = await tool(skill_name="known")
+
+    assert "description" in msg and "body" in msg
+    assert manager.skills["known"].description == "Known."

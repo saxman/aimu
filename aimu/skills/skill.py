@@ -4,6 +4,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from aimu.skills.frontmatter import split_frontmatter
+
 # Any run of characters outside [a-z0-9] collapses to a single underscore, so a tool name is a
 # valid identifier whatever the skill name and script stem contain. Both halves still need this
 # after spec validation: a valid skill name is [a-z0-9-], whose hyphens are not legal in an
@@ -78,9 +80,5 @@ class AgentSkill:
 
     def load_body(self) -> str:
         """Read SKILL.md, strip YAML frontmatter, return the markdown body."""
-        content = self.path.read_text(encoding="utf-8")
-        if content.startswith("---"):
-            end = content.find("---", 3)
-            if end != -1:
-                return content[end + 3 :].strip()
-        return content.strip()
+        _, body = split_frontmatter(self.path.read_text(encoding="utf-8"))
+        return body

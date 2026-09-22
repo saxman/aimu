@@ -14,8 +14,10 @@ import stat
 from pathlib import Path
 from typing import Callable, Optional, Union
 
-from aimu.skills.manager import SkillManager
+from aimu.skills.frontmatter import load_frontmatter, render_frontmatter, split_frontmatter
+from aimu.skills.manager import SkillLoadError, SkillManager
 from aimu.skills.skill import script_tool_name
+from aimu.skills.validate import SkillSpecError, validate_frontmatter
 
 # A skill name doubles as a directory name and a tool-name prefix, so restrict it to a
 # safe slug: lowercase letters, digits, and single hyphens. This also blocks path
@@ -87,6 +89,11 @@ def write_skill(
 
     ``scripts`` maps ``"<slug>.py"`` / ``"<slug>.sh"`` filenames to source, written into
     ``scripts/`` (each becomes a ``{skill}__{stem}`` tool). ``.sh`` files are marked executable.
+
+    This is the **create** path, and it emits ``name``, ``description``, and ``metadata`` only. Aimed
+    at an existing skill with ``overwrite=True`` it therefore drops the spec's optional ``license``,
+    ``compatibility``, and ``allowed-tools``, along with any key outside the spec; :func:`update_skill`
+    exists to revise a skill without that loss.
     """
     if not _SLUG.match(name):
         raise ValueError(
@@ -109,15 +116,10 @@ def write_skill(
 
     skill_dir.mkdir(parents=True, exist_ok=True)
 
-    frontmatter_lines = ["---", f"name: {name}", f"description: {description.strip()}"]
+    fields = {"name": name, "description": description.strip()}
     if metadata:
-        frontmatter_lines.append("metadata:")
-        for key, value in metadata.items():
-            frontmatter_lines.append(f"  {key}: {value}")
-    frontmatter_lines.append("---")
-    content = "\n".join(frontmatter_lines) + "\n\n" + body.strip() + "\n"
-
-    skill_md.write_text(content, encoding="utf-8")
+        fields["metadata"] = dict(metadata)
+    skill_md.write_text(_compose(fields, body), encoding="utf-8")
 
     # Round-trip through the parser so a malformed authored file fails loudly here, at the
     # write site, rather than silently later during discovery.
@@ -127,6 +129,78 @@ def write_skill(
         write_skill_script(name, filename, source, skills_dir=skills_dir)
 
     return skill_md
+
+
+def _compose(fields: dict, body: str) -> str:
+    """Return the full text of a ``SKILL.md``: rendered frontmatter, blank line, stripped body."""
+    return f"{render_frontmatter(fields)}\n\n{body.strip()}\n"
+
+
+def update_skill(
+    name: str,
+    *,
+    description: Optional[str] = None,
+    body: Optional[str] = None,
+    skills_dir: Union[str, Path],
+) -> Path:
+    """Revise an existing skill's description, body, or both, and return its ``SKILL.md`` path.
+
+    The counterpart to :func:`write_skill`, which refuses to clobber, so before this there was no
+    route to a skill's prose once it existed: an agent could fix a skill's *scripts* forever while
+    the instructions a first attempt most often gets wrong stayed frozen.
+
+    Only what is passed is changed. Everything else in the file is read and written back as it was,
+    including the spec's optional ``license`` / ``compatibility`` / ``allowed-tools``, ``metadata``,
+    and any key outside the spec, which is the whole reason this is not ``write_skill(overwrite=True)``.
+    ``metadata`` is deliberately *not* a parameter: it is a host's provenance record (an installer's
+    ``author`` field), and an update path that could rewrite it would be more capable than the create
+    path, which cannot set it either.
+
+    There is no rename: ``name`` locates the skill and is never written as new. It is the skill's
+    address (its directory, its catalogue entry, and the prefix of every ``{skill}__{stem}`` script
+    tool), and the spec requires the frontmatter name and the directory name to agree.
+
+    Raises :class:`FileNotFoundError` if the skill does not exist, :class:`ValueError` if neither
+    field is given or the new description is blank, and
+    :class:`~aimu.skills.manager.SkillLoadError` if the file on disk cannot be parsed. Nothing is
+    written unless every check passes, and the result is round-tripped through the manager parser
+    the way :func:`write_skill`'s output is.
+    """
+    if description is None and body is None:
+        raise ValueError("nothing to update: pass a new description, a new body, or both")
+    if description is not None and not description.strip():
+        raise ValueError("skill description must be non-empty")
+
+    skills_dir = Path(skills_dir).expanduser()
+    skill_md = skills_dir / name / "SKILL.md"
+    if not skill_md.is_file():
+        raise FileNotFoundError(f"skill {name!r} has no SKILL.md at {skill_md}; create it first with author_skill")
+
+    frontmatter, current_body = split_frontmatter(skill_md.read_text(encoding="utf-8"))
+    if frontmatter is None:
+        raise SkillLoadError(f"{skill_md}: missing or unclosed YAML frontmatter, so there is nothing to update")
+    try:
+        fields = load_frontmatter(frontmatter)
+    except ValueError as exc:
+        raise SkillLoadError(f"{skill_md}: {exc}") from exc
+
+    if description is not None:
+        fields["description"] = description.strip()
+    try:
+        validate_frontmatter(fields, directory_name=name)
+    except SkillSpecError as exc:
+        raise SkillLoadError(f"{skill_md}: {exc}") from exc
+
+    skill_md.write_text(_compose(fields, body if body is not None else current_body), encoding="utf-8")
+
+    # Same round-trip guard write_skill uses: a file this wrote must be discoverable.
+    SkillManager(skill_dirs=[str(skills_dir)])._parse(skill_md)
+    return skill_md
+
+
+# The tool make_skill_update_tool returns is itself named ``update_skill`` (a tool's name is its
+# function's name), which makes the public function above unreachable by that name inside the factory.
+_update_skill = update_skill
 
 
 def make_skill_authoring_tool(manager: SkillManager, skills_dir: Union[str, Path]) -> Callable:
@@ -162,6 +236,58 @@ def make_skill_authoring_tool(manager: SkillManager, skills_dir: Union[str, Path
         return f"Created skill '{name}' at {path}. It is now available."
 
     return author_skill
+
+
+def make_skill_update_tool(manager: SkillManager, skills_dir: Union[str, Path]) -> Callable:
+    """Return an async ``@tool`` that revises an existing skill's prose and refreshes ``manager``.
+
+    Calls :func:`update_skill` then :meth:`SkillManager.refresh`. Unlike
+    :func:`make_skill_script_tool` it needs no agent: the skill's tools are unchanged by an edit to
+    its text, so there is nothing to reload.
+
+    A missing skill and an empty call come back as sentences rather than exceptions, because both
+    are the model's to correct in the next round (it mistyped a name, or called the tool with
+    nothing to change); a malformed file on disk still raises, since nothing the model does next
+    fixes it.
+
+    Both surfaces of the refresh limit are worth knowing. A new **body** applies immediately:
+    ``activate_skill`` reads it from disk. A new **description** reaches the model only in a fresh
+    conversation, because the catalogue is injected into a system prompt that is not rewritten
+    mid-run (see :class:`~aimu.aio.SkillAgent`).
+    """
+    from aimu.tools import tool
+
+    skills_dir = Path(skills_dir).expanduser()
+
+    @tool
+    async def update_skill(skill_name: str, description: Optional[str] = None, body: Optional[str] = None) -> str:
+        """Revise an existing skill's instructions or its one-line description.
+
+        Use this when a skill turned out to be wrong, incomplete, or misleading, so the fix is
+        remembered rather than repeated. Pass only the part you are changing; the other part, and
+        everything else about the skill, is left alone. You cannot rename a skill this way, and
+        creating one is author_skill.
+
+        Args:
+            skill_name: Slug of an existing skill.
+            description: Replacement for the one line saying when to use the skill. Omit to keep it.
+            body: Replacement markdown instructions, in full (this is not a patch). Omit to keep them.
+        """
+        if skill_name not in manager.skills:
+            available = ", ".join(sorted(manager.skills)) or "(none yet)"
+            return f"Skill {skill_name!r} not found. Create it first with author_skill. Existing skills: {available}."
+        try:
+            _update_skill(skill_name, description=description, body=body, skills_dir=skills_dir)
+        except ValueError as exc:  # nothing to change, or a blank description
+            return f"Nothing was written: {exc}."
+        manager.refresh()
+        changed = " and ".join(part for part, given in (("description", description), ("body", body)) if given)
+        return (
+            f"Updated the {changed} of '{skill_name}'. New instructions apply the next time you "
+            "activate it; a new description reaches your skill catalogue in a fresh conversation."
+        )
+
+    return update_skill
 
 
 def make_skill_script_tool(agent, manager: SkillManager, skills_dir: Union[str, Path]) -> Callable:
@@ -217,4 +343,11 @@ def make_skill_script_tool(agent, manager: SkillManager, skills_dir: Union[str, 
     return add_skill_script
 
 
-__all__ = ["make_skill_authoring_tool", "make_skill_script_tool", "write_skill"]
+__all__ = [
+    "make_skill_authoring_tool",
+    "make_skill_script_tool",
+    "make_skill_update_tool",
+    "update_skill",
+    "write_skill",
+    "write_skill_script",
+]
