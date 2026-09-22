@@ -41,6 +41,28 @@ def _validate_script_filename(filename: str) -> None:
         raise ValueError(f"invalid script stem {stem!r}: use lowercase letters, digits, hyphens, or underscores")
 
 
+def write_skill_script(name: str, filename: str, content: str, *, skills_dir: Union[str, Path]) -> Path:
+    """Write ``skills_dir/<name>/scripts/<filename>`` and return its path.
+
+    The unit of a script write, deliberately separate from :func:`write_skill`: attaching a script
+    is not a change to the skill's own ``SKILL.md``, and rewriting that file to add one used to
+    drop every frontmatter key :func:`write_skill` does not re-emit (``license``,
+    ``compatibility``, ``allowed-tools``, and anything outside the spec).
+
+    Validates the filename (``<stem>.py`` or ``<stem>.sh``, no path separators) before creating
+    anything, and marks a ``.sh`` executable. An existing script of the same name is replaced,
+    which is how a broken script is fixed: the ``{skill}__{stem}`` tool keeps its name.
+    """
+    _validate_script_filename(filename)
+    scripts_dir = Path(skills_dir).expanduser() / name / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    target = scripts_dir / filename
+    target.write_text(content, encoding="utf-8")
+    if target.suffix == ".sh":  # .py runs via the interpreter; only .sh needs +x
+        target.chmod(target.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    return target
+
+
 def write_skill(
     name: str,
     description: str,
@@ -101,17 +123,8 @@ def write_skill(
     # write site, rather than silently later during discovery.
     SkillManager(skill_dirs=[str(skills_dir)])._parse(skill_md)
 
-    if scripts:
-        scripts_dir = skill_dir / "scripts"
-        scripts_dir.mkdir(parents=True, exist_ok=True)
-        for filename, source in scripts.items():
-            # `overwrite` already gates the whole call via the SKILL.md check above, so a
-            # script write here is either a fresh skill or an explicit overwrite (the
-            # add_skill_script path), where replacing an existing script is intended.
-            target = scripts_dir / filename
-            target.write_text(source, encoding="utf-8")
-            if target.suffix == ".sh":  # .py runs via the interpreter; only .sh needs +x
-                target.chmod(target.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    for filename, source in (scripts or {}).items():
+        write_skill_script(name, filename, source, skills_dir=skills_dir)
 
     return skill_md
 
@@ -155,10 +168,15 @@ def make_skill_script_tool(agent, manager: SkillManager, skills_dir: Union[str, 
     """Return an async ``@tool`` that adds a runnable script to an existing skill.
 
     The tool writes ``scripts/<filename>`` (``.py`` or ``.sh``) into the named skill via
-    :func:`write_skill`, refreshes ``manager``, then calls ``await agent.reload_skills()`` so the
-    new ``{skill}__{stem}`` tool is callable in the same turn. ``agent`` is a
+    :func:`write_skill_script`, refreshes ``manager``, then calls ``await agent.reload_skills()`` so
+    the new ``{skill}__{stem}`` tool is callable in the same turn. ``agent`` is a
     :class:`~aimu.aio.SkillAgent` (the tool is async); ``manager`` and ``skills_dir`` are captured
     by closure.
+
+    The skill's own ``SKILL.md`` is never opened, which is the point of writing the script directly
+    rather than through :func:`write_skill`: a script write is not a change to the skill's prose, and
+    routing it through a full rewrite silently dropped frontmatter keys the rewrite does not re-emit.
+    Revising the prose is :func:`make_skill_update_tool`'s job.
 
     **Full access**: the script runs as a real subprocess with the user's privileges, no sandbox.
     """
@@ -189,16 +207,7 @@ def make_skill_script_tool(agent, manager: SkillManager, skills_dir: Union[str, 
             available = ", ".join(sorted(manager.skills)) or "(none yet)"
             return f"Skill {skill_name!r} not found. Create it first with author_skill. Existing skills: {available}."
         existed = (skills_dir / skill_name / "scripts" / filename).exists()
-        # Re-round-trip the existing SKILL.md unchanged plus the new/updated script file.
-        write_skill(
-            skill_name,
-            skill.description,
-            skill.load_body(),
-            skills_dir=skills_dir,
-            overwrite=True,
-            metadata=skill.metadata or None,
-            scripts={filename: content},
-        )
+        write_skill_script(skill_name, filename, content, skills_dir=skills_dir)
         manager.refresh()
         await agent.reload_skills()
         verb = "Updated" if existed else "Added"

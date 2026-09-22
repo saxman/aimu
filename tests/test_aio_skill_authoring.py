@@ -289,3 +289,42 @@ async def test_aio_reload_skills_keeps_the_agents_environment(tmp_path):
 
     tool = next(fn for fn in agent._effective_tools(None) if fn.__name__ == "reporter__where")
     assert "/tmp/reports" in await tool()
+
+
+async def test_add_skill_script_preserves_every_frontmatter_key(tmp_path):
+    # Regression: adding a script used to rewrite SKILL.md from the parsed skill, which re-emitted
+    # only name/description/metadata. A hand-written or installed skill silently lost `license`,
+    # `compatibility`, `allowed-tools`, and any non-spec key, on every script write.
+    from aimu.skills import make_skill_script_tool
+
+    skill_dir = tmp_path / "curated"
+    skill_dir.mkdir()
+    original = (
+        "---\n"
+        "name: curated\n"
+        "description: A skill written by hand, with the spec's optional fields.\n"
+        "license: Apache-2.0\n"
+        "compatibility: Requires uv.\n"
+        "allowed-tools: Read Bash(git:*)\n"
+        "version: '2'\n"
+        "metadata:\n"
+        "  author: someone\n"
+        "---\n"
+        "\n"
+        "# Curated\n"
+    )
+    (skill_dir / "SKILL.md").write_text(original, encoding="utf-8")
+    manager = SkillManager(skill_dirs=[str(tmp_path)])
+
+    class _StubAgent:
+        def __init__(self, mgr):
+            self.skill_manager = mgr
+
+        async def reload_skills(self):
+            pass
+
+    tool = make_skill_script_tool(_StubAgent(manager), manager, tmp_path)
+    await tool(skill_name="curated", filename="run.py", content="print(1)\n")
+
+    assert (skill_dir / "scripts" / "run.py").read_text() == "print(1)\n"
+    assert (skill_dir / "SKILL.md").read_text() == original  # a script write does not touch SKILL.md

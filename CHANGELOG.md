@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+### Skills
+
+- **Fix: adding or updating a skill script no longer rewrites the skill's `SKILL.md`, which was
+  silently dropping frontmatter keys.** `add_skill_script` wrote its file by calling
+  `write_skill(..., overwrite=True)` with the description and body it had just read back, so the
+  rewrite could not change the prose and existed only as a side effect. What it could do was lose
+  everything `write_skill` does not re-emit: the spec's optional `license`, `compatibility`, and
+  `allowed-tools`, plus any key outside the spec. A hand-written or installed skill therefore
+  shed those fields the first time an agent attached a script to it, with nothing raised anywhere,
+  and shed them again on every later fix to that script. Observed on an installed skill carrying
+  `license: Apache-2.0` and a `compatibility:` line naming its own requirements, both gone after
+  one script write.
+
+  The script write is now its own unit: `write_skill_script(name, filename, content, *, skills_dir)`
+  validates the filename, creates `scripts/`, writes the file, and marks a `.sh` executable, without
+  opening `SKILL.md` at all. `write_skill`'s own `scripts=` parameter routes through it, so skill
+  creation is unchanged, and `add_skill_script` calls it directly: same filename validation, same
+  unknown-skill guard, same `Added`/`Updated` wording, same `{skill}__{stem}` tool callable in the
+  same turn. A skill's prose is now changed only by something that means to change it (see
+  `update_skill`). Tests:
+  `tests/test_aio_skill_authoring.py::test_add_skill_script_preserves_every_frontmatter_key`.
+
 ## v0.31.0 (2026-09-11): a truncated read names the call that continues it, the fs group writes, and a full sub-agent is its own context
 
 ### Sub-agents
