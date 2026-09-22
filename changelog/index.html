@@ -3105,6 +3105,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#v0320-2026-09-21-a-skills-prose-is-editable-and-a-script-write-leaves-it-alone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.32.0 (2026-09-21): a skill's prose is editable, and a script write leaves it alone
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v0.32.0 (2026-09-21): a skill&#39;s prose is editable, and a script write leaves it alone">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#skills" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skills
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v0310-2026-09-11-a-truncated-read-names-the-call-that-continues-it-the-fs-group-writes-and-a-full-sub-agent-is-its-own-context" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3968,7 +3996,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#skills" class="md-nav__link">
+  <a href="#skills_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Skills
@@ -4007,7 +4035,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#skills_1" class="md-nav__link">
+  <a href="#skills_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Skills
@@ -4279,7 +4307,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#skills_2" class="md-nav__link">
+  <a href="#skills_3" class="md-nav__link">
     <span class="md-ellipsis">
       
         Skills
@@ -5054,7 +5082,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#skills_3" class="md-nav__link">
+  <a href="#skills_4" class="md-nav__link">
     <span class="md-ellipsis">
       
         Skills
@@ -5153,6 +5181,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#v0320-2026-09-21-a-skills-prose-is-editable-and-a-script-write-leaves-it-alone" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.32.0 (2026-09-21): a skill's prose is editable, and a script write leaves it alone
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v0.32.0 (2026-09-21): a skill&#39;s prose is editable, and a script write leaves it alone">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#skills" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skills
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v0310-2026-09-11-a-truncated-read-names-the-call-that-continues-it-the-fs-group-writes-and-a-full-sub-agent-is-its-own-context" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6016,7 +6072,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#skills" class="md-nav__link">
+  <a href="#skills_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Skills
@@ -6055,7 +6111,7 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#skills_1" class="md-nav__link">
+  <a href="#skills_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Skills
@@ -6327,7 +6383,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#skills_2" class="md-nav__link">
+  <a href="#skills_3" class="md-nav__link">
     <span class="md-ellipsis">
       
         Skills
@@ -7102,7 +7158,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#skills_3" class="md-nav__link">
+  <a href="#skills_4" class="md-nav__link">
     <span class="md-ellipsis">
       
         Skills
@@ -7166,6 +7222,68 @@ not this stub.
 -->
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
+<h2 id="v0320-2026-09-21-a-skills-prose-is-editable-and-a-script-write-leaves-it-alone">v0.32.0 (2026-09-21): a skill's prose is editable, and a script write leaves it alone<a class="headerlink" href="#v0320-2026-09-21-a-skills-prose-is-editable-and-a-script-write-leaves-it-alone" title="Permanent link">&para;</a></h2>
+<h3 id="skills">Skills<a class="headerlink" href="#skills" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Fix: adding or updating a skill script no longer rewrites the skill's <code>SKILL.md</code>, which was
+  silently dropping frontmatter keys.</strong> <code>add_skill_script</code> wrote its file by calling
+  <code>write_skill(..., overwrite=True)</code> with the description and body it had just read back, so the
+  rewrite could not change the prose and existed only as a side effect. What it could do was lose
+  everything <code>write_skill</code> does not re-emit: the spec's optional <code>license</code>, <code>compatibility</code>, and
+  <code>allowed-tools</code>, plus any key outside the spec. A hand-written or installed skill therefore
+  shed those fields the first time an agent attached a script to it, with nothing raised anywhere,
+  and shed them again on every later fix to that script. Observed on an installed skill carrying
+  <code>license: Apache-2.0</code> and a <code>compatibility:</code> line naming its own requirements, both gone after
+  one script write.</li>
+</ul>
+<p>The script write is now its own unit: <code>write_skill_script(name, filename, content, *, skills_dir)</code>
+  validates the filename, creates <code>scripts/</code>, writes the file, and marks a <code>.sh</code> executable, without
+  opening <code>SKILL.md</code> at all. <code>write_skill</code>'s own <code>scripts=</code> parameter routes through it, so skill
+  creation is unchanged, and <code>add_skill_script</code> calls it directly: same filename validation, same
+  unknown-skill guard, same <code>Added</code>/<code>Updated</code> wording, same <code>{skill}__{stem}</code> tool callable in the
+  same turn. A skill's prose is now changed only by something that means to change it (see
+  <code>update_skill</code>). Tests:
+  <code>tests/test_aio_skill_authoring.py::test_add_skill_script_preserves_every_frontmatter_key</code>.</p>
+<ul>
+<li>
+<p><strong>New: <code>update_skill(name, *, description=None, body=None, skills_dir)</code> and
+  <code>make_skill_update_tool(manager, skills_dir)</code>, so an agent can revise a skill it already wrote.</strong>
+  <code>author_skill</code> refuses to clobber and <code>add_skill_script</code> only writes scripts, which left a skill's
+  prose unreachable once it existed: an agent could fix a skill's <em>scripts</em> forever while the
+  instructions a first attempt most often gets wrong stayed frozen, and the only advice the library
+  had for a wrong skill was to author a second one under a different name. The async <code>@tool
+  update_skill(skill_name, description=None, body=None)</code> calls it and then <code>manager.refresh()</code>;
+  unlike <code>add_skill_script</code> it needs no agent, since editing a skill's text changes none of its
+  tools. Only what is passed is written, and every other key in the file is read and put back as it
+  was, which is why this is not <code>write_skill(overwrite=True)</code>. There is no rename (the name is the
+  skill's directory, its catalogue entry, and the prefix of every <code>{skill}__{stem}</code> tool, and the
+  spec requires the frontmatter name and the directory to agree) and no <code>metadata</code> parameter (it is
+  a host's provenance record, and an update path able to rewrite it would be more capable than the
+  create path, which cannot set it either). A missing skill or a call with nothing to change comes
+  back as a sentence the model can act on; a malformed file on disk still raises. The refresh limit
+  is the one <code>author_skill</code> already had, now stated per field in the tool's own reply: a new body
+  applies at the next <code>activate_skill</code>, which reads it from disk, while a new description reaches
+  the catalogue in a fresh conversation. Tests: eleven in
+  <code>tests/test_aio_skill_authoring.py</code>, from <code>::test_update_skill_replaces_the_description_and_keeps_every_other_key</code>.</p>
+</li>
+<li>
+<p><strong>New module <code>aimu/skills/frontmatter.py</code>: <code>split_frontmatter</code>, <code>load_frontmatter</code>,
+  <code>render_frontmatter</code>.</strong> The <code>SKILL.md</code> format had three partial copies of itself (discovery's
+  fence-finding in <code>SkillManager._parse</code>, a second copy in <code>AgentSkill.load_body</code>, and a
+  hand-built emitter in <code>write_skill</code>), and editing a skill needs all three at once: read the file,
+  change one field, write the rest back unchanged. One place is what makes "unchanged" true.
+  <code>SkillManager._load_yaml</code> moved there as <code>load_frontmatter</code> (same lenient fallback, now raising
+  plain <code>ValueError</code> for the caller to wrap, so the module depends on nothing else in the package);
+  both of <code>_parse</code>'s frontmatter error messages are unchanged.</p>
+</li>
+<li>
+<p><strong>Change: <code>write_skill</code> renders its frontmatter through <code>yaml.safe_dump</code>, so a value needing
+  quotes gets them.</strong> A description containing <code>": "</code> is the ordinary case and used to be written
+  bare, producing a file that loaded only through the lenient fallback meant for hand-written
+  skills. Simple values render exactly as before. Tests:
+  <code>::test_write_skill_quotes_a_description_containing_a_colon</code>.</p>
+</li>
+</ul>
 <h2 id="v0310-2026-09-11-a-truncated-read-names-the-call-that-continues-it-the-fs-group-writes-and-a-full-sub-agent-is-its-own-context">v0.31.0 (2026-09-11): a truncated read names the call that continues it, the fs group writes, and a full sub-agent is its own context<a class="headerlink" href="#v0310-2026-09-11-a-truncated-read-names-the-call-that-continues-it-the-fs-group-writes-and-a-full-sub-agent-is-its-own-context" title="Permanent link">&para;</a></h2>
 <h3 id="sub-agents">Sub-agents<a class="headerlink" href="#sub-agents" title="Permanent link">&para;</a></h3>
 <ul>
@@ -8225,7 +8343,7 @@ release. Breaking changes are free before 1.0 and expensive after, so it ships n
 <li><strong>New</strong> <strong><code>client.last_output_truncated</code></strong> (<code>bool</code>, alongside <code>last_usage</code> on both the sync and async clients). True when the provider reports the generation stopped for want of room rather than at the model's own stopping point. Set by the Ollama provider from <code>done_reason == "length"</code> on every response path (chat, generate, and both streamed forms); every other provider leaves it False, so nothing else changes behavior.</li>
 </ul>
 <h2 id="v0141-2026-08-16-host-provided-script-environment-and-a-shutdown-hang">v0.14.1 (2026-08-16): host-provided script environment, and a shutdown hang<a class="headerlink" href="#v0141-2026-08-16-host-provided-script-environment-and-a-shutdown-hang" title="Permanent link">&para;</a></h2>
-<h3 id="skills">Skills<a class="headerlink" href="#skills" title="Permanent link">&para;</a></h3>
+<h3 id="skills_1">Skills<a class="headerlink" href="#skills_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <strong>A host can hand a script environment variables</strong> (<code>run_script_file(..., env=...)</code> and <code>build_skills_server(manager, env=...)</code>). Environment variables are one of the three input channels the <a href="https://agentskills.io/skill-creation/using-scripts">Agent Skills script guidance</a> names, and the one a host uses to tell a script something it cannot discover for itself: where to write output, which account to send from. Without it, a skill needing host context has to re-derive the host's own configuration, duplicating logic that will drift. <code>env</code> is <strong>merged over</strong> the inherited environment rather than replacing it, because a replacement would strip <code>PATH</code>, which the interpreter lookup itself needs. Set once when the server is built, not per call.</li>
 </ul>
@@ -8235,7 +8353,7 @@ release. Breaking changes are free before 1.0 and expensive after, so it ships n
   <strong>A client held for the life of the process must call <code>close()</code>.</strong> Skipping teardown in <code>__del__</code> is necessary but not sufficient on its own: if nobody releases the portal, Python's finalization of <code>start_blocking_portal</code>'s own context-manager generator tries to stop and join the portal thread, and blocks there instead. A short-lived client collected during normal operation is unaffected, since <code>__del__</code> still closes it then.</li>
 </ul>
 <h2 id="v0140-2026-08-16-agent-skills-spec-compliance-and-per-agent-skill-selection">v0.14.0 (2026-08-16): Agent Skills spec compliance, and per-agent skill selection<a class="headerlink" href="#v0140-2026-08-16-agent-skills-spec-compliance-and-per-agent-skill-selection" title="Permanent link">&para;</a></h2>
-<h3 id="skills_1">Skills<a class="headerlink" href="#skills_1" title="Permanent link">&para;</a></h3>
+<h3 id="skills_2">Skills<a class="headerlink" href="#skills_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <strong><code>SKILL.md</code> frontmatter is validated against the <a href="https://agentskills.io/specification">Agent Skills specification</a></strong> (<code>aimu.skills.validate</code>, exporting <code>validate_frontmatter</code> and <code>SkillSpecError</code>; both re-exported from <code>aimu.skills</code>). Discovery now enforces every rule the spec states: <code>name</code> is <strong>required</strong> (1-64 characters, lowercase alphanumerics and single hyphens, no leading or trailing hyphen, and <strong>must match its parent directory</strong>), <code>description</code> is required and at most 1024 characters, <code>compatibility</code> at most 500, and <code>metadata</code> must be a mapping of string to string. A violation raises <code>SkillLoadError</code> naming the rule and the fix, which is the "failures are apparent" principle applied to the one identifier everything else uses to address a skill. The validator is a pure function over parsed frontmatter, so the rules are testable without a filesystem and an author can call it directly the way <code>skills-ref validate</code> is.</li>
 <li><strong>Change (breaking)</strong> <strong><code>name</code> no longer defaults to the skill's directory name.</strong> <code>_parse</code> previously fell back to <code>skill_md.parent.name</code> when the frontmatter omitted <code>name</code>; the spec makes the field required, so an omission is an error rather than a silent substitution. <strong>A <code>SKILL.md</code> with no <code>name:</code>, a <code>name:</code> that is not a spec-valid slug, or a <code>name:</code> that disagrees with its directory now fails discovery where it used to load.</strong> Nothing in AIMU's own tests, examples, or notebooks was affected (all use single-word or kebab-case names matching their directories), and <code>write_skill</code> already enforced the slug on the authoring path, so only hand-written skills can reach this.</li>
@@ -8381,7 +8499,7 @@ release. Breaking changes are free before 1.0 and expensive after, so it ships n
 <li><strong>New</strong> <code>aimu.aio.Scheduler</code>: runs interval (<code>every</code>) and one-shot (<code>at</code>) async jobs concurrently under one <code>asyncio.TaskGroup</code>, for proactive assistant triggers (reminders, check-ins). A job that raises is logged and the loop continues (one bad reminder can't kill the daemon); <code>run()</code> is single-use and honors a <code>stop()</code> signalled before it started (no lost-stop race). Persistence is intentionally out of scope. Exported from <code>aimu.aio</code>.</li>
 <li><strong>New</strong> <code>aimu.aio.RunHandle</code>: cooperative cancellation for an in-flight <code>aio.Agent.run(...)</code>. <code>RunHandle.start(coro)</code> schedules the run as a task; <code>cancel()</code> stops it at the next <code>await</code>, <code>await result()</code> returns the result or raises <code>asyncio.CancelledError</code>. The async <code>Agent</code> loop now snapshots its messages in a <code>finally</code>, so a cancelled run still records its partial turn for resume via <code>restore()</code>. Async-only (asyncio cancellation; no threaded token). The personal-assistant example gains a <code>/stop</code> that cancels the current reply. How-to: <a href="https://saxman.github.io/aimu/how-to/cancel-a-run/">Cancel a run</a>.</li>
 </ul>
-<h3 id="skills_2">Skills<a class="headerlink" href="#skills_2" title="Permanent link">&para;</a></h3>
+<h3 id="skills_3">Skills<a class="headerlink" href="#skills_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> runtime <strong>skill authoring</strong>: <code>aimu.skills.write_skill(name, description, body, *, skills_dir, ...)</code> writes a discoverable <code>SKILL.md</code> (slug validation + traversal guard + no-clobber + parser round-trip), and <code>aimu.skills.make_skill_authoring_tool(manager, skills_dir)</code> returns an async <code>author_skill</code> <code>@tool</code> for the Hermes-style self-improvement loop. New <code>SkillManager.refresh()</code> invalidates the discovery cache so a skill authored mid-run is visible.</li>
 <li><strong>New</strong> <strong>skill scripts (Python + shell), authored and runnable mid-turn</strong>: a skill's <code>scripts/*.py</code> and <code>scripts/*.sh</code> are each registered as a <code>{skill}__{stem}</code> tool that runs the script as a subprocess (<code>.py</code> via the current Python, <code>.sh</code> via <code>bash</code>), now with an optional <code>args</code> string forwarded to the script's argv (<code>shlex</code>-split; backward-compatible). <code>write_skill(..., scripts={"name.py"|"name.sh": source})</code> writes them (<code>.sh</code> marked executable); <code>aimu.skills.make_skill_script_tool(agent, manager, skills_dir)</code> returns an async <code>add_skill_script</code> <code>@tool</code>. New <code>SkillAgent.reload_skills()</code> (sync + <code>aimu.aio</code>) rebuilds the skills server, re-snapshots the skill tools (surfaced through the Agent's <code>_effective_tools</code>, re-read each engine round), and re-injects the catalog in place, so a script the assistant authors is callable in the <strong>same turn</strong> and a newly authored skill now appears in the catalog mid-conversation (retiring the prior "catalog injected once" limitation). Scripts run with <strong>full access</strong> (no sandbox), matching OpenClaw/Hermes; <code>builtin.execute_python</code> remains the sandboxed alternative.</li>
@@ -8743,7 +8861,7 @@ release. Breaking changes are free before 1.0 and expensive after, so it ships n
 <li><strong>New</strong> Built-in tool subgroups: <code>builtin.web</code>, <code>builtin.fs</code>, <code>builtin.compute</code>, <code>builtin.misc</code>.</li>
 <li><strong>New</strong> <code>MCPClient</code> raises <code>MCPConnectionError</code> (rather than silently failing) on construction or call failure. Added <code>.ping()</code> method.</li>
 </ul>
-<h3 id="skills_3">Skills<a class="headerlink" href="#skills_3" title="Permanent link">&para;</a></h3>
+<h3 id="skills_4">Skills<a class="headerlink" href="#skills_4" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Breaking</strong> <code>SkillManager</code> raises <code>SkillLoadError</code> on malformed <code>SKILL.md</code> (instead of silently skipping).</li>
 <li><strong>Breaking</strong> <code>SkillManager.get_skill_body()</code> raises <code>SkillNotFoundError</code> on unknown skill name (instead of returning a sentinel string).</li>

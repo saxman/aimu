@@ -3904,6 +3904,10 @@ manager parser, so an authored skill is guaranteed discoverable (a parse failure
 :class:<code>~aimu.skills.manager.SkillLoadError</code>).</p>
 <p><code>scripts</code> maps <code>"&lt;slug&gt;.py"</code> / <code>"&lt;slug&gt;.sh"</code> filenames to source, written into
 <code>scripts/</code> (each becomes a <code>{skill}__{stem}</code> tool). <code>.sh</code> files are marked executable.</p>
+<p>This is the <strong>create</strong> path, and it emits <code>name</code>, <code>description</code>, and <code>metadata</code> only. Aimed
+at an existing skill with <code>overwrite=True</code> it therefore drops the spec's optional <code>license</code>,
+<code>compatibility</code>, and <code>allowed-tools</code>, along with any key outside the spec; :func:<code>update_skill</code>
+exists to revise a skill without that loss.</p>
 
 
     </div>
