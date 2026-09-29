@@ -23,6 +23,7 @@ from collections import Counter
 from dataclasses import replace
 from typing import Any, Callable, Iterator, Optional, Union
 
+from aimu.agents.steering import Steering
 from aimu.context import count_tokens
 from aimu.events import ContextCompacted, EventSink, RunEvent, RunFinished, RunStarted, ToolCalled, ToolDenied, emit
 from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER, PROVENANCE_KEY
@@ -183,6 +184,7 @@ class _BaseToolLoop:
         events: Optional[EventSink] = None,
         agent_name: Optional[str] = None,
         compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
+        steering: Optional["Steering"] = None,
     ):
         # ``tools`` is either the tool-callable list, or a zero-arg callable returning it
         # (re-read each round so tools added mid-run — e.g. SkillAgent.reload_skills authoring a
@@ -209,6 +211,15 @@ class _BaseToolLoop:
         # caller still believes is present, which is a bigger silent change than any kwarg
         # drop principle 6 was written about, so an applied compaction is never silent.
         self._compaction = compaction
+        # The host's source of mid-run user messages, and this run's own cursor over it. The
+        # cursor is opened once per run (see _open_steering) rather than per call, because the
+        # source hands out one per reader and a run is what a reader identifies.
+        self._steering = steering
+        self._steering_reader: Optional[Callable[[], list[str]]] = None
+        # Where the current round budget starts counting from. A delivered steering message moves
+        # it to the round it landed in, which gives the loop a fresh max_rounds: the cap bounds
+        # autonomous iteration, and a human message ends the autonomous stretch.
+        self._budget_base = 0
         # Updated by run()/run_streamed() right before every client call, so the attributing
         # sink (see _attributing_sink) can report which round a client-emitted event happened
         # in without the client itself ever knowing about rounds.
@@ -343,6 +354,47 @@ class _BaseToolLoop:
         return StreamChunk(
             StreamingContentType.CONTINUING,
             {"kind": kind, "prompt": prompt},
+            agent=self._agent_name,
+            iteration=iteration,
+        )
+
+    def _open_steering(self) -> None:
+        """Open this run's own cursor over the steering source. Called once, at the run's start."""
+        self._steering_reader = self._steering.reader() if self._steering is not None else None
+
+    def _take_steering(self) -> Optional[str]:
+        """Pending steering messages as one user message, or None if there are none.
+
+        Several messages that arrived at the same boundary are delivered together, in one round:
+        they are all things the user said before the model next read anything, so splitting them
+        across rounds would spend model calls to no purpose.
+
+        Never raises into the loop. The source belongs to the host application, and a run that
+        died because the host's mailbox misbehaved would lose work the mailbox has nothing to do
+        with.
+        """
+        if self._steering_reader is None:
+            return None
+        try:
+            pending = self._steering_reader()
+        except Exception:
+            logger.warning("Steering source raised; the run continues unsteered.", exc_info=True)
+            return None
+        texts = [text.strip() for text in pending if text and text.strip()]
+        return "\n\n".join(texts) if texts else None
+
+    def _steering_chunk(self, text: str, iteration: int) -> StreamChunk:
+        """The chunk that opens a steered round, carrying the words the user sent.
+
+        Deliberately not :meth:`_boundary_chunk`. That one's ``kind`` is the provenance value the
+        injected message is tagged with, so a live-stream consumer and a stored-message consumer
+        agree on which injection happened. A steering message is tagged with nothing, because it
+        is the user's message rather than one the loop composed, and reporting it as a
+        ``CONTINUING`` injection would have a transcript attribute the user's words to the loop.
+        """
+        return StreamChunk(
+            StreamingContentType.STEERING,
+            {"text": text},
             agent=self._agent_name,
             iteration=iteration,
         )

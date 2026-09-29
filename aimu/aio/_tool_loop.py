@@ -120,6 +120,7 @@ class _AsyncToolLoop(_BaseToolLoop):
         images: Optional[list] = None,
     ) -> AsyncIterator[StreamChunk]:
         emit(self._events, RunStarted(agent=self._agent_name, iteration=0, task=user_message or ""))
+        self._open_steering()
         error: Optional[BaseException] = None
         iteration = 0
         self._current_iteration = 0
@@ -140,15 +141,23 @@ class _AsyncToolLoop(_BaseToolLoop):
                 # the initial stream above already made the first of ``max_rounds`` calls the
                 # bounded loop is permitted, so it may run at most ``max_rounds - 1`` further
                 # times. The forced wrap-up below is the one deliberate call beyond this cap.
-                while iteration + 1 < self._max_rounds:
+                while iteration + 1 - self._budget_base < self._max_rounds:
                     state = classify_terminal_turn(self._client.messages)
                     if state == TERMINAL_PENDING_TOOLS:
                         async for chunk in self._dispatch_streamed(iteration):
                             yield chunk
                         iteration += 1
                         self._current_iteration = iteration
+                        # Drained after dispatch and never before: a tool result has to sit
+                        # immediately after its tool_use block, so a user message slipped between
+                        # them is rejected outright by the provider.
+                        steering = self._take_steering()
+                        if steering is not None:
+                            self._budget_base = iteration
+                            yield self._steering_chunk(steering, iteration)
                         self._maybe_compact()
                         stream = await self._client.chat(
+                            steering,
                             generate_kwargs=generate_kwargs,
                             stream=True,
                             tools=self._current_tools(),

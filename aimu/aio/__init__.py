@@ -51,6 +51,7 @@ from .context import summarize_messages
 from aimu.models import ContextOverflowError, ModelConnectionError, ModelRefusalError
 from .fallback import AsyncFallbackClient
 from aimu.agents import DegenerateTurnError, TruncatedTurnError
+from aimu.agents.steering import Steering
 from .agent import Agent, AsyncRunner
 from .channels import CLIChannel, Channel, ChannelMessage, WebChannel
 from .run_handle import RunHandle
@@ -163,6 +164,7 @@ __all__ = [
     "Router",
     "Scheduler",
     "SkillAgent",
+    "Steering",
     "audio_client",
     "chat",
     "client",
