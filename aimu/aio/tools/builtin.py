@@ -12,6 +12,7 @@ import logging
 from typing import Any, Callable, Optional, Protocol
 from uuid import uuid4
 
+from aimu.agents.steering import Steering
 from aimu.events import EventSink
 from aimu.models import ContextOverflowError, StreamChunk, StreamingContentType
 from aimu.tools.builtin import (  # noqa: F401 (re-exports)
@@ -263,6 +264,7 @@ def make_async_subagent_tool(
     observer: Optional[SubagentObserver] = None,
     events: Optional[EventSink] = None,
     compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
+    steering: Optional[Steering] = None,
 ) -> Callable:
     """Async twin of :func:`aimu.tools.builtin.make_subagent_tool`.
 
@@ -270,9 +272,9 @@ def make_async_subagent_tool(
     isolated :class:`aimu.aio.Agent` per call and awaits its ``run``. Parallelism is free: give the
     parent :class:`aimu.aio.Agent` ``concurrent_tool_calls=True`` and multiple spawn calls in one turn
     overlap under an ``asyncio.TaskGroup``. See the sync docstring for the full contract (generic vs
-    typed mode, the per-spec ``"model"`` / ``"thinking"`` / ``"generate_kwargs"`` / ``"max_iterations"``
-    keys, ``max_depth`` recursion guard, unknown-``agent_type`` handling, and the ``tool_approval`` gate
-    forwarded to every spawned sub-agent).
+    typed mode, the per-spec ``"model"`` / ``"thinking"`` / ``"generate_kwargs"`` / ``"max_iterations"`` /
+    ``"steering"`` keys, ``max_depth`` recursion guard, unknown-``agent_type`` handling, and the
+    ``tool_approval`` gate forwarded to every spawned sub-agent).
 
     In-process providers (HuggingFace, LlamaCpp) are wrapped per spawn via a fresh sync client (the aio
     surface can't construct them from an enum); the process weight cache prevents reloading weights.
@@ -292,6 +294,12 @@ def make_async_subagent_tool(
     override reaches, so a delegated run is otherwise invisible to a caller measuring the whole
     turn. Set on the child ``Agent`` rather than passed to its ``run``, which covers the observed
     path too (``_run_observed`` calls ``run`` itself).
+
+    ``steering`` is the :class:`~aimu.agents.steering.Steering` source each spawned agent's loop drains
+    for mid-run messages. Each spawn opens its own reader from it, so several concurrent spawns (or
+    nested ones) sharing one source never share a cursor. A spec's own ``"steering"`` key overrides it,
+    and ``"steering": None`` in a spec turns it off for that one specialist, read by the same
+    *membership* rule as ``"compaction"``.
     """
     from aimu.models.base import BaseModelClient
 
@@ -307,6 +315,7 @@ def make_async_subagent_tool(
         generate_kwargs=None,
         max_iter=None,
         compact=None,
+        steer=None,
     ):
         from aimu.aio.agent import Agent
 
@@ -332,6 +341,7 @@ def make_async_subagent_tool(
                     observer=observer,
                     events=events,
                     compaction=compaction,
+                    steering=steering,
                 )
             )
         client = _fresh_async_subagent_client(m)
@@ -350,6 +360,7 @@ def make_async_subagent_tool(
             thinking=thinking,
             events=events,
             compaction=compact,
+            steering=steer,
         )
 
     async def _dispatch(agent, agent_type: Optional[str], task: str) -> str:
@@ -370,7 +381,7 @@ def make_async_subagent_tool(
     if agent_types is None:
 
         async def spawn_subagent(task: str) -> str:
-            agent = _build_agent(system_message, tools, name="subagent", compact=compaction)
+            agent = _build_agent(system_message, tools, name="subagent", compact=compaction, steer=steering)
             return await _dispatch(agent, None, task)
 
     else:
@@ -392,6 +403,9 @@ def make_async_subagent_tool(
                 # Membership, not `.get()`: see the sync twin. A spec naming `"compaction": None` is
                 # turning the factory's policy off, not omitting the key.
                 compact=spec["compaction"] if "compaction" in spec else compaction,
+                # Membership, not `.get()`, for the same reason: a spec naming `"steering": None` is
+                # turning the factory's source off, not omitting the key.
+                steer=spec["steering"] if "steering" in spec else steering,
             )
             return await _dispatch(agent, agent_type, task)
 

@@ -219,3 +219,21 @@ async def test_the_non_streamed_driver_replaces_the_nudge():
 
     user_messages = [m["content"] for m in client.messages if m["role"] == "user"]
     assert user_messages == ["start", "try the cache"]
+
+
+@pytest.mark.asyncio
+async def test_a_structured_run_ignores_steering_rather_than_raising():
+    from pydantic import BaseModel
+
+    class Answer(BaseModel):
+        text: str
+
+    client = MockAsyncModelClient(['{"text": "done"}'])
+    # Parse-path: the mock's _chat() takes no response_format, which the supports_structured_output=True
+    # branch would add. See the same fix in test_aio_agents.py / test_aio_events.py's schema= tests.
+    client.model.supports_structured_output = False
+    agent = Agent(client, tools=[a_tool])
+
+    result = await agent.run("start", schema=Answer, steering=ListSteering(["too late"]))
+
+    assert result.text == "done"

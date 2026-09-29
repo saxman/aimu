@@ -49,6 +49,7 @@ class _RecordingAsyncAgent:
         thinking=None,
         events=None,
         compaction=None,
+        steering=None,
     ):
         self.model_client = model_client
         self.system_message = system_message
@@ -61,6 +62,7 @@ class _RecordingAsyncAgent:
         self.thinking = thinking
         self.events = events
         self.compaction = compaction
+        self.steering = steering
         self.enter = None
         self.exit = None
         _RecordingAsyncAgent.instances.append(self)
@@ -748,3 +750,101 @@ async def test_a_nested_spawn_tool_carries_the_factory_compaction():
 def test_a_non_callable_compaction_raises_at_factory_call_time():
     with pytest.raises(ValueError, match="compaction must be a callable"):
         make_async_subagent_tool(MODEL, compaction="trim")
+
+
+# ---------------------------------------------------------------------------
+# steering
+# ---------------------------------------------------------------------------
+
+
+class _NoopAsyncSteering:
+    def reader(self):
+        return lambda: []
+
+
+_noop_async_steering = _NoopAsyncSteering()
+_other_async_steering = _NoopAsyncSteering()
+
+
+async def test_the_factory_steering_reaches_every_spawned_agent():
+    await make_async_subagent_tool(MODEL, steering=_noop_async_steering)("task")
+    assert _RecordingAsyncAgent.instances[-1].steering is _noop_async_steering
+
+
+async def test_a_spec_steering_overrides_the_factory_one():
+    types = {"heavy": {"system_message": "Read a lot.", "steering": _other_async_steering}}
+    await make_async_subagent_tool(MODEL, agent_types=types, steering=_noop_async_steering)("heavy", "task")
+    assert _RecordingAsyncAgent.instances[-1].steering is _other_async_steering
+
+
+async def test_a_spec_omitting_steering_inherits_the_factory_one():
+    await make_async_subagent_tool(MODEL, agent_types=TYPES, steering=_noop_async_steering)("writer", "task")
+    assert _RecordingAsyncAgent.instances[-1].steering is _noop_async_steering
+
+
+async def test_a_spec_can_turn_the_factory_steering_off():
+    types = {"short": {"system_message": "Answer briefly.", "steering": None}}
+    await make_async_subagent_tool(MODEL, agent_types=types, steering=_noop_async_steering)("short", "task")
+    assert _RecordingAsyncAgent.instances[-1].steering is None
+
+
+async def test_no_steering_by_default():
+    await make_async_subagent_tool(MODEL)("task")
+    assert _RecordingAsyncAgent.instances[-1].steering is None
+
+
+async def test_a_nested_spawn_tool_carries_the_factory_steering():
+    spawn = make_async_subagent_tool(MODEL, max_depth=2, steering=_noop_async_steering)
+    await spawn("task")
+    nested = [t for t in _RecordingAsyncAgent.instances[-1].tools if getattr(t, "__name__", "") == "spawn_subagent"]
+    assert nested, "depth 2 should have injected a nested spawn tool"
+    await nested[0]("deeper task")
+    assert _RecordingAsyncAgent.instances[-1].steering is _noop_async_steering
+
+
+def test_steering_is_an_accepted_spec_key():
+    from aimu.tools.builtin import SUBAGENT_SPEC_KEYS
+
+    assert "steering" in SUBAGENT_SPEC_KEYS
+
+
+def test_a_spec_carrying_steering_is_accepted_by_the_validator():
+    from aimu.tools.builtin import _validate_subagent_config
+
+    class NoopSteering:
+        def reader(self):
+            return lambda: []
+
+    # Raises ValueError naming the key if "steering" is not in SUBAGENT_SPEC_KEYS.
+    _validate_subagent_config(1, {"worker": {"system_message": "work", "steering": NoopSteering()}})
+
+
+def test_a_spec_level_source_reaches_the_agent_the_spawn_builds(monkeypatch):
+    from aimu.tools import builtin
+
+    class NoopSteering:
+        def reader(self):
+            return lambda: []
+
+    source = NoopSteering()
+    built = {}
+
+    class RecordingAgent:
+        def __init__(self, client, **kwargs):
+            built.update(kwargs)
+
+        def run(self, task):
+            return "done"
+
+    monkeypatch.setattr("aimu.agents.agent.Agent", RecordingAgent)
+    # This file's autouse fixture patches only the async agent/client; the sync ModelClient this
+    # factory builds would otherwise resolve "ollama:test" against the real Ollama model enum and
+    # raise. Faked as identity, since nothing here reads the client beyond passing it to Agent.
+    monkeypatch.setattr("aimu.models.model_client.ModelClient", lambda m: m)
+    spawn = builtin.make_subagent_tool(
+        "ollama:test",
+        agent_types={"worker": {"system_message": "work", "steering": source}},
+    )
+    spawn("worker", "do the thing")
+
+    assert built["steering"] is source
