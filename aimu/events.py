@@ -170,10 +170,15 @@ class ToolDenied(RunEvent):
 
     Fires instead of :class:`ToolCalled`, before the tool runs: nothing was executed. The
     model still sees a tool message saying the call was not approved.
+
+    ``reason`` is what the policy gave when it returned ``Denied(reason)``, and ``""`` when it
+    returned a bare ``False``. It is the same text the model was shown, so a sink recording
+    denials records why without having to reproduce the policy's logic.
     """
 
     name: str = ""
     arguments: dict = field(default_factory=dict)
+    reason: str = ""
 
 
 @dataclass(frozen=True)

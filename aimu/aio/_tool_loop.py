@@ -22,6 +22,7 @@ from aimu.agents._tool_loop import (
 from aimu.events import RunFinished, RunStarted, ToolCalled, emit
 from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER
 from aimu.models.base import StreamChunk, StreamingContentType
+from aimu.tools.approval import Denied
 
 logger = logging.getLogger(__name__)
 
@@ -281,8 +282,9 @@ class _AsyncToolLoop(_BaseToolLoop):
         for tc, tc_id in prepared:
             fn = by_name.get(tc["name"])
             if fn is not None and getattr(fn, "__tool_is_streaming__", False):
-                if not await self._tool_call_approved(tc["name"], tc["arguments"]):
-                    result_msg = self._not_approved(tc, tc_id, iteration)
+                verdict = await self._tool_call_approved(tc["name"], tc["arguments"])
+                if not verdict:
+                    result_msg = self._not_approved(tc, tc_id, iteration, reason=getattr(verdict, "reason", ""))
                     self._client._append_message(result_msg)
                     yield _tool_chunk(tc, result_msg["content"])
                     continue
@@ -373,8 +375,9 @@ class _AsyncToolLoop(_BaseToolLoop):
                 f"Tool '{tc['name']}' is a generator (streaming) tool. Run the agent with stream=True "
                 "to dispatch it, or convert the tool to a plain function."
             )
-        if not await self._tool_call_approved(tc["name"], tc["arguments"]):
-            return self._not_approved(tc, tc_id, iteration)
+        verdict = await self._tool_call_approved(tc["name"], tc["arguments"])
+        if not verdict:
+            return self._not_approved(tc, tc_id, iteration, reason=getattr(verdict, "reason", ""))
         started = time.monotonic()
         error_str: Optional[str] = None
         try:
@@ -405,7 +408,13 @@ class _AsyncToolLoop(_BaseToolLoop):
         )
         return {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
 
-    async def _tool_call_approved(self, name: str, arguments: dict) -> bool:
+    async def _tool_call_approved(self, name: str, arguments: dict) -> "bool | Denied":
+        """Run the approval policy, awaiting a coroutine one.
+
+        Returns the verdict rather than a plain bool so a ``Denied(reason)`` reaches
+        ``_not_approved``; the isinstance check runs *after* the await, since a coroutine policy
+        returns its verdict from the await rather than from the call.
+        """
         import inspect
 
         from aimu.tools.approval import approve_all
@@ -414,4 +423,4 @@ class _AsyncToolLoop(_BaseToolLoop):
         result = policy(name, arguments)
         if inspect.isawaitable(result):
             result = await result
-        return bool(result)
+        return result if isinstance(result, Denied) else bool(result)

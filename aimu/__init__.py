@@ -110,7 +110,7 @@ from .models import (
     resolve_speech_model_string,
     resolve_transcription_model_string,
 )
-from .tools import ToolApproval, ToolContext, approve_all, tool
+from .tools import Denied, ToolApproval, ToolContext, approve_all, tool
 from .display import pretty_print
 
 
@@ -647,6 +647,7 @@ __all__ = [
     "PROVENANCE_PROACTIVE",
     "encode_tool_call_arguments",
     "strip_inert_keys",
+    "Denied",
     "ToolApproval",
     "ToolCalled",
     "ToolContext",

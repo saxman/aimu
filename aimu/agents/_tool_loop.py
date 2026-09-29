@@ -27,6 +27,7 @@ from aimu.context import count_tokens
 from aimu.events import ContextCompacted, EventSink, RunEvent, RunFinished, RunStarted, ToolCalled, ToolDenied, emit
 from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER, PROVENANCE_KEY
 from aimu.models.base import StreamChunk, StreamingContentType
+from aimu.tools.approval import Denied
 
 logger = logging.getLogger(__name__)
 
@@ -431,15 +432,28 @@ class _BaseToolLoop:
                 kwargs[name] = ctx
         return kwargs
 
-    def _not_approved(self, tc: dict, tc_id: str, iteration: int = 0) -> dict:
+    def _not_approved(self, tc: dict, tc_id: str, iteration: int = 0, reason: str = "") -> dict:
+        """The tool message a refused call gets, carrying the policy's *reason* when it gave one.
+
+        A bare refusal tells the model only that something was disallowed, so its next move is
+        usually the identical call; a reason is what lets it correct the argument instead. See
+        ``aimu.tools.approval.Denied``.
+        """
         emit(
             self._events,
-            ToolDenied(agent=self._agent_name, iteration=iteration, name=tc["name"], arguments=tc["arguments"]),
+            ToolDenied(
+                agent=self._agent_name,
+                iteration=iteration,
+                name=tc["name"],
+                arguments=tc["arguments"],
+                reason=reason,
+            ),
         )
+        refusal = f"Tool '{tc['name']}' was not approved"
         return {
             "role": "tool",
             "name": tc["name"],
-            "content": f"Tool '{tc['name']}' was not approved.",
+            "content": f"{refusal}: {reason}" if reason else f"{refusal}.",
             "tool_call_id": tc_id,
         }
 
@@ -702,8 +716,9 @@ class _ToolLoop(_BaseToolLoop):
                     raise ValueError(
                         f"Tool '{tc['name']}' is an async streaming tool. Use the aimu.aio surface to dispatch it."
                     )
-                if not self._tool_call_approved(tc["name"], tc["arguments"]):
-                    result_msg = self._not_approved(tc, tc_id, iteration)
+                verdict = self._tool_call_approved(tc["name"], tc["arguments"])
+                if not verdict:
+                    result_msg = self._not_approved(tc, tc_id, iteration, reason=getattr(verdict, "reason", ""))
                     self._client._append_message(result_msg)
                     yield _tool_chunk(tc, result_msg["content"])
                     continue
@@ -786,8 +801,9 @@ class _ToolLoop(_BaseToolLoop):
                 f"Tool '{tc['name']}' is a generator (streaming) tool. Run the agent with stream=True "
                 "to dispatch it, or convert the tool to a plain function."
             )
-        if not self._tool_call_approved(tc["name"], tc["arguments"]):
-            return self._not_approved(tc, tc_id, iteration)
+        verdict = self._tool_call_approved(tc["name"], tc["arguments"])
+        if not verdict:
+            return self._not_approved(tc, tc_id, iteration, reason=getattr(verdict, "reason", ""))
         started = time.monotonic()
         error_str: Optional[str] = None
         try:
@@ -814,8 +830,12 @@ class _ToolLoop(_BaseToolLoop):
         )
         return {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
 
-    def _tool_call_approved(self, name: str, arguments: dict) -> bool:
-        """Run the approval policy (default approves everything). Rejects a coroutine policy."""
+    def _tool_call_approved(self, name: str, arguments: dict) -> "bool | Denied":
+        """Run the approval policy (default approves everything). Rejects a coroutine policy.
+
+        Returns the policy's verdict rather than a plain bool, so a ``Denied(reason)`` reaches
+        ``_not_approved``. Callers test it for truthiness, which ``Denied`` fails.
+        """
         import inspect
 
         from aimu.tools.approval import approve_all
@@ -828,4 +848,4 @@ class _ToolLoop(_BaseToolLoop):
                 "tool_approval returned a coroutine on the sync Agent. Use a synchronous policy, "
                 "or run on the aimu.aio surface for async approval."
             )
-        return bool(result)
+        return result if isinstance(result, Denied) else bool(result)

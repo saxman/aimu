@@ -4,6 +4,40 @@
 
 ### Tools
 
+- **New: a `tool_approval` policy may return `Denied(reason)`, so a refused call tells the model
+  why.** The refusal message was a fixed string, `"Tool '<name>' was not approved."`, which says
+  that *something* was disallowed and never what, so a model's most likely next move was the
+  identical call: the gate cost an iteration and taught nothing. A policy may now return
+  `Denied("only api.example.com is allowed")` in place of `False` and the reason is rendered into
+  the tool message the model sees, which is what lets it correct the argument instead of repeating
+  it. `Denied` is a frozen dataclass exported from `aimu` and `aimu.tools`, mirroring
+  `Unsupported(remedy)` in the generate-kwarg tables: the same verdict-with-a-remedy shape, for the
+  same reason. It is **falsy**, so it substitutes for `False` wherever verdicts are composed, and an
+  empty reason renders as the unadorned refusal. `True` and `False` are unchanged, so every existing
+  policy behaves exactly as before.
+
+  A **type** rather than a bare string because a policy's return passes through `bool()`: a
+  non-empty string already means *approved*, so repurposing one as a refusal would have silently
+  inverted any policy that returned one. `tests/test_tool_approval.py::test_a_truthy_string_still_approves`
+  pins that, since it is the one behavior a future shortcut here would break.
+
+  This is the shape to reach for when the rule is **argument-scoped** rather than per-tool (a host
+  allowlist for URLs, a path prefix for writes, a command allowlist). Because the gate runs at
+  dispatch, one policy covers every tool uniformly -- built-ins, `@tool` functions, and MCP tools --
+  including tools that expose no factory to configure, which a per-factory parameter cannot reach.
+  Two limits stated rather than implied: the reason lands in the conversation, so a host whose
+  policy is itself sensitive should keep it vague or return a plain `False`; and it constrains the
+  arguments the *model* chose, so a tool that follows a redirect somewhere else is still the tool's
+  own business.
+
+  `ToolDenied` gains a `reason` field (`""` for a bare `False`), so an events sink records why a
+  call was refused without reproducing the policy's logic. Additive, per the event-union rule that a
+  new field must never break an existing sink. Covers both surfaces and every dispatch path:
+  non-streaming, streaming, and concurrent, sync and async, including a coroutine policy returning
+  `Denied` (the isinstance check runs after the await). How-to:
+  [Gate tool calls](https://saxman.github.io/aimu/how-to/gate-tool-calls/). Tests:
+  `tests/test_tool_approval.py`, `tests/test_aio_tool_approval.py`.
+
 - **New: `submit_json(url, payload, method="POST")`, a third tool from `make_web_tools()`, so an
   agent that can read a JSON API can also write to one.** `submit_form` is form-encoded, and
   `get_web_content` already returns a JSON body as-is, so the library could read an API and not

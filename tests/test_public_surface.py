@@ -33,6 +33,7 @@ REQUIRED_AIMU = {
     "BaseSpeechClient",
     "ContextCompacted",
     "ContextOverflowError",
+    "Denied",
     "EmbeddingClient",
     "EmbeddingModel",
     "EmbeddingSpec",
@@ -290,6 +291,7 @@ CONDITIONAL_AGENTS = {
 }
 
 REQUIRED_TOOLS = {
+    "Denied",
     "MCPClient",
     "MCPConnectionError",
     "ToolApproval",

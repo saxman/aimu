@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING
 from importlib import import_module as _import_module
 
 from . import builtin
-from .approval import ToolApproval, approve_all
+from .approval import Denied, ToolApproval, approve_all
 from .context import ToolContext
 from .decorator import ToolArgumentError, ToolSignatureError, coerce_tool_arguments, tool
 
@@ -56,6 +56,7 @@ def __dir__() -> list[str]:
 __all__ = [
     "MCPClient",
     "MCPConnectionError",
+    "Denied",
     "ToolApproval",
     "ToolArgumentError",
     "ToolContext",

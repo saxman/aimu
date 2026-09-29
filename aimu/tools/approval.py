@@ -14,11 +14,46 @@ mirroring how ``deps`` / ``ToolContext`` injection is plumbed.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Awaitable, Callable, Union
 
-# A policy: given (tool_name, arguments) -> may this call proceed? Sync returns bool; async may
-# return an awaitable bool (awaited only on the async dispatch path).
-ToolApproval = Callable[[str, dict], Union[bool, Awaitable[bool]]]
+
+@dataclass(frozen=True)
+class Denied:
+    """A refusal that says why, returned by a policy in place of ``False``.
+
+    The engine renders ``reason`` into the tool message the model sees, so a refused call can be
+    corrected rather than merely retried. A bare ``False`` says only that something was
+    disallowed, and a model's obvious next move is the same call again.
+
+    ``reason`` is written for the model: name the constraint and, where there is one, the thing
+    that would satisfy it ("only api.example.com is allowed"). Note that it lands in the
+    conversation, so it is readable by the model and by anything replaying the transcript --
+    a host that considers its own policy sensitive should keep the reason vague and return a
+    plain ``False`` instead. An empty ``reason`` renders as the unadorned refusal.
+
+    A type rather than a bare string because a policy's return value passes through ``bool()``:
+    a non-empty string already means *approved*, so repurposing one as a refusal would silently
+    invert any policy returning one. Mirrors ``Unsupported(remedy)`` in
+    ``aimu.models._internal.generate_kwargs``, the same verdict-with-a-remedy shape.
+    """
+
+    reason: str = ""
+
+    def __bool__(self) -> bool:
+        """Always falsy, so ``Denied`` substitutes for ``False`` at any truthiness check.
+
+        Without this a plain object is truthy, and every ``if not approved:`` in the engine --
+        including a host's own policy composing two verdicts -- would read a refusal as an
+        approval. That is the one failure mode this type must not have.
+        """
+        return False
+
+
+# A policy: given (tool_name, arguments) -> may this call proceed? Return ``True`` to allow,
+# ``False`` to refuse, or ``Denied(reason)`` to refuse and tell the model why. Async may return an
+# awaitable of any of those (awaited only on the async dispatch path).
+ToolApproval = Callable[[str, dict], Union[bool, "Denied", Awaitable[Union[bool, "Denied"]]]]
 
 
 def approve_all(tool_name: str, arguments: dict) -> bool:

@@ -11,7 +11,7 @@ from __future__ import annotations
 from aimu.aio import Agent
 from aimu.aio._tool_loop import _AsyncToolLoop
 from aimu.models import StreamChunk, StreamingContentType
-from aimu.tools import tool
+from aimu.tools import Denied, tool
 from helpers_aio import MockAsyncModelClient
 
 
@@ -83,6 +83,61 @@ async def test_async_coroutine_policy_is_awaited():
 
     assert calls == ["add"]
     assert client.messages[-1]["content"] == "Tool 'add' was not approved."
+
+
+async def test_denied_reason_reaches_the_model():
+    client = MockAsyncModelClient([])
+    _stage_tool_calls(client, [{"name": "add", "arguments": {"a": 1, "b": 1}}])
+    await _AsyncToolLoop(client, [add], tool_approval=lambda n, a: Denied("host not allowed"))._dispatch()
+    assert client.messages[-1]["content"] == "Tool 'add' was not approved: host not allowed"
+
+
+async def test_a_coroutine_policy_may_return_denied():
+    """The awaited result is the verdict, so Denied has to survive the await."""
+
+    async def policy(name, arguments):
+        return Denied("only api.example.com is allowed")
+
+    client = MockAsyncModelClient([])
+    _stage_tool_calls(client, [{"name": "add", "arguments": {"a": 1, "b": 1}}])
+    await _AsyncToolLoop(client, [add], tool_approval=policy)._dispatch()
+    assert client.messages[-1]["content"] == "Tool 'add' was not approved: only api.example.com is allowed"
+
+
+async def test_a_truthy_string_still_approves():
+    client = MockAsyncModelClient([])
+    _stage_tool_calls(client, [{"name": "add", "arguments": {"a": 1, "b": 1}}])
+    await _AsyncToolLoop(client, [add], tool_approval=lambda n, a: "sure")._dispatch()
+    assert client.messages[-1]["content"] == "2"
+
+
+async def test_denied_reason_reaches_a_streamed_dispatch():
+    @tool
+    async def streamer(x: int):
+        """An async streaming tool."""
+        yield StreamChunk(StreamingContentType.GENERATING, "chunk")
+
+    client = MockAsyncModelClient([])
+    _stage_tool_calls(client, [{"name": "streamer", "arguments": {"x": 1}}])
+    loop = _AsyncToolLoop(client, [streamer], tool_approval=lambda n, a: Denied("why not"))
+    [ch async for ch in loop._dispatch_streamed(0)]
+    assert client.messages[-1]["content"] == "Tool 'streamer' was not approved: why not"
+
+
+async def test_denied_reason_reaches_a_concurrent_dispatch():
+    client = MockAsyncModelClient([])
+    _stage_tool_calls(
+        client,
+        [{"name": "add", "arguments": {"a": 1, "b": 1}}, {"name": "add", "arguments": {"a": 2, "b": 2}}],
+    )
+    policy = lambda name, arguments: Denied(f"no calls with a={arguments['a']}")  # noqa: E731
+    await _AsyncToolLoop(client, [add], concurrent_tool_calls=True, tool_approval=policy)._dispatch()
+
+    contents = [m["content"] for m in client.messages if m["role"] == "tool"]
+    assert sorted(contents) == [
+        "Tool 'add' was not approved: no calls with a=1",
+        "Tool 'add' was not approved: no calls with a=2",
+    ]
 
 
 async def test_concurrent_deny():
