@@ -282,9 +282,9 @@ write this notebook.)
 
 ## F - Gated tools: `ToolDenied`
 
-A `tool_approval` policy that refuses a call emits `ToolDenied` (name + the model's raw
-arguments) instead of `ToolCalled`, so a sink can distinguish "the model tried this and it
-ran" from "the model tried this and a policy said no":
+A `tool_approval` policy that refuses a call emits `ToolDenied` (name, the model's raw
+arguments, and the `reason` the policy gave) instead of `ToolCalled`, so a sink can distinguish
+"the model tried this and it ran" from "the model tried this and a policy said no":
 
 ```{python}
 @aimu.tool
@@ -309,18 +309,32 @@ RunStarted RunStarted(agent='agent-975fd0', iteration=0, task='Please delete eve
 ModelTurnStarted ModelTurnStarted(agent='agent-975fd0', iteration=0, model='qwen3:8b', message_count=2, tool_names=('delete_everything',))
 RequestPrepared RequestPrepared(agent='agent-975fd0', iteration=0, ...)
 ModelTurnFinished ModelTurnFinished(agent='agent-975fd0', iteration=0, model='qwen3:8b', text='', usage={'input_tokens': 135, ...}, duration_s=...)
-ToolDenied ToolDenied(agent='agent-975fd0', iteration=0, name='delete_everything', arguments={})
+ToolDenied ToolDenied(agent='agent-975fd0', iteration=0, name='delete_everything', arguments={}, reason='')
 ModelTurnStarted ModelTurnStarted(agent='agent-975fd0', iteration=1, ...)
 RequestPrepared RequestPrepared(agent='agent-975fd0', iteration=1, ...)
 ModelTurnFinished ModelTurnFinished(agent='agent-975fd0', iteration=1, model='qwen3:8b', text=..., ...)
 RunFinished RunFinished(agent='agent-975fd0', iteration=1, result=..., error=None)
 ```
 
-`ToolDenied`'s shape is stable: `name='delete_everything'` and `arguments={}` are exactly
-what the model passed. The tool message the model itself sees is the same text
+`name='delete_everything'` and `arguments={}` are exactly what the model passed. The tool
+message the model itself sees is the same text
 [gate tool calls](../docs/how-to/gate-tool-calls.md) documents:
 `"Tool 'delete_everything' was not approved."`; the event is the same fact, structured for a
 sink instead of the transcript.
+
+`reason` is `''` here because this policy returned a bare `False`. A policy that returns
+`Denied("only api.example.com is allowed")` instead puts that text on the event *and* in the
+tool message, so a sink recording refusals records why without reproducing the policy's logic,
+and the model gets something it can correct rather than retry:
+
+```{python}
+denied_agent.tool_approval = lambda name, args: aimu.Denied("deletion is never allowed here")
+denied_agent.run("Please delete everything now.")
+```
+
+```
+ToolDenied ToolDenied(agent='agent-975fd0', iteration=0, name='delete_everything', arguments={}, reason='deletion is never allowed here')
+```
 
 ## G - A worked example: an OpenTelemetry-shaped sink
 

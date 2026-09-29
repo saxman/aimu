@@ -206,9 +206,9 @@ whatever your tracer's API wants.
 
 ## Gated tools: `ToolDenied`
 
-A `tool_approval` policy that refuses a call emits `ToolDenied` (name + the model's raw
-arguments) instead of `ToolCalled`, so a sink can distinguish "the model tried this and it ran"
-from "the model tried this and a policy said no":
+A `tool_approval` policy that refuses a call emits `ToolDenied` (name, the model's raw arguments,
+and the `reason` the policy gave) instead of `ToolCalled`, so a sink can distinguish "the model
+tried this and it ran" from "the model tried this and a policy said no":
 
 ```python
 agent = Agent(
@@ -222,13 +222,17 @@ agent.run("Please delete everything now.")
 ```
 
 ```
-ToolDenied ToolDenied(agent='agent-179be0', iteration=0, name='delete_everything', arguments={})
+ToolDenied ToolDenied(agent='agent-179be0', iteration=0, name='delete_everything', arguments={}, reason='')
 ```
 
 The tool message the model sees is the same text `gate-tool-calls.md` documents
 (`"Tool 'delete_everything' was not approved."`); the event is the same fact, structured for a
-sink instead of the transcript. See [gate tool calls](gate-tool-calls.md) for the approval hook
-itself.
+sink instead of the transcript.
+
+`reason` is empty because that policy returned a bare `False`. A policy returning
+`Denied("only api.example.com is allowed")` puts its text on the event as well as in the tool
+message, so a denial log says *why* without reproducing the policy. See
+[gate tool calls](gate-tool-calls.md) for the approval hook itself.
 
 ## A shared client under concurrent workers
 

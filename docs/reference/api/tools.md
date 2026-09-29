@@ -14,6 +14,15 @@ In-process `@tool` decorator and cross-process `MCPClient`.
 
 ::: aimu.tools.ToolArgumentError
 
+## Tool approval
+
+The gate an `Agent` runs before each tool call. See
+[gate tool calls](../../how-to/gate-tool-calls.md) for the how-to.
+
+::: aimu.tools.Denied
+
+::: aimu.tools.approve_all
+
 ## MCP client
 
 ::: aimu.tools.MCPClient

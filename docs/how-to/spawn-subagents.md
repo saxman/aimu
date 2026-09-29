@@ -90,7 +90,7 @@ The nested tool is rebuilt with a decremented depth, so recursion always termina
 
 ## Gate a sub-agent's tools
 
-`tool_approval` forwards an approval gate to every spawned sub-agent (and, with `max_depth > 1`, to the sub-agents they spawn). It is the same hook `Agent` accepts — a callable `(name, arguments) -> bool` (may be a coroutine) run before each tool call; returning `False` skips the call and feeds the model a refusal. Use it so a delegated sub-agent does not run a sensitive tool unattended:
+`tool_approval` forwards an approval gate to every spawned sub-agent (and, with `max_depth > 1`, to the sub-agents they spawn). It is the same hook `Agent` accepts — a callable `(name, arguments) -> bool | Denied` (may be a coroutine) run before each tool call; returning `False` skips the call and feeds the model a refusal, and returning `Denied(reason)` does the same while telling the model why (useful here, since a sub-agent refused without a reason will often just try again). Use it so a delegated sub-agent does not run a sensitive tool unattended:
 
 ```python
 from aimu.tools.builtin import make_subagent_tool, web, compute
