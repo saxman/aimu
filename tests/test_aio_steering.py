@@ -149,3 +149,41 @@ async def test_several_messages_at_one_boundary_are_delivered_as_one_round():
 
     user_messages = [m["content"] for m in client.messages if m["role"] == "user"]
     assert user_messages == ["start", "first\n\nsecond"]
+
+
+@pytest.mark.asyncio
+async def test_a_message_delivered_at_the_cap_buys_a_fresh_budget():
+    # max_iterations=2 means the bounded loop makes two real calls. Without a reset, the message
+    # delivered on the second one would be followed straight by the forced wrap-up.
+    client = MockAsyncModelClient(["tool", "tool", "tool", "done"])
+    agent = Agent(client, tools=[a_tool], max_iterations=2)
+    steering = ListSteering()
+
+    stream = await agent.run("start", stream=True, steering=steering)
+    chunks = []
+    async for chunk in stream:
+        chunks.append(chunk)
+        # Hand the message over during the first tool round, so it lands on the second call.
+        if chunk.phase == StreamingContentType.TOOL_CALLING and not steering.messages:
+            steering.messages.append("keep going, use the index")
+
+    assert any(c.phase == StreamingContentType.STEERING for c in chunks)
+    # Four calls were made: two on the original budget, then the steered one starting a fresh
+    # budget of two. A run without the reset stops after three.
+    assert client._call_count == 4
+
+
+@pytest.mark.asyncio
+async def test_an_unsteered_run_still_stops_at_its_cap():
+    # Only three real calls happen here (two bounded, one forced wrap-up), unlike the fresh-budget
+    # test above which needs a fourth: the forced wrap-up asks for a plain answer, so its response
+    # must not be "tool" (MockAsyncModelClient's "tool" reply ignores use_tools=False, the same
+    # convention the sync MockModelClient uses, so a "tool" reply there would misreport the turn
+    # as still pending).
+    client = MockAsyncModelClient(["tool", "tool", "done"])
+    agent = Agent(client, tools=[a_tool], max_iterations=2)
+
+    await collect(await agent.run("start", stream=True, steering=ListSteering()))
+
+    # Two bounded calls plus the one forced wrap-up, which is deliberately uncounted.
+    assert client._call_count == 3
