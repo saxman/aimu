@@ -63,9 +63,11 @@ Three properties worth knowing:
   transcript. If your policy itself is sensitive (internal hostnames, say), keep the reason vague or
   return a plain `False`.
 
-A reason is *not* a security boundary: it constrains the arguments the model chose, and a tool that
-follows a redirect elsewhere is still doing that on its own. Gate on what you can check here, and
-keep the tool's own limits in the tool.
+A reason is *not* a security boundary: it constrains the arguments the model chose, so what a tool
+does *after* dispatch is the tool's own business. Gate on what you can check here, and keep the
+tool's own limits in the tool — AIMU's own submit tools do exactly that, refusing to follow a
+[cross-host redirect](browse-and-submit-forms.md#redirects-stop-at-the-host-boundary) precisely
+because no dispatch-time policy could see one.
 
 ## Use it
 

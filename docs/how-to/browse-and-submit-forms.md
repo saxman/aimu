@@ -91,8 +91,33 @@ tools = make_web_tools(session=session)
 
 Note the remaining exposure: the model still chooses the **URL**, and the session's credentials ride
 along with it. Combine that with a page the agent just read (whose text can instruct it) and an
-arbitrary-target write is a confused-deputy risk. Until a host allowlist exists, the
-[tool-approval hook](gate-tool-calls.md) below is the control.
+arbitrary-target write is a confused-deputy risk. The control for that is the
+[tool-approval hook](gate-tool-calls.md), which sees the URL before the call runs and can refuse it
+with a reason.
+
+### Redirects stop at the host boundary
+
+Both submit tools follow a redirect only while it stays on the **same host**. A cross-host redirect
+is reported instead of followed, naming the target:
+
+```
+Status: 307
+URL: http://site.example/start
+Not followed: this redirects to http://other.example/sink on a different host. Nothing was sent
+there. Submit to that URL directly if you intend to.
+```
+
+The reason is specific: a 307 or 308 replays the request **method and body**, so following one
+off-host would re-send your whole payload to a host the model never named and no approval policy
+ever inspected. (`requests` does strip `Authorization` across hosts, so the credential is not the
+leak — the payload is.) Refusing the hop puts the new host back in front of the approval gate,
+because reaching it now takes a fresh tool call that the policy sees.
+
+Same-host redirects are followed, which is what keeps the login flow above working in one call, with
+a 301/302/303 downgrading to a bodyless `GET` exactly as `requests` and browsers do. A chain is
+capped at five hops, and hitting the cap is reported rather than followed further. The read tools are
+unaffected: a redirected `GET` carries no body and no credential, so `requests`' own handling stays
+in charge there.
 
 ### Control the session
 

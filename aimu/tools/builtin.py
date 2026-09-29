@@ -18,7 +18,7 @@ import tempfile
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Callable, NamedTuple, Optional
-from urllib.parse import quote, urljoin
+from urllib.parse import quote, urljoin, urlparse
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import requests
@@ -1018,14 +1018,79 @@ def _fetch_html(url: str, **kwargs):
     return response
 
 
-def _format_response(response, limit: int) -> str:
-    """Render a submitted request's outcome: status, final URL after redirects, body.
+# The statuses that carry a Location, split by what they do to the request being redirected.
+# 307/308 replay the method and body; the older three downgrade a POST to a bodyless GET, which
+# is what requests and every browser do.
+_REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+_BODY_DROPPING_REDIRECTS = frozenset({301, 302, 303})
+
+# How many same-host hops a submit will follow. Far below requests' default of 30 because a
+# submission that wanders is not a submission a model should keep chasing; the cap is reported.
+_MAX_SUBMIT_REDIRECTS = 5
+
+
+def _submit_request(url: str, **kwargs) -> tuple:
+    """``_request`` for a submitting verb, following only **same-host** redirects.
+
+    Returns ``(response, note)``, where *note* explains an unfollowed redirect and is ``""``
+    when there was nothing to explain.
+
+    Why this exists rather than letting requests follow the chain: a 307 or 308 replays the
+    method *and the body*, so an allowlisted host answering with one would re-POST the whole
+    payload to a host the model never named and no ``tool_approval`` policy ever saw --
+    a body-exfiltration channel invisible to a gate that only sees the URL the model chose.
+    (requests does strip ``Authorization`` across hosts, so the credential is not the leak; the
+    payload is.) Refusing the hop and reporting it puts the new host back in front of the
+    approval gate, because reaching it now takes a fresh tool call the policy sees.
+
+    Same-host hops are followed, which is what keeps the login flow working in one call: POST
+    credentials, server sets a cookie and 302s to a landing page on the same site.
+
+    Each hop goes through ``_request``, so the session, timeout, and ``user_agent`` header are
+    resolved in exactly one place rather than restated here.
+    """
+    body = dict(kwargs)
+    connection = {key: body.pop(key) for key in ("session", "timeout", "user_agent") if key in body}
+    current_url, current_method = url, body.pop("method", "POST")
+
+    for _ in range(_MAX_SUBMIT_REDIRECTS):
+        response = _request(current_url, method=current_method, allow_redirects=False, **connection, **body)
+        location = response.headers.get("Location")
+        if response.status_code not in _REDIRECT_STATUSES or not location:
+            return response, ""
+
+        target = urljoin(current_url, location)
+        if urlparse(target).hostname != urlparse(current_url).hostname:
+            return response, (
+                f"Not followed: this redirects to {target} on a different host. Nothing was sent "
+                "there. Submit to that URL directly if you intend to."
+            )
+
+        current_url = target
+        if response.status_code in _BODY_DROPPING_REDIRECTS:
+            current_method = "GET"
+            body.pop("json", None)
+            body.pop("data", None)
+
+    return response, (
+        f"Not followed: stopped after {_MAX_SUBMIT_REDIRECTS} redirects, all on this host. "
+        "The last one is reported above; submit to a specific URL if you know which you want."
+    )
+
+
+def _format_response(response, limit: int, note: str = "") -> str:
+    """Render a submitted request's outcome: status, final URL, body, and any *note*.
 
     Shared by ``submit_form`` and ``submit_json`` so the two cannot drift on what an
     exchange looks like. The body is capped with ``_truncate`` rather than ``_window``
-    because continuing the read would mean submitting the request again.
+    because continuing the read would mean submitting the request again. *note* carries an
+    unfollowed redirect (see ``_submit_request``) and leads, since it explains why the status
+    below it is a 3xx rather than the outcome the model was expecting.
     """
-    return f"Status: {response.status_code}\nURL: {response.url}\n\n{_truncate(response.text, limit)}"
+    head = f"Status: {response.status_code}\nURL: {response.url}"
+    if note:
+        head = f"{head}\n{note}"
+    return f"{head}\n\n{_truncate(response.text, limit)}"
 
 
 # What get_web_content will read off the wire before giving up. requests.get pulls an
@@ -2658,10 +2723,10 @@ def make_web_tools(
             return f"Unsupported method {method!r}; use 'GET' or 'POST'."
         field = "params" if method == "GET" else "data"
         try:
-            response = _request(url, method=method, **{field: data or {}}, **requester)
+            response, note = _submit_request(url, method=method, **{field: data or {}}, **requester)
         except requests.RequestException as e:
             return f"Error submitting form: {e}"
-        return _format_response(response, max_content_chars)
+        return _format_response(response, max_content_chars, note)
 
     @tool
     def submit_json(url: str, payload: dict, method: str = "POST") -> str:
@@ -2686,10 +2751,10 @@ def make_web_tools(
         if method not in ("POST", "PUT", "PATCH"):
             return f"Unsupported method {method!r}; use 'POST', 'PUT', or 'PATCH'."
         try:
-            response = _request(url, method=method, json=payload, **requester)
+            response, note = _submit_request(url, method=method, json=payload, **requester)
         except requests.RequestException as e:
             return f"Error submitting JSON: {e}"
-        return _format_response(response, max_content_chars)
+        return _format_response(response, max_content_chars, note)
 
     return [find_forms, submit_form, submit_json]
 

@@ -56,6 +56,27 @@
   [Fetch HTML and submit web forms](https://saxman.github.io/aimu/how-to/browse-and-submit-forms/).
   Tests: `tests/test_web_tools.py`.
 
+- **Change: `submit_form` and `submit_json` follow a redirect only while it stays on the same host.**
+  A cross-host redirect is reported, naming the target, instead of followed. The reason is narrow and
+  measured: a **307 or 308 replays the request method *and body***, so an allowlisted host answering
+  a submit with one would re-send the entire payload to a host the model never named and no
+  `tool_approval` policy ever inspected -- a body-exfiltration channel invisible to a gate that only
+  sees the URL the model chose. Verified against real `requests`: a cross-host 302 downgrades to a
+  bodyless `GET` and is harmless, while a cross-host 307 arrived at the second host with `POST` and
+  the full JSON body intact. (`requests` does strip `Authorization` across hosts, so the credential
+  was never the leak; the payload was.) Refusing the hop puts the new host back in front of the
+  approval gate, since reaching it now takes a fresh tool call the policy sees, which is why this is
+  the fix rather than an `allowed_hosts=` list a caller has to remember to configure.
+
+  Same-host redirects are still followed, so the documented login flow (POST credentials, server
+  sets a cookie and 302s to a landing page) still completes in **one** call, with a 301/302/303
+  downgrading to a bodyless `GET` as `requests` and browsers do and a 307/308 replaying the method
+  and body. A chain is capped at five hops and hitting the cap is reported. The **read** tools are
+  deliberately untouched: a redirected `GET` carries no body and no credential, so `requests`' own
+  handling stays in charge, pinned by
+  `tests/test_web_tools.py::test_read_tools_still_follow_redirects_normally`. Callers asserting on
+  the exact kwargs of a mocked submit will now see `allow_redirects=False` on the call.
+
 - **Change: both submit tools now return an HTTP error status's response body instead of discarding
   it.** `submit_form` routed through `_fetch_html`, which calls `raise_for_status()`, so a 422 came
   back as `"Error submitting form: 422"` and the body went in the bin. For an HTML form that is

@@ -194,7 +194,7 @@ def test_submit_form_post_routes_data_to_body():
     out = submit_form("http://site.example/login", method="POST", data={"user": "a"})
     method, url, kwargs = session.calls[0]
     assert method == "POST"
-    assert kwargs == {"data": {"user": "a"}}
+    assert kwargs == {"data": {"user": "a"}, "allow_redirects": False}
     assert "Status: 201" in out and "ok" in out
 
 
@@ -204,7 +204,7 @@ def test_submit_form_get_routes_data_to_params():
     submit_form("http://site.example/search", method="GET", data={"q": "cats"})
     method, url, kwargs = session.calls[0]
     assert method == "GET"
-    assert kwargs == {"params": {"q": "cats"}}
+    assert kwargs == {"params": {"q": "cats"}, "allow_redirects": False}
 
 
 def test_submit_form_rejects_unknown_method():
@@ -239,7 +239,7 @@ def test_submit_json_sends_the_payload_as_a_json_body():
     assert method == "POST"
     assert url == "http://api.example/items"
     # json= (not data=) is what serializes the body and sets Content-Type.
-    assert kwargs == {"json": {"name": "a", "tags": ["x"]}}
+    assert kwargs == {"json": {"name": "a", "tags": ["x"]}, "allow_redirects": False}
     assert "Status: 200" in out and '{"id": 7}' in out
 
 
@@ -347,6 +347,105 @@ def test_submit_json_stays_out_of_the_web_group_and_all_tools():
     names = {getattr(t, "__name__", "") for t in builtin.web + builtin.ALL_TOOLS}
     assert "submit_json" not in names
     assert "submit_form" not in names  # the factory tools have never been in either
+
+
+# ---------------------------------------------------------------------------
+# submit redirects (same-host only)
+# ---------------------------------------------------------------------------
+
+
+def _redirect(status, location, url="http://site.example/start"):
+    return FakeResponse(status_code=status, url=url, headers={"Location": location})
+
+
+def test_submit_json_refuses_a_cross_host_redirect():
+    """A 307 re-sends method and body, so following one off-host would post the payload to a
+    host the model never named and no approval policy ever saw."""
+    session = FakeSession([_redirect(307, "http://evil.example/sink")])
+    *_, submit_json = make_web_tools(session=session)
+    out = submit_json("http://site.example/start", payload={"secret": "s"})
+
+    assert len(session.calls) == 1  # the second host was never contacted
+    assert "http://evil.example/sink" in out
+    assert "different host" in out
+
+
+def test_submit_json_follows_a_same_host_redirect():
+    session = FakeSession(
+        [
+            _redirect(303, "/landing"),
+            FakeResponse(text="landed", url="http://site.example/landing"),
+        ]
+    )
+    *_, submit_json = make_web_tools(session=session)
+    out = submit_json("http://site.example/start", payload={"a": 1})
+
+    assert len(session.calls) == 2
+    assert "Status: 200" in out and "landed" in out
+
+
+def test_submit_form_login_flow_still_works_in_one_call():
+    """The documented flow: POST credentials, server 302s to a landing page on the same site."""
+    session = FakeSession(
+        [
+            _redirect(302, "/welcome"),
+            FakeResponse(text="<h1>Welcome</h1>", url="http://site.example/welcome"),
+        ]
+    )
+    _, submit_form, _ = make_web_tools(session=session)
+    out = submit_form("http://site.example/login", data={"user": "ada"})
+
+    assert "Welcome" in out
+    assert session.calls[0][0] == "POST"
+
+
+def test_a_same_host_302_drops_the_body_and_downgrades_to_get():
+    """Matches what requests and browsers do for a 301/302/303 after a POST."""
+    session = FakeSession([_redirect(302, "/landing"), FakeResponse(text="ok")])
+    *_, submit_json = make_web_tools(session=session)
+    submit_json("http://site.example/start", payload={"a": 1})
+
+    assert session.calls[0] == ("POST", "http://site.example/start", {"json": {"a": 1}, "allow_redirects": False})
+    assert session.calls[1] == ("GET", "http://site.example/landing", {"allow_redirects": False})
+
+
+def test_a_same_host_307_preserves_the_method_and_body():
+    session = FakeSession([_redirect(307, "/retry"), FakeResponse(text="ok")])
+    *_, submit_json = make_web_tools(session=session)
+    submit_json("http://site.example/start", payload={"a": 1})
+
+    assert session.calls[1] == ("POST", "http://site.example/retry", {"json": {"a": 1}, "allow_redirects": False})
+
+
+def test_submit_json_stops_after_too_many_same_host_redirects():
+    """A redirect loop reports the cap rather than spinning."""
+    session = FakeSession([_redirect(307, "/again") for _ in range(20)])
+    *_, submit_json = make_web_tools(session=session)
+    out = submit_json("http://site.example/start", payload={"a": 1})
+
+    assert len(session.calls) <= 7  # the cap, not the 20 queued
+    assert "redirect" in out.lower()
+
+
+def test_a_redirect_without_a_location_is_reported_as_is():
+    session = FakeSession([FakeResponse(status_code=302, text="no location header")])
+    *_, submit_json = make_web_tools(session=session)
+    out = submit_json("http://site.example/start", payload={})
+    assert "Status: 302" in out and len(session.calls) == 1
+
+
+def test_read_tools_still_follow_redirects_normally(monkeypatch):
+    """The same-host restriction is scoped to the submit tools: a redirected GET carries no
+    body and no credential, so requests' own handling stays in charge."""
+    seen = {}
+
+    def record(method, url, **kwargs):
+        seen["allow_redirects"] = kwargs.get("allow_redirects", "unset")
+        return FakeResponse(text="<html></html>")
+
+    monkeypatch.setattr(builtin.requests, "request", record)
+    get_webpage_html("http://site.example/")
+    assert seen["allow_redirects"] == "unset"  # never disabled for a read
 
 
 # ---------------------------------------------------------------------------
