@@ -980,19 +980,52 @@ def _truncate(text: str, limit: int) -> str:
     return f"{text[:limit]}\n[... truncated {dropped} chars]"
 
 
-def _fetch_html(url: str, *, session=None, timeout: int = 15, method: str = "GET", **request_kwargs):
-    """Issue an HTTP request and return the raw ``requests.Response``.
+def _request(
+    url: str,
+    *,
+    session=None,
+    timeout: int = 15,
+    method: str = "GET",
+    user_agent: Optional[str] = _DEFAULT_USER_AGENT,
+    **request_kwargs,
+):
+    """Issue an HTTP request and return the raw ``requests.Response``, whatever its status.
 
     Uses *session* (preserving cookies) when given, else a module-level request.
-    ``request_kwargs`` forwards ``params`` / ``data`` / ``stream`` to the underlying call.
-    Raises ``requests.RequestException`` on transport/HTTP errors (callers translate
-    to a tool-visible message).
+    ``request_kwargs`` forwards ``params`` / ``data`` / ``json`` / ``stream`` to the
+    underlying call. Raises ``requests.RequestException`` only on *transport* failures
+    (DNS, refused, timeout); an HTTP error status comes back as a response for the caller
+    to report. ``_fetch_html`` is the raising wrapper the read tools want.
+
+    *user_agent* is sent as a per-request header, which requests gives precedence over a
+    session's own headers. Pass ``None`` to send none, leaving a caller-supplied session's
+    ``User-Agent`` in charge.
     """
     requester = session or requests
-    headers = {"User-Agent": _DEFAULT_USER_AGENT}
-    response = requester.request(method, url, headers=headers, timeout=timeout, **request_kwargs)
+    headers = {"User-Agent": user_agent} if user_agent else {}
+    return requester.request(method, url, headers=headers, timeout=timeout, **request_kwargs)
+
+
+def _fetch_html(url: str, **kwargs):
+    """``_request``, raising on an HTTP error status as well as a transport failure.
+
+    What the read tools want: a 404 page's body is noise, so there is nothing to report
+    but the status. The submit tools call ``_request`` directly instead, because a 422's
+    body is the validation detail the model needs in order to fix its next attempt.
+    """
+    response = _request(url, **kwargs)
     response.raise_for_status()
     return response
+
+
+def _format_response(response, limit: int) -> str:
+    """Render a submitted request's outcome: status, final URL after redirects, body.
+
+    Shared by ``submit_form`` and ``submit_json`` so the two cannot drift on what an
+    exchange looks like. The body is capped with ``_truncate`` rather than ``_window``
+    because continuing the read would mean submitting the request again.
+    """
+    return f"Status: {response.status_code}\nURL: {response.url}\n\n{_truncate(response.text, limit)}"
 
 
 # What get_web_content will read off the wire before giving up. requests.get pulls an
@@ -2549,30 +2582,41 @@ def make_web_tools(
     session=None,
     timeout: int = 15,
     max_content_chars: int = 20000,
-    user_agent: str = _DEFAULT_USER_AGENT,
+    user_agent: Optional[str] = _DEFAULT_USER_AGENT,
 ):
-    """Build ``find_forms`` and ``submit_form`` tools sharing a ``requests.Session``.
+    """Build ``find_forms``, ``submit_form``, and ``submit_json`` over one ``requests.Session``.
 
     The shared session preserves cookies across calls, so a GET-then-POST form flow
     works: ``find_forms`` scrapes hidden fields (including CSRF tokens) from the page,
-    then ``submit_form`` echoes them back with the session's cookies intact. Pass these
-    to an agent alongside the stateless ``get_webpage_html``::
+    then ``submit_form`` echoes them back with the session's cookies intact.
+    ``submit_json`` is the same thing for a JSON API, sending a typed object as the
+    request body. Pass them to an agent alongside the stateless ``get_webpage_html``::
 
         agent = Agent(client, tools=[get_webpage_html, *make_web_tools()])
 
-    Pass your own *session* to control its lifecycle (e.g. pre-set auth headers) or to
-    share one across several tool sets; otherwise a fresh ``requests.Session`` is created.
+    Pass your own *session* to control its lifecycle or to share one across several tool
+    sets; otherwise a fresh ``requests.Session`` is created. The session is also where
+    **authentication belongs** (a bearer token in ``session.headers``, a cookie from a
+    prior login): neither submit tool lets the model name a request header, so a
+    credential the host configures here cannot be aimed at a host the model chooses.
+    Pass ``user_agent=None`` to leave the session's own ``User-Agent`` in charge.
 
     Note: these fetch server-rendered HTML only and do not execute JavaScript, so
     JS-rendered (SPA) forms and anti-bot-protected pages are out of scope; a headless
     browser backend is a possible future addition.
 
-    ``submit_form`` performs writes (POST). To require confirmation before it runs, gate
-    it via the ``tool_approval`` hook, e.g. ``Agent(..., tool_approval=policy)`` where the
-    policy inspects the tool name (see docs/how-to/gate-tool-calls.md).
+    ``submit_form`` and ``submit_json`` perform writes, to **any URL the model names**,
+    carrying whatever credentials the session holds. To require confirmation before one
+    runs, gate it via the ``tool_approval`` hook, e.g. ``Agent(..., tool_approval=policy)``
+    where the policy inspects the tool name (see docs/how-to/gate-tool-calls.md).
     """
     session = session or requests.Session()
-    session.headers.setdefault("User-Agent", user_agent)
+    # Threaded into each request rather than set on the session: requests gives a
+    # per-request header precedence over a session's, so setting it here would be
+    # overridden by the one _request sends. (Before v0.33 this was a session-level
+    # ``setdefault``, which never fired either -- requests.Session() already carries a
+    # User-Agent -- so the parameter was silently ignored on every call.)
+    requester = {"session": session, "timeout": timeout, "user_agent": user_agent}
 
     @tool
     def find_forms(url: str) -> str:
@@ -2586,7 +2630,7 @@ def make_web_tools(
             url: The URL of the page containing the form(s).
         """
         try:
-            response = _fetch_html(url, session=session, timeout=timeout)
+            response = _fetch_html(url, **requester)
         except requests.RequestException as e:
             return f"Error fetching page: {e}"
         return _format_forms(_parse_forms(response.text, response.url))
@@ -2598,7 +2642,11 @@ def make_web_tools(
         ``method="POST"`` sends *data* as a form-encoded body; ``method="GET"`` sends it
         as query parameters (and, with no data, simply fetches the page using the session's
         cookies, e.g. to read a page behind a login). Returns the response status, final URL
-        after redirects, and the response body (raw HTML, truncated).
+        after redirects, and the response body (raw HTML, truncated) -- including when the
+        status is an error, since the page a server returns with a 401 or a 422 usually says
+        what was wrong with the submission.
+
+        For a JSON API rather than an HTML form, use ``submit_json``.
 
         Args:
             url: The URL to submit to (the form's action URL from ``find_forms``).
@@ -2608,15 +2656,42 @@ def make_web_tools(
         method = method.upper()
         if method not in ("GET", "POST"):
             return f"Unsupported method {method!r}; use 'GET' or 'POST'."
-        payload = "params" if method == "GET" else "data"
+        field = "params" if method == "GET" else "data"
         try:
-            response = _fetch_html(url, session=session, timeout=timeout, method=method, **{payload: data or {}})
+            response = _request(url, method=method, **{field: data or {}}, **requester)
         except requests.RequestException as e:
             return f"Error submitting form: {e}"
-        body = _truncate(response.text, max_content_chars)
-        return f"Status: {response.status_code}\nURL: {response.url}\n\n{body}"
+        return _format_response(response, max_content_chars)
 
-    return [find_forms, submit_form]
+    @tool
+    def submit_json(url: str, payload: dict, method: str = "POST") -> str:
+        """Send a JSON request body to an API endpoint, reusing the shared session's cookies.
+
+        For JSON APIs, as ``submit_form`` is for HTML forms. *payload* is sent as the
+        JSON-encoded request body with the matching ``Content-Type``; pass it as a real
+        object, not as a string containing JSON. Returns the response status, final URL
+        after redirects, and the response body (truncated), including when the status is an
+        error -- a 400 or 422 body normally names the field that was rejected, which is what
+        a corrected retry needs.
+
+        Authentication is the host's to configure on the session this tool was built with,
+        so there is no way to set request headers from here.
+
+        Args:
+            url: The API endpoint to send the body to.
+            payload: The JSON object to send as the request body.
+            method: "POST" (default), "PUT", or "PATCH".
+        """
+        method = method.upper()
+        if method not in ("POST", "PUT", "PATCH"):
+            return f"Unsupported method {method!r}; use 'POST', 'PUT', or 'PATCH'."
+        try:
+            response = _request(url, method=method, json=payload, **requester)
+        except requests.RequestException as e:
+            return f"Error submitting JSON: {e}"
+        return _format_response(response, max_content_chars)
+
+    return [find_forms, submit_form, submit_json]
 
 
 # Curated subsets: pass one of these to ``tools=`` instead of importing every function.

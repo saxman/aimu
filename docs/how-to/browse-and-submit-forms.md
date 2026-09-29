@@ -5,8 +5,8 @@ agent needs to see a page's **raw markup**, discover its **forms**, and **submit
 search, a login, a data entry). Two additions cover this:
 
 - `get_webpage_html(url)` — a stateless tool returning the page's raw HTML.
-- `make_web_tools()` — a factory returning `find_forms` and `submit_form`, which share a
-  `requests.Session` so cookies (and thus logins and CSRF tokens) persist across calls.
+- `make_web_tools()` — a factory returning `find_forms`, `submit_form`, and `submit_json`, which
+  share a `requests.Session` so cookies (and thus logins and CSRF tokens) persist across calls.
 
 !!! note "Server-rendered HTML only"
     These fetch HTML over `requests`; they do **not** execute JavaScript. Pages built client-side
@@ -29,7 +29,7 @@ agent.run("Fetch the HTML of https://example.com and list every <a> href you fin
 
 ## Discover and submit forms
 
-`make_web_tools()` returns two tools bound to a shared session. Pass them alongside
+`make_web_tools()` returns three tools bound to a shared session. Pass them alongside
 `get_webpage_html`:
 
 ```python
@@ -50,32 +50,72 @@ agent.run("On https://httpbin.org/forms/post, submit the form with custname='Ada
   as a form body; `method="GET"` sends it as query parameters. It returns the response status, the
   final URL after redirects, and the (truncated) response body.
 
-Because both tools close over one `requests.Session`, cookies set during one call are sent on the
+Because these tools close over one `requests.Session`, cookies set during one call are sent on the
 next. A login flow works end to end: `find_forms` scrapes the login form's hidden token,
 `submit_form` posts credentials (the server sets a session cookie), and a later
 `submit_form(url, method="GET")` reads a page behind the login using that cookie.
 
-### Control the session
+## Call a JSON API
 
-Pass your own session to set auth headers up front or to share one across several tool sets:
+`submit_json(url, payload, method="POST")` is the JSON counterpart to `submit_form`. The model
+supplies `payload` as a **structured object**, not a string of JSON, so it never hand-serializes:
+the `@tool` decorator advertises the parameter as a JSON Schema `object` and validates the model's
+argument at dispatch. The body goes out JSON-encoded with the matching `Content-Type`.
+
+```python
+agent.run("Create an item named 'widget' with tags ['a','b'] at https://api.example.com/items.")
+```
+
+`method` accepts `"POST"` (default), `"PUT"`, and `"PATCH"` — the verbs that carry a body. `GET` is
+`submit_form`'s job, and `DELETE` is deliberately absent. Anything else is refused before a request
+goes out, with a message the model can act on.
+
+!!! tip "Error bodies come back, which is the point"
+    Both submit tools return the response **whatever its status**, because a 400 or 422 body
+    normally names the field that was rejected. That is what a corrected retry needs; an agent told
+    only `Error: 422` has nothing to work from. Transport failures (DNS, connection refused,
+    timeout) are still reported as an error string, since there is no response to show.
+
+### Authentication, and why there is no `headers` argument
+
+Neither submit tool lets the model set request headers. Credentials belong on the session you pass
+to the factory, so a token you configure for one host cannot be aimed at a host the model names:
 
 ```python
 import requests
 
 session = requests.Session()
 session.headers["Authorization"] = "Bearer …"
+tools = make_web_tools(session=session)
+```
+
+Note the remaining exposure: the model still chooses the **URL**, and the session's credentials ride
+along with it. Combine that with a page the agent just read (whose text can instruct it) and an
+arbitrary-target write is a confused-deputy risk. Until a host allowlist exists, the
+[tool-approval hook](gate-tool-calls.md) below is the control.
+
+### Control the session
+
+Pass your own session to share one across several tool sets, or to raise the timeout and the
+response cap:
+
+```python
 tools = make_web_tools(session=session, timeout=30, max_content_chars=40000)
 ```
 
+`user_agent=` sets the `User-Agent` sent on every call (it is a per-request header, so it takes
+precedence over the session's own). Pass `user_agent=None` to send none and leave a session-level
+`User-Agent` in charge.
+
 ## Confirm before submitting
 
-`submit_form` performs writes (POST). To require confirmation before it runs, gate it with the
-[tool-approval hook](gate-tool-calls.md) — the policy sees the tool name, so you can approve reads
-and prompt on submits:
+`submit_form` and `submit_json` perform writes, to any URL the model names. To require confirmation
+before one runs, gate it with the [tool-approval hook](gate-tool-calls.md) — the policy sees the tool
+name and the model's arguments, so you can approve reads and prompt on submits:
 
 ```python
 def confirm_submits(name, arguments):
-    if name != "submit_form":
+    if name not in ("submit_form", "submit_json"):
         return True
     return input(f"Submit to {arguments.get('url')}? [y/N] ").strip().lower() == "y"
 
@@ -85,7 +125,7 @@ agent = aimu.agents.Agent(client, tools=[get_webpage_html, *make_web_tools()],
 
 ## Async
 
-Both are re-exported from `aimu.aio.tools.builtin`; the async agent dispatches these sync
+Both entry points are re-exported from `aimu.aio.tools.builtin`; the async agent dispatches these sync
 `requests` tools via `asyncio.to_thread`:
 
 ```python
@@ -99,5 +139,5 @@ await agent.run("…")
 ## See also
 
 - [Add a custom tool](add-custom-tool.md): write your own `@tool`
-- [Gate tool calls](gate-tool-calls.md): confirm or block the mutating `submit_form`
+- [Gate tool calls](gate-tool-calls.md): confirm or block the mutating `submit_form` / `submit_json`
 - [Use MCP tools](use-mcp-tools.md): cross-process tool servers

@@ -1,5 +1,51 @@
 # Changelog
 
+## Unreleased
+
+### Tools
+
+- **New: `submit_json(url, payload, method="POST")`, a third tool from `make_web_tools()`, so an
+  agent that can read a JSON API can also write to one.** `submit_form` is form-encoded, and
+  `get_web_content` already returns a JSON body as-is, so the library could read an API and not
+  call it. Nothing scoped closed that gap either: `requests` and `urllib` are not in the
+  `execute_python` sandbox allowlist, which left `run_command` plus `curl` as the only route, and
+  that is in `builtin.unscoped` for good reason. `payload` is a **typed `dict`**, advertised to the
+  model as a JSON Schema `object` and validated by `coerce_tool_arguments` at dispatch, so the model
+  emits a structured argument instead of hand-serializing; the equivalent tool elsewhere takes a
+  string of JSON and is known to fail when a model wraps it in a fence. `method` accepts the verbs
+  that carry a body (`POST`, `PUT`, `PATCH`); `GET` stays `submit_form`'s, `DELETE` is absent, and
+  anything else is refused before a request goes out. There is deliberately **no `headers`
+  parameter**: credentials belong on the session the factory was built with, so a token a host
+  configures for one API cannot be aimed at a host the model names. Like its siblings it is returned
+  only from the factory, never in `builtin.web`, `ALL_TOOLS`, or the MCP server. Re-exported from
+  `aimu.aio.tools.builtin` via the factory (dispatched through `asyncio.to_thread`). How-to:
+  [Fetch HTML and submit web forms](https://saxman.github.io/aimu/how-to/browse-and-submit-forms/).
+  Tests: `tests/test_web_tools.py`.
+
+- **Change: both submit tools now return an HTTP error status's response body instead of discarding
+  it.** `submit_form` routed through `_fetch_html`, which calls `raise_for_status()`, so a 422 came
+  back as `"Error submitting form: 422"` and the body went in the bin. For an HTML form that is
+  merely unhelpful; for an API it removes the only actionable thing in the exchange, since the
+  rejected field is named *in* that body. `_request` is now the non-raising helper both submit tools
+  call, `_fetch_html` is the raising wrapper the three read tools keep (a 404 page's body is noise),
+  and `_format_response` renders status, final URL, and truncated body for both so they cannot
+  drift. **Transport failures are unchanged** and still report as an error string: with no response
+  there is nothing to show. Callers parsing the old `"Error submitting form:"` prefix out of a 4xx
+  should read `Status:` instead; the prefix survives for transport errors only.
+
+- **Fix: `make_web_tools(user_agent=...)` had no effect on any request it made.** The value was
+  applied with `session.headers.setdefault("User-Agent", ...)`, which never fires because
+  `requests.Session()` already carries a `User-Agent`, and `_fetch_html` then sent its own
+  per-request header, which requests gives precedence over a session's anyway. So the parameter was
+  ignored twice over, silently, and a caller identifying their crawler to a site was not identifying
+  it at all. The factory now threads the value into each request, `user_agent=None` sends no header
+  and leaves a caller-supplied session's own `User-Agent` in charge, and the annotation admits the
+  `None`. Pinned by `tests/test_web_tools.py::test_make_web_tools_sends_the_user_agent_it_was_given`.
+
+- **Change: `make_web_tools()` returns three tools, not two.** Documented usage has always been
+  `tools=[get_webpage_html, *make_web_tools()]`, which is unaffected, but code unpacking the result
+  as `find_forms, submit_form = make_web_tools()` raises `ValueError` and needs a third name.
+
 ## v0.32.0 (2026-09-21): a skill's prose is editable, and a script write leaves it alone
 
 ### Skills

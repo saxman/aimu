@@ -71,10 +71,12 @@ class FakeSession:
         self.headers: dict = {}
         self.cookies: dict = {}
         self.calls: list[tuple] = []
+        self.sent_headers: list[dict] = []
         self._responses = list(responses)
 
     def request(self, method, url, headers=None, timeout=None, **kwargs):
         self.calls.append((method, url, kwargs))
+        self.sent_headers.append(headers or {})
         return self._responses.pop(0)
 
 
@@ -149,7 +151,7 @@ def test_get_webpage_html_is_stateless(monkeypatch):
 
 def test_find_forms_parses_fields_and_hidden_csrf():
     session = FakeSession([FakeResponse(text=FORM_HTML, url="http://site.example/page")])
-    find_forms, _ = make_web_tools(session=session)
+    find_forms, _, _ = make_web_tools(session=session)
     out = find_forms("http://site.example/page")
     assert "POST http://site.example/login" in out  # relative action resolved to absolute
     assert "csrf [hidden] = 'tok123'" in out  # hidden field surfaced with value
@@ -160,13 +162,13 @@ def test_find_forms_parses_fields_and_hidden_csrf():
 
 def test_find_forms_no_forms():
     session = FakeSession([FakeResponse(text="<html><body>nothing</body></html>")])
-    find_forms, _ = make_web_tools(session=session)
+    find_forms, _, _ = make_web_tools(session=session)
     assert find_forms("http://site.example/") == "No forms found on the page."
 
 
 def test_find_forms_multiple_and_absolute_action():
     session = FakeSession([FakeResponse(text=TWO_FORMS_HTML, url="http://site.example/")])
-    find_forms, _ = make_web_tools(session=session)
+    find_forms, _, _ = make_web_tools(session=session)
     out = find_forms("http://site.example/")
     assert "Form 0: GET https://other.example/a" in out  # already-absolute action preserved
     assert "Form 1: GET http://site.example/b" in out  # relative resolved; default method GET
@@ -177,7 +179,7 @@ def test_find_forms_reports_errors():
         def request(self, *a, **k):
             raise requests.Timeout("slow")
 
-    find_forms, _ = make_web_tools(session=Boom([]))
+    find_forms, _, _ = make_web_tools(session=Boom([]))
     assert find_forms("http://site.example/").startswith("Error fetching page:")
 
 
@@ -188,7 +190,7 @@ def test_find_forms_reports_errors():
 
 def test_submit_form_post_routes_data_to_body():
     session = FakeSession([FakeResponse(text="ok", status_code=201, url="http://site.example/login")])
-    _, submit_form = make_web_tools(session=session)
+    _, submit_form, _ = make_web_tools(session=session)
     out = submit_form("http://site.example/login", method="POST", data={"user": "a"})
     method, url, kwargs = session.calls[0]
     assert method == "POST"
@@ -198,7 +200,7 @@ def test_submit_form_post_routes_data_to_body():
 
 def test_submit_form_get_routes_data_to_params():
     session = FakeSession([FakeResponse(text="<html>results</html>")])
-    _, submit_form = make_web_tools(session=session)
+    _, submit_form, _ = make_web_tools(session=session)
     submit_form("http://site.example/search", method="GET", data={"q": "cats"})
     method, url, kwargs = session.calls[0]
     assert method == "GET"
@@ -206,7 +208,7 @@ def test_submit_form_get_routes_data_to_params():
 
 
 def test_submit_form_rejects_unknown_method():
-    _, submit_form = make_web_tools(session=FakeSession([]))
+    _, submit_form, _ = make_web_tools(session=FakeSession([]))
     assert "Unsupported method" in submit_form("http://x/", method="PUT")
 
 
@@ -215,8 +217,170 @@ def test_submit_form_reports_errors():
         def request(self, *a, **k):
             raise requests.ConnectionError("down")
 
-    _, submit_form = make_web_tools(session=Boom([]))
+    _, submit_form, _ = make_web_tools(session=Boom([]))
     assert submit_form("http://x/", data={}).startswith("Error submitting form:")
+
+
+# ---------------------------------------------------------------------------
+# submit_json
+# ---------------------------------------------------------------------------
+
+
+def test_make_web_tools_returns_find_forms_submit_form_and_submit_json():
+    names = [t.__tool_spec__["function"]["name"] for t in make_web_tools()]
+    assert names == ["find_forms", "submit_form", "submit_json"]
+
+
+def test_submit_json_sends_the_payload_as_a_json_body():
+    session = FakeSession([FakeResponse(text='{"id": 7}', headers={"content-type": "application/json"})])
+    *_, submit_json = make_web_tools(session=session)
+    out = submit_json("http://api.example/items", payload={"name": "a", "tags": ["x"]})
+    method, url, kwargs = session.calls[0]
+    assert method == "POST"
+    assert url == "http://api.example/items"
+    # json= (not data=) is what serializes the body and sets Content-Type.
+    assert kwargs == {"json": {"name": "a", "tags": ["x"]}}
+    assert "Status: 200" in out and '{"id": 7}' in out
+
+
+@pytest.mark.parametrize("method", ["PUT", "PATCH", "put"])
+def test_submit_json_accepts_the_other_body_bearing_verbs(method):
+    session = FakeSession([FakeResponse(text="{}")])
+    *_, submit_json = make_web_tools(session=session)
+    submit_json("http://api.example/items/1", payload={"name": "b"}, method=method)
+    assert session.calls[0][0] == method.upper()
+
+
+@pytest.mark.parametrize("method", ["GET", "DELETE", "TRACE"])
+def test_submit_json_rejects_a_verb_that_does_not_submit_a_payload(method):
+    session = FakeSession([])
+    *_, submit_json = make_web_tools(session=session)
+    out = submit_json("http://api.example/x", payload={}, method=method)
+    assert "Unsupported method" in out
+    assert session.calls == []  # refused before any request went out
+
+
+def test_submit_json_returns_the_body_of_an_error_status():
+    """A 422's body carries the validation detail the model needs to fix its payload."""
+    session = FakeSession(
+        [
+            FakeResponse(
+                text='{"errors": {"name": "too long"}}',
+                status_code=422,
+                url="http://api.example/items",
+                headers={"content-type": "application/json"},
+            )
+        ]
+    )
+    *_, submit_json = make_web_tools(session=session)
+    out = submit_json("http://api.example/items", payload={"name": "x" * 500})
+    assert "Status: 422" in out
+    assert '"name": "too long"' in out
+    assert not out.startswith("Error")
+
+
+def test_submit_form_returns_the_body_of_an_error_status():
+    """Changed in lockstep with submit_json: one rule for what an error status looks like."""
+    session = FakeSession([FakeResponse(text="<p>bad password</p>", status_code=401, url="http://site.example/login")])
+    _, submit_form, _ = make_web_tools(session=session)
+    out = submit_form("http://site.example/login", data={"user": "a"})
+    assert "Status: 401" in out
+    assert "bad password" in out
+    assert not out.startswith("Error")
+
+
+def test_submit_json_reports_a_transport_error():
+    """A refused connection is still an error string; only HTTP statuses stopped raising."""
+
+    class Boom(FakeSession):
+        def request(self, *a, **k):
+            raise requests.ConnectionError("down")
+
+    *_, submit_json = make_web_tools(session=Boom([]))
+    assert submit_json("http://api.example/x", payload={}).startswith("Error submitting JSON:")
+
+
+def test_submit_json_returns_a_non_json_response_as_text():
+    session = FakeSession([FakeResponse(text="<html>gateway</html>", status_code=502)])
+    *_, submit_json = make_web_tools(session=session)
+    out = submit_json("http://api.example/x", payload={})
+    assert "Status: 502" in out and "gateway" in out
+
+
+def test_submit_json_truncates_a_long_response_body():
+    session = FakeSession([FakeResponse(text="z" * 500)])
+    *_, submit_json = make_web_tools(session=session, max_content_chars=100)
+    out = submit_json("http://api.example/x", payload={})
+    assert "[... truncated 400 chars]" in out
+
+
+def test_submit_json_shares_the_session_with_the_other_tools():
+    session = FakeSession([FakeResponse(text=FORM_HTML), FakeResponse(text="{}")])
+    find_forms, _, submit_json = make_web_tools(session=session)
+    find_forms("http://site.example/login")
+    session.cookies["sid"] = "abc"
+    submit_json("http://site.example/api", payload={"a": 1})
+    assert len(session.calls) == 2
+    assert session.cookies["sid"] == "abc"
+
+
+def test_submit_json_advertises_payload_as_a_json_object():
+    *_, submit_json = make_web_tools()
+    params = submit_json.__tool_spec__["function"]["parameters"]
+    assert set(params["properties"]) == {"url", "payload", "method"}
+    assert params["properties"]["payload"]["type"] == "object"
+    assert params["required"] == ["url", "payload"]
+
+
+def test_submit_json_does_not_let_the_model_set_headers():
+    """Credentials live on the host's session; a model-named header could move a token."""
+    *_, submit_json = make_web_tools()
+    assert "headers" not in submit_json.__tool_spec__["function"]["parameters"]["properties"]
+
+
+def test_submit_json_is_not_a_streaming_tool():
+    *_, submit_json = make_web_tools()
+    assert submit_json.__tool_is_streaming__ is False
+
+
+def test_submit_json_stays_out_of_the_web_group_and_all_tools():
+    names = {getattr(t, "__name__", "") for t in builtin.web + builtin.ALL_TOOLS}
+    assert "submit_json" not in names
+    assert "submit_form" not in names  # the factory tools have never been in either
+
+
+# ---------------------------------------------------------------------------
+# user agent
+# ---------------------------------------------------------------------------
+
+
+def test_make_web_tools_sends_the_user_agent_it_was_given():
+    session = FakeSession([FakeResponse(text=FORM_HTML)])
+    find_forms, *_ = make_web_tools(session=session, user_agent="my-agent/9")
+    find_forms("http://site.example/")
+    assert session.sent_headers[0]["User-Agent"] == "my-agent/9"
+
+
+def test_make_web_tools_defers_to_the_session_when_given_no_user_agent():
+    """A host that set its own User-Agent on the session keeps it by passing None."""
+    session = FakeSession([FakeResponse(text=FORM_HTML)])
+    session.headers["User-Agent"] = "host-agent/1"
+    find_forms, *_ = make_web_tools(session=session, user_agent=None)
+    find_forms("http://site.example/")
+    assert "User-Agent" not in session.sent_headers[0]  # nothing sent per-request to override it
+
+
+def test_make_web_tools_defaults_the_user_agent():
+    session = FakeSession([FakeResponse(text="{}")])
+    *_, submit_json = make_web_tools(session=session)
+    submit_json("http://api.example/x", payload={})
+    assert session.sent_headers[0]["User-Agent"] == builtin._DEFAULT_USER_AGENT
+
+
+def test_read_tools_still_raise_on_an_error_status(monkeypatch):
+    """The no-raise split is scoped to the submit tools; a 404 page's body is still noise."""
+    monkeypatch.setattr(builtin.requests, "request", lambda *a, **k: FakeResponse(text="nope", status_code=404))
+    assert get_webpage_html("http://site.example/").startswith("Error fetching page:")
 
 
 # ---------------------------------------------------------------------------
@@ -226,7 +390,7 @@ def test_submit_form_reports_errors():
 
 def test_find_forms_and_submit_form_share_one_session():
     session = FakeSession([FakeResponse(text=FORM_HTML), FakeResponse(text="ok")])
-    find_forms, submit_form = make_web_tools(session=session)
+    find_forms, submit_form, _ = make_web_tools(session=session)
     find_forms("http://site.example/login")
     # A cookie set during the first exchange persists into the second call (same jar).
     session.cookies["sid"] = "abc"
@@ -236,7 +400,7 @@ def test_find_forms_and_submit_form_share_one_session():
 
 
 def test_make_web_tools_creates_session_when_none_given():
-    find_forms, submit_form = make_web_tools()
+    find_forms, submit_form, _ = make_web_tools()
     assert find_forms.__tool_spec__["function"]["name"] == "find_forms"
     assert submit_form.__tool_spec__["function"]["name"] == "submit_form"
 
@@ -248,7 +412,7 @@ def test_make_web_tools_creates_session_when_none_given():
 
 def test_tool_specs():
     assert get_webpage_html.__tool_spec__["function"]["name"] == "get_webpage_html"
-    find_forms, submit_form = make_web_tools()
+    find_forms, submit_form, _ = make_web_tools()
     params = submit_form.__tool_spec__["function"]["parameters"]["properties"]
     assert set(params) == {"url", "method", "data"}
     # only url is required (method + data have defaults)
