@@ -70,6 +70,10 @@ agent.run("Create an item named 'widget' with tags ['a','b'] at https://api.exam
 `submit_form`'s job, and `DELETE` is deliberately absent. Anything else is refused before a request
 goes out, with a message the model can act on.
 
+One limit worth knowing: `payload` is a JSON **object**, so a top-level array (a bulk endpoint that
+takes `[{...}, {...}]`) cannot be expressed. Wrap it in an object if the API allows, or write your
+own `@tool` for that endpoint.
+
 !!! tip "Error bodies come back, which is the point"
     Both submit tools return the response **whatever its status**, because a 400 or 422 body
     normally names the field that was rejected. That is what a corrected retry needs; an agent told
