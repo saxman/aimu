@@ -758,13 +758,20 @@ def test_a_timeout_kills_a_backgrounded_grandchild_too(tmp_path):
     """The property _run_supervised exists for, asserted through this tool: SIGKILL reaches
     the whole process group, so a command that backgrounds something and hangs does not
     leave that something running after the timeout. The grandchild writes its marker at
-    t=2 and the parent is killed at t=1, so the marker appears only if the kill failed to
+    t=5 and the parent is killed at t=1, so the marker appears only if the kill failed to
     reach the group; a kill of the direct child alone would let it survive and write.
+
+    The gap between the kill and the write is four seconds rather than the one it used to
+    be, because a one-second margin raced the machine rather than the code: this test failed
+    intermittently only in full-suite runs on a loaded host (never in isolation), where a
+    timeout fired late enough for the grandchild to write before the group was signalled.
+    Widening the gap does not weaken the assertion -- a kill that reached only the direct
+    child still leaves the grandchild to write at t=5, and the check at t=7 still catches it.
     """
     marker = tmp_path / "grandchild.txt"
-    out = builtin.run_command(f"(sleep 2; echo alive > {marker}) & sleep 30", timeout=1)
+    out = builtin.run_command(f"(sleep 5; echo alive > {marker}) & sleep 30", timeout=1)
     assert "timed out" in out.lower()
-    time.sleep(4)
+    time.sleep(6)  # past t=5, so a surviving grandchild has had its chance to write
     assert not marker.exists()
 
 
