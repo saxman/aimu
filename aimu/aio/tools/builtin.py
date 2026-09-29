@@ -9,10 +9,9 @@ generation.
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
 from uuid import uuid4
 
-from aimu.agents.steering import Steering
 from aimu.events import EventSink
 from aimu.models import ContextOverflowError, StreamChunk, StreamingContentType
 from aimu.tools.builtin import (  # noqa: F401 (re-exports)
@@ -41,6 +40,12 @@ from aimu.tools.builtin import (  # noqa: F401 (re-exports)
 )
 from aimu.tools.builtin import _subagent_docstring, _subagent_overflow_result, _validate_subagent_config
 from aimu.tools.decorator import tool
+
+if TYPE_CHECKING:
+    # Type-annotation-only, mirroring the sync twin's reason: this module already has `from
+    # __future__ import annotations`, so a module-level import here is unnecessary rather than unsafe,
+    # but there is no reason to pay for it when the sync twin's identical import has to avoid it.
+    from aimu.agents.steering import Steering
 
 logger = logging.getLogger(__name__)
 

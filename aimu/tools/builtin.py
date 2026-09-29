@@ -6,6 +6,8 @@ so that the tools are available either in-process (``Agent(client, tools=[get_we
 or cross-process (``python -m aimu.tools.mcp``).
 """
 
+from __future__ import annotations
+
 import datetime
 import hashlib
 import logging
@@ -17,7 +19,7 @@ import sys
 import tempfile
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any, Callable, NamedTuple, Optional
+from typing import TYPE_CHECKING, Any, Callable, NamedTuple, Optional
 from urllib.parse import quote, urljoin, urlparse
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -25,11 +27,21 @@ import requests
 from dotenv import load_dotenv
 
 from aimu._window import past_end, window, window_complaint
-from aimu.agents.steering import Steering
 from aimu.events import EventSink
 
 # The leaf module rather than `aimu.models`, whose package __init__ reaches back into `aimu.tools`.
 from aimu.models._base.shared import ContextOverflowError
+
+if TYPE_CHECKING:
+    # Type-annotation-only: importing this at module level would force full execution of
+    # `aimu.agents` (Agent, OrchestratorAgent, SkillAgent, every workflow) while this module is
+    # itself mid-import as part of `aimu.tools.__init__`'s `from . import builtin`. The `_build_agent`
+    # closure below already answers the same question the same way, importing `Agent` and
+    # `ModelClient` locally rather than at module scope. `from __future__ import annotations` above
+    # defers every annotation in this file to a string, so `get_type_hints(func)`
+    # (aimu/tools/decorator.py, which every `@tool` here goes through) still resolves this name at
+    # call time despite the import never running outside a type checker.
+    from aimu.agents.steering import Steering
 
 from . import _execute_python_worker
 from ._documents import DocumentConversionError, html_to_markdown, pdf_to_markdown
