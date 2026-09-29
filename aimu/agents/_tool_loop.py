@@ -525,6 +525,7 @@ class _ToolLoop(_BaseToolLoop):
         images: Optional[list] = None,
     ) -> str:
         emit(self._events, RunStarted(agent=self._agent_name, iteration=0, task=user_message or ""))
+        self._open_steering()
         result: Optional[str] = None
         error: Optional[BaseException] = None
         last_iteration = 0
@@ -540,15 +541,24 @@ class _ToolLoop(_BaseToolLoop):
                     thinking=self._thinking,
                 )
                 chats = 1  # ``max_rounds`` caps the total number of model turns in the loop.
-                while chats < self._max_rounds:
+                # A delivered steering message moves ``self._budget_base`` to the round it landed
+                # in, which gives the loop a fresh ``max_rounds`` counted from there.
+                while chats - self._budget_base < self._max_rounds:
                     last_iteration = chats - 1
                     state = classify_terminal_turn(self._client.messages)
                     if state == TERMINAL_PENDING_TOOLS:
                         self._dispatch(last_iteration)
                         self._current_iteration = chats
+                        # After dispatch, for the tool_use/tool_result adjacency the provider requires.
+                        steering = self._take_steering()
+                        if steering is not None:
+                            self._budget_base = chats
                         self._maybe_compact()
                         response = self._client.chat(
-                            generate_kwargs=generate_kwargs, tools=self._current_tools(), thinking=self._thinking
+                            steering,
+                            generate_kwargs=generate_kwargs,
+                            tools=self._current_tools(),
+                            thinking=self._thinking,
                         )
                     elif state == TERMINAL_EMPTY:
                         # A degenerate empty turn: nudge with tools still enabled so the model can
@@ -557,18 +567,40 @@ class _ToolLoop(_BaseToolLoop):
                         # and nudging only shrinks the next one.
                         self._raise_if_truncated()
                         self._current_iteration = chats
+                        # A real user message is a better resumption than the generic nudge, so a
+                        # pending one replaces it rather than queuing behind it.
+                        steering = self._take_steering()
+                        if steering is not None:
+                            self._budget_base = chats
                         self._maybe_compact()
                         injected_at = len(self._client.messages)
                         response = self._client.chat(
-                            self._continuation_prompt,
+                            steering if steering is not None else self._continuation_prompt,
                             generate_kwargs=generate_kwargs,
                             tools=self._current_tools(),
                             thinking=self._thinking,
                         )
-                        self._tag_injected(injected_at, PROVENANCE_CONTINUATION)
+                        if steering is None:
+                            # Only the loop's own prompt is tagged. A steering message is the
+                            # user's, and tagging it would report it as something the loop said.
+                            self._tag_injected(injected_at, PROVENANCE_CONTINUATION)
                     else:  # TERMINAL_HEALTHY
-                        result = response
-                        return result
+                        steering = self._take_steering()
+                        if steering is None:
+                            result = response
+                            return result
+                        # A message that arrived while the model was producing its answer. Taking
+                        # one more round rather than ending here is what makes steering usable at
+                        # all: a turn that calls one tool and then answers offers no other window.
+                        self._current_iteration = chats
+                        self._budget_base = chats
+                        self._maybe_compact()
+                        response = self._client.chat(
+                            steering,
+                            generate_kwargs=generate_kwargs,
+                            tools=self._current_tools(),
+                            thinking=self._thinking,
+                        )
                     chats += 1
 
                 result = self._forced_wrap_up(response, generate_kwargs)
@@ -593,6 +625,7 @@ class _ToolLoop(_BaseToolLoop):
         images: Optional[list] = None,
     ) -> Iterator[StreamChunk]:
         emit(self._events, RunStarted(agent=self._agent_name, iteration=0, task=user_message or ""))
+        self._open_steering()
         error: Optional[BaseException] = None
         iteration = 0
         self._current_iteration = 0
@@ -610,15 +643,23 @@ class _ToolLoop(_BaseToolLoop):
                     ),
                     iteration,
                 )
-                while iteration + 1 < self._max_rounds:
+                while iteration + 1 - self._budget_base < self._max_rounds:
                     state = classify_terminal_turn(self._client.messages)
                     if state == TERMINAL_PENDING_TOOLS:
                         yield from self._dispatch_streamed(iteration)
                         iteration += 1
                         self._current_iteration = iteration
+                        # Drained after dispatch and never before: a tool result has to sit
+                        # immediately after its tool_use block, so a user message slipped between
+                        # them is rejected outright by the provider.
+                        steering = self._take_steering()
+                        if steering is not None:
+                            self._budget_base = iteration
+                            yield self._steering_chunk(steering, iteration)
                         self._maybe_compact()
                         yield from self._retag(
                             self._client.chat(
+                                steering,
                                 generate_kwargs=generate_kwargs,
                                 stream=True,
                                 tools=self._current_tools(),
@@ -630,12 +671,19 @@ class _ToolLoop(_BaseToolLoop):
                         self._raise_if_truncated()  # cut off, not degenerate: a nudge cannot recover it
                         iteration += 1
                         self._current_iteration = iteration
+                        # A real user message is a better resumption than the generic nudge, so a
+                        # pending one replaces it rather than queuing behind it.
+                        steering = self._take_steering()
                         self._maybe_compact()
                         injected_at = len(self._client.messages)
-                        yield self._boundary_chunk(PROVENANCE_CONTINUATION, self._continuation_prompt, iteration)
+                        if steering is None:
+                            yield self._boundary_chunk(PROVENANCE_CONTINUATION, self._continuation_prompt, iteration)
+                        else:
+                            self._budget_base = iteration
+                            yield self._steering_chunk(steering, iteration)
                         yield from self._retag(
                             self._client.chat(
-                                self._continuation_prompt,
+                                steering if steering is not None else self._continuation_prompt,
                                 generate_kwargs=generate_kwargs,
                                 stream=True,
                                 tools=self._current_tools(),
@@ -643,9 +691,32 @@ class _ToolLoop(_BaseToolLoop):
                             ),
                             iteration,
                         )
-                        self._tag_injected(injected_at, PROVENANCE_CONTINUATION)
+                        if steering is None:
+                            # Only the loop's own prompt is tagged. A steering message is the
+                            # user's, and tagging it would report it as something the loop said.
+                            self._tag_injected(injected_at, PROVENANCE_CONTINUATION)
                     else:  # TERMINAL_HEALTHY
-                        return
+                        steering = self._take_steering()
+                        if steering is None:
+                            return
+                        # A message that arrived while the model was producing its answer. Taking
+                        # one more round rather than ending here is what makes steering usable at
+                        # all: a turn that calls one tool and then answers offers no other window.
+                        iteration += 1
+                        self._current_iteration = iteration
+                        self._budget_base = iteration
+                        self._maybe_compact()
+                        yield self._steering_chunk(steering, iteration)
+                        yield from self._retag(
+                            self._client.chat(
+                                steering,
+                                generate_kwargs=generate_kwargs,
+                                stream=True,
+                                tools=self._current_tools(),
+                                thinking=self._thinking,
+                            ),
+                            iteration,
+                        )
 
                 if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
                     iteration += 1
