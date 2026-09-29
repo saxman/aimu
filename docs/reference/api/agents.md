@@ -16,6 +16,8 @@ Agents and code-controlled workflows.
 
 ::: aimu.agents.OrchestratorAgent
 
+::: aimu.agents.steering.Steering
+
 ## Workflows
 
 ::: aimu.agents.Chain

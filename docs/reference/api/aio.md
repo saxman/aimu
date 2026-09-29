@@ -29,6 +29,8 @@ Differences from the sync surface:
 
 ::: aimu.aio.OrchestratorAgent
 
+::: aimu.aio.Steering
+
 ## Workflows
 
 ::: aimu.aio.Chain

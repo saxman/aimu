@@ -64,10 +64,12 @@ class _AsyncToolLoop(_BaseToolLoop):
                 )
                 rounds = 0
                 # ``max_rounds`` caps the total number of real model calls the *bounded loop*
-                # makes (mirrors the sync engine's ``chats < self._max_rounds`` with
-                # ``chats`` counting from 1): the initial call above is the first of those,
-                # so the loop may run at most ``max_rounds - 1`` further times. The forced
-                # wrap-up below is the one deliberate call beyond this cap.
+                # makes (mirrors the sync engine's ``chats - self._budget_base < self._max_rounds``
+                # with ``chats`` counting from 1): the initial call above is the first of those,
+                # so the loop may run at most ``max_rounds - 1`` further times before a delivered
+                # steering message moves ``self._budget_base`` to the round it landed in and buys
+                # a fresh budget counted from there. The forced wrap-up below is the one
+                # deliberate call beyond this cap.
                 while rounds + 1 - self._budget_base < self._max_rounds:
                     last_iteration = rounds
                     state = classify_terminal_turn(self._client.messages)
