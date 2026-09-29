@@ -169,11 +169,18 @@ class _AsyncToolLoop(_BaseToolLoop):
                         self._raise_if_truncated()  # cut off, not degenerate: a nudge cannot recover it
                         iteration += 1
                         self._current_iteration = iteration
+                        # A real user message is a better resumption than the generic nudge, so a
+                        # pending one replaces it rather than queuing behind it.
+                        steering = self._take_steering()
                         self._maybe_compact()
                         injected_at = len(self._client.messages)
-                        yield self._boundary_chunk(PROVENANCE_CONTINUATION, self._continuation_prompt, iteration)
+                        if steering is None:
+                            yield self._boundary_chunk(PROVENANCE_CONTINUATION, self._continuation_prompt, iteration)
+                        else:
+                            self._budget_base = iteration
+                            yield self._steering_chunk(steering, iteration)
                         stream = await self._client.chat(
-                            self._continuation_prompt,
+                            steering if steering is not None else self._continuation_prompt,
                             generate_kwargs=generate_kwargs,
                             stream=True,
                             tools=self._current_tools(),
@@ -181,9 +188,31 @@ class _AsyncToolLoop(_BaseToolLoop):
                         )
                         async for chunk in stream:
                             yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
-                        self._tag_injected(injected_at, PROVENANCE_CONTINUATION)
+                        if steering is None:
+                            # Only the loop's own prompt is tagged. A steering message is the
+                            # user's, and tagging it would report it as something the loop said.
+                            self._tag_injected(injected_at, PROVENANCE_CONTINUATION)
                     else:  # TERMINAL_HEALTHY
-                        return
+                        steering = self._take_steering()
+                        if steering is None:
+                            return
+                        # A message that arrived while the model was producing its answer. Taking
+                        # one more round rather than ending here is what makes steering usable at
+                        # all: a turn that calls one tool and then answers offers no other window.
+                        iteration += 1
+                        self._current_iteration = iteration
+                        self._budget_base = iteration
+                        self._maybe_compact()
+                        yield self._steering_chunk(steering, iteration)
+                        stream = await self._client.chat(
+                            steering,
+                            generate_kwargs=generate_kwargs,
+                            stream=True,
+                            tools=self._current_tools(),
+                            thinking=self._thinking,
+                        )
+                        async for chunk in stream:
+                            yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
 
                 if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
                     iteration += 1

@@ -94,3 +94,58 @@ async def test_a_raising_steering_source_does_not_end_the_run():
     chunks = await collect(await agent.run("start", stream=True, steering=Exploding()))
 
     assert any(c.phase == StreamingContentType.GENERATING and c.content == "done" for c in chunks)
+
+
+@pytest.mark.asyncio
+async def test_steering_replaces_the_continuation_nudge_after_an_empty_turn():
+    client = MockAsyncModelClient(["", "done"])
+    agent = Agent(client, tools=[a_tool])
+
+    await collect(await agent.run("start", stream=True, steering=ListSteering(["try the cache"])))
+
+    user_messages = [m["content"] for m in client.messages if m["role"] == "user"]
+    assert user_messages == ["start", "try the cache"]
+
+
+@pytest.mark.asyncio
+async def test_an_empty_turn_still_gets_the_nudge_when_nothing_is_pending():
+    client = MockAsyncModelClient(["", "done"])
+    agent = Agent(client, tools=[a_tool])
+
+    chunks = await collect(await agent.run("start", stream=True, steering=ListSteering()))
+
+    assert any(c.phase == StreamingContentType.CONTINUING for c in chunks)
+    assert not any(c.phase == StreamingContentType.STEERING for c in chunks)
+
+
+@pytest.mark.asyncio
+async def test_a_message_arriving_before_the_answer_completes_takes_one_more_round():
+    client = MockAsyncModelClient(["first answer", "second answer"])
+    agent = Agent(client, tools=[a_tool])
+
+    chunks = await collect(await agent.run("start", stream=True, steering=ListSteering(["also check the log"])))
+
+    generated = [c.content for c in chunks if c.phase == StreamingContentType.GENERATING]
+    assert generated == ["first answer", "second answer"]
+
+
+@pytest.mark.asyncio
+async def test_a_healthy_turn_with_nothing_pending_still_ends_the_run():
+    client = MockAsyncModelClient(["the answer"])
+    agent = Agent(client, tools=[a_tool])
+
+    chunks = await collect(await agent.run("start", stream=True, steering=ListSteering()))
+
+    generated = [c.content for c in chunks if c.phase == StreamingContentType.GENERATING]
+    assert generated == ["the answer"]
+
+
+@pytest.mark.asyncio
+async def test_several_messages_at_one_boundary_are_delivered_as_one_round():
+    client = MockAsyncModelClient(["tool", "done"])
+    agent = Agent(client, tools=[a_tool])
+
+    await collect(await agent.run("start", stream=True, steering=ListSteering(["first", "second"])))
+
+    user_messages = [m["content"] for m in client.messages if m["role"] == "user"]
+    assert user_messages == ["start", "first\n\nsecond"]
