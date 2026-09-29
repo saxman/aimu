@@ -2402,6 +2402,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tool-approval" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tool approval
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.Denied" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Denied
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.approve_all" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        approve_all
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#mcp-client" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3644,6 +3677,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tool-approval" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tool approval
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.Denied" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Denied
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.approve_all" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        approve_all
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#mcp-client" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4143,6 +4209,92 @@ validates them).</p>
 
 
 
+
+
+    </div>
+
+</div><h2 id="tool-approval">Tool approval<a class="headerlink" href="#tool-approval" title="Permanent link">&para;</a></h2>
+<p>The gate an <code>Agent</code> runs before each tool call. See
+<a href="../../../how-to/gate-tool-calls/">gate tool calls</a> for the how-to.</p>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="aimu.tools.Denied" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">aimu.tools.Denied</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#aimu.tools.Denied" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Denied</span><span class="p">(</span><span class="n">reason</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">''</span><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>A refusal that says why, returned by a policy in place of <code>False</code>.</p>
+<p>The engine renders <code>reason</code> into the tool message the model sees, so a refused call can be
+corrected rather than merely retried. A bare <code>False</code> says only that something was
+disallowed, and a model's obvious next move is the same call again.</p>
+<p><code>reason</code> is written for the model: name the constraint and, where there is one, the thing
+that would satisfy it ("only api.example.com is allowed"). Note that it lands in the
+conversation, so it is readable by the model and by anything replaying the transcript --
+a host that considers its own policy sensitive should keep the reason vague and return a
+plain <code>False</code> instead. An empty <code>reason</code> renders as the unadorned refusal.</p>
+<p>A type rather than a bare string because a policy's return value passes through <code>bool()</code>:
+a non-empty string already means <em>approved</em>, so repurposing one as a refusal would silently
+invert any policy returning one. Mirrors <code>Unsupported(remedy)</code> in
+<code>aimu.models._internal.generate_kwargs</code>, the same verdict-with-a-remedy shape.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.tools.approve_all" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.tools.approve_all</span>
+
+
+<a href="#aimu.tools.approve_all" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">approve_all</span><span class="p">(</span><span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">arguments</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>The default policy: approve every tool call (no behavior change).</p>
 
 
     </div>
@@ -5837,26 +5989,32 @@ print(agent.run("Compare the GDP growth of France, Japan, and Brazil since 2019.
 
 
 <a href="#aimu.tools.builtin.make_web_tools" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_web_tools</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">session</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">15</span><span class="p">,</span> <span class="n">max_content_chars</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20000</span><span class="p">,</span> <span class="n">user_agent</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">_DEFAULT_USER_AGENT</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_web_tools</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">session</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">15</span><span class="p">,</span> <span class="n">max_content_chars</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">20000</span><span class="p">,</span> <span class="n">user_agent</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">_DEFAULT_USER_AGENT</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
 
-        <p>Build <code>find_forms</code> and <code>submit_form</code> tools sharing a <code>requests.Session</code>.</p>
+        <p>Build <code>find_forms</code>, <code>submit_form</code>, and <code>submit_json</code> over one <code>requests.Session</code>.</p>
 <p>The shared session preserves cookies across calls, so a GET-then-POST form flow
 works: <code>find_forms</code> scrapes hidden fields (including CSRF tokens) from the page,
-then <code>submit_form</code> echoes them back with the session's cookies intact. Pass these
-to an agent alongside the stateless <code>get_webpage_html</code>::</p>
+then <code>submit_form</code> echoes them back with the session's cookies intact.
+<code>submit_json</code> is the same thing for a JSON API, sending a typed object as the
+request body. Pass them to an agent alongside the stateless <code>get_webpage_html</code>::</p>
 <div class="language-text highlight"><pre><span></span><code>agent = Agent(client, tools=[get_webpage_html, *make_web_tools()])
 </code></pre></div>
-<p>Pass your own <em>session</em> to control its lifecycle (e.g. pre-set auth headers) or to
-share one across several tool sets; otherwise a fresh <code>requests.Session</code> is created.</p>
+<p>Pass your own <em>session</em> to control its lifecycle or to share one across several tool
+sets; otherwise a fresh <code>requests.Session</code> is created. The session is also where
+<strong>authentication belongs</strong> (a bearer token in <code>session.headers</code>, a cookie from a
+prior login): neither submit tool lets the model name a request header, so a
+credential the host configures here cannot be aimed at a host the model chooses.
+Pass <code>user_agent=None</code> to leave the session's own <code>User-Agent</code> in charge.</p>
 <p>Note: these fetch server-rendered HTML only and do not execute JavaScript, so
 JS-rendered (SPA) forms and anti-bot-protected pages are out of scope; a headless
 browser backend is a possible future addition.</p>
-<p><code>submit_form</code> performs writes (POST). To require confirmation before it runs, gate
-it via the <code>tool_approval</code> hook, e.g. <code>Agent(..., tool_approval=policy)</code> where the
-policy inspects the tool name (see docs/how-to/gate-tool-calls.md).</p>
+<p><code>submit_form</code> and <code>submit_json</code> perform writes, to <strong>any URL the model names</strong>,
+carrying whatever credentials the session holds. To require confirmation before one
+runs, gate it via the <code>tool_approval</code> hook, e.g. <code>Agent(..., tool_approval=policy)</code>
+where the policy inspects the tool name (see docs/how-to/gate-tool-calls.md).</p>
 
 
     </div>

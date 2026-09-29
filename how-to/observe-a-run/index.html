@@ -3496,9 +3496,9 @@ pairing safe to rely on. Note that <code>result</code> above is populated becaus
 non-<code>schema=</code> run; see the two contracts above for when it is <code>None</code>. The dispatch shape above is the whole idea; the rest is
 whatever your tracer's API wants.</p>
 <h2 id="gated-tools-tooldenied">Gated tools: <code>ToolDenied</code><a class="headerlink" href="#gated-tools-tooldenied" title="Permanent link">&para;</a></h2>
-<p>A <code>tool_approval</code> policy that refuses a call emits <code>ToolDenied</code> (name + the model's raw
-arguments) instead of <code>ToolCalled</code>, so a sink can distinguish "the model tried this and it ran"
-from "the model tried this and a policy said no":</p>
+<p>A <code>tool_approval</code> policy that refuses a call emits <code>ToolDenied</code> (name, the model's raw arguments,
+and the <code>reason</code> the policy gave) instead of <code>ToolCalled</code>, so a sink can distinguish "the model
+tried this and it ran" from "the model tried this and a policy said no":</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>    <span class="n">client</span><span class="p">,</span>
 </span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="s2">"Always use the delete_everything tool when asked."</span><span class="p">,</span>
@@ -3508,12 +3508,15 @@ from "the model tried this and a policy said no":</p>
 </span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="p">)</span>
 </span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Please delete everything now."</span><span class="p">)</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>ToolDenied ToolDenied(agent='agent-179be0', iteration=0, name='delete_everything', arguments={})
+<div class="language-text highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>ToolDenied ToolDenied(agent='agent-179be0', iteration=0, name='delete_everything', arguments={}, reason='')
 </span></code></pre></div>
 <p>The tool message the model sees is the same text <code>gate-tool-calls.md</code> documents
 (<code>"Tool 'delete_everything' was not approved."</code>); the event is the same fact, structured for a
-sink instead of the transcript. See <a href="../gate-tool-calls/">gate tool calls</a> for the approval hook
-itself.</p>
+sink instead of the transcript.</p>
+<p><code>reason</code> is empty because that policy returned a bare <code>False</code>. A policy returning
+<code>Denied("only api.example.com is allowed")</code> puts its text on the event as well as in the tool
+message, so a denial log says <em>why</em> without reproducing the policy. See
+<a href="../gate-tool-calls/">gate tool calls</a> for the approval hook itself.</p>
 <h2 id="a-shared-client-under-concurrent-workers">A shared client under concurrent workers<a class="headerlink" href="#a-shared-client-under-concurrent-workers" title="Permanent link">&para;</a></h2>
 <p><code>events=</code> is delivered by installing the resolved sink as the active sink for the run's
 execution context <em>and</em> client — a scoped <code>contextvars.ContextVar</code> override, not a mutation

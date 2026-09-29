@@ -1174,8 +1174,41 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Discover and submit forms">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#call-a-json-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Call a JSON API
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Call a JSON API">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#authentication-and-why-there-is-no-headers-argument" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authentication, and why there is no headers argument
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#redirects-stop-at-the-host-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Redirects stop at the host boundary
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#control-the-session" class="md-nav__link">
@@ -3262,8 +3295,41 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Discover and submit forms">
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#call-a-json-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Call a JSON API
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Call a JSON API">
       <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#authentication-and-why-there-is-no-headers-argument" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Authentication, and why there is no headers argument
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#redirects-stop-at-the-host-boundary" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Redirects stop at the host boundary
+      
+    </span>
+  </a>
+  
+</li>
         
           <li class="md-nav__item">
   <a href="#control-the-session" class="md-nav__link">
@@ -3340,8 +3406,8 @@ agent needs to see a page's <strong>raw markup</strong>, discover its <strong>fo
 search, a login, a data entry). Two additions cover this:</p>
 <ul>
 <li><code>get_webpage_html(url)</code> — a stateless tool returning the page's raw HTML.</li>
-<li><code>make_web_tools()</code> — a factory returning <code>find_forms</code> and <code>submit_form</code>, which share a
-  <code>requests.Session</code> so cookies (and thus logins and CSRF tokens) persist across calls.</li>
+<li><code>make_web_tools()</code> — a factory returning <code>find_forms</code>, <code>submit_form</code>, and <code>submit_json</code>, which
+  share a <code>requests.Session</code> so cookies (and thus logins and CSRF tokens) persist across calls.</li>
 </ul>
 <div class="admonition note">
 <p class="admonition-title">Server-rendered HTML only</p>
@@ -3360,7 +3426,7 @@ structure). Long pages are truncated to stay within the model's context window.<
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Fetch the HTML of https://example.com and list every &lt;a&gt; href you find."</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="discover-and-submit-forms">Discover and submit forms<a class="headerlink" href="#discover-and-submit-forms" title="Permanent link">&para;</a></h2>
-<p><code>make_web_tools()</code> returns two tools bound to a shared session. Pass them alongside
+<p><code>make_web_tools()</code> returns three tools bound to a shared session. Pass them alongside
 <code>get_webpage_html</code>:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_webpage_html</span><span class="p">,</span> <span class="n">make_web_tools</span>
@@ -3379,43 +3445,95 @@ structure). Long pages are truncated to stay within the model's context window.<
   as a form body; <code>method="GET"</code> sends it as query parameters. It returns the response status, the
   final URL after redirects, and the (truncated) response body.</li>
 </ul>
-<p>Because both tools close over one <code>requests.Session</code>, cookies set during one call are sent on the
+<p>Because these tools close over one <code>requests.Session</code>, cookies set during one call are sent on the
 next. A login flow works end to end: <code>find_forms</code> scrapes the login form's hidden token,
 <code>submit_form</code> posts credentials (the server sets a session cookie), and a later
 <code>submit_form(url, method="GET")</code> reads a page behind the login using that cookie.</p>
-<h3 id="control-the-session">Control the session<a class="headerlink" href="#control-the-session" title="Permanent link">&para;</a></h3>
-<p>Pass your own session to set auth headers up front or to share one across several tool sets:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">session</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">session</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="s2">"Authorization"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"Bearer …"</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">tools</span> <span class="o">=</span> <span class="n">make_web_tools</span><span class="p">(</span><span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">max_content_chars</span><span class="o">=</span><span class="mi">40000</span><span class="p">)</span>
+<h2 id="call-a-json-api">Call a JSON API<a class="headerlink" href="#call-a-json-api" title="Permanent link">&para;</a></h2>
+<p><code>submit_json(url, payload, method="POST")</code> is the JSON counterpart to <code>submit_form</code>. The model
+supplies <code>payload</code> as a <strong>structured object</strong>, not a string of JSON, so it never hand-serializes:
+the <code>@tool</code> decorator advertises the parameter as a JSON Schema <code>object</code> and validates the model's
+argument at dispatch. The body goes out JSON-encoded with the matching <code>Content-Type</code>.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Create an item named 'widget' with tags ['a','b'] at https://api.example.com/items."</span><span class="p">)</span>
 </span></code></pre></div>
+<p><code>method</code> accepts <code>"POST"</code> (default), <code>"PUT"</code>, and <code>"PATCH"</code> — the verbs that carry a body. <code>GET</code> is
+<code>submit_form</code>'s job, and <code>DELETE</code> is deliberately absent. Anything else is refused before a request
+goes out, with a message the model can act on.</p>
+<p>One limit worth knowing: <code>payload</code> is a JSON <strong>object</strong>, so a top-level array (a bulk endpoint that
+takes <code>[{...}, {...}]</code>) cannot be expressed. Wrap it in an object if the API allows, or write your
+own <code>@tool</code> for that endpoint.</p>
+<div class="admonition tip">
+<p class="admonition-title">Error bodies come back, which is the point</p>
+<p>Both submit tools return the response <strong>whatever its status</strong>, because a 400 or 422 body
+normally names the field that was rejected. That is what a corrected retry needs; an agent told
+only <code>Error: 422</code> has nothing to work from. Transport failures (DNS, connection refused,
+timeout) are still reported as an error string, since there is no response to show.</p>
+</div>
+<h3 id="authentication-and-why-there-is-no-headers-argument">Authentication, and why there is no <code>headers</code> argument<a class="headerlink" href="#authentication-and-why-there-is-no-headers-argument" title="Permanent link">&para;</a></h3>
+<p>Neither submit tool lets the model set request headers. Credentials belong on the session you pass
+to the factory, so a token you configure for one host cannot be aimed at a host the model names:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">session</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">Session</span><span class="p">()</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">session</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="s2">"Authorization"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"Bearer …"</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">tools</span> <span class="o">=</span> <span class="n">make_web_tools</span><span class="p">(</span><span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">)</span>
+</span></code></pre></div>
+<p>Note the remaining exposure: the model still chooses the <strong>URL</strong>, and the session's credentials ride
+along with it. Combine that with a page the agent just read (whose text can instruct it) and an
+arbitrary-target write is a confused-deputy risk. The control for that is the
+<a href="../gate-tool-calls/">tool-approval hook</a>, which sees the URL before the call runs and can refuse it
+with a reason.</p>
+<h3 id="redirects-stop-at-the-host-boundary">Redirects stop at the host boundary<a class="headerlink" href="#redirects-stop-at-the-host-boundary" title="Permanent link">&para;</a></h3>
+<p>Both submit tools follow a redirect only while it stays on the <strong>same host</strong>. A cross-host redirect
+is reported instead of followed, naming the target:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>Status: 307
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>URL: http://site.example/start
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>Not followed: this redirects to http://other.example/sink on a different host. Nothing was sent
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>there. Submit to that URL directly if you intend to.
+</span></code></pre></div>
+<p>The reason is specific: a 307 or 308 replays the request <strong>method and body</strong>, so following one
+off-host would re-send your whole payload to a host the model never named and no approval policy
+ever inspected. (<code>requests</code> does strip <code>Authorization</code> across hosts, so the credential is not the
+leak — the payload is.) Refusing the hop puts the new host back in front of the approval gate,
+because reaching it now takes a fresh tool call that the policy sees.</p>
+<p>Same-host redirects are followed, which is what keeps the login flow above working in one call, with
+a 301/302/303 downgrading to a bodyless <code>GET</code> exactly as <code>requests</code> and browsers do. A chain is
+capped at five hops, and hitting the cap is reported rather than followed further. The read tools are
+unaffected: a redirected <code>GET</code> carries no body and no credential, so <code>requests</code>' own handling stays
+in charge there.</p>
+<h3 id="control-the-session">Control the session<a class="headerlink" href="#control-the-session" title="Permanent link">&para;</a></h3>
+<p>Pass your own session to share one across several tool sets, or to raise the timeout and the
+response cap:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">tools</span> <span class="o">=</span> <span class="n">make_web_tools</span><span class="p">(</span><span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">max_content_chars</span><span class="o">=</span><span class="mi">40000</span><span class="p">)</span>
+</span></code></pre></div>
+<p><code>user_agent=</code> sets the <code>User-Agent</code> sent on every call (it is a per-request header, so it takes
+precedence over the session's own). Pass <code>user_agent=None</code> to send none and leave a session-level
+<code>User-Agent</code> in charge.</p>
 <h2 id="confirm-before-submitting">Confirm before submitting<a class="headerlink" href="#confirm-before-submitting" title="Permanent link">&para;</a></h2>
-<p><code>submit_form</code> performs writes (POST). To require confirmation before it runs, gate it with the
-<a href="../gate-tool-calls/">tool-approval hook</a> — the policy sees the tool name, so you can approve reads
-and prompt on submits:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">confirm_submits</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">arguments</span><span class="p">):</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="k">if</span> <span class="n">name</span> <span class="o">!=</span> <span class="s2">"submit_form"</span><span class="p">:</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>        <span class="k">return</span> <span class="kc">True</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="k">return</span> <span class="nb">input</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Submit to </span><span class="si">{</span><span class="n">arguments</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'url'</span><span class="p">)</span><span class="si">}</span><span class="s2">? [y/N] "</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">"y"</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">agents</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">get_webpage_html</span><span class="p">,</span> <span class="o">*</span><span class="n">make_web_tools</span><span class="p">()],</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>                          <span class="n">tool_approval</span><span class="o">=</span><span class="n">confirm_submits</span><span class="p">)</span>
+<p><code>submit_form</code> and <code>submit_json</code> perform writes, to any URL the model names. To require confirmation
+before one runs, gate it with the <a href="../gate-tool-calls/">tool-approval hook</a> — the policy sees the tool
+name and the model's arguments, so you can approve reads and prompt on submits:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">confirm_submits</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">arguments</span><span class="p">):</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"submit_form"</span><span class="p">,</span> <span class="s2">"submit_json"</span><span class="p">):</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>        <span class="k">return</span> <span class="kc">True</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="k">return</span> <span class="nb">input</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Submit to </span><span class="si">{</span><span class="n">arguments</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'url'</span><span class="p">)</span><span class="si">}</span><span class="s2">? [y/N] "</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">"y"</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">agents</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">get_webpage_html</span><span class="p">,</span> <span class="o">*</span><span class="n">make_web_tools</span><span class="p">()],</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>                          <span class="n">tool_approval</span><span class="o">=</span><span class="n">confirm_submits</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="async">Async<a class="headerlink" href="#async" title="Permanent link">&para;</a></h2>
-<p>Both are re-exported from <code>aimu.aio.tools.builtin</code>; the async agent dispatches these sync
+<p>Both entry points are re-exported from <code>aimu.aio.tools.builtin</code>; the async agent dispatches these sync
 <code>requests</code> tools via <code>asyncio.to_thread</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.aio.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_webpage_html</span><span class="p">,</span> <span class="n">make_web_tools</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3:8b"</span><span class="p">),</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">get_webpage_html</span><span class="p">,</span> <span class="o">*</span><span class="n">make_web_tools</span><span class="p">()])</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"…"</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.aio.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_webpage_html</span><span class="p">,</span> <span class="n">make_web_tools</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3:8b"</span><span class="p">),</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">get_webpage_html</span><span class="p">,</span> <span class="o">*</span><span class="n">make_web_tools</span><span class="p">()])</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="k">await</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"…"</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../add-custom-tool/">Add a custom tool</a>: write your own <code>@tool</code></li>
-<li><a href="../gate-tool-calls/">Gate tool calls</a>: confirm or block the mutating <code>submit_form</code></li>
+<li><a href="../gate-tool-calls/">Gate tool calls</a>: confirm or block the mutating <code>submit_form</code> / <code>submit_json</code></li>
 <li><a href="../use-mcp-tools/">Use MCP tools</a>: cross-process tool servers</li>
 </ul>
 

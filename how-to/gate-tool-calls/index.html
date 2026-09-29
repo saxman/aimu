@@ -1138,6 +1138,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#say-why-you-refused" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Say why you refused
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#use-it" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3237,6 +3248,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#say-why-you-refused" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Say why you refused
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#use-it" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3306,10 +3328,10 @@ remote MCP service. The <strong>tool-approval hook</strong> lets you decide, per
 It's optional and off by default (everything is approved), so existing code is unchanged until you
 set a policy.</p>
 <h2 id="the-policy">The policy<a class="headerlink" href="#the-policy" title="Permanent link">&para;</a></h2>
-<p>A policy is a callable <code>(tool_name, arguments) -&gt; bool</code> run right before each tool invocation.
-Return <code>False</code> to block the call: the tool does not run, and a refusal tool message
+<p>A policy is a callable <code>(tool_name, arguments) -&gt; bool | Denied</code> run right before each tool
+invocation. Return <code>False</code> to block the call: the tool does not run, and a refusal tool message
 (<code>"Tool '&lt;name&gt;' was not approved."</code>) is appended so the model sees it and can react. The type alias
-<code>ToolApproval</code> and the default <code>approve_all</code> are exported from <code>aimu</code>.</p>
+<code>ToolApproval</code>, the <code>Denied</code> verdict below, and the default <code>approve_all</code> are exported from <code>aimu</code>.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">RISKY</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"execute_python"</span><span class="p">,</span> <span class="s2">"run_command"</span><span class="p">,</span> <span class="s2">"write_file"</span><span class="p">,</span> <span class="s2">"edit_file"</span><span class="p">}</span>
@@ -3320,15 +3342,53 @@ Return <code>False</code> to block the call: the tool does not run, and a refusa
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">answer</span> <span class="o">=</span> <span class="nb">input</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Allow </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="n">arguments</span><span class="si">}</span><span class="s2">)? [y/N] "</span><span class="p">)</span>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="k">return</span> <span class="n">answer</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">"y"</span>
 </span></code></pre></div>
+<h2 id="say-why-you-refused">Say why you refused<a class="headerlink" href="#say-why-you-refused" title="Permanent link">&para;</a></h2>
+<p>A bare <code>False</code> tells the model only that <em>something</em> was disallowed. It does not say what, so its
+most likely next move is the identical call, and it burns iterations discovering nothing. Return
+<code>Denied(reason)</code> instead and the reason reaches the model in the tool message, which is what lets it
+correct the argument rather than repeat it:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">urllib.parse</span><span class="w"> </span><span class="kn">import</span> <span class="n">urlparse</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">ALLOWED_HOSTS</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"api.example.com"</span><span class="p">,</span> <span class="s2">"docs.example.com"</span><span class="p">}</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="k">def</span><span class="w"> </span><span class="nf">allowlist_hosts</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">arguments</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span> <span class="o">|</span> <span class="n">aimu</span><span class="o">.</span><span class="n">Denied</span><span class="p">:</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"submit_json"</span><span class="p">,</span> <span class="s2">"submit_form"</span><span class="p">,</span> <span class="s2">"get_web_content"</span><span class="p">):</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="k">return</span> <span class="kc">True</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">host</span> <span class="o">=</span> <span class="n">urlparse</span><span class="p">(</span><span class="n">arguments</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"url"</span><span class="p">,</span> <span class="s2">""</span><span class="p">))</span><span class="o">.</span><span class="n">hostname</span> <span class="ow">or</span> <span class="s2">""</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="k">if</span> <span class="n">host</span> <span class="ow">in</span> <span class="n">ALLOWED_HOSTS</span><span class="p">:</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>        <span class="k">return</span> <span class="kc">True</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="k">return</span> <span class="n">aimu</span><span class="o">.</span><span class="n">Denied</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">host</span><span class="si">!r}</span><span class="s2"> is not allowed; permitted hosts are </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">ALLOWED_HOSTS</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</span></code></pre></div>
+<p>The model then sees <code>Tool 'submit_json' was not approved: 'evil.example' is not allowed; permitted
+hosts are ['api.example.com', 'docs.example.com']</code>.</p>
+<p>This is the shape to reach for when you want an <strong>argument-scoped</strong> rule rather than a per-tool one.
+Because the gate runs at dispatch, it covers every tool uniformly: built-ins, <code>@tool</code> functions, and
+MCP tools alike, including tools that expose no factory to configure.</p>
+<p>Three properties worth knowing:</p>
+<ul>
+<li><code>Denied</code> is <strong>falsy</strong>, so it substitutes for <code>False</code> anywhere you compose verdicts
+  (<code>return cheap_check() and expensive_check()</code> behaves).</li>
+<li><code>Denied("")</code> renders as the plain refusal, so an empty reason is the same as <code>False</code>.</li>
+<li>The reason <strong>lands in the conversation</strong> and is visible to the model and to anything replaying the
+  transcript. If your policy itself is sensitive (internal hostnames, say), keep the reason vague or
+  return a plain <code>False</code>.</li>
+</ul>
+<p>A reason is <em>not</em> a security boundary: it constrains the arguments the model chose, so what a tool
+does <em>after</em> dispatch is the tool's own business. Gate on what you can check here, and keep the
+tool's own limits in the tool — AIMU's own submit tools do exactly that, refusing to follow a
+<a href="../browse-and-submit-forms/#redirects-stop-at-the-host-boundary">cross-host redirect</a> precisely
+because no dispatch-time policy could see one.</p>
 <h2 id="use-it">Use it<a class="headerlink" href="#use-it" title="Permanent link">&para;</a></h2>
 <p>Approval is part of the agent's tool-loop, so it lives on the <code>Agent</code> — a constructor field and a
 per-run override, mirroring <code>deps=</code>. (Tools are only ever executed by an agent, so there is no
 bare-client approval path.)</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3:8b"</span><span class="p">)</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">agents</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">my_tool</span><span class="p">],</span> <span class="n">tool_approval</span><span class="o">=</span><span class="n">confirm_risky</span><span class="p">)</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"do the thing"</span><span class="p">)</span>                      <span class="c1"># agent-level default</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"do it"</span><span class="p">,</span> <span class="n">tool_approval</span><span class="o">=</span><span class="n">confirm_risky</span><span class="p">)</span>  <span class="c1"># per-run override</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3:8b"</span><span class="p">)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">agents</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">my_tool</span><span class="p">],</span> <span class="n">tool_approval</span><span class="o">=</span><span class="n">confirm_risky</span><span class="p">)</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"do the thing"</span><span class="p">)</span>                      <span class="c1"># agent-level default</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"do it"</span><span class="p">,</span> <span class="n">tool_approval</span><span class="o">=</span><span class="n">confirm_risky</span><span class="p">)</span>  <span class="c1"># per-run override</span>
 </span></code></pre></div>
 <p>The policy sees the tool name and the model-supplied arguments, so you can gate only the risky
 tools and approve the rest. It covers every dispatch path the engine runs: non-streaming, streaming,
@@ -3336,17 +3396,18 @@ and concurrent (when the agent sets <code>concurrent_tool_calls=True</code>).</p
 <h2 id="async">Async<a class="headerlink" href="#async" title="Permanent link">&para;</a></h2>
 <p>On <code>aimu.aio</code> the policy may be a coroutine function (it is awaited), so it can do async I/O such as
 asking the user over a chat channel:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">confirm</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">arguments</span><span class="p">):</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">RISKY</span><span class="p">:</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>        <span class="k">return</span> <span class="kc">True</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="k">return</span> <span class="k">await</span> <span class="n">ask_user_yes_no</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Allow </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">?"</span><span class="p">)</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3:8b"</span><span class="p">),</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">my_tool</span><span class="p">],</span> <span class="n">tool_approval</span><span class="o">=</span><span class="n">confirm</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">confirm</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">arguments</span><span class="p">):</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">RISKY</span><span class="p">:</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        <span class="k">return</span> <span class="kc">True</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="k">return</span> <span class="k">await</span> <span class="n">ask_user_yes_no</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Allow </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">?"</span><span class="p">)</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">Agent</span><span class="p">(</span><span class="n">aio</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3:8b"</span><span class="p">),</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">my_tool</span><span class="p">],</span> <span class="n">tool_approval</span><span class="o">=</span><span class="n">confirm</span><span class="p">)</span>
 </span></code></pre></div>
 <p>A sync agent requires a sync policy; handing it a coroutine raises a clear error pointing at the
-<code>aimu.aio</code> surface.</p>
+<code>aimu.aio</code> surface. An async policy may return <code>Denied(reason)</code> too — the awaited result is the
+verdict, so it works the same as on the sync surface.</p>
 <h2 id="worked-example">Worked example<a class="headerlink" href="#worked-example" title="Permanent link">&para;</a></h2>
 <p>The <a href="../build-personal-assistant/">personal-assistant example</a> gates its full-access
 <code>add_skill_script</code> tool with a terminal y/n prompt by default (see its <code>CONFIRM_BEFORE</code> set), so the
