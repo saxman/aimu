@@ -187,3 +187,35 @@ async def test_an_unsteered_run_still_stops_at_its_cap():
 
     # Two bounded calls plus the one forced wrap-up, which is deliberately uncounted.
     assert client._call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_the_non_streamed_driver_delivers_at_a_tool_round():
+    client = MockAsyncModelClient(["tool", "done"])
+    agent = Agent(client, tools=[a_tool])
+
+    result = await agent.run("start", steering=ListSteering(["use the other file"]))
+
+    assert result == "done"
+    assert {"role": "user", "content": "use the other file"} in client.messages
+
+
+@pytest.mark.asyncio
+async def test_the_non_streamed_driver_extends_a_finished_turn():
+    client = MockAsyncModelClient(["first answer", "second answer"])
+    agent = Agent(client, tools=[a_tool])
+
+    result = await agent.run("start", steering=ListSteering(["also check the log"]))
+
+    assert result == "second answer"
+
+
+@pytest.mark.asyncio
+async def test_the_non_streamed_driver_replaces_the_nudge():
+    client = MockAsyncModelClient(["", "done"])
+    agent = Agent(client, tools=[a_tool])
+
+    await agent.run("start", steering=ListSteering(["try the cache"]))
+
+    user_messages = [m["content"] for m in client.messages if m["role"] == "user"]
+    assert user_messages == ["start", "try the cache"]
