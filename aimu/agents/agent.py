@@ -8,6 +8,7 @@ from typing import Any, Callable, Iterator, Optional, Union
 from aimu.agents._loop import _AgentLoopMixin
 from aimu.agents._tool_loop import _ToolLoop
 from aimu.agents.base import MessageHistory, Runner
+from aimu.agents.steering import Steering
 from aimu.events import EventSink
 from aimu.models.base import BaseModelClient, StreamChunk
 
@@ -133,6 +134,7 @@ class Agent(_AgentLoopMixin, Runner):
     # loud): a compaction that cannot be trusted to run should stop the turn, not be silently
     # skipped while the caller believes their context is being managed.
     compaction: Optional[Callable[[list[dict]], list[dict]]] = None
+    steering: Optional[Steering] = None
     concurrent_tool_calls: bool = False
     _last_messages: list = field(default_factory=list, init=False, repr=False)
 
@@ -155,6 +157,7 @@ class Agent(_AgentLoopMixin, Runner):
         thinking: Optional[Union[bool, str]] = None,
         events: Optional[EventSink] = None,
         compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
+        steering: Optional[Steering] = None,
     ) -> Union[str, Any, Iterator[StreamChunk]]:
         """Run the agentic loop. ``images`` attach only to the initial turn.
 
@@ -221,10 +224,17 @@ class Agent(_AgentLoopMixin, Runner):
         :mod:`aimu.context` for ``trim_messages`` / ``summarize_messages``). ``None``
         (default) uses the field. Not used by the ``schema=`` structured-output path, which
         makes a single model turn rather than running the tool loop.
+
+        ``steering`` is a per-run override of the agent's ``self.steering`` field: a
+        :class:`~aimu.agents.steering.Steering` source of user messages that arrive while the run is
+        in progress. The loop opens one reader from it at the run's start and drains that reader once
+        per round; whatever it gets is sent as that round's user message. A delivered message resets
+        the round budget.
         """
         thinking = thinking if thinking is not None else self.thinking
         events = events if events is not None else self.events
         compaction = compaction if compaction is not None else self.compaction
+        steering = steering if steering is not None else self.steering
         if schema is not None:
             if stream:
                 return self._run_structured_streamed(
@@ -250,9 +260,10 @@ class Agent(_AgentLoopMixin, Runner):
                 thinking=thinking,
                 events=events,
                 compaction=compaction,
+                steering=steering,
             )
         self._prepare_run(deps, tool_approval)
-        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events, compaction)
+        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events, compaction, steering)
         try:
             return loop.run(task, generate_kwargs=generate_kwargs, images=images)
         finally:
@@ -271,6 +282,7 @@ class Agent(_AgentLoopMixin, Runner):
         thinking: Optional[Union[bool, str]] = None,
         events: Optional[EventSink] = None,
         compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
+        steering: Optional[Steering] = None,
     ) -> _ToolLoop:
         """Build the iterative tool-calling engine with this run's effective tools + policy."""
         from aimu.tools.approval import approve_all
@@ -288,6 +300,7 @@ class Agent(_AgentLoopMixin, Runner):
             events=events if events is not None else self.events,
             agent_name=self.name,
             compaction=compaction if compaction is not None else self.compaction,
+            steering=steering if steering is not None else self.steering,
         )
 
     def _run_streamed(
@@ -301,9 +314,10 @@ class Agent(_AgentLoopMixin, Runner):
         thinking: Optional[Union[bool, str]] = None,
         events: Optional[EventSink] = None,
         compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
+        steering: Optional[Steering] = None,
     ) -> Iterator[StreamChunk]:
         self._prepare_run(deps, tool_approval)
-        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events, compaction)
+        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events, compaction, steering)
         # ``closing`` mirrors the ``aclosing`` in aio.Agent._run_loop_streamed, which is load-bearing
         # there: the engine's generator holds the run's scoped event-sink override open across its
         # yields, and on the async surface merely dropping it defers teardown to the event loop's

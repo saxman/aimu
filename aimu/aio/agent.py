@@ -14,6 +14,7 @@ from typing import Any, AsyncIterator, Callable, Optional, Union
 
 from aimu.agents._loop import _AgentLoopMixin
 from aimu.agents.base import MessageHistory
+from aimu.agents.steering import Steering
 from aimu.events import EventSink
 from aimu.models.base import StreamChunk
 
@@ -149,6 +150,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
     # run raises (fail loud): a compaction that cannot be trusted to run should stop the turn, not
     # be silently skipped while the caller believes their context is being managed.
     compaction: Optional[Callable[[list[dict]], list[dict]]] = None
+    steering: Optional[Steering] = None
     concurrent_tool_calls: bool = False
     _last_messages: list = field(default_factory=list, init=False, repr=False)
 
@@ -169,6 +171,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         thinking: Optional[Union[bool, str]] = None,
         events: Optional[EventSink] = None,
         compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
+        steering: Optional[Steering] = None,
     ) -> Union[str, Any, AsyncIterator[StreamChunk]]:
         """Run the async agentic loop. ``images`` attach only to the initial turn.
 
@@ -208,12 +211,17 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         on both surfaces, since no thread/task boundary is crossed.
         ``compaction`` is a per-run override of ``self.compaction`` (a callable applied to the
         conversation before every model turn the run makes; see :mod:`aimu.context`), not used
-        by the ``schema=`` structured-output path. See the sync :meth:`aimu.agents.Agent.run`
-        for full semantics.
+        by the ``schema=`` structured-output path.
+        ``steering`` is a per-run override of ``self.steering`` (a :class:`~aimu.agents.steering.Steering`
+        source of user messages that arrive while the run is in progress). The loop opens one reader
+        from it at the run's start and drains that reader once per round; whatever it gets is sent as
+        that round's user message. A delivered message resets the round budget.
+        See the sync :meth:`aimu.agents.Agent.run` for full semantics.
         """
         thinking = thinking if thinking is not None else self.thinking
         events = events if events is not None else self.events
         compaction = compaction if compaction is not None else self.compaction
+        steering = steering if steering is not None else self.steering
         if schema is not None:
             if stream:
                 return self._run_structured_streamed(
@@ -229,7 +237,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
             finally:
                 self._last_messages = list(self.model_client.messages)
         self._prepare_run(deps, tool_approval)
-        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events, compaction)
+        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events, compaction, steering)
         if stream:
             return self._run_loop_streamed(loop, task, generate_kwargs, images)
         return await self._run_loop(loop, task, generate_kwargs, images)
@@ -247,6 +255,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         thinking: Optional[Union[bool, str]] = None,
         events: Optional[EventSink] = None,
         compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
+        steering: Optional[Steering] = None,
     ) -> _AsyncToolLoop:
         """Build the async iterative tool-calling engine with this run's effective tools + policy."""
         from aimu.tools.approval import approve_all
@@ -264,6 +273,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
             events=events if events is not None else self.events,
             agent_name=self.name,
             compaction=compaction if compaction is not None else self.compaction,
+            steering=steering if steering is not None else self.steering,
         )
 
     async def _run_loop(

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.33.0 (2026-09-29): a run already in progress can be steered, and a refused tool call says why
 
 ### Tools
 
@@ -100,6 +100,54 @@
 - **Change: `make_web_tools()` returns three tools, not two.** Documented usage has always been
   `tools=[get_webpage_html, *make_web_tools()]`, which is unaffected, but code unpacking the result
   as `find_forms, submit_form = make_web_tools()` raises `ValueError` and needs a third name.
+
+- **New: a spawned sub-agent can be steered through its spec.** `make_subagent_tool` and
+  `make_async_subagent_tool` gain a `steering` parameter, and a typed `agent_types` spec gains an
+  eighth key of the same name (`SUBAGENT_SPEC_KEYS`), so one specialist can read from the same
+  `Steering` source its caller does, or from a source of its own. It is read by *membership* rather
+  than `.get()`, joining `"compaction"` as the second key read that way and for the identical
+  reason: an absent key inherits the factory's own source, while a spec naming `"steering": None`
+  turns it off for that one specialist, and `.get()` cannot tell those two cases apart. A nested
+  spawn (`max_depth > 1`) carries the same source to a grandchild it spawns in turn, so steering
+  reaches however deep the roster goes. How-to:
+  [Spawn sub-agents](https://saxman.github.io/aimu/how-to/spawn-subagents/). Tests:
+  `tests/test_subagent_tools.py`, `tests/test_aio_subagent_tools.py`.
+
+### Models
+
+- **New: `StreamingContentType.STEERING`, the chunk that opens a round the host steered.** A
+  streamed agent-loop driver yields it, carrying `dict {"text": str}`, immediately before the round
+  in which the model reads a message a host handed the run while it was already in progress.
+  Distinct from `CONTINUING`, whose `kind` names a prompt the loop composed for itself: a steering
+  message is the user's, not the loop's, which is also why it is stored as a plain user message with
+  no provenance tag. Adding a member is a breaking change for a consumer whose `match chunk.phase`
+  is exhaustive. Reference: [Stream phases](https://saxman.github.io/aimu/reference/stream-phases/).
+
+### Agents
+
+- **New: `Agent.run(steering=...)` and an `Agent.steering` field, on both the sync and async
+  surfaces, so a host application can hand a running agent a user message instead of queuing it
+  behind the whole run.** `steering` is a `Steering` source: an object with one method,
+  `reader() -> Callable[[], list[str]]`. The loop calls `reader()` once, at the run's start, and
+  drains the cursor it returns at each round boundary, sending whatever comes back as that round's
+  user message on a model call the loop was going to make anyway. One reader per run rather than
+  one shared drain is load-bearing: under sequential tool dispatch a spawned sub-agent's loop runs
+  in the *same* asyncio task as the agent that spawned it, so a reader keyed by task, or by agent
+  name, would let two runs consume each other's messages. A spec's own `"steering"` key and
+  `make_subagent_tool`'s / `make_async_subagent_tool`'s factory-level `steering` argument carry the
+  same source into a spawned sub-agent, which opens a reader of its own (see Tools, above). A
+  message that arrives after the model has already produced what would be a final answer still buys
+  one more round, so a message landing as the model composes its last reply is not dropped; a
+  healthy turn with nothing pending ends the run exactly as before. A raising `Steering` does not
+  end the run either: the loop logs and moves on rather than letting a broken host mailbox take the
+  turn down with it. Tests: `tests/test_steering.py`, `tests/test_aio_steering.py`.
+
+- **New: a delivered steering message resets the round budget.** `max_iterations` bounds
+  *autonomous* iteration -- how far the loop may run without a human in it -- and a steering message
+  is a human back in the loop, so the cap counts again from the round it landed in rather than
+  toward whatever was left of the original budget. Without this, a long-running delegate task would
+  spend its whole steerable window on the turns before the host ever said anything, and a message
+  arriving late could still be cut off by the forced wrap-up moments later.
 
 ## v0.32.0 (2026-09-21): a skill's prose is editable, and a script write leaves it alone
 

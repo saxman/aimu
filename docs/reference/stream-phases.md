@@ -1,12 +1,13 @@
 # Stream phases
 
-`StreamingContentType` is a string enum with eight values, attached to every `StreamChunk` via `chunk.phase`.
+`StreamingContentType` is a string enum with nine values, attached to every `StreamChunk` via `chunk.phase`.
 
 | Phase | Value | Emitted when | `chunk.content` type |
 |---|---|---|---|
 | `THINKING` | `"thinking"` | Reasoning model emits internal-monologue tokens | `str` (token) |
 | `TOOL_CALLING` | `"tool_calling"` | A tool call has just been dispatched and its result is available | `dict {"name": str, "arguments": dict, "response": str}` |
 | `CONTINUING` | `"continuing"` | A streamed agent-loop driver is about to inject a round of its own (a nudge after an empty turn, or the forced tools-disabled wrap-up at the round cap); emitted once per injected round, immediately before that round's own chunks | `dict {"kind": "continuation" \| "final_answer", "prompt": str}`, where `kind` matches the provenance tag written onto the injected message |
+| `STEERING` | `"steering"` | A streamed agent-loop driver is about to open a round the host steered: a `Steering` source had a message pending at a round boundary, and the round that follows is the model reading it. Distinct from `CONTINUING`, which names a prompt the loop composed for itself — this one is the user's | `dict {"text": str}` |
 | `GENERATING` | `"generating"` | The final response stream | `str` (token) |
 | `IMAGE_GENERATING` | `"image_generating"` | Per-step image-generation progress (HF callback / Gemini start-done) | `dict {"step": int, "total_steps": int, "image": PIL.Image \| None, "final": bool, "result": str \| bytes \| None}` |
 | `AUDIO_GENERATING` | `"audio_generating"` | Per-step audio-generation progress (one final chunk for MusicGen; N progress + 1 final for diffusers) | `dict {"step": int, "total_steps": int, "final": bool, "result": str \| bytes \| tuple \| None, "duration_s": float}` |
@@ -40,13 +41,16 @@ wrap-up, a round that tells the model to *stop* calling tools.
 | Tool-using model | `THINKING*` (if thinking), `TOOL_CALLING` per call, `GENERATING*` |
 | Tool-using model, multi-round | `TOOL_CALLING* → THINKING*? → GENERATING*` repeated; `chunk.iteration` increments per round (agent context) |
 | A round the loop injected | `CONTINUING`, then that round's own chunks (`THINKING*?`, `TOOL_CALLING*` for a nudge, `GENERATING*`); `chunk.iteration` on the `CONTINUING` chunk is the injected round's own index |
+| A round the host steered | `STEERING`, then that round's own chunks (`THINKING*?`, `TOOL_CALLING*`, `GENERATING*`); `chunk.iteration` on the `STEERING` chunk is that round's own index |
 
 `*` = "one or more chunks".
 
 `chunk.iteration` tells you the round number moved, not who moved it: a tool round, a nudge after an
 empty turn, and the forced wrap-up all advance it identically. `CONTINUING` is what separates the
 last two from the first (see [why it needs its own
-phase](../explanation/streamchunk-model.md#why-continuing-needs-its-own-phase)).
+phase](../explanation/streamchunk-model.md#why-continuing-needs-its-own-phase)). `STEERING` is a
+third case `iteration` alone cannot tell apart from a tool round: the words are a host's, delivered
+between rounds a run was already going to make, not the loop's own and not the model's.
 
 ## Async surface
 
@@ -64,9 +68,9 @@ client.chat("hi", stream=True, include=[StreamingContentType.GENERATING])  # enu
 
 Accepts strings or enum members. Omitting `include=` yields all phases.
 
-`include=` is a `chat()` / `generate()` argument, so it does not reach `CONTINUING`: that chunk
-comes from the agent loop above the client, and `Agent.run` takes no `include=`. Drop it on
-`chunk.phase` in your own loop if you do not want it.
+`include=` is a `chat()` / `generate()` argument, so it does not reach `CONTINUING` or `STEERING`:
+both chunks come from the agent loop above the client, and `Agent.run` takes no `include=`. Drop
+them on `chunk.phase` in your own loop if you do not want them.
 
 ## See also
 
@@ -76,3 +80,4 @@ comes from the agent loop above the client, and `Agent.run` takes no `include=`.
 - [How-to: generate audio](../how-to/generate-audio.md): `AUDIO_GENERATING` chunks
 - [How-to: generate speech](../how-to/generate-speech.md): `SPEECH_GENERATING` chunks
 - [`aimu.models.StreamingContentType`](api/models.md#aimu.models.StreamingContentType): API reference
+- [`aimu.agents.steering.Steering`](api/agents.md): the source a `STEERING` chunk's round reads from
