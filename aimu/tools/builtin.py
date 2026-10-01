@@ -19,7 +19,7 @@ import sys
 import tempfile
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, NamedTuple, Optional
+from typing import Any, Callable, NamedTuple, Optional
 from urllib.parse import quote, urljoin, urlparse
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -32,16 +32,14 @@ from aimu.events import EventSink
 # The leaf module rather than `aimu.models`, whose package __init__ reaches back into `aimu.tools`.
 from aimu.models._base.shared import ContextOverflowError
 
-if TYPE_CHECKING:
-    # Type-annotation-only: importing this at module level would force full execution of
-    # `aimu.agents` (Agent, OrchestratorAgent, SkillAgent, every workflow) while this module is
-    # itself mid-import as part of `aimu.tools.__init__`'s `from . import builtin`. The `_build_agent`
-    # closure below already answers the same question the same way, importing `Agent` and
-    # `ModelClient` locally rather than at module scope. `from __future__ import annotations` above
-    # defers every annotation in this file to a string, so `get_type_hints(func)`
-    # (aimu/tools/decorator.py, which every `@tool` here goes through) still resolves this name at
-    # call time despite the import never running outside a type checker.
-    from aimu.agents.steering import Steering
+# The leaf module rather than `aimu.agents`, for the reason the line above it gives: importing the
+# package would force full execution of `aimu.agents` (Agent, OrchestratorAgent, SkillAgent, every
+# workflow) while this module is itself mid-import as part of `aimu.tools.__init__`'s
+# `from . import builtin`. The leaf imports nothing but `typing`, so there is no cycle here and no
+# need for a TYPE_CHECKING guard, which matters: `_check_steering` below needs the real class at
+# runtime, and a guarded name is unresolvable there (and, contrary to what this comment used to
+# claim, `get_type_hints` cannot resolve it either, since the import never runs).
+from aimu.agents.steering import Steering
 
 from . import _execute_python_worker
 from ._documents import DocumentConversionError, html_to_markdown, pdf_to_markdown
@@ -2390,11 +2388,26 @@ def _check_compaction(compaction, where: str) -> None:
         raise ValueError(f"{where} must be a callable taking and returning list[dict], got {compaction!r}.")
 
 
-def _validate_subagent_config(max_depth: int, agent_types: Optional[dict[str, dict]], compaction=None) -> None:
+def _check_steering(steering, where: str) -> None:
+    """Reject a value that is not a ``Steering`` at factory-call time, naming where it came from.
+
+    ``_check_compaction``'s argument exactly: deferred, this surfaces from inside the child's tool
+    loop as ``AttributeError: 'str' object has no attribute 'reader'``, which the parent loop turns
+    into a *tool* failure the parent model is asked to recover from. A programmer error reported to
+    a model is the wrong reader. ``Steering`` is ``runtime_checkable``, so the check costs one line.
+    """
+    if steering is not None and not isinstance(steering, Steering):
+        raise ValueError(f"{where} must implement Steering (a reader() method), got {steering!r}.")
+
+
+def _validate_subagent_config(
+    max_depth: int, agent_types: Optional[dict[str, dict]], compaction=None, steering=None
+) -> None:
     """Raise ``ValueError`` for programmer errors at factory-call time (failures apparent)."""
     if max_depth < 1:
         raise ValueError(f"max_depth must be >= 1 (got {max_depth}).")
     _check_compaction(compaction, "compaction")
+    _check_steering(steering, "steering")
     if agent_types is not None:
         if not agent_types:
             raise ValueError("agent_types must be a non-empty dict, or None for a generic sub-agent.")
@@ -2415,6 +2428,8 @@ def _validate_subagent_config(max_depth: int, agent_types: Optional[dict[str, di
                     raise ValueError(f"agent_types[{type_name!r}]['max_iterations'] must be an int >= 1, got {cap!r}.")
             if "compaction" in spec:
                 _check_compaction(spec["compaction"], f"agent_types[{type_name!r}]['compaction']")
+            if "steering" in spec:
+                _check_steering(spec["steering"], f"agent_types[{type_name!r}]['steering']")
 
 
 def _subagent_overflow_result(agent_type: Optional[str], exc: BaseException) -> str:
@@ -2571,7 +2586,7 @@ def make_subagent_tool(
     """
     from aimu.models.base import BaseModelClient
 
-    _validate_subagent_config(max_depth, agent_types, compaction)
+    _validate_subagent_config(max_depth, agent_types, compaction, steering)
 
     # Normalize to an enum/string the sub-agent client is rebuilt from each call (never share a live client).
     default_model = model.model if isinstance(model, BaseModelClient) else model

@@ -308,7 +308,7 @@ def make_async_subagent_tool(
     """
     from aimu.models.base import BaseModelClient
 
-    _validate_subagent_config(max_depth, agent_types, compaction)
+    _validate_subagent_config(max_depth, agent_types, compaction, steering)
     default_model = model.model if isinstance(model, BaseModelClient) else model
 
     def _build_agent(

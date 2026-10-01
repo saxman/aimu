@@ -54,3 +54,19 @@ def test_pretty_print_names_an_injected_round_and_quotes_the_prompt():
     assert text == "best effort answer"  # the phase contributes nothing to the returned text
     assert "[continuing: final_answer]" in buf.getvalue()
     assert "You have reached the tool-use limit." in buf.getvalue()
+
+
+def test_pretty_print_names_a_steered_round_and_quotes_the_message():
+    """A steered round changes what the model does next, so a run that showed nothing for it read
+    as the model changing its mind on its own. The same argument that put CONTINUING here."""
+
+    def _steered():
+        yield StreamChunk(StreamingContentType.STEERING, {"text": "use the index instead"})
+        yield StreamChunk(StreamingContentType.GENERATING, "redirected answer")
+
+    buf = io.StringIO()
+    text = pretty_print(_steered(), file=buf)
+
+    assert text == "redirected answer"  # the phase contributes nothing to the returned text
+    assert "[steering]" in buf.getvalue()
+    assert "use the index instead" in buf.getvalue()
