@@ -5154,8 +5154,8 @@ string so code can call e.g. <code>ollama.pull(model.value)</code>.</p>
 
 <details class="fields" open>
   <summary>Fields</summary>
-  <p>phase:     content type of this chunk (THINKING, TOOL_CALLING, CONTINUING, GENERATING,
-           IMAGE_GENERATING, AUDIO_GENERATING, SPEECH_GENERATING, DONE)
+  <p>phase:     content type of this chunk (THINKING, TOOL_CALLING, CONTINUING, STEERING,
+           GENERATING, IMAGE_GENERATING, AUDIO_GENERATING, SPEECH_GENERATING, DONE)
 content:   shape depends on phase:
            - <code>str</code> for THINKING / GENERATING (token).
            - <code>dict {"name", "arguments", "response"}</code> for TOOL_CALLING
@@ -5170,6 +5170,9 @@ content:   shape depends on phase:
              reports that rather than the built-in default. The value travels under three
              names: <code>PROVENANCE_KEY</code> (<code>"provenance"</code>) on the message, <code>kind</code> here on
              the chunk, and <code>reason</code> in <code>WebChannel</code>'s <code>loop</code> frame.
+           - <code>dict {"text"}</code> for STEERING: a message the host handed the run while it
+             was in progress, and the round that follows is the model reading it. Distinct
+             from CONTINUING because the words are the user's, not the loop's.
            - <code>dict {"step", "total_steps", "image", "final", "result"}</code> for
              IMAGE_GENERATING: <code>step</code> is 1-indexed, <code>image</code> is an optional
              <code>PIL.Image</code> (None unless <code>preview_every</code> opted in this step),

@@ -5681,7 +5681,7 @@ ingested into it) is a meaningful, explicit choice.</p>
 
 
 <a href="#aimu.tools.builtin.make_subagent_tool" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_subagent_tool</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">system_message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_SUBAGENT_SYSTEM_MESSAGE</span><span class="p">,</span> <span class="n">tools</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">agent_types</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">max_iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">concurrent_tool_calls</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">deps</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_approval</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'spawn_subagent'</span><span class="p">,</span> <span class="n">events</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EventSink</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">compaction</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_subagent_tool</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">system_message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_SUBAGENT_SYSTEM_MESSAGE</span><span class="p">,</span> <span class="n">tools</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">agent_types</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_depth</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">max_iterations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span> <span class="n">concurrent_tool_calls</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">deps</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_approval</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tool_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">'spawn_subagent'</span><span class="p">,</span> <span class="n">events</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EventSink</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">compaction</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">steering</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Steering</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -5704,10 +5704,10 @@ the GIL/CUDA, and a shared <code>deps</code> object handed to concurrent spawns 
   sub-agent using <code>system_message</code> + <code>tools</code>.</li>
 <li>Typed (<code>agent_types</code> given): the tool is <code>spawn_subagent(agent_type, task)</code> over a registry
   of named specialists (each value a dict with <code>"system_message"</code> and optional <code>"tools"</code> /
-  <code>"model"</code> / <code>"thinking"</code> / <code>"generate_kwargs"</code> / <code>"max_iterations"</code> / <code>"compaction"</code>, and
-  nothing else -- an unrecognized spec key raises at factory-call time rather than being ignored,
-  since an ignored key reads exactly like an applied one); the available names are listed in the
-  tool description. An
+  <code>"model"</code> / <code>"thinking"</code> / <code>"generate_kwargs"</code> / <code>"max_iterations"</code> / <code>"compaction"</code> /
+  <code>"steering"</code>, and nothing else -- an unrecognized spec key raises at factory-call time rather
+  than being ignored, since an ignored key reads exactly like an applied one); the available names
+  are listed in the tool description. An
   unknown <code>agent_type</code>, by contrast, is returned to the model as a tool result (self-correction),
   not raised: that one is the model's mistake to recover from, where a bad spec key is the
   programmer's.
@@ -5731,7 +5731,11 @@ the GIL/CUDA, and a shared <code>deps</code> object handed to concurrent spawns 
   is read by <em>membership</em> rather than <code>.get()</code>: an absent key falls back to this factory's own
   <code>compaction</code> (a third key with a factory tier, alongside <code>"model"</code> and <code>"max_iterations"</code>),
   while a spec naming <code>"compaction": None</code> turns that policy off for one specialist. Those two
-  cases are indistinguishable to <code>.get()</code>, which is why this key does not follow the others.</li>
+  cases are indistinguishable to <code>.get()</code>, which is why this key does not follow the others.
+  <code>"steering"</code> is a :class:<code>~aimu.agents.steering.Steering</code> source of mid-run messages for one
+  spawned agent, read by the same <em>membership</em> rule as <code>"compaction"</code> and for the same reason: a
+  spec naming <code>"steering": None</code> is turning the factory's source off for this one specialist,
+  which <code>.get()</code> cannot tell apart from a spec that never mentioned the key.</li>
 </ul>
 <p>A spawned sub-agent that runs out of context does not raise: the <code>ContextOverflowError</code> becomes a
 tool result naming the <em>sub-agent's</em> window as the one that filled. Uncaught, it would reach the
@@ -5959,6 +5963,25 @@ measuring the whole turn. Set on the child :class:<code>~aimu.agents.Agent</code
 spawned agent, so a long-running worker trims its own context rather than dying in it.
 The parent's conversation is untouched: this reaches the child's messages only. A spec's
 own <code>"compaction"</code> overrides it, and <code>"compaction": None</code> in a spec turns it off.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>steering</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<a class="autorefs autorefs-internal" title="aimu.agents.steering.Steering" href="../agents/#aimu.agents.steering.Steering">Steering</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A :class:<code>~aimu.agents.steering.Steering</code> source of mid-run messages for every
+spawned agent. Each spawn opens its own reader from it, so several spawns (or nested
+ones) sharing one source never share a cursor. A spec's own <code>"steering"</code> overrides it,
+and <code>"steering": None</code> in a spec turns it off for that one specialist.</p>
               </div>
             </td>
             <td>
