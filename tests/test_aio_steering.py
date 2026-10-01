@@ -237,3 +237,87 @@ async def test_a_structured_run_ignores_steering_rather_than_raising():
     result = await agent.run("start", schema=Answer, steering=ListSteering(["too late"]))
 
     assert result.text == "done"
+
+
+@pytest.mark.asyncio
+async def test_a_source_whose_reader_raises_does_not_end_the_run():
+    # The other half of the guarantee the drain's guard makes. `reader()` is called once, at the
+    # run's start, and a host that builds its cursor wrong raises there rather than in the drain.
+    class ExplodingReader:
+        def reader(self):
+            raise RuntimeError("the host built its mailbox wrong")
+
+    client = MockAsyncModelClient(["tool", "done"])
+    agent = Agent(client, tools=[a_tool])
+
+    chunks = await collect(await agent.run("start", stream=True, steering=ExplodingReader()))
+
+    assert any(c.phase == StreamingContentType.GENERATING and c.content == "done" for c in chunks)
+
+
+@pytest.mark.asyncio
+async def test_a_run_whose_reader_raises_still_reports_that_it_finished():
+    # `_open_steering` runs ahead of the try/finally that emits RunFinished, so a raise there left
+    # a sink holding a RunStarted with nothing after it, breaking the one-finish-per-start contract.
+    class ExplodingReader:
+        def reader(self):
+            raise RuntimeError("the host built its mailbox wrong")
+
+    client = MockAsyncModelClient(["done"])
+    seen = []
+    agent = Agent(client, tools=[a_tool], events=seen.append)
+
+    await collect(await agent.run("start", stream=True, steering=ExplodingReader()))
+
+    assert [type(event).__name__ for event in seen].count("RunFinished") == 1
+
+
+@pytest.mark.asyncio
+async def test_a_drain_returning_a_bare_string_is_refused_rather_than_iterated():
+    # A string is iterable, so an unchecked comprehension accepts "stop" and delivers it to the
+    # model as four one-character paragraphs. Worse than a raise, because it looks like it worked.
+    class StringDrain:
+        def reader(self):
+            return lambda: "stop"
+
+    client = MockAsyncModelClient(["tool", "done"])
+    agent = Agent(client, tools=[a_tool])
+
+    await collect(await agent.run("start", stream=True, steering=StringDrain()))
+
+    assert [m["content"] for m in client.messages if m["role"] == "user"] == ["start"]
+
+
+@pytest.mark.asyncio
+async def test_a_drain_returning_a_non_list_does_not_end_the_run():
+    class NoneDrain:
+        def reader(self):
+            return lambda: None
+
+    client = MockAsyncModelClient(["tool", "done"])
+    agent = Agent(client, tools=[a_tool])
+
+    chunks = await collect(await agent.run("start", stream=True, steering=NoneDrain()))
+
+    assert any(c.phase == StreamingContentType.GENERATING and c.content == "done" for c in chunks)
+    assert [m["content"] for m in client.messages if m["role"] == "user"] == ["start"]
+
+
+@pytest.mark.asyncio
+async def test_a_drain_that_never_advances_cannot_extend_the_budget_forever():
+    # A host bug one character wide: returning the whole list instead of the unread slice. Every
+    # round then looks like a fresh human message, and `max_iterations` stops bounding the run.
+    class NeverAdvancing:
+        def reader(self):
+            return lambda: ["again"]
+
+    # Trailing "done" replies, not "tool": once the budget stops growing the loop reaches its
+    # forced wrap-up, which asks for a plain answer and would report a "tool" reply as degenerate.
+    client = MockAsyncModelClient(["tool"] * 4 + ["done"] * 50)
+    agent = Agent(client, tools=[a_tool], max_iterations=2)
+
+    await collect(await agent.run("start", stream=True, steering=NeverAdvancing()))
+
+    # Resets are allowed up to `max_iterations`, so the worst case is that many fresh budgets plus
+    # the original plus the uncounted wrap-up. The point is that a bound exists at all.
+    assert client._call_count <= (2 + 1) * 2 + 1

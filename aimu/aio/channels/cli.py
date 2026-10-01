@@ -93,6 +93,13 @@ class CLIChannel(Channel):
                 )
                 sys.stdout.flush()
                 section = None
+            elif chunk.phase == StreamingContentType.STEERING:
+                # The user's own message, reaching a run already in progress. Its own line rather
+                # than a `continuing` one, which would credit the loop with what the user said.
+                sent = chunk.content if isinstance(chunk.content, dict) else {}
+                sys.stdout.write(("\n" if section else "") + f"[steering] {sent.get('text', '')}\n")
+                sys.stdout.flush()
+                section = None
             elif chunk.phase == StreamingContentType.GENERATING:
                 if not chunk.content:
                     continue

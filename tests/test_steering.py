@@ -60,3 +60,54 @@ def test_the_sync_driver_replaces_the_nudge():
     agent.run("start", steering=ListSteering(["try the cache"]))
 
     assert [m["content"] for m in client.messages if m["role"] == "user"] == ["start", "try the cache"]
+
+
+def test_a_source_whose_reader_raises_does_not_end_the_run_on_the_sync_surface():
+    class ExplodingReader:
+        def reader(self):
+            raise RuntimeError("the host built its mailbox wrong")
+
+    client = MockModelClient(["tool", "done"])
+    agent = Agent(client, tools=[a_tool])
+
+    assert agent.run("start", steering=ExplodingReader()) == "done"
+
+
+def test_a_sync_run_whose_reader_raises_still_reports_that_it_finished():
+    class ExplodingReader:
+        def reader(self):
+            raise RuntimeError("the host built its mailbox wrong")
+
+    client = MockModelClient(["done"])
+    seen = []
+    agent = Agent(client, tools=[a_tool], events=seen.append)
+
+    agent.run("start", steering=ExplodingReader())
+
+    assert [type(event).__name__ for event in seen].count("RunFinished") == 1
+
+
+def test_the_sync_surface_refuses_a_bare_string_drain():
+    class StringDrain:
+        def reader(self):
+            return lambda: "stop"
+
+    client = MockModelClient(["tool", "done"])
+    agent = Agent(client, tools=[a_tool])
+
+    agent.run("start", steering=StringDrain())
+
+    assert [m["content"] for m in client.messages if m["role"] == "user"] == ["start"]
+
+
+def test_the_sync_surface_bounds_a_drain_that_never_advances():
+    class NeverAdvancing:
+        def reader(self):
+            return lambda: ["again"]
+
+    client = MockModelClient(["tool"] * 4 + ["done"] * 50)
+    agent = Agent(client, tools=[a_tool], max_iterations=2)
+
+    agent.run("start", steering=NeverAdvancing())
+
+    assert client._call_count <= (2 + 1) * 2 + 1

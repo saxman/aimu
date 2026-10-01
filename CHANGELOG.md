@@ -113,6 +113,12 @@
   [Spawn sub-agents](https://saxman.github.io/aimu/how-to/spawn-subagents/). Tests:
   `tests/test_subagent_tools.py`, `tests/test_aio_subagent_tools.py`.
 
+  A `steering` that does not implement the protocol is rejected at **factory-call time**, at both
+  tiers, the way a non-callable `compaction` is and for its reason: deferred, it surfaces from
+  inside the child's loop as `AttributeError: 'str' object has no attribute 'reader'`, which the
+  parent loop turns into a *tool* failure the parent model is asked to recover from. A programmer
+  error reported to a model is the wrong reader.
+
 ### Models
 
 - **New: `StreamingContentType.STEERING`, the chunk that opens a round the host steered.** A
@@ -120,8 +126,12 @@
   in which the model reads a message a host handed the run while it was already in progress.
   Distinct from `CONTINUING`, whose `kind` names a prompt the loop composed for itself: a steering
   message is the user's, not the loop's, which is also why it is stored as a plain user message with
-  no provenance tag. Adding a member is a breaking change for a consumer whose `match chunk.phase`
-  is exhaustive. Reference: [Stream phases](https://saxman.github.io/aimu/reference/stream-phases/).
+  no provenance tag. Reference: [Stream phases](https://saxman.github.io/aimu/reference/stream-phases/).
+
+- **Change** **A new `StreamingContentType` member is a breaking change for a consumer whose
+  `match chunk.phase` is exhaustive.** Every consumer AIMU ships dispatches with `if`/`elif` and
+  ignores what it does not recognize, so none of them break; a host that wrote an exhaustive match
+  over the phases has one more arm to add.
 
 ### Agents
 
@@ -138,9 +148,17 @@
   same source into a spawned sub-agent, which opens a reader of its own (see Tools, above). A
   message that arrives after the model has already produced what would be a final answer still buys
   one more round, so a message landing as the model composes its last reply is not dropped; a
-  healthy turn with nothing pending ends the run exactly as before. A raising `Steering` does not
-  end the run either: the loop logs and moves on rather than letting a broken host mailbox take the
-  turn down with it. Tests: `tests/test_steering.py`, `tests/test_aio_steering.py`.
+  healthy turn with nothing pending ends the run exactly as before.
+
+  **A misbehaving `Steering` never takes the run down**, at any of the four points a host object
+  touches the loop: `reader()` raising, the drain raising, the drain returning the wrong shape, and
+  the drain never advancing. Each is logged and the run continues unsteered. Two are worth naming.
+  A drain returning a bare `str` is *refused* rather than iterated, because `str` is iterable and an
+  unchecked drain would accept `"stop"` and deliver it to the model as four one-character
+  paragraphs, which is worse than a raise for looking like it worked. And `reader()`'s guard matters
+  more than the drain's: it runs ahead of the try/finally that emits `RunFinished`, so a raise there
+  used to end the run before it began and leave an events sink holding a `RunStarted` with nothing
+  after it. Tests: `tests/test_steering.py`, `tests/test_aio_steering.py`.
 
 - **New: a delivered steering message resets the round budget.** `max_iterations` bounds
   *autonomous* iteration -- how far the loop may run without a human in it -- and a steering message
@@ -148,6 +166,28 @@
   toward whatever was left of the original budget. Without this, a long-running delegate task would
   spend its whole steerable window on the turns before the host ever said anything, and a message
   arriving late could still be cut off by the forced wrap-up moments later.
+
+  **Bounded at one extension per permitted round**, unlike the human action it stands for. The
+  reset is what makes steering usable and it is also the only thing standing between a run and an
+  unbounded bill: a drain that returns its whole list instead of the unread slice (a one-character
+  mistake) makes every round look like a fresh human message, and `max_iterations` stops bounding
+  anything. Past the cap the loop logs once and stops extending, while still *delivering* the
+  message on the call it was making anyway, so a host that genuinely steers that often degrades to
+  a turn that ends sooner rather than one that drops input.
+
+### Console output
+
+- **New** `pretty_print()` shows a steered round as a `[steering] <text>` line. Ungated by
+  `show_thinking` / `show_tools` for the reason the `[continuing: <kind>]` line is: it is one line
+  per steered round, and it is what explains a run changing direction. A renderer that showed
+  nothing for it left a redirected run reading as the model changing its own mind.
+
+### Channels
+
+- **New** `CLIChannel` prints the same `[steering] <text>` marker, and `WebChannel` emits a new
+  `{"type": "steering", "text": str}` frame. Its own frame type rather than a third `reason` on
+  `loop`: `loop` means the agent loop injected the round, so a page that conflated the two would
+  attribute the user's own words to the assistant. Both are emitted unconditionally, as `loop` is.
 
 ## v0.32.0 (2026-09-21): a skill's prose is editable, and a script write leaves it alone
 

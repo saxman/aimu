@@ -581,3 +581,20 @@ async def test_async_final_answer_turn_tagged():
     tags = [m.get(PROVENANCE_KEY) for m in client.messages]
     assert tags.count(PROVENANCE_FINAL_ANSWER) == 1
     assert PROVENANCE_CONTINUATION not in tags  # no degenerate turn occurs on this path, so nothing is tagged
+
+
+def test_skill_agent_run_accepts_everything_agent_run_does():
+    """``aio.SkillAgent.run`` redeclares its parameters instead of inheriting them.
+
+    That is forced: it has to prepare, set skills up, then delegate to the post-prepare helpers,
+    so it cannot call ``super().run()``. The cost is that every parameter added to
+    ``aio.Agent.run`` has to be hand-copied here, which ``compaction`` and ``script_env`` each
+    needed and ``steering`` was missed on. Asserting the subset is cheaper than remembering.
+    """
+    import inspect
+
+    from aimu.aio import SkillAgent
+
+    missing = set(inspect.signature(Agent.run).parameters) - set(inspect.signature(SkillAgent.run).parameters)
+
+    assert not missing, f"aio.SkillAgent.run is missing {sorted(missing)} from aio.Agent.run"

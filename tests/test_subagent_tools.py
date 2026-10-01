@@ -657,3 +657,17 @@ def test_a_nested_spawn_tool_carries_the_factory_steering():
     assert nested, "depth 2 should have injected a nested spawn tool"
     nested[0]("deeper task")
     assert _RecordingAgent.instances[-1].steering is _noop_steering
+
+
+def test_a_non_steering_factory_argument_raises_at_factory_call_time():
+    # Deferred, this surfaces as `AttributeError: 'str' object has no attribute 'reader'` from
+    # inside the child's loop, i.e. as a tool failure the parent model is asked to recover from.
+    # Same argument as compaction's check above; Steering is runtime_checkable, so this is cheap.
+    with pytest.raises(ValueError, match="steering must implement"):
+        make_subagent_tool(MODEL, steering="yes")
+
+
+def test_a_non_steering_spec_value_raises_at_factory_call_time():
+    types = {"bad": {"system_message": "x", "steering": 5}}
+    with pytest.raises(ValueError, match=r"agent_types\['bad'\]\['steering'\]"):
+        make_subagent_tool(MODEL, agent_types=types)

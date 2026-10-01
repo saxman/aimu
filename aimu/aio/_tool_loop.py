@@ -79,7 +79,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                         # After dispatch, for the tool_use/tool_result adjacency the provider requires.
                         steering = self._take_steering()
                         if steering is not None:
-                            self._budget_base = rounds + 1
+                            self._extend_budget(rounds + 1)
                         self._maybe_compact()
                         response = await self._client.chat(
                             steering,
@@ -94,7 +94,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                         # pending one replaces it rather than queuing behind it.
                         steering = self._take_steering()
                         if steering is not None:
-                            self._budget_base = rounds + 1
+                            self._extend_budget(rounds + 1)
                         self._maybe_compact()
                         injected_at = len(self._client.messages)
                         response = await self._client.chat(
@@ -116,7 +116,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                         # one more round rather than ending here is what makes steering usable at
                         # all: a turn that calls one tool and then answers offers no other window.
                         self._current_iteration = rounds + 1
-                        self._budget_base = rounds + 1
+                        self._extend_budget(rounds + 1)
                         self._maybe_compact()
                         response = await self._client.chat(
                             steering,
@@ -181,7 +181,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                         # them is rejected outright by the provider.
                         steering = self._take_steering()
                         if steering is not None:
-                            self._budget_base = iteration
+                            self._extend_budget(iteration)
                             yield self._steering_chunk(steering, iteration)
                         self._maybe_compact()
                         stream = await self._client.chat(
@@ -205,7 +205,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                         if steering is None:
                             yield self._boundary_chunk(PROVENANCE_CONTINUATION, self._continuation_prompt, iteration)
                         else:
-                            self._budget_base = iteration
+                            self._extend_budget(iteration)
                             yield self._steering_chunk(steering, iteration)
                         stream = await self._client.chat(
                             steering if steering is not None else self._continuation_prompt,
@@ -229,7 +229,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                         # all: a turn that calls one tool and then answers offers no other window.
                         iteration += 1
                         self._current_iteration = iteration
-                        self._budget_base = iteration
+                        self._extend_budget(iteration)
                         self._maybe_compact()
                         yield self._steering_chunk(steering, iteration)
                         stream = await self._client.chat(

@@ -220,6 +220,11 @@ class _BaseToolLoop:
         # it to the round it landed in, which gives the loop a fresh max_rounds: the cap bounds
         # autonomous iteration, and a human message ends the autonomous stretch.
         self._budget_base = 0
+        # How many times steering has moved that base, and whether the refusal has been reported.
+        # Bounded for the reason _extend_budget explains: the human action a reset stands for is
+        # self-limiting and a misbehaving drain is not.
+        self._steering_resets = 0
+        self._steering_cap_reported = False
         # Updated by run()/run_streamed() right before every client call, so the attributing
         # sink (see _attributing_sink) can report which round a client-emitted event happened
         # in without the client itself ever knowing about rounds.
@@ -359,8 +364,21 @@ class _BaseToolLoop:
         )
 
     def _open_steering(self) -> None:
-        """Open this run's own cursor over the steering source. Called once, at the run's start."""
-        self._steering_reader = self._steering.reader() if self._steering is not None else None
+        """Open this run's own cursor over the steering source. Called once, at the run's start.
+
+        Guarded for the same reason the drain is, and it is the more important of the two: this
+        runs *ahead* of the try/finally that emits ``RunFinished``, so a host whose ``reader()``
+        raises used to end the run before it began and leave a sink holding a ``RunStarted`` with
+        nothing after it. A run that cannot be steered still runs.
+        """
+        if self._steering is None:
+            self._steering_reader = None
+            return
+        try:
+            self._steering_reader = self._steering.reader()
+        except Exception:
+            logger.warning("Steering source could not open a reader; the run continues unsteered.", exc_info=True)
+            self._steering_reader = None
 
     def _take_steering(self) -> Optional[str]:
         """Pending steering messages as one user message, or None if there are none.
@@ -369,19 +387,53 @@ class _BaseToolLoop:
         they are all things the user said before the model next read anything, so splitting them
         across rounds would spend model calls to no purpose.
 
-        Never raises into the loop. The source belongs to the host application, and a run that
-        died because the host's mailbox misbehaved would lose work the mailbox has nothing to do
-        with.
+        Never raises into the loop, and the shape check is part of keeping that true. The source
+        belongs to the host application, and a run that died because the host's mailbox misbehaved
+        would lose work the mailbox has nothing to do with.
+
+        A bare string is the return worth naming, because it is the one wrong shape that does not
+        announce itself: ``str`` is iterable, so an unchecked comprehension accepts ``"stop"`` and
+        delivers it to the model as four one-character paragraphs. That is worse than a raise.
         """
         if self._steering_reader is None:
             return None
         try:
             pending = self._steering_reader()
+            if isinstance(pending, str) or not isinstance(pending, (list, tuple)):
+                raise TypeError(f"a steering drain must return a list of strings, got {type(pending).__name__}")
+            for text in pending:
+                if not isinstance(text, str):
+                    raise TypeError(f"a steering drain must return strings, got a {type(text).__name__}")
+            texts = [text.strip() for text in pending if text.strip()]
         except Exception:
-            logger.warning("Steering source raised; the run continues unsteered.", exc_info=True)
+            logger.warning("Steering source misbehaved; the run continues unsteered.", exc_info=True)
             return None
-        texts = [text.strip() for text in pending if text and text.strip()]
         return "\n\n".join(texts) if texts else None
+
+    def _extend_budget(self, position: int) -> None:
+        """Move the round budget's base, so a steered round begins a fresh ``max_rounds`` stretch.
+
+        Capped, unlike the human action it stands for. ``max_rounds`` is the only bound on what a
+        run can spend, and a drain that never advances its cursor (returning its whole list again
+        instead of the unread slice, which is a one-character mistake) makes every round look like
+        a fresh human message and lifts that bound entirely. The allowance is one extension per
+        permitted round, which no conforming host reaches.
+
+        Refusing an extension does not refuse the message: the text is still delivered on the call
+        the loop was making anyway, and only the budget stops growing, so a host that genuinely
+        steers this often degrades to a turn that ends sooner rather than one that drops input.
+        """
+        if self._steering_resets >= self._max_rounds:
+            if not self._steering_cap_reported:
+                self._steering_cap_reported = True
+                logger.warning(
+                    "Steering has extended this run's round budget %d times; refusing further extensions. "
+                    "A drain returning already-delivered messages instead of the unread slice does this.",
+                    self._steering_resets,
+                )
+            return
+        self._steering_resets += 1
+        self._budget_base = position
 
     def _steering_chunk(self, text: str, iteration: int) -> StreamChunk:
         """The chunk that opens a steered round, carrying the words the user sent.
@@ -552,7 +604,7 @@ class _ToolLoop(_BaseToolLoop):
                         # After dispatch, for the tool_use/tool_result adjacency the provider requires.
                         steering = self._take_steering()
                         if steering is not None:
-                            self._budget_base = chats
+                            self._extend_budget(chats)
                         self._maybe_compact()
                         response = self._client.chat(
                             steering,
@@ -571,7 +623,7 @@ class _ToolLoop(_BaseToolLoop):
                         # pending one replaces it rather than queuing behind it.
                         steering = self._take_steering()
                         if steering is not None:
-                            self._budget_base = chats
+                            self._extend_budget(chats)
                         self._maybe_compact()
                         injected_at = len(self._client.messages)
                         response = self._client.chat(
@@ -593,7 +645,7 @@ class _ToolLoop(_BaseToolLoop):
                         # one more round rather than ending here is what makes steering usable at
                         # all: a turn that calls one tool and then answers offers no other window.
                         self._current_iteration = chats
-                        self._budget_base = chats
+                        self._extend_budget(chats)
                         self._maybe_compact()
                         response = self._client.chat(
                             steering,
@@ -654,7 +706,7 @@ class _ToolLoop(_BaseToolLoop):
                         # them is rejected outright by the provider.
                         steering = self._take_steering()
                         if steering is not None:
-                            self._budget_base = iteration
+                            self._extend_budget(iteration)
                             yield self._steering_chunk(steering, iteration)
                         self._maybe_compact()
                         yield from self._retag(
@@ -679,7 +731,7 @@ class _ToolLoop(_BaseToolLoop):
                         if steering is None:
                             yield self._boundary_chunk(PROVENANCE_CONTINUATION, self._continuation_prompt, iteration)
                         else:
-                            self._budget_base = iteration
+                            self._extend_budget(iteration)
                             yield self._steering_chunk(steering, iteration)
                         yield from self._retag(
                             self._client.chat(
@@ -704,7 +756,7 @@ class _ToolLoop(_BaseToolLoop):
                         # all: a turn that calls one tool and then answers offers no other window.
                         iteration += 1
                         self._current_iteration = iteration
-                        self._budget_base = iteration
+                        self._extend_budget(iteration)
                         self._maybe_compact()
                         yield self._steering_chunk(steering, iteration)
                         yield from self._retag(

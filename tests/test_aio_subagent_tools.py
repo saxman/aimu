@@ -848,3 +848,14 @@ def test_a_spec_level_source_reaches_the_agent_the_spawn_builds(monkeypatch):
     spawn("worker", "do the thing")
 
     assert built["steering"] is source
+
+
+def test_a_non_steering_factory_argument_raises_at_factory_call_time():
+    with pytest.raises(ValueError, match="steering must implement"):
+        make_async_subagent_tool(MODEL, steering="yes")
+
+
+def test_a_non_steering_spec_value_raises_at_factory_call_time():
+    types = {"bad": {"system_message": "x", "steering": 5}}
+    with pytest.raises(ValueError, match=r"agent_types\['bad'\]\['steering'\]"):
+        make_async_subagent_tool(MODEL, agent_types=types)

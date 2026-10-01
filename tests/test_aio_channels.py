@@ -92,3 +92,14 @@ async def test_cli_send_drops_thinking_and_tools_when_the_flags_are_off(capsys):
     out = capsys.readouterr().out
     assert "secret reasoning" not in out and "get_weather" not in out
     assert "answer" in out
+
+
+async def test_cli_send_prints_a_steered_round(capsys):
+    async def gen():
+        yield StreamChunk(StreamingContentType.STEERING, {"text": "use the index instead"})
+        yield StreamChunk(StreamingContentType.GENERATING, "redirected answer")
+
+    await CLIChannel().send(gen())
+    out = capsys.readouterr().out
+    assert "[steering] use the index instead" in out
+    assert "redirected answer" in out

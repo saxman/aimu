@@ -315,7 +315,7 @@ reported to it. The window is bounded and self-healing (it is not the permanent 
 
 - [Manage context](manage-context.md) — `ContextCompacted` is the event this page didn't cover;
   it fires when a conversation is trimmed or summarized mid-run.
-- [`aimu.agents.steering.Steering`](../reference/api/agents.md) — the run behavior this page
+- [`aimu.agents.steering.Steering`](../reference/api/agents.md): the run behavior this page
   mentions but doesn't cover: `Agent.run(steering=...)` drains a source of user messages at each
   round boundary, so a host can steer a run already in progress instead of queuing behind it.
 - [Compare models](compare-models.md) — `last_usage` and `extract_tool_calls` for after-the-fact
