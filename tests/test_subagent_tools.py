@@ -609,7 +609,7 @@ def test_a_non_callable_spec_compaction_raises_at_factory_call_time():
 
 
 class _NoopInbox:
-    def reader(self):
+    def reader(self, agent=None):
         return lambda: []
 
 

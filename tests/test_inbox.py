@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+import functools
+import inspect
+import math
+
+import pytest
+
 from aimu.agents import Agent
 from aimu.models import StreamingContentType
 from tests.helpers import MockModelClient
@@ -62,20 +68,26 @@ def test_the_sync_driver_replaces_the_nudge():
     assert [m["content"] for m in client.messages if m["role"] == "user"] == ["start", "try the cache"]
 
 
-def test_a_source_whose_reader_raises_does_not_end_the_run_on_the_sync_surface():
+def test_a_source_whose_reader_raises_does_not_end_the_run_on_the_sync_surface(caplog):
     class ExplodingReader:
-        def reader(self):
+        def reader(self, agent=None):
             raise RuntimeError("the host built its mailbox wrong")
 
     client = MockModelClient(["tool", "done"])
     agent = Agent(client, tools=[a_tool])
 
-    assert agent.run("start", inbox=ExplodingReader()) == "done"
+    with caplog.at_level("WARNING"):
+        assert agent.run("start", inbox=ExplodingReader()) == "done"
+
+    # The reader's own exception, not a TypeError from the constructor's arity rehearsal: the
+    # guarantee this test is named for is about a *conforming* reader whose body raises, and a
+    # double the loop refuses outright would pass it without ever running that body.
+    assert "the host built its mailbox wrong" in caplog.text
 
 
 def test_a_sync_run_whose_reader_raises_still_reports_that_it_finished():
     class ExplodingReader:
-        def reader(self):
+        def reader(self, agent=None):
             raise RuntimeError("the host built its mailbox wrong")
 
     client = MockModelClient(["done"])
@@ -132,3 +144,39 @@ def test_the_sync_loop_tells_the_inbox_which_agent_is_opening_a_reader():
     agent.run("start", inbox=inbox)
 
     assert inbox.asked == ["researcher"]
+
+
+def test_the_sync_surface_refuses_a_reader_that_takes_no_argument():
+    # The same check as test_aio_inbox.py's, on the sync surface: it lives on the shared
+    # `_BaseToolLoop.__init__`, so both surfaces get it from one place, and this is what says so.
+    from aimu.agents.inbox import Inbox
+
+    class LegacyReader:
+        def reader(self):
+            return lambda: ["use the other file"]
+
+    inbox = LegacyReader()
+    assert isinstance(inbox, Inbox), "the protocol is structural, so this is the gap being pinned"
+
+    client = MockModelClient(["tool", "done"])
+    seen = []
+    agent = Agent(client, tools=[a_tool], name="researcher", events=seen.append)
+
+    with pytest.raises(TypeError, match=r"def reader\(self, agent=None\)"):
+        agent.run("start", inbox=inbox)
+
+    assert seen == []
+
+
+def test_the_sync_surface_accepts_an_un_introspectable_reader():
+    # The fail-open limit, mirrored. See the async twin for why the double reaches for a builtin.
+    class UnreadableReader:
+        reader = functools.partial(math.log)
+
+    with pytest.raises(ValueError):
+        inspect.signature(UnreadableReader().reader)
+
+    client = MockModelClient(["tool", "done"])
+    agent = Agent(client, tools=[a_tool], name="researcher")
+
+    assert agent.run("start", inbox=UnreadableReader()) == "done"

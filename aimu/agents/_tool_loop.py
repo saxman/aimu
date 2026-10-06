@@ -16,6 +16,7 @@ It is internal: the public ladder is ``chat()`` (one turn) -> ``Agent`` (autonom
 from __future__ import annotations
 
 import copy
+import inspect
 import json
 import logging
 import time
@@ -31,6 +32,52 @@ from aimu.models.base import StreamChunk, StreamingContentType
 from aimu.tools.approval import Denied
 
 logger = logging.getLogger(__name__)
+
+
+def _check_reader_arity(inbox: "Inbox", agent_name: Optional[str]) -> None:
+    """Rehearse the ``reader(agent_name)`` call the loop will make, and refuse an inbox it fails on.
+
+    A ``runtime_checkable`` Protocol tests a method's *presence*, never its signature, so a host
+    carrying the 0.33.0-era zero-argument ``reader()`` satisfies both ``isinstance(x, Inbox)`` and
+    ``_check_inbox`` and then fails at the one call the loop makes. Before this check that failure
+    landed in ``_open_inbox``'s broad ``except``: one WARNING line, and an inbox that was inert for
+    the life of every run the host made.
+
+    Rehearsing the real call rather than asking "does ``reader`` accept an argument" is what keeps
+    the check honest in both directions. It cannot refuse an implementation that would have worked
+    (``def reader(self, label)``, with no default, binds fine), and it cannot accept one that will
+    fail (``def reader(self, **kwargs)`` takes a keyword and not the positional the loop passes).
+
+    Raising here rather than at the call is safe for a reason ``_open_inbox``'s docstring gives from
+    the other side: a loop constructor runs before its driver emits ``RunStarted``, so nothing has
+    begun that an exception would leave half-finished. ``_open_inbox`` runs *after* that emit, which
+    is why its own guard stays broad and logs instead.
+
+    It fails open on a reader ``inspect`` cannot read (a ``functools.partial`` over a C-implemented
+    function, a builtin): an unreadable signature is no evidence of a wrong one, and refusing a
+    conforming inbox because it is unusually constructed would be the worse error of the two. Such a
+    reader is accepted unchecked and fails at the call exactly as it did before this check existed.
+    """
+    try:
+        reader_signature = inspect.signature(inbox.reader)
+    except (TypeError, ValueError):
+        return
+    # Deliberately a second try: `bind` reports an arity mismatch with TypeError, and so does
+    # `signature` on something it cannot introspect. One combined try would swallow the mismatch
+    # into the fail-open branch above and leave a check that can never fire.
+    try:
+        reader_signature.bind(agent_name)
+    except TypeError as exc:
+        reader = type(inbox)
+        raise TypeError(
+            f"{reader.__module__}.{reader.__qualname__}.reader{reader_signature} cannot be called "
+            "the way an agent's loop calls it: reader(agent), passing the name of the run opening "
+            "the reader as one positional argument. Widen the signature in the class body, "
+            "`def reader(self, agent=None)`, which is generally not the file the `run(inbox=...)` "
+            "keyword took you to; grep for `def reader(`. The name is passed positionally, so the "
+            "parameter may be called anything, and an unused label may be ignored: only its "
+            "presence matters."
+        ) from exc
 
 
 def _attributing(sink, agent_name, iteration_getter):
@@ -214,6 +261,8 @@ class _BaseToolLoop:
         # The host's source of mid-run user messages, and this run's own cursor over it. The
         # cursor is opened once per run (see _open_inbox) rather than per call, because the
         # source hands out one per reader and a run is what a reader identifies.
+        if inbox is not None:
+            _check_reader_arity(inbox, agent_name)
         self._inbox = inbox
         self._inbox_reader: Optional[Callable[[], list[str]]] = None
         # Where the current round budget starts counting from. A delivered message moves it to

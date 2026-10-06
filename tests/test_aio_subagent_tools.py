@@ -758,7 +758,7 @@ def test_a_non_callable_compaction_raises_at_factory_call_time():
 
 
 class _NoopAsyncInbox:
-    def reader(self):
+    def reader(self, agent=None):
         return lambda: []
 
 
@@ -881,7 +881,7 @@ def test_a_spec_carrying_an_inbox_is_accepted_by_the_validator():
     from aimu.tools.builtin import _validate_subagent_config
 
     class NoopInbox:
-        def reader(self):
+        def reader(self, agent=None):
             return lambda: []
 
     # Raises ValueError naming the key if "inbox" is not in SUBAGENT_SPEC_KEYS.
@@ -892,7 +892,7 @@ def test_a_spec_level_source_reaches_the_agent_the_spawn_builds(monkeypatch):
     from aimu.tools import builtin
 
     class NoopInbox:
-        def reader(self):
+        def reader(self, agent=None):
             return lambda: []
 
     source = NoopInbox()

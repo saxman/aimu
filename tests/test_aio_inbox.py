@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import inspect
+
 import pytest
 
 from aimu.aio import Agent
@@ -240,19 +242,24 @@ async def test_a_structured_run_ignores_an_inbox_message_rather_than_raising():
 
 
 @pytest.mark.asyncio
-async def test_a_source_whose_reader_raises_does_not_end_the_run():
+async def test_a_source_whose_reader_raises_does_not_end_the_run(caplog):
     # The other half of the guarantee the drain's guard makes. `reader()` is called once, at the
     # run's start, and a host that builds its cursor wrong raises there rather than in the drain.
     class ExplodingReader:
-        def reader(self):
+        def reader(self, agent=None):
             raise RuntimeError("the host built its mailbox wrong")
 
     client = MockAsyncModelClient(["tool", "done"])
     agent = Agent(client, tools=[a_tool])
 
-    chunks = await collect(await agent.run("start", stream=True, inbox=ExplodingReader()))
+    with caplog.at_level("WARNING"):
+        chunks = await collect(await agent.run("start", stream=True, inbox=ExplodingReader()))
 
     assert any(c.phase == StreamingContentType.GENERATING and c.content == "done" for c in chunks)
+    # The reader's own exception, not a TypeError from the constructor's arity rehearsal: the
+    # guarantee this test is named for is about a *conforming* reader whose body raises, and a
+    # double the loop refuses outright would pass it without ever running that body.
+    assert "the host built its mailbox wrong" in caplog.text
 
 
 @pytest.mark.asyncio
@@ -260,7 +267,7 @@ async def test_a_run_whose_reader_raises_still_reports_that_it_finished():
     # `_open_inbox` runs ahead of the try/finally that emits RunFinished, so a raise there left
     # a sink holding a RunStarted with nothing after it, breaking the one-finish-per-start contract.
     class ExplodingReader:
-        def reader(self):
+        def reader(self, agent=None):
             raise RuntimeError("the host built its mailbox wrong")
 
     client = MockAsyncModelClient(["done"])
@@ -408,14 +415,16 @@ async def test_a_structured_run_opens_no_reader_and_does_not_raise():
 
 
 @pytest.mark.asyncio
-async def test_a_reader_that_takes_no_argument_delivers_nothing(caplog):
-    # The migration fact the 0.34.0 changelog states, pinned so the sentence cannot go stale. The
-    # `agent=None` default makes the signature in `Inbox` optional *to read*, not optional to
-    # accept: the loop passes the label positionally, so a 0.33.0-era `def reader(self)` raises
-    # TypeError at the one place `_open_inbox` guards, and the run continues with no reader at all.
-    # `isinstance` cannot catch it first (a `runtime_checkable` Protocol checks only that the
-    # method exists, which is also what `_check_inbox` is limited to), so a host that updated its
-    # call site to `inbox=` and left its reader alone gets a logged warning and no deliveries.
+async def test_a_reader_that_takes_no_argument_is_refused_before_the_run_starts():
+    # The migration trap 0.34.0 introduces, and the check that makes it loud. The `agent=None`
+    # default makes the signature in `Inbox` optional *to read*, not optional to accept: the loop
+    # passes the label positionally, so a 0.33.0-era `def reader(self)` cannot be called at all.
+    # `isinstance` cannot catch that first (a `runtime_checkable` Protocol checks only that the
+    # method exists, which is also what `_check_inbox` is limited to), so the loop constructor
+    # rehearses the call it is about to make and raises there. It raises from the constructor and
+    # not from `_open_inbox` for the reason `_open_inbox`'s docstring gives: raising there would
+    # leave a sink holding a `RunStarted` with nothing after it, which is what the empty `seen`
+    # below pins.
     from aimu.agents.inbox import Inbox
 
     class LegacyReader:
@@ -426,10 +435,76 @@ async def test_a_reader_that_takes_no_argument_delivers_nothing(caplog):
     assert isinstance(inbox, Inbox), "the protocol is structural, so this is the gap being pinned"
 
     client = MockAsyncModelClient(["tool", "done"])
+    seen = []
+    agent = Agent(client, tools=[a_tool], name="researcher", events=seen.append)
+
+    with pytest.raises(TypeError, match=r"def reader\(self, agent=None\)"):
+        await agent.run("start", stream=True, inbox=inbox)
+
+    assert seen == []
+    assert [m["content"] for m in client.messages if m["role"] == "user"] == []
+
+
+@pytest.mark.asyncio
+async def test_a_reader_taking_only_keywords_is_refused_too():
+    # The check rehearses the real call, `reader(label)`, rather than asking the weaker question
+    # "does reader accept an argument". `**kwargs` answers yes to the weaker question and still
+    # cannot take a positional, so it has to be refused: the loop's call would fail on it.
+    class KeywordOnlyReader:
+        def reader(self, **kwargs):
+            return lambda: ["use the other file"]
+
+    client = MockAsyncModelClient(["tool", "done"])
+    agent = Agent(client, tools=[a_tool], name="researcher")
+
+    with pytest.raises(TypeError, match="positionally"):
+        await agent.run("start", stream=True, inbox=KeywordOnlyReader())
+
+
+@pytest.mark.asyncio
+async def test_a_reader_with_no_default_for_the_label_is_accepted():
+    # The other half of rehearsing the real call: a rehearsal cannot refuse an implementation that
+    # would have worked. `Inbox` spells the parameter `agent=None`, but the loop always has a label
+    # to pass (`Agent` generates one), so a reader that requires the argument works fine.
+    class RequiresTheLabel:
+        def __init__(self):
+            self.asked = []
+
+        def reader(self, agent):
+            self.asked.append(agent)
+            return lambda: []
+
+    inbox = RequiresTheLabel()
+    client = MockAsyncModelClient(["done"])
+    agent = Agent(client, tools=[a_tool], name="researcher")
+
+    await collect(await agent.run("start", stream=True, inbox=inbox))
+
+    assert inbox.asked == ["researcher"]
+
+
+@pytest.mark.asyncio
+async def test_an_un_introspectable_reader_is_accepted_unchecked(caplog):
+    # The fail-open limit of the rehearsal, stated in the 0.34.0 changelog and pinned here. A
+    # `functools.partial` over a *C-implemented* function has no readable signature, so
+    # `inspect.signature` raises `ValueError` and there is nothing to rehearse; the inbox is
+    # accepted and the call fails where it always did, inside `_open_inbox`'s guard, which logs and
+    # lets the run finish. (A partial over a plain Python function is perfectly introspectable and
+    # would be checked like any other reader, which is why this double reaches for a builtin.)
+    import functools
+    import math
+
+    class UnreadableReader:
+        reader = functools.partial(math.log)
+
+    with pytest.raises(ValueError):
+        inspect.signature(UnreadableReader().reader)
+
+    client = MockAsyncModelClient(["tool", "done"])
     agent = Agent(client, tools=[a_tool], name="researcher")
 
     with caplog.at_level("WARNING"):
-        await collect(await agent.run("start", stream=True, inbox=inbox))
+        chunks = await collect(await agent.run("start", stream=True, inbox=UnreadableReader()))
 
-    assert [m["content"] for m in client.messages if m["role"] == "user"] == ["start"]
+    assert any(c.phase == StreamingContentType.GENERATING and c.content == "done" for c in chunks)
     assert any("could not open a reader" in record.message for record in caplog.records)
