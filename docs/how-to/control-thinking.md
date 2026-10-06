@@ -202,13 +202,13 @@ since this tier sits *above* the model card in the precedence chain and a filled
 shadow a card's own tuned profile.
 
 A spec's keys are a closed set (`system_message`, `tools`, `model`, `thinking`, `generate_kwargs`,
-`max_iterations`, `compaction`, `steering` — `aimu.tools.builtin.SUBAGENT_SPEC_KEYS`), and an
+`max_iterations`, `compaction`, `inbox`; the set is `aimu.tools.builtin.SUBAGENT_SPEC_KEYS`), and an
 unrecognized one raises when the factory is called:
 
 ```python
 make_subagent_tool(model, agent_types={"r": {"system_message": "R.", "thinkng": "high"}})
 # ValueError: agent_types['r'] has unknown key(s): thinkng.
-#             A spec may carry: compaction, generate_kwargs, max_iterations, model, steering,
+#             A spec may carry: compaction, generate_kwargs, inbox, max_iterations, model,
 #             system_message, thinking, tools.
 ```
 

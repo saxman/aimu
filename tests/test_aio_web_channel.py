@@ -160,18 +160,20 @@ async def test_aclose_idempotent():
     assert ws.closed == 1
 
 
-async def test_steering_frame_carries_the_users_words():
-    """Its own frame type rather than a third ``reason`` on ``loop``: ``loop`` means the agent loop
-    injected this round, and a page that rendered steering as a loop frame would attribute the
-    user's own message to the assistant."""
+async def test_inbox_frame_carries_the_users_words():
+    """Its own frame type rather than reusing the finished-message one: that frame is a completed
+    reply (possibly proactive), and this one is the opposite, the user interrupting a reply still
+    in progress. Also distinct from a ``loop`` frame: ``loop`` means the agent loop injected this
+    round, and a page that rendered an inbox message as a loop frame would attribute the user's
+    own message to the assistant."""
     ws = _FakeWS()
     channel = WebChannel(ws)
 
     async def gen():
-        yield StreamChunk(StreamingContentType.STEERING, {"text": "use the index instead"})
+        yield StreamChunk(StreamingContentType.INBOX, {"text": "use the index instead"})
 
     await channel.send(gen())
     assert ws.frames == [
-        {"type": "steering", "text": "use the index instead"},
+        {"type": "inbox", "text": "use the index instead"},
         {"type": "done"},
     ]

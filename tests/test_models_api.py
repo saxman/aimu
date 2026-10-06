@@ -343,6 +343,19 @@ def test_streamchunk_continuing_is_not_text_or_a_tool_call():
     assert not chunk.is_done()
 
 
+def test_streamchunk_inbox_phase_has_its_own_predicate():
+    """INBOX was the one phase with no ``is_*()``, so a consumer dispatching through the predicates
+    had to drop back to an equality check for it alone. It is also the predicate most likely to be
+    confused with ``is_continuing()``, which is why both directions are asserted here."""
+    chunk = StreamChunk(StreamingContentType.INBOX, {"text": "use the other file"})
+    assert chunk.is_inbox()
+    assert not chunk.is_continuing()
+    assert not chunk.is_text()
+    assert not chunk.is_tool_call()
+    assert not chunk.is_done()
+    assert not StreamChunk(StreamingContentType.CONTINUING, {"kind": "continuation", "prompt": "Go."}).is_inbox()
+
+
 def test_streamchunk_tool_calling_content_keys():
     """TOOL_CALLING chunks carry the model's argument dict alongside name and response."""
     chunk = StreamChunk(

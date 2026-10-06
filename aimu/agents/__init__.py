@@ -1,6 +1,7 @@
 from ._tool_loop import DegenerateTurnError, TruncatedTurnError
 from .agent import Agent
 from .base import MessageHistory, Runner
+from .inbox import Inbox
 from .orchestrator_agent import OrchestratorAgent
 from .skill_agent import SkillAgent
 from .workflows.chain import Chain
@@ -19,6 +20,8 @@ __all__ = [
     "TruncatedTurnError",
     "OrchestratorAgent",
     "SkillAgent",
+    # The host seam an agent reads mid-run messages through
+    "Inbox",
     # Workflows (code-controlled)
     "Chain",
     "EvaluatorOptimizer",

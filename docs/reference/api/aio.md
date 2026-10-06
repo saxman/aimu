@@ -29,7 +29,7 @@ Differences from the sync surface:
 
 ::: aimu.aio.OrchestratorAgent
 
-::: aimu.aio.Steering
+::: aimu.aio.Inbox
 
 ## Workflows
 

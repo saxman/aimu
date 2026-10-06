@@ -1,5 +1,174 @@
 # Changelog
 
+## v0.34.0 (2026-10-05): a run already in progress has an inbox, and the inbox knows whose it is
+
+### Agents
+
+- **Change: `Steering` is now `Inbox`, with no legacy path.** 0.33.0 named the seam after one thing
+  a host does with it. Steering is a *use* of mid-run messages, and the mechanism is more general:
+  the loop drains pending user messages at each round boundary and sends them as that round's user
+  message, whether they redirect the run, answer a question it asked, add a constraint, or say
+  thank you. The old name made the general case read as a special one, and made a host reaching for
+  "how do I message a run already in progress" look for the wrong thing. Every public name moves:
+
+  | 0.33.0 | 0.34.0 |
+  | --- | --- |
+  | `aimu.agents.steering` (module) | `aimu.agents.inbox` |
+  | `Steering` (protocol, exported from `aimu` and `aimu.aio`) | `Inbox` |
+  | `Agent.steering` (field, sync and async) | `Agent.inbox` |
+  | `Agent.run(steering=...)` | `Agent.run(inbox=...)` |
+  | `make_subagent_tool(steering=...)`, `make_async_subagent_tool(steering=...)` | `inbox=` |
+  | an `agent_types` spec's `"steering"` key, in `SUBAGENT_SPEC_KEYS` | `"inbox"` |
+  | `StreamingContentType.STEERING`, value `"steering"` | `StreamingContentType.INBOX`, value `"inbox"` |
+  | `pretty_print()` / `CLIChannel` marker `[steering]` | `[message]` |
+  | `WebChannel` frame `{"type": "steering"}` | `{"type": "inbox"}` |
+
+  **Two kinds of consumer break, and what each has to change.** A third-party implementation of the
+  protocol changes its import and its keyword: `from aimu import Steering` becomes
+  `from aimu import Inbox` (or `from aimu.agents.inbox import Inbox`), and `run(steering=...)`
+  becomes `run(inbox=...)`. The class body needs exactly one change beyond that, and it belongs to
+  the `reader(agent=None)` entry below rather than to the rename: `reader()` has to accept the agent
+  name. A consumer that renders chunks changes the member it matches: `STEERING` is `INBOX`, and its
+  *string value* moved from `"steering"` to `"inbox"` too, so an exhaustive `match chunk.phase` over
+  `StreamingContentType` breaks on the member, and a renderer comparing `chunk.phase == "steering"`
+  stops matching. A `WebChannel` page keyed on the frame's `type` needs the same one-word change.
+  Which of those are loud and which are silent is the paragraph after the next one.
+
+  **No alias, deliberately.** A `Steering = Inbox` alias and a `steering=` keyword that
+  forwards would keep the old names working and would also keep the vocabulary that the
+  rename exists to remove: two names for one seam, one of them naming a use case, in a library whose
+  first principle is that it should be readable top to bottom. A deprecation shim here buys
+  compatibility for a protocol published one release ago, at the price of permanently teaching the
+  confusion.
+
+  **The Python API names break at an import or a keyword. Three value-level breaks are silent.**
+  `from aimu import Steering`, `run(steering=...)`, `make_subagent_tool(steering=...)` and a spec's
+  `"steering"` key all fail loudly, the last of them because `SUBAGENT_SPEC_KEYS` is a closed set
+  that raises on a key outside it. What does not fail loudly is anything that never asks Python to
+  resolve a name:
+
+  - a renderer comparing `chunk.phase == "steering"` (the string *value*, not the member) stops
+    matching and renders nothing, since the value moved to `"inbox"` with the member;
+  - a `WebChannel` page keyed on `{"type": "steering"}` renders nothing, because all three
+    consumers dispatch with `if` / `elif` and no `else`: see **Channels** below, which describes
+    both of these from the consumer's side;
+  - a host that set the standing field by *assignment* (`agent.steering = source`) still assigns
+    it. `Agent` is a plain `@dataclass` with no `__slots__`, so the attribute is accepted, nothing
+    reads it, and the run has no inbox. Only the assignment is quiet: `Agent(steering=...)` at
+    construction raises `TypeError` like any unexpected keyword.
+
+  So grep your own tree for the *string*, not only the symbol: `grep -rn "steering\|Steering\|STEERING"` is
+  the migration, and it is the gate AIMU holds itself to for this rename.
+
+- **New: an inbox is told which agent is opening a reader.** `Inbox.reader` is now
+  `reader(agent=None)`, and the loop passes the name of the run opening it. That is what lets a host
+  route a message to *one* run rather than to every run's drain: a host that keeps a mailbox per
+  conversation, or that wants to reach one spawned worker and not its siblings, previously had no
+  way to tell whose reader it was being asked for, because nothing about the calling context
+  identifies a run (under sequential tool dispatch a spawned sub-agent's loop executes in the same
+  asyncio task as the agent that spawned it). All four tool-loop drivers pass it, sync and async,
+  streamed and not, from the one shared `_open_inbox`, and a spawned worker opens its reader under
+  the name that worker was built with (`subagent-<agent_type>` on a typed spawn; the untyped shape
+  has no type to name, so its workers share the fixed `subagent` and a host tells concurrent ones
+  apart by counting opens, as it already had to for two runs of one agent).
+
+  **An implementation must accept the argument, and the `None` default does not buy it a pass.**
+  The label is passed *positionally*, so a host whose parameter has a different name still receives
+  the value, and a 0.33.0-era `def reader(self)` cannot be called at all. The entry below is what
+  happens then, and it is a breaking change rather than a footnote to this one. One fact worth
+  knowing before relying on `None`: a run built through `Agent` always has a name, because
+  `Agent.__post_init__` generates one (`agent-xxxxxx`) when a caller supplies none, so an inbox
+  never sees `None` through the public `Agent` surface and only a directly-constructed loop can pass
+  it. What follows is the part to act on: a generated name is unguessable from outside the run that
+  got it, so a host that does not name its agents gets runs it has a label for and cannot actually
+  address. Name the agents you intend to message.
+
+  **What AIMU deliberately still does not know.** The drain returns `list[str]`, and an `INBOX`
+  chunk's content stays `{"text": str}`: no sender, no address, no selector, no group, no roster, no
+  receipt. Who a message came from, who may send one, and whether delivery is acknowledged are the
+  host's own model, and a protocol carrying envelopes would make every host inherit one host's
+  addressing model. The agent name is the one thing that crosses, and nothing in AIMU attaches
+  meaning to the string beyond handing it back. Tests: `tests/test_inbox.py`,
+  `tests/test_aio_inbox.py`, and the four-driver cases in `tests/test_loop_iteration_parity.py`.
+
+- **Change: an `Inbox` whose `reader` cannot take the agent name is now refused when the run
+  starts, instead of being logged and ignored.** This is the migration the entry above forces, and
+  **a host that degrades silently today will raise after this upgrade**, which is the sentence to
+  act on. `Inbox` is a `runtime_checkable` Protocol, so `isinstance` tests whether `reader` *exists*
+  and never what it accepts; `_check_inbox` is limited to the same question, and it runs only when a
+  spawn factory is called, so it never sees a host's own `Agent.run`. A 0.33.0-era
+  `def reader(self)` therefore passed every check AIMU had and then failed at the one positional
+  call the loop makes, inside `_open_inbox`'s broad guard: one WARNING line, and an inbox that was
+  inert for the life of every run the host made. An inbox that never delivers is indistinguishable
+  from a user who never typed, so that could survive a release unnoticed, which is why the trade is
+  taken this way round. The tool loop's constructor now rehearses the exact call it is about to make
+  and raises `TypeError` naming the class, the signature it found, and the fix.
+
+  **The fix is one line, and it is in the class body.** `def reader(self, agent=None)`. That is
+  generally *not* the file the `run(steering=...)` to `run(inbox=...)` keyword change takes you to:
+  in the one downstream application known to implement this protocol, those are two different modules. So grep for
+  `def reader(` rather than trusting the rename to have walked you past it. The label is passed
+  positionally, so the parameter may be called anything, and a host with no use for it can ignore
+  the value.
+
+  **The check rehearses the call rather than asking the weaker question**, "does `reader` accept an
+  argument". `inspect.signature(inbox.reader).bind(agent_name)` cannot refuse an implementation that
+  would have worked (a required `def reader(self, label)`, with no default, binds fine) and cannot
+  accept one that will fail (`def reader(self, **kwargs)` takes a keyword, not the positional the
+  loop passes, so it is refused). It raises from the loop's constructor rather than from
+  `_open_inbox`, which is what makes raising safe at all: the constructor runs before a driver emits
+  `RunStarted`, where `_open_inbox` runs after it and would leave a sink holding a start with no
+  finish. **Its one limit, stated plainly:** a `reader` that `inspect.signature` cannot read (a
+  `functools.partial` over a C-implemented function, a builtin) is accepted unchecked and fails at
+  the call exactly as it did before, because an unreadable signature is no evidence of a wrong one,
+  and refusing a conforming inbox for being unusually constructed is the worse of the two errors.
+  Pinned on both surfaces, including that fail-open path, in `tests/test_inbox.py` and
+  `tests/test_aio_inbox.py`.
+
+- **New** `Inbox` is exported from `aimu.agents`, so `from aimu.agents import Agent, Inbox` works.
+  It was reachable from top-level `aimu` and from `aimu.aio` but not from the package that defines
+  it, where `Agent`, `SkillAgent` and the loop's own errors all are, for no reason anyone had
+  written down. Additive; nothing moves.
+
+### Models
+
+- **New** `StreamChunk.is_inbox()`, beside `is_continuing()`. `INBOX` was the only phase with no
+  predicate, so a consumer dispatching through them had to fall back to an equality check for that
+  one phase alone. Additive, and named for its phase like the rest.
+
+### Console output
+
+- **Change** `pretty_print()`'s marker for a round that delivers an inbox message is now
+  `[message] <text>`, not `[steering] <text>`. It is still ungated by `show_thinking` /
+  `show_tools`, still one line per delivered message, and still deliberately distinct from
+  `[continuing: <kind>]`, which names a prompt the loop composed for itself.
+
+  **What that marker costs, written down rather than left to be tripped over.** `[message]` is the
+  one marker here that does not mirror its phase's name: `pretty_print()`'s `[tool]` is
+  `TOOL_CALLING` and its `[continuing: <kind>]` is `CONTINUING`, where `[message]` is `INBOX`.
+  `CLIChannel` is the same way and adds `[thinking]` for `THINKING`. So a reader who meets the line
+  in a terminal cannot grep from it to `StreamingContentType.INBOX`, which is the one thing a
+  marker naming its phase buys. It is kept anyway, because `[message]` is what the line *is* to the
+  person reading it where `[inbox]` would name the machinery, and because a marker is read far more
+  often than it is traced back. The marker is not changing; this is the note that says what it
+  costs.
+
+### Channels
+
+- **Change** `CLIChannel` prints the same `[message] <text>` marker, and `WebChannel`'s frame is now
+  `{"type": "inbox", "text": str}` rather than `{"type": "steering", "text": str}`. A page keyed on
+  the old `type` renders nothing for the new one, since all three consumers dispatch with `if` /
+  `elif` and no `else`. It remains its own frame type rather than a third `reason` on `loop`, for
+  the reason it was given one: `loop` means the agent loop injected the round, so conflating the two
+  would attribute the user's own words to the assistant.
+
+  **One word now means two things across the two channels, and that is worth knowing before you
+  read either.** `CLIChannel`'s `[message]` marks an inbox *delivery*, something the user sent into
+  a run already in progress, while `WebChannel`'s `{"type": "message"}` frame is a finished,
+  non-streamed *reply* and has been since that frame existed; the web frame for a delivery is
+  `{"type": "inbox"}`. Each name was chosen for its own consumer, so neither is wrong on its own
+  terms, and neither is changing. See **Console output** above for the related cost on the CLI side.
+
 ## v0.33.0 (2026-09-29): a run already in progress can be steered, and a refused tool call says why
 
 ### Tools

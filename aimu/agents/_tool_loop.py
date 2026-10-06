@@ -16,6 +16,7 @@ It is internal: the public ladder is ``chat()`` (one turn) -> ``Agent`` (autonom
 from __future__ import annotations
 
 import copy
+import inspect
 import json
 import logging
 import time
@@ -23,7 +24,7 @@ from collections import Counter
 from dataclasses import replace
 from typing import Any, Callable, Iterator, Optional, Union
 
-from aimu.agents.steering import Steering
+from aimu.agents.inbox import Inbox
 from aimu.context import count_tokens
 from aimu.events import ContextCompacted, EventSink, RunEvent, RunFinished, RunStarted, ToolCalled, ToolDenied, emit
 from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER, PROVENANCE_KEY
@@ -31,6 +32,52 @@ from aimu.models.base import StreamChunk, StreamingContentType
 from aimu.tools.approval import Denied
 
 logger = logging.getLogger(__name__)
+
+
+def _check_reader_arity(inbox: "Inbox", agent_name: Optional[str]) -> None:
+    """Rehearse the ``reader(agent_name)`` call the loop will make, and refuse an inbox it fails on.
+
+    A ``runtime_checkable`` Protocol tests a method's *presence*, never its signature, so a host
+    carrying the 0.33.0-era zero-argument ``reader()`` satisfies both ``isinstance(x, Inbox)`` and
+    ``_check_inbox`` and then fails at the one call the loop makes. Before this check that failure
+    landed in ``_open_inbox``'s broad ``except``: one WARNING line, and an inbox that was inert for
+    the life of every run the host made.
+
+    Rehearsing the real call rather than asking "does ``reader`` accept an argument" is what keeps
+    the check honest in both directions. It cannot refuse an implementation that would have worked
+    (``def reader(self, label)``, with no default, binds fine), and it cannot accept one that will
+    fail (``def reader(self, **kwargs)`` takes a keyword and not the positional the loop passes).
+
+    Raising here rather than at the call is safe for a reason ``_open_inbox``'s docstring gives from
+    the other side: a loop constructor runs before its driver emits ``RunStarted``, so nothing has
+    begun that an exception would leave half-finished. ``_open_inbox`` runs *after* that emit, which
+    is why its own guard stays broad and logs instead.
+
+    It fails open on a reader ``inspect`` cannot read (a ``functools.partial`` over a C-implemented
+    function, a builtin): an unreadable signature is no evidence of a wrong one, and refusing a
+    conforming inbox because it is unusually constructed would be the worse error of the two. Such a
+    reader is accepted unchecked and fails at the call exactly as it did before this check existed.
+    """
+    try:
+        reader_signature = inspect.signature(inbox.reader)
+    except (TypeError, ValueError):
+        return
+    # Deliberately a second try: `bind` reports an arity mismatch with TypeError, and so does
+    # `signature` on something it cannot introspect. One combined try would swallow the mismatch
+    # into the fail-open branch above and leave a check that can never fire.
+    try:
+        reader_signature.bind(agent_name)
+    except TypeError as exc:
+        reader = type(inbox)
+        raise TypeError(
+            f"{reader.__module__}.{reader.__qualname__}.reader{reader_signature} cannot be called "
+            "the way an agent's loop calls it: reader(agent), passing the name of the run opening "
+            "the reader as one positional argument. Widen the signature in the class body, "
+            "`def reader(self, agent=None)`, which is generally not the file the `run(inbox=...)` "
+            "keyword took you to; grep for `def reader(`. The name is passed positionally, so the "
+            "parameter may be called anything, and an unused label may be ignored: only its "
+            "presence matters."
+        ) from exc
 
 
 def _attributing(sink, agent_name, iteration_getter):
@@ -184,7 +231,7 @@ class _BaseToolLoop:
         events: Optional[EventSink] = None,
         agent_name: Optional[str] = None,
         compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
-        steering: Optional["Steering"] = None,
+        inbox: Optional["Inbox"] = None,
     ):
         # ``tools`` is either the tool-callable list, or a zero-arg callable returning it
         # (re-read each round so tools added mid-run — e.g. SkillAgent.reload_skills authoring a
@@ -212,19 +259,21 @@ class _BaseToolLoop:
         # drop principle 6 was written about, so an applied compaction is never silent.
         self._compaction = compaction
         # The host's source of mid-run user messages, and this run's own cursor over it. The
-        # cursor is opened once per run (see _open_steering) rather than per call, because the
+        # cursor is opened once per run (see _open_inbox) rather than per call, because the
         # source hands out one per reader and a run is what a reader identifies.
-        self._steering = steering
-        self._steering_reader: Optional[Callable[[], list[str]]] = None
-        # Where the current round budget starts counting from. A delivered steering message moves
-        # it to the round it landed in, which gives the loop a fresh max_rounds: the cap bounds
+        if inbox is not None:
+            _check_reader_arity(inbox, agent_name)
+        self._inbox = inbox
+        self._inbox_reader: Optional[Callable[[], list[str]]] = None
+        # Where the current round budget starts counting from. A delivered message moves it to
+        # the round it landed in, which gives the loop a fresh max_rounds: the cap bounds
         # autonomous iteration, and a human message ends the autonomous stretch.
         self._budget_base = 0
-        # How many times steering has moved that base, and whether the refusal has been reported.
-        # Bounded for the reason _extend_budget explains: the human action a reset stands for is
-        # self-limiting and a misbehaving drain is not.
-        self._steering_resets = 0
-        self._steering_cap_reported = False
+        # How many times a message has moved that base, and whether the refusal has been
+        # reported. Bounded for the reason _extend_budget explains: the human action a reset
+        # stands for is self-limiting and a misbehaving drain is not.
+        self._message_resets = 0
+        self._message_cap_reported = False
         # Updated by run()/run_streamed() right before every client call, so the attributing
         # sink (see _attributing_sink) can report which round a client-emitted event happened
         # in without the client itself ever knowing about rounds.
@@ -363,31 +412,31 @@ class _BaseToolLoop:
             iteration=iteration,
         )
 
-    def _open_steering(self) -> None:
-        """Open this run's own cursor over the steering source. Called once, at the run's start.
+    def _open_inbox(self) -> None:
+        """Open this run's own cursor over the inbox. Called once, at the run's start.
 
         Guarded for the same reason the drain is, and it is the more important of the two: this
         runs *ahead* of the try/finally that emits ``RunFinished``, so a host whose ``reader()``
         raises used to end the run before it began and leave a sink holding a ``RunStarted`` with
-        nothing after it. A run that cannot be steered still runs.
+        nothing after it. A run with no working inbox still runs.
         """
-        if self._steering is None:
-            self._steering_reader = None
+        if self._inbox is None:
+            self._inbox_reader = None
             return
         try:
-            self._steering_reader = self._steering.reader()
+            self._inbox_reader = self._inbox.reader(self._agent_name)
         except Exception:
-            logger.warning("Steering source could not open a reader; the run continues unsteered.", exc_info=True)
-            self._steering_reader = None
+            logger.warning("Inbox could not open a reader; the run continues without one.", exc_info=True)
+            self._inbox_reader = None
 
-    def _take_steering(self) -> Optional[str]:
-        """Pending steering messages as one user message, or None if there are none.
+    def _take_message(self) -> Optional[str]:
+        """Pending inbox messages as one user message, or None if there are none.
 
         Several messages that arrived at the same boundary are delivered together, in one round:
         they are all things the user said before the model next read anything, so splitting them
         across rounds would spend model calls to no purpose.
 
-        Never raises into the loop, and the shape check is part of keeping that true. The source
+        Never raises into the loop, and the shape check is part of keeping that true. The inbox
         belongs to the host application, and a run that died because the host's mailbox misbehaved
         would lose work the mailbox has nothing to do with.
 
@@ -395,23 +444,23 @@ class _BaseToolLoop:
         announce itself: ``str`` is iterable, so an unchecked comprehension accepts ``"stop"`` and
         delivers it to the model as four one-character paragraphs. That is worse than a raise.
         """
-        if self._steering_reader is None:
+        if self._inbox_reader is None:
             return None
         try:
-            pending = self._steering_reader()
+            pending = self._inbox_reader()
             if isinstance(pending, str) or not isinstance(pending, (list, tuple)):
-                raise TypeError(f"a steering drain must return a list of strings, got {type(pending).__name__}")
+                raise TypeError(f"an inbox drain must return a list of strings, got {type(pending).__name__}")
             for text in pending:
                 if not isinstance(text, str):
-                    raise TypeError(f"a steering drain must return strings, got a {type(text).__name__}")
+                    raise TypeError(f"an inbox drain must return strings, got a {type(text).__name__}")
             texts = [text.strip() for text in pending if text.strip()]
         except Exception:
-            logger.warning("Steering source misbehaved; the run continues unsteered.", exc_info=True)
+            logger.warning("Inbox misbehaved; the run continues without delivering its message.", exc_info=True)
             return None
         return "\n\n".join(texts) if texts else None
 
     def _extend_budget(self, position: int) -> None:
-        """Move the round budget's base, so a steered round begins a fresh ``max_rounds`` stretch.
+        """Move the round budget's base, so a message round begins a fresh ``max_rounds`` stretch.
 
         Capped, unlike the human action it stands for. ``max_rounds`` is the only bound on what a
         run can spend, and a drain that never advances its cursor (returning its whole list again
@@ -421,31 +470,31 @@ class _BaseToolLoop:
 
         Refusing an extension does not refuse the message: the text is still delivered on the call
         the loop was making anyway, and only the budget stops growing, so a host that genuinely
-        steers this often degrades to a turn that ends sooner rather than one that drops input.
+        messages this often degrades to a turn that ends sooner rather than one that drops input.
         """
-        if self._steering_resets >= self._max_rounds:
-            if not self._steering_cap_reported:
-                self._steering_cap_reported = True
+        if self._message_resets >= self._max_rounds:
+            if not self._message_cap_reported:
+                self._message_cap_reported = True
                 logger.warning(
-                    "Steering has extended this run's round budget %d times; refusing further extensions. "
+                    "The inbox has extended this run's round budget %d times; refusing further extensions. "
                     "A drain returning already-delivered messages instead of the unread slice does this.",
-                    self._steering_resets,
+                    self._message_resets,
                 )
             return
-        self._steering_resets += 1
+        self._message_resets += 1
         self._budget_base = position
 
-    def _steering_chunk(self, text: str, iteration: int) -> StreamChunk:
-        """The chunk that opens a steered round, carrying the words the user sent.
+    def _message_chunk(self, text: str, iteration: int) -> StreamChunk:
+        """The chunk that opens a message round, carrying the words the user sent.
 
         Deliberately not :meth:`_boundary_chunk`. That one's ``kind`` is the provenance value the
         injected message is tagged with, so a live-stream consumer and a stored-message consumer
-        agree on which injection happened. A steering message is tagged with nothing, because it
+        agree on which injection happened. An inbox message is tagged with nothing, because it
         is the user's message rather than one the loop composed, and reporting it as a
         ``CONTINUING`` injection would have a transcript attribute the user's words to the loop.
         """
         return StreamChunk(
-            StreamingContentType.STEERING,
+            StreamingContentType.INBOX,
             {"text": text},
             agent=self._agent_name,
             iteration=iteration,
@@ -577,7 +626,7 @@ class _ToolLoop(_BaseToolLoop):
         images: Optional[list] = None,
     ) -> str:
         emit(self._events, RunStarted(agent=self._agent_name, iteration=0, task=user_message or ""))
-        self._open_steering()
+        self._open_inbox()
         result: Optional[str] = None
         error: Optional[BaseException] = None
         last_iteration = 0
@@ -593,8 +642,8 @@ class _ToolLoop(_BaseToolLoop):
                     thinking=self._thinking,
                 )
                 chats = 1  # ``max_rounds`` caps the total number of model turns in the loop.
-                # A delivered steering message moves ``self._budget_base`` to the round it landed
-                # in, which gives the loop a fresh ``max_rounds`` counted from there.
+                # A delivered message moves ``self._budget_base`` to the round it landed in,
+                # which gives the loop a fresh ``max_rounds`` counted from there.
                 while chats - self._budget_base < self._max_rounds:
                     last_iteration = chats - 1
                     state = classify_terminal_turn(self._client.messages)
@@ -602,12 +651,12 @@ class _ToolLoop(_BaseToolLoop):
                         self._dispatch(last_iteration)
                         self._current_iteration = chats
                         # After dispatch, for the tool_use/tool_result adjacency the provider requires.
-                        steering = self._take_steering()
-                        if steering is not None:
+                        message = self._take_message()
+                        if message is not None:
                             self._extend_budget(chats)
                         self._maybe_compact()
                         response = self._client.chat(
-                            steering,
+                            message,
                             generate_kwargs=generate_kwargs,
                             tools=self._current_tools(),
                             thinking=self._thinking,
@@ -621,34 +670,34 @@ class _ToolLoop(_BaseToolLoop):
                         self._current_iteration = chats
                         # A real user message is a better resumption than the generic nudge, so a
                         # pending one replaces it rather than queuing behind it.
-                        steering = self._take_steering()
-                        if steering is not None:
+                        message = self._take_message()
+                        if message is not None:
                             self._extend_budget(chats)
                         self._maybe_compact()
                         injected_at = len(self._client.messages)
                         response = self._client.chat(
-                            steering if steering is not None else self._continuation_prompt,
+                            message if message is not None else self._continuation_prompt,
                             generate_kwargs=generate_kwargs,
                             tools=self._current_tools(),
                             thinking=self._thinking,
                         )
-                        if steering is None:
-                            # Only the loop's own prompt is tagged. A steering message is the
+                        if message is None:
+                            # Only the loop's own prompt is tagged. An inbox message is the
                             # user's, and tagging it would report it as something the loop said.
                             self._tag_injected(injected_at, PROVENANCE_CONTINUATION)
                     else:  # TERMINAL_HEALTHY
-                        steering = self._take_steering()
-                        if steering is None:
+                        message = self._take_message()
+                        if message is None:
                             result = response
                             return result
                         # A message that arrived while the model was producing its answer. Taking
-                        # one more round rather than ending here is what makes steering usable at
+                        # one more round rather than ending here is what makes the inbox usable at
                         # all: a turn that calls one tool and then answers offers no other window.
                         self._current_iteration = chats
                         self._extend_budget(chats)
                         self._maybe_compact()
                         response = self._client.chat(
-                            steering,
+                            message,
                             generate_kwargs=generate_kwargs,
                             tools=self._current_tools(),
                             thinking=self._thinking,
@@ -677,7 +726,7 @@ class _ToolLoop(_BaseToolLoop):
         images: Optional[list] = None,
     ) -> Iterator[StreamChunk]:
         emit(self._events, RunStarted(agent=self._agent_name, iteration=0, task=user_message or ""))
-        self._open_steering()
+        self._open_inbox()
         error: Optional[BaseException] = None
         iteration = 0
         self._current_iteration = 0
@@ -704,14 +753,14 @@ class _ToolLoop(_BaseToolLoop):
                         # Drained after dispatch and never before: a tool result has to sit
                         # immediately after its tool_use block, so a user message slipped between
                         # them is rejected outright by the provider.
-                        steering = self._take_steering()
-                        if steering is not None:
+                        message = self._take_message()
+                        if message is not None:
                             self._extend_budget(iteration)
-                            yield self._steering_chunk(steering, iteration)
+                            yield self._message_chunk(message, iteration)
                         self._maybe_compact()
                         yield from self._retag(
                             self._client.chat(
-                                steering,
+                                message,
                                 generate_kwargs=generate_kwargs,
                                 stream=True,
                                 tools=self._current_tools(),
@@ -725,17 +774,17 @@ class _ToolLoop(_BaseToolLoop):
                         self._current_iteration = iteration
                         # A real user message is a better resumption than the generic nudge, so a
                         # pending one replaces it rather than queuing behind it.
-                        steering = self._take_steering()
+                        message = self._take_message()
                         self._maybe_compact()
                         injected_at = len(self._client.messages)
-                        if steering is None:
+                        if message is None:
                             yield self._boundary_chunk(PROVENANCE_CONTINUATION, self._continuation_prompt, iteration)
                         else:
                             self._extend_budget(iteration)
-                            yield self._steering_chunk(steering, iteration)
+                            yield self._message_chunk(message, iteration)
                         yield from self._retag(
                             self._client.chat(
-                                steering if steering is not None else self._continuation_prompt,
+                                message if message is not None else self._continuation_prompt,
                                 generate_kwargs=generate_kwargs,
                                 stream=True,
                                 tools=self._current_tools(),
@@ -743,25 +792,25 @@ class _ToolLoop(_BaseToolLoop):
                             ),
                             iteration,
                         )
-                        if steering is None:
-                            # Only the loop's own prompt is tagged. A steering message is the
+                        if message is None:
+                            # Only the loop's own prompt is tagged. An inbox message is the
                             # user's, and tagging it would report it as something the loop said.
                             self._tag_injected(injected_at, PROVENANCE_CONTINUATION)
                     else:  # TERMINAL_HEALTHY
-                        steering = self._take_steering()
-                        if steering is None:
+                        message = self._take_message()
+                        if message is None:
                             return
                         # A message that arrived while the model was producing its answer. Taking
-                        # one more round rather than ending here is what makes steering usable at
+                        # one more round rather than ending here is what makes the inbox usable at
                         # all: a turn that calls one tool and then answers offers no other window.
                         iteration += 1
                         self._current_iteration = iteration
                         self._extend_budget(iteration)
                         self._maybe_compact()
-                        yield self._steering_chunk(steering, iteration)
+                        yield self._message_chunk(message, iteration)
                         yield from self._retag(
                             self._client.chat(
-                                steering,
+                                message,
                                 generate_kwargs=generate_kwargs,
                                 stream=True,
                                 tools=self._current_tools(),

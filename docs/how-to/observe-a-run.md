@@ -1,8 +1,8 @@
 # Observe a run
 
 A `chat()` call and an `Agent.run()` both do more than the string they return: a generate_kwargs
-merge, a thinking-effort resolution, zero-or-more tool calls, maybe a compaction pass, maybe a
-steering message drained at a round boundary, one or more requests to a provider. None of that is
+merge, a thinking-effort resolution, zero-or-more tool calls, maybe a compaction pass, maybe an
+inbox message drained at a round boundary, one or more requests to a provider. None of that is
 visible in the return value. `aimu.events` is the
 telemetry channel that makes it visible: a sink is one callable that takes one event, and you
 attach it to a client, an agent, an orchestrator, or a workflow to see what actually happened.
@@ -315,9 +315,9 @@ reported to it. The window is bounded and self-healing (it is not the permanent 
 
 - [Manage context](manage-context.md) — `ContextCompacted` is the event this page didn't cover;
   it fires when a conversation is trimmed or summarized mid-run.
-- [`aimu.agents.steering.Steering`](../reference/api/agents.md): the run behavior this page
-  mentions but doesn't cover: `Agent.run(steering=...)` drains a source of user messages at each
-  round boundary, so a host can steer a run already in progress instead of queuing behind it.
+- [`aimu.agents.inbox.Inbox`](../reference/api/agents.md): the run behavior this page
+  mentions but doesn't cover: `Agent.run(inbox=...)` drains a source of user messages at each
+  round boundary, so a host can message a run already in progress instead of queuing behind it.
 - [Compare models](compare-models.md) — `last_usage` and `extract_tool_calls` for after-the-fact
   comparison across models, rather than a live sink.
 - [Gate tool calls](gate-tool-calls.md) — the `tool_approval` hook that produces `ToolDenied`.

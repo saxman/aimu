@@ -47,7 +47,7 @@ class _AsyncToolLoop(_BaseToolLoop):
         images: Optional[list] = None,
     ) -> str:
         emit(self._events, RunStarted(agent=self._agent_name, iteration=0, task=user_message or ""))
-        self._open_steering()
+        self._open_inbox()
         result: Optional[str] = None
         error: Optional[BaseException] = None
         last_iteration = 0
@@ -67,9 +67,9 @@ class _AsyncToolLoop(_BaseToolLoop):
                 # makes (mirrors the sync engine's ``chats - self._budget_base < self._max_rounds``
                 # with ``chats`` counting from 1): the initial call above is the first of those,
                 # so the loop may run at most ``max_rounds - 1`` further times before a delivered
-                # steering message moves ``self._budget_base`` to the round it landed in and buys
-                # a fresh budget counted from there. The forced wrap-up below is the one
-                # deliberate call beyond this cap.
+                # message moves ``self._budget_base`` to the round it landed in and buys a fresh
+                # budget counted from there. The forced wrap-up below is the one deliberate call
+                # beyond this cap.
                 while rounds + 1 - self._budget_base < self._max_rounds:
                     last_iteration = rounds
                     state = classify_terminal_turn(self._client.messages)
@@ -77,12 +77,12 @@ class _AsyncToolLoop(_BaseToolLoop):
                         await self._dispatch(last_iteration)
                         self._current_iteration = rounds + 1
                         # After dispatch, for the tool_use/tool_result adjacency the provider requires.
-                        steering = self._take_steering()
-                        if steering is not None:
+                        message = self._take_message()
+                        if message is not None:
                             self._extend_budget(rounds + 1)
                         self._maybe_compact()
                         response = await self._client.chat(
-                            steering,
+                            message,
                             generate_kwargs=generate_kwargs,
                             tools=self._current_tools(),
                             thinking=self._thinking,
@@ -92,34 +92,34 @@ class _AsyncToolLoop(_BaseToolLoop):
                         self._current_iteration = rounds + 1
                         # A real user message is a better resumption than the generic nudge, so a
                         # pending one replaces it rather than queuing behind it.
-                        steering = self._take_steering()
-                        if steering is not None:
+                        message = self._take_message()
+                        if message is not None:
                             self._extend_budget(rounds + 1)
                         self._maybe_compact()
                         injected_at = len(self._client.messages)
                         response = await self._client.chat(
-                            steering if steering is not None else self._continuation_prompt,
+                            message if message is not None else self._continuation_prompt,
                             generate_kwargs=generate_kwargs,
                             tools=self._current_tools(),
                             thinking=self._thinking,
                         )
-                        if steering is None:
-                            # Only the loop's own prompt is tagged. A steering message is the
+                        if message is None:
+                            # Only the loop's own prompt is tagged. An inbox message is the
                             # user's, and tagging it would report it as something the loop said.
                             self._tag_injected(injected_at, PROVENANCE_CONTINUATION)
                     else:  # TERMINAL_HEALTHY
-                        steering = self._take_steering()
-                        if steering is None:
+                        message = self._take_message()
+                        if message is None:
                             result = response
                             return result
                         # A message that arrived while the model was producing its answer. Taking
-                        # one more round rather than ending here is what makes steering usable at
+                        # one more round rather than ending here is what makes the inbox usable at
                         # all: a turn that calls one tool and then answers offers no other window.
                         self._current_iteration = rounds + 1
                         self._extend_budget(rounds + 1)
                         self._maybe_compact()
                         response = await self._client.chat(
-                            steering,
+                            message,
                             generate_kwargs=generate_kwargs,
                             tools=self._current_tools(),
                             thinking=self._thinking,
@@ -148,7 +148,7 @@ class _AsyncToolLoop(_BaseToolLoop):
         images: Optional[list] = None,
     ) -> AsyncIterator[StreamChunk]:
         emit(self._events, RunStarted(agent=self._agent_name, iteration=0, task=user_message or ""))
-        self._open_steering()
+        self._open_inbox()
         error: Optional[BaseException] = None
         iteration = 0
         self._current_iteration = 0
@@ -165,10 +165,12 @@ class _AsyncToolLoop(_BaseToolLoop):
                 )
                 async for chunk in stream:
                     yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
-                # Mirrors the sync engine's ``run_streamed`` (``iteration + 1 < self._max_rounds``):
-                # the initial stream above already made the first of ``max_rounds`` calls the
-                # bounded loop is permitted, so it may run at most ``max_rounds - 1`` further
-                # times. The forced wrap-up below is the one deliberate call beyond this cap.
+                # Mirrors the sync engine's ``run_streamed``
+                # (``iteration + 1 - self._budget_base < self._max_rounds``): the initial stream
+                # above already made the first of ``max_rounds`` calls the bounded loop is
+                # permitted, so it may run at most ``max_rounds - 1`` further times, counted from
+                # ``_budget_base`` rather than from zero so a delivered inbox message buys a fresh
+                # budget. The forced wrap-up below is the one deliberate call beyond this cap.
                 while iteration + 1 - self._budget_base < self._max_rounds:
                     state = classify_terminal_turn(self._client.messages)
                     if state == TERMINAL_PENDING_TOOLS:
@@ -179,13 +181,13 @@ class _AsyncToolLoop(_BaseToolLoop):
                         # Drained after dispatch and never before: a tool result has to sit
                         # immediately after its tool_use block, so a user message slipped between
                         # them is rejected outright by the provider.
-                        steering = self._take_steering()
-                        if steering is not None:
+                        message = self._take_message()
+                        if message is not None:
                             self._extend_budget(iteration)
-                            yield self._steering_chunk(steering, iteration)
+                            yield self._message_chunk(message, iteration)
                         self._maybe_compact()
                         stream = await self._client.chat(
-                            steering,
+                            message,
                             generate_kwargs=generate_kwargs,
                             stream=True,
                             tools=self._current_tools(),
@@ -199,16 +201,16 @@ class _AsyncToolLoop(_BaseToolLoop):
                         self._current_iteration = iteration
                         # A real user message is a better resumption than the generic nudge, so a
                         # pending one replaces it rather than queuing behind it.
-                        steering = self._take_steering()
+                        message = self._take_message()
                         self._maybe_compact()
                         injected_at = len(self._client.messages)
-                        if steering is None:
+                        if message is None:
                             yield self._boundary_chunk(PROVENANCE_CONTINUATION, self._continuation_prompt, iteration)
                         else:
                             self._extend_budget(iteration)
-                            yield self._steering_chunk(steering, iteration)
+                            yield self._message_chunk(message, iteration)
                         stream = await self._client.chat(
-                            steering if steering is not None else self._continuation_prompt,
+                            message if message is not None else self._continuation_prompt,
                             generate_kwargs=generate_kwargs,
                             stream=True,
                             tools=self._current_tools(),
@@ -216,24 +218,24 @@ class _AsyncToolLoop(_BaseToolLoop):
                         )
                         async for chunk in stream:
                             yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
-                        if steering is None:
-                            # Only the loop's own prompt is tagged. A steering message is the
+                        if message is None:
+                            # Only the loop's own prompt is tagged. An inbox message is the
                             # user's, and tagging it would report it as something the loop said.
                             self._tag_injected(injected_at, PROVENANCE_CONTINUATION)
                     else:  # TERMINAL_HEALTHY
-                        steering = self._take_steering()
-                        if steering is None:
+                        message = self._take_message()
+                        if message is None:
                             return
                         # A message that arrived while the model was producing its answer. Taking
-                        # one more round rather than ending here is what makes steering usable at
+                        # one more round rather than ending here is what makes the inbox usable at
                         # all: a turn that calls one tool and then answers offers no other window.
                         iteration += 1
                         self._current_iteration = iteration
                         self._extend_budget(iteration)
                         self._maybe_compact()
-                        yield self._steering_chunk(steering, iteration)
+                        yield self._message_chunk(message, iteration)
                         stream = await self._client.chat(
-                            steering,
+                            message,
                             generate_kwargs=generate_kwargs,
                             stream=True,
                             tools=self._current_tools(),

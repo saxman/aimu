@@ -22,8 +22,8 @@ second question, answered by two `ModelSpec` flags behind the portable
 
 Note that a model declaring a level is not sufficient on its own: the active provider also has to
 be able to express it. llama.cpp, the OpenAI cloud client and Gemini emit nothing today, so
-`thinking=` warns rather than steering there. The [how-to](../how-to/control-thinking.md) has the
-per-provider mechanisms.
+`thinking=` warns rather than taking effect there. The [how-to](../how-to/control-thinking.md) has
+the per-provider mechanisms.
 
 ## Anthropic (`AnthropicModel`)
 

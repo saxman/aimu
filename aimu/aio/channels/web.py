@@ -25,10 +25,12 @@ JSON frame protocol (server -> browser, the contract with any page):
   ``"final_answer"`` (the round cap forced a tools-disabled wrap-up), and ``text`` is the prompt
   actually sent. Emitted unconditionally, not gated by ``stream_thinking`` / ``stream_tools``: it
   happens at most a handful of times per run, and it is what explains a thinner-than-expected answer.
-- ``{"type": "steering", "text": str}`` (a message the user sent into this run while it was
-  already going, ``STEERING``): its own frame type rather than a third ``reason`` on ``loop``,
-  because ``loop`` means the agent loop injected the round and a page that conflated the two would
-  attribute the user's own words to the assistant. Emitted unconditionally, for ``loop``'s reason.
+- ``{"type": "inbox", "text": str}`` (a message the user sent into this run while it was
+  already going, ``INBOX``): distinct from ``loop``, because ``loop`` means the agent loop
+  injected the round and a page that conflated the two would attribute the user's own words to
+  the assistant. Its own type rather than reusing ``"message"`` above, because that frame is a
+  finished reply (possibly proactive) and this one is the opposite: the user interrupting a reply
+  still in progress. Emitted unconditionally, for ``loop``'s reason.
 - ``{"type": "done"}`` -- terminates a streamed reply.
 
 Subclasses add their own frame types (e.g. conversation lists, approval prompts) by calling the public
@@ -102,9 +104,9 @@ class WebChannel(Channel):
             elif chunk.phase == StreamingContentType.CONTINUING:
                 call = chunk.content if isinstance(chunk.content, dict) else {}
                 await self.send_frame({"type": "loop", "reason": call.get("kind", ""), "text": call.get("prompt", "")})
-            elif chunk.phase == StreamingContentType.STEERING:
+            elif chunk.phase == StreamingContentType.INBOX:
                 sent = chunk.content if isinstance(chunk.content, dict) else {}
-                await self.send_frame({"type": "steering", "text": sent.get("text", "")})
+                await self.send_frame({"type": "inbox", "text": sent.get("text", "")})
         await self.send_frame({"type": "done"})
 
     async def send_frame(self, frame: dict) -> None:

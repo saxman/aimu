@@ -16,7 +16,7 @@ Agents and code-controlled workflows.
 
 ::: aimu.agents.OrchestratorAgent
 
-::: aimu.agents.steering.Steering
+::: aimu.agents.inbox.Inbox
 
 ## Workflows
 
