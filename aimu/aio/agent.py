@@ -215,7 +215,8 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         ``inbox`` is a per-run override of ``self.inbox`` (an :class:`~aimu.agents.inbox.Inbox`
         source of user messages that arrive while the run is in progress). The loop opens one reader
         from it at the run's start and drains that reader once per round; whatever it gets is sent as
-        that round's user message. A delivered message resets the round budget.
+        that round's user message. A delivered message resets the round budget. Not used by the
+        ``schema=`` structured-output path, which opens no reader at all.
         See the sync :meth:`aimu.agents.Agent.run` for full semantics.
         """
         thinking = thinking if thinking is not None else self.thinking

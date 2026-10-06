@@ -659,6 +659,42 @@ def test_a_nested_spawn_tool_carries_the_factory_inbox():
     assert _RecordingAgent.instances[-1].inbox is _noop_inbox
 
 
+class _RecordingInbox:
+    """An inbox that records which agent opened each reader. Mirrors tests/test_aio_inbox.py."""
+
+    def __init__(self):
+        self.asked: list[str | None] = []
+
+    def reader(self, agent=None):
+        self.asked.append(agent)
+        return lambda: []
+
+
+def test_a_spawned_worker_opens_its_reader_under_its_own_label(monkeypatch):
+    """The sync mirror of the async factory's label test.
+
+    The label was previously provable on this surface only by composition (the shared ``_open_inbox``
+    plus ``test_all_four_drivers_name_the_agent_identically`` plus this file's
+    ``agent.name == "subagent-writer"`` assertion), which is an argument rather than a run. The fakes
+    this module patches in above never run a real tool loop, so reaching ``_open_inbox`` needs the
+    real ``Agent`` and a real mock client, the same swap the async twin makes.
+
+    It asserts ``subagent-{agent_type}``, not the bare type name.
+    """
+    from tests.helpers import MockModelClient
+
+    monkeypatch.setattr("aimu.agents.agent.Agent", _RealAgent)
+    monkeypatch.setattr("aimu.models.model_client.ModelClient", lambda model: MockModelClient(["done"]))
+
+    inbox = _RecordingInbox()
+    types = {"researcher": {"system_message": "Look things up."}}
+    spawn = make_subagent_tool(MODEL, agent_types=types, inbox=inbox)
+
+    spawn("researcher", "find something")
+
+    assert inbox.asked == ["subagent-researcher"]
+
+
 def test_a_non_inbox_factory_argument_raises_at_factory_call_time():
     # Deferred, this surfaces as `AttributeError: 'str' object has no attribute 'reader'` from
     # inside the child's loop, i.e. as a tool failure the parent model is asked to recover from.

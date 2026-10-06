@@ -229,7 +229,9 @@ class Agent(_AgentLoopMixin, Runner):
         :class:`~aimu.agents.inbox.Inbox` source of user messages that arrive while the run is
         in progress. The loop opens one reader from it at the run's start and drains that reader once
         per round; whatever it gets is sent as that round's user message. A delivered message resets
-        the round budget.
+        the round budget. Not used by the ``schema=`` structured-output path, which makes a single
+        model turn rather than running the tool loop, so there is no round boundary to drain at and
+        no reader is ever opened.
         """
         thinking = thinking if thinking is not None else self.thinking
         events = events if events is not None else self.events

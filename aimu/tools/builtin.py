@@ -2573,7 +2573,12 @@ def make_subagent_tool(
         inbox: An :class:`~aimu.agents.inbox.Inbox` source of mid-run messages for every
             spawned agent. Each spawn opens its own reader from it, so several spawns (or nested
             ones) sharing one source never share a cursor. A spec's own ``"inbox"`` overrides it,
-            and ``"inbox": None`` in a spec turns it off for that one specialist.
+            and ``"inbox": None`` in a spec turns it off for that one specialist. A nested spawn
+            tool (``max_depth > 1``) carries **this** factory-level source to the grandchildren it
+            builds, never the spec-level one that happened to build its parent, by the same argument
+            as ``max_iterations``: a nested tool serves the whole roster again, so it is built from
+            the factory's tier rather than from one specialist's. So ``"inbox": None`` in a spec
+            turns the source off for that one agent and not for anything it goes on to spawn.
 
     Example::
 

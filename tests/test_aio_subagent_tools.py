@@ -842,22 +842,33 @@ async def test_a_spawned_worker_opens_its_reader_under_its_own_label(monkeypatch
 
 
 async def test_a_nested_spawn_opens_under_the_grandchilds_label_not_its_parents(monkeypatch):
-    """The nested assertion is deliberately weak on ordering.
+    """A grandchild run inheriting its parent's label would be indistinguishable to a host.
 
-    This still uses the real ``Agent``, so the top-level spawn ("lead") does open a reader under
-    its own label. But the scripted client below answers "done" without ever calling a tool, so
-    "lead" never actually calls its own nested spawn_subagent tool to delegate to "researcher" --
-    this does not drive a real nested spawn. What it pins is only that the label recorded is the
-    spawned worker's own (``subagent-lead``), not some ancestor's; a grandchild run inheriting a
-    parent's label would be indistinguishable to a host routing a message by name.
+    This drives a *real* nested spawn, which is the only arrangement that can catch that: the lead
+    and the grandchild need different scripts (the lead must call a tool, the grandchild must not),
+    so the fresh-client builder is replaced with a call-counting factory rather than a lambda
+    returning one fixed script. With one shared script the lead answers "done" without ever
+    reaching the nested ``spawn_subagent`` that ``max_depth=2`` gave it, and the test traverses the
+    same single-spawn path as its sibling above while reading as though it covered two levels.
+
+    The labels asserted are ``subagent-{agent_type}`` at both levels, not the bare type names.
     """
     from tests.helpers_aio import MockAsyncModelClient
 
     monkeypatch.setattr("aimu.aio.agent.Agent", _RealAsyncAgent)
-    monkeypatch.setattr(
-        "aimu.aio.tools.builtin._fresh_async_subagent_client",
-        lambda model: MockAsyncModelClient(["done"]),
-    )
+    scripts = [
+        [{"tool": "spawn_subagent", "arguments": {"agent_type": "researcher", "task": "find something"}}, "done"],
+        ["done"],
+    ]
+    spawned = 0
+
+    def client_factory(model):
+        nonlocal spawned
+        script = scripts[spawned] if spawned < len(scripts) else ["done"]
+        spawned += 1
+        return MockAsyncModelClient(script)
+
+    monkeypatch.setattr("aimu.aio.tools.builtin._fresh_async_subagent_client", client_factory)
 
     inbox = RecordingInbox()
     types = {
@@ -868,7 +879,8 @@ async def test_a_nested_spawn_opens_under_the_grandchilds_label_not_its_parents(
 
     await spawn("lead", "delegate this")
 
-    assert "subagent-lead" in inbox.asked
+    assert spawned == 2, "the lead has to actually reach its nested spawn tool"
+    assert inbox.asked == ["subagent-lead", "subagent-researcher"]
 
 
 def test_inbox_is_an_accepted_spec_key():

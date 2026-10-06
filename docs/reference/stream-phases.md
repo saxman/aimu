@@ -22,6 +22,7 @@ The enum inherits from `str`, so members compare equal to their string values, s
 chunk.is_text()             # True for THINKING and GENERATING
 chunk.is_tool_call()        # True for TOOL_CALLING
 chunk.is_continuing()       # True for CONTINUING (both kinds: read content["kind"] for which)
+chunk.is_inbox()            # True for INBOX (a round delivering a message the host handed the run)
 chunk.is_image_progress()   # True for IMAGE_GENERATING
 chunk.is_audio_progress()   # True for AUDIO_GENERATING
 chunk.is_speech_progress()  # True for SPEECH_GENERATING

@@ -304,7 +304,12 @@ def make_async_subagent_tool(
     for mid-run messages. Each spawn opens its own reader from it, so several concurrent spawns (or
     nested ones) sharing one source never share a cursor. A spec's own ``"inbox"`` key overrides it,
     and ``"inbox": None`` in a spec turns it off for that one specialist, read by the same
-    *membership* rule as ``"compaction"``.
+    *membership* rule as ``"compaction"``. A nested spawn tool (``max_depth > 1``) carries **this**
+    factory-level source to the grandchildren it builds, never the spec-level one that happened to
+    build its parent, by the same argument as ``max_iterations``: a nested tool serves the whole
+    roster again, so it is built from the factory's tier rather than from one specialist's. So
+    ``"inbox": None`` in a spec turns the source off for that one agent and not for anything it goes
+    on to spawn. See the sync :func:`aimu.tools.builtin.make_subagent_tool`.
     """
     from aimu.models.base import BaseModelClient
 

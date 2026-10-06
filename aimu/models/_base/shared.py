@@ -111,8 +111,9 @@ class StreamChunk(NamedTuple):
         iteration: zero-based iteration index inside the agent loop, or ``0`` for plain chat.
 
     Use ``chunk.is_text()`` / ``chunk.is_tool_call()`` / ``chunk.is_continuing()`` /
-    ``chunk.is_image_progress()`` / ``chunk.is_audio_progress()`` / ``chunk.is_speech_progress()`` /
-    ``chunk.is_done()`` to dispatch on phase without repeating the equality check in user code.
+    ``chunk.is_inbox()`` / ``chunk.is_image_progress()`` / ``chunk.is_audio_progress()`` /
+    ``chunk.is_speech_progress()`` / ``chunk.is_done()`` to dispatch on phase without repeating the
+    equality check in user code.
     """
 
     phase: StreamingContentType
@@ -136,6 +137,15 @@ class StreamChunk(NamedTuple):
         the two apart.
         """
         return self.phase == StreamingContentType.CONTINUING
+
+    def is_inbox(self) -> bool:
+        """True if this chunk announces a round delivering a message the host handed the run (INBOX).
+
+        The counterpart to ``is_continuing()``, and the distinction between the two is the point:
+        there the words are a prompt the loop composed for itself, here they are the user's own,
+        read from an :class:`~aimu.agents.inbox.Inbox` at a round boundary.
+        """
+        return self.phase == StreamingContentType.INBOX
 
     def is_image_progress(self) -> bool:
         """True if this chunk carries image-generation progress (IMAGE_GENERATING)."""

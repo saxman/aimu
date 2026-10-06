@@ -275,6 +275,7 @@ REQUIRED_AGENTS = {
     "DegenerateTurnError",
     "EvaluatorOptimizer",
     "HAS_A2A",
+    "Inbox",
     "MessageHistory",
     "OrchestratorAgent",
     "Parallel",

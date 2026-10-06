@@ -106,7 +106,7 @@
 
   **The fix is one line, and it is in the class body.** `def reader(self, agent=None)`. That is
   generally *not* the file the `run(steering=...)` to `run(inbox=...)` keyword change takes you to:
-  in the one host known to implement this protocol they are two different modules. So grep for
+  in the one downstream application known to implement this protocol, those are two different modules. So grep for
   `def reader(` rather than trusting the rename to have walked you past it. The label is passed
   positionally, so the parameter may be called anything, and a host with no use for it can ignore
   the value.
@@ -125,6 +125,17 @@
   Pinned on both surfaces, including that fail-open path, in `tests/test_inbox.py` and
   `tests/test_aio_inbox.py`.
 
+- **New** `Inbox` is exported from `aimu.agents`, so `from aimu.agents import Agent, Inbox` works.
+  It was reachable from top-level `aimu` and from `aimu.aio` but not from the package that defines
+  it, where `Agent`, `SkillAgent` and the loop's own errors all are, for no reason anyone had
+  written down. Additive; nothing moves.
+
+### Models
+
+- **New** `StreamChunk.is_inbox()`, beside `is_continuing()`. `INBOX` was the only phase with no
+  predicate, so a consumer dispatching through them had to fall back to an equality check for that
+  one phase alone. Additive, and named for its phase like the rest.
+
 ### Console output
 
 - **Change** `pretty_print()`'s marker for a round that delivers an inbox message is now
@@ -133,13 +144,14 @@
   `[continuing: <kind>]`, which names a prompt the loop composed for itself.
 
   **What that marker costs, written down rather than left to be tripped over.** `[message]` is the
-  one console marker that does not mirror its phase's name: `[thinking]` is `THINKING`, `[tool]` is
-  `TOOL_CALLING`, `[continuing: <kind>]` is `CONTINUING`, and `[message]` is `INBOX`. So a reader
-  who meets the line in a terminal cannot grep from it to `StreamingContentType.INBOX`, which is
-  the one thing a marker naming its phase buys. It is kept anyway, because `[message]` is what the
-  line *is* to the person reading it where `[inbox]` would name the machinery, and because the
-  marker is read far more often than it is traced back. The marker is not changing; this is the
-  note that says what it costs.
+  one marker here that does not mirror its phase's name: `pretty_print()`'s `[tool]` is
+  `TOOL_CALLING` and its `[continuing: <kind>]` is `CONTINUING`, where `[message]` is `INBOX`.
+  `CLIChannel` is the same way and adds `[thinking]` for `THINKING`. So a reader who meets the line
+  in a terminal cannot grep from it to `StreamingContentType.INBOX`, which is the one thing a
+  marker naming its phase buys. It is kept anyway, because `[message]` is what the line *is* to the
+  person reading it where `[inbox]` would name the machinery, and because a marker is read far more
+  often than it is traced back. The marker is not changing; this is the note that says what it
+  costs.
 
 ### Channels
 

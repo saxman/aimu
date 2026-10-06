@@ -165,10 +165,12 @@ class _AsyncToolLoop(_BaseToolLoop):
                 )
                 async for chunk in stream:
                     yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
-                # Mirrors the sync engine's ``run_streamed`` (``iteration + 1 < self._max_rounds``):
-                # the initial stream above already made the first of ``max_rounds`` calls the
-                # bounded loop is permitted, so it may run at most ``max_rounds - 1`` further
-                # times. The forced wrap-up below is the one deliberate call beyond this cap.
+                # Mirrors the sync engine's ``run_streamed``
+                # (``iteration + 1 - self._budget_base < self._max_rounds``): the initial stream
+                # above already made the first of ``max_rounds`` calls the bounded loop is
+                # permitted, so it may run at most ``max_rounds - 1`` further times, counted from
+                # ``_budget_base`` rather than from zero so a delivered inbox message buys a fresh
+                # budget. The forced wrap-up below is the one deliberate call beyond this cap.
                 while iteration + 1 - self._budget_base < self._max_rounds:
                     state = classify_terminal_turn(self._client.messages)
                     if state == TERMINAL_PENDING_TOOLS:
