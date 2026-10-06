@@ -96,7 +96,7 @@ async def test_cli_send_drops_thinking_and_tools_when_the_flags_are_off(capsys):
 
 async def test_cli_send_prints_an_inbox_message(capsys):
     async def gen():
-        yield StreamChunk(StreamingContentType.MESSAGE, {"text": "use the index instead"})
+        yield StreamChunk(StreamingContentType.INBOX, {"text": "use the index instead"})
         yield StreamChunk(StreamingContentType.GENERATING, "redirected answer")
 
     await CLIChannel().send(gen())

@@ -46,7 +46,7 @@ def pretty_print(
             # per injected round (a handful per run at most) and it is what explains a thin answer.
             content = chunk.content if isinstance(chunk.content, dict) else {}
             print(f"\n  [continuing: {content.get('kind', '')}] {content.get('prompt', '')}", file=out)
-        elif chunk.phase == StreamingContentType.MESSAGE:
+        elif chunk.phase == StreamingContentType.INBOX:
             # Ungated for the same reason, and kept distinct from CONTINUING deliberately: that is
             # a prompt the loop composed, this is the user's own words arriving mid-run. A renderer
             # that showed neither left a redirected run looking like the model changed its own mind.

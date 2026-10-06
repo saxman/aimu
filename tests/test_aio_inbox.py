@@ -54,7 +54,7 @@ async def test_a_round_opened_by_a_message_carries_a_message_chunk_with_the_text
 
     chunks = await collect(await agent.run("start", stream=True, inbox=ListInbox(["use the other file"])))
 
-    message_chunks = [c for c in chunks if c.phase == StreamingContentType.MESSAGE]
+    message_chunks = [c for c in chunks if c.phase == StreamingContentType.INBOX]
     assert [c.content for c in message_chunks] == [{"text": "use the other file"}]
 
 
@@ -115,7 +115,7 @@ async def test_an_empty_turn_still_gets_the_nudge_when_nothing_is_pending():
     chunks = await collect(await agent.run("start", stream=True, inbox=ListInbox()))
 
     assert any(c.phase == StreamingContentType.CONTINUING for c in chunks)
-    assert not any(c.phase == StreamingContentType.MESSAGE for c in chunks)
+    assert not any(c.phase == StreamingContentType.INBOX for c in chunks)
 
 
 @pytest.mark.asyncio
@@ -167,7 +167,7 @@ async def test_a_message_delivered_at_the_cap_buys_a_fresh_budget():
         if chunk.phase == StreamingContentType.TOOL_CALLING and not inbox.messages:
             inbox.messages.append("keep going, use the index")
 
-    assert any(c.phase == StreamingContentType.MESSAGE for c in chunks)
+    assert any(c.phase == StreamingContentType.INBOX for c in chunks)
     # Four calls were made: two on the original budget, then the message-extended one starting a
     # fresh budget of two. A run without the reset stops after three.
     assert client._call_count == 4

@@ -445,7 +445,7 @@ class _BaseToolLoop:
         ``CONTINUING`` injection would have a transcript attribute the user's words to the loop.
         """
         return StreamChunk(
-            StreamingContentType.MESSAGE,
+            StreamingContentType.INBOX,
             {"text": text},
             agent=self._agent_name,
             iteration=iteration,

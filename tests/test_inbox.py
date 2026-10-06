@@ -49,7 +49,7 @@ def test_the_sync_streamed_driver_emits_a_message_chunk():
 
     chunks = list(agent.run("start", stream=True, inbox=ListInbox(["stop that"])))
 
-    message_chunks = [c for c in chunks if c.phase == StreamingContentType.MESSAGE]
+    message_chunks = [c for c in chunks if c.phase == StreamingContentType.INBOX]
     assert [c.content for c in message_chunks] == [{"text": "stop that"}]
 
 

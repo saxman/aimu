@@ -61,7 +61,7 @@ def test_pretty_print_names_an_inbox_message_and_quotes_it():
     read as the model changing its mind on its own. The same argument that put CONTINUING here."""
 
     def _messaged():
-        yield StreamChunk(StreamingContentType.MESSAGE, {"text": "use the index instead"})
+        yield StreamChunk(StreamingContentType.INBOX, {"text": "use the index instead"})
         yield StreamChunk(StreamingContentType.GENERATING, "redirected answer")
 
     buf = io.StringIO()

@@ -93,7 +93,7 @@ class CLIChannel(Channel):
                 )
                 sys.stdout.flush()
                 section = None
-            elif chunk.phase == StreamingContentType.MESSAGE:
+            elif chunk.phase == StreamingContentType.INBOX:
                 # The user's own message, reaching a run already in progress. Its own line rather
                 # than a `continuing` one, which would credit the loop with what the user said.
                 sent = chunk.content if isinstance(chunk.content, dict) else {}
