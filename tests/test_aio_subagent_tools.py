@@ -802,6 +802,75 @@ async def test_a_nested_spawn_tool_carries_the_factory_inbox():
     assert _RecordingAsyncAgent.instances[-1].inbox is _noop_async_inbox
 
 
+class RecordingInbox:
+    """An inbox that records which agent opened each reader. Mirrors tests/test_aio_inbox.py."""
+
+    def __init__(self):
+        self.asked: list[str | None] = []
+
+    def reader(self, agent=None):
+        self.asked.append(agent)
+        return lambda: []
+
+
+async def test_a_spawned_worker_opens_its_reader_under_its_own_label(monkeypatch):
+    """Review focus 2. A grandchild sharing its parent's label would be indistinguishable to a host.
+
+    The recording fakes this module patches in above (``_RecordingAsyncAgent``) never run a real
+    tool loop -- ``run()`` is a scripted stand-in -- so reaching ``_open_inbox`` needs the real
+    ``Agent`` and a real mock model client, the same swap
+    ``test_spawn_forwards_events_to_the_child_agents_sink`` makes above for events. The label a typed
+    spawn builds is ``subagent-{agent_type}`` (see ``agent.name == "subagent-writer"`` earlier in
+    this file), not the bare agent_type, so that is what a correctly-behaving ``_open_inbox`` reports
+    here.
+    """
+    from tests.helpers_aio import MockAsyncModelClient
+
+    monkeypatch.setattr("aimu.aio.agent.Agent", _RealAsyncAgent)
+    monkeypatch.setattr(
+        "aimu.aio.tools.builtin._fresh_async_subagent_client",
+        lambda model: MockAsyncModelClient(["done"]),
+    )
+
+    inbox = RecordingInbox()
+    types = {"researcher": {"system_message": "Look things up."}}
+    spawn = make_async_subagent_tool(MODEL, agent_types=types, inbox=inbox)
+
+    await spawn("researcher", "find something")
+
+    assert inbox.asked == ["subagent-researcher"]
+
+
+async def test_a_nested_spawn_opens_under_the_grandchilds_label_not_its_parents(monkeypatch):
+    """The nested assertion is deliberately weak on ordering.
+
+    This still uses the real ``Agent``, so the top-level spawn ("lead") does open a reader under
+    its own label. But the scripted client below answers "done" without ever calling a tool, so
+    "lead" never actually calls its own nested spawn_subagent tool to delegate to "researcher" --
+    this does not drive a real nested spawn. What it pins is only that the label recorded is the
+    spawned worker's own (``subagent-lead``), not some ancestor's; a grandchild run inheriting a
+    parent's label would be indistinguishable to a host routing a message by name.
+    """
+    from tests.helpers_aio import MockAsyncModelClient
+
+    monkeypatch.setattr("aimu.aio.agent.Agent", _RealAsyncAgent)
+    monkeypatch.setattr(
+        "aimu.aio.tools.builtin._fresh_async_subagent_client",
+        lambda model: MockAsyncModelClient(["done"]),
+    )
+
+    inbox = RecordingInbox()
+    types = {
+        "lead": {"system_message": "Delegate."},
+        "researcher": {"system_message": "Look things up."},
+    }
+    spawn = make_async_subagent_tool(MODEL, agent_types=types, inbox=inbox, max_depth=2)
+
+    await spawn("lead", "delegate this")
+
+    assert "subagent-lead" in inbox.asked
+
+
 def test_inbox_is_an_accepted_spec_key():
     from aimu.tools.builtin import SUBAGENT_SPEC_KEYS
 

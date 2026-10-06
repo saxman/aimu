@@ -111,3 +111,24 @@ def test_the_sync_surface_bounds_a_drain_that_never_advances():
     agent.run("start", inbox=NeverAdvancing())
 
     assert client._call_count <= (2 + 1) * 2 + 1
+
+
+class RecordingInbox:
+    """An inbox that records which agent opened each reader. Mirrors tests/test_aio_inbox.py."""
+
+    def __init__(self):
+        self.asked: list[str | None] = []
+
+    def reader(self, agent=None):
+        self.asked.append(agent)
+        return lambda: []
+
+
+def test_the_sync_loop_tells_the_inbox_which_agent_is_opening_a_reader():
+    client = MockModelClient(["tool", "done"])
+    agent = Agent(client, tools=[a_tool], name="researcher")
+    inbox = RecordingInbox()
+
+    agent.run("start", inbox=inbox)
+
+    assert inbox.asked == ["researcher"]
