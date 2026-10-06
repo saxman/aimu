@@ -289,7 +289,7 @@ async def test_sync_and_async_announce_the_same_boundaries_for_the_same_run():
 class _OneShotInbox:
     """Delivers one message at the first boundary a run drains, and nothing after it."""
 
-    def reader(self):
+    def reader(self, agent=None):
         sent = False
 
         def drain():

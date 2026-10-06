@@ -15,7 +15,7 @@ class ListInbox:
     def __init__(self, messages=None):
         self.messages = list(messages or [])
 
-    def reader(self):
+    def reader(self, agent=None):
         seen = 0
 
         def drain():
@@ -82,7 +82,7 @@ async def test_whitespace_only_messages_are_not_delivered():
 @pytest.mark.asyncio
 async def test_a_raising_inbox_source_does_not_end_the_run():
     class Exploding:
-        def reader(self):
+        def reader(self, agent=None):
             def drain():
                 raise RuntimeError("the host's mailbox is broken")
 
@@ -277,7 +277,7 @@ async def test_a_drain_returning_a_bare_string_is_refused_rather_than_iterated()
     # A string is iterable, so an unchecked comprehension accepts "stop" and delivers it to the
     # model as four one-character paragraphs. Worse than a raise, because it looks like it worked.
     class StringDrain:
-        def reader(self):
+        def reader(self, agent=None):
             return lambda: "stop"
 
     client = MockAsyncModelClient(["tool", "done"])
@@ -291,7 +291,7 @@ async def test_a_drain_returning_a_bare_string_is_refused_rather_than_iterated()
 @pytest.mark.asyncio
 async def test_a_drain_returning_a_non_list_does_not_end_the_run():
     class NoneDrain:
-        def reader(self):
+        def reader(self, agent=None):
             return lambda: None
 
     client = MockAsyncModelClient(["tool", "done"])
@@ -308,7 +308,7 @@ async def test_a_drain_that_never_advances_cannot_extend_the_budget_forever():
     # A host bug one character wide: returning the whole list instead of the unread slice. Every
     # round then looks like a fresh human message, and `max_iterations` stops bounding the run.
     class NeverAdvancing:
-        def reader(self):
+        def reader(self, agent=None):
             return lambda: ["again"]
 
     # Trailing "done" replies, not "tool": once the budget stops growing the loop reaches its
@@ -321,3 +321,58 @@ async def test_a_drain_that_never_advances_cannot_extend_the_budget_forever():
     # Resets are allowed up to `max_iterations`, so the worst case is that many fresh budgets plus
     # the original plus the uncounted wrap-up. The point is that a bound exists at all.
     assert client._call_count <= (2 + 1) * 2 + 1
+
+
+class RecordingInbox:
+    """An inbox that records which agent opened each reader."""
+
+    def __init__(self):
+        self.asked: list[str | None] = []
+
+    def reader(self, agent=None):
+        self.asked.append(agent)
+        return lambda: []
+
+
+@pytest.mark.asyncio
+async def test_the_loop_tells_the_inbox_which_agent_is_opening_a_reader():
+    client = MockAsyncModelClient(["tool", "done"])
+    agent = Agent(client, tools=[a_tool], name="researcher")
+    inbox = RecordingInbox()
+
+    await collect(await agent.run("start", stream=True, inbox=inbox))
+
+    assert inbox.asked == ["researcher"]
+
+
+@pytest.mark.asyncio
+async def test_a_loop_built_with_no_agent_name_passes_none_through():
+    # Review focus 1, corrected: Agent always names its run (Agent.__post_init__ generates
+    # "agent-xxxxxx" when the caller passes none), so agent_name=None is unreachable through
+    # Agent and this has to construct the loop directly, as test_aio_agents.py does elsewhere.
+    # Still worth pinning: a host implementing Inbox must not be handed a placeholder like ""
+    # or "agent" for a nameless run, since that could collide with a real agent's label, and
+    # this is the only level where "no name at all" actually occurs.
+    from aimu.aio._tool_loop import _AsyncToolLoop
+
+    client = MockAsyncModelClient(["done"])
+    inbox = RecordingInbox()
+    loop = _AsyncToolLoop(client, [a_tool], inbox=inbox)
+
+    await loop.run("start")
+
+    assert inbox.asked == [None]
+
+
+@pytest.mark.asyncio
+async def test_two_runs_of_one_agent_each_open_their_own_reader_with_the_same_label():
+    # Review focus 3. A host disambiguates concurrent runs of one agent type by counting opens,
+    # not by the label, so the label repeating is correct and the count must be per run.
+    client = MockAsyncModelClient(["done", "done"])
+    agent = Agent(client, tools=[a_tool], name="researcher")
+    inbox = RecordingInbox()
+
+    await collect(await agent.run("first", stream=True, inbox=inbox))
+    await collect(await agent.run("second", stream=True, inbox=inbox))
+
+    assert inbox.asked == ["researcher", "researcher"]

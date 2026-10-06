@@ -11,7 +11,7 @@ class ListInbox:
     def __init__(self, messages=None):
         self.messages = list(messages or [])
 
-    def reader(self):
+    def reader(self, agent=None):
         seen = 0
 
         def drain():
@@ -89,7 +89,7 @@ def test_a_sync_run_whose_reader_raises_still_reports_that_it_finished():
 
 def test_the_sync_surface_refuses_a_bare_string_drain():
     class StringDrain:
-        def reader(self):
+        def reader(self, agent=None):
             return lambda: "stop"
 
     client = MockModelClient(["tool", "done"])
@@ -102,7 +102,7 @@ def test_the_sync_surface_refuses_a_bare_string_drain():
 
 def test_the_sync_surface_bounds_a_drain_that_never_advances():
     class NeverAdvancing:
-        def reader(self):
+        def reader(self, agent=None):
             return lambda: ["again"]
 
     client = MockModelClient(["tool"] * 4 + ["done"] * 50)

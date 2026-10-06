@@ -8,7 +8,7 @@ was going to make anyway.
 
 from __future__ import annotations
 
-from typing import Callable, Protocol, runtime_checkable
+from typing import Callable, Optional, Protocol, runtime_checkable
 
 
 @runtime_checkable
@@ -27,6 +27,16 @@ class Inbox(Protocol):
 
     Called ``Inbox`` because each run opens a reader of its own: that is inbox semantics from
     the run's side, even though the one object underneath serves every run.
+
+    ``agent`` is the name of the run opening this reader. It is offered so a host can route a
+    message to one run rather than to every run's drain; AIMU attaches no meaning to the string
+    beyond passing it back.
+
+    A run built through ``Agent`` always has a name: ``Agent`` generates one (``"agent-xxxxxx"``)
+    when a caller supplies none, so ``agent`` is only ``None`` for a loop built directly with no
+    name at all, which ``Agent`` never does. One consequence follows from that: a generated name
+    is unguessable from outside the run that got it, so a host that never names its agents ends
+    up with runs it has a label for but cannot actually address.
     """
 
-    def reader(self) -> Callable[[], list[str]]: ...
+    def reader(self, agent: Optional[str] = None) -> Callable[[], list[str]]: ...

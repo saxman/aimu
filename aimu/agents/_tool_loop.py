@@ -375,7 +375,7 @@ class _BaseToolLoop:
             self._inbox_reader = None
             return
         try:
-            self._inbox_reader = self._inbox.reader()
+            self._inbox_reader = self._inbox.reader(self._agent_name)
         except Exception:
             logger.warning("Inbox could not open a reader; the run continues without one.", exc_info=True)
             self._inbox_reader = None
