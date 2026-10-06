@@ -356,3 +356,63 @@ async def test_a_delivered_message_buys_a_fresh_budget_on_every_driver(max_itera
 
     for driver, count in counts.items():
         assert count > unmessaged, f"{driver} made {count} calls, no more than the unmessaged {unmessaged}"
+
+
+# ---------------------------------------------------------------------------
+# Inbox, the label half: which agent a driver says is opening a reader. That label is what lets a
+# host route a message to one run rather than broadcast to all of them, so it is loop semantics
+# in exactly the sense this file's rule covers, and a driver that forgot to forward it would be
+# invisible to every test above (they all drain, none of them look at the argument).
+# ---------------------------------------------------------------------------
+
+
+class _RecordingInbox:
+    """Records the label each reader is opened under, and delivers nothing."""
+
+    def __init__(self):
+        self.asked: list[str | None] = []
+
+    def reader(self, agent=None):
+        self.asked.append(agent)
+        return lambda: []
+
+
+def _sync_opened_labels(stream):
+    inbox = _RecordingInbox()
+    agent = SyncAgent(_AlwaysToolClient(), tools=[_noop_tool], max_iterations=1, name="researcher")
+    if stream:
+        list(agent.run("never-ending task", stream=True, inbox=inbox))
+    else:
+        agent.run("never-ending task", inbox=inbox)
+    return tuple(inbox.asked)
+
+
+async def _async_opened_labels(stream):
+    inbox = _RecordingInbox()
+    agent = AsyncAgent(_AsyncAlwaysToolClient(), tools=[_noop_tool], max_iterations=1, name="researcher")
+    if stream:
+        stream_obj = await agent.run("never-ending task", stream=True, inbox=inbox)
+        async for _ in stream_obj:
+            pass
+    else:
+        await agent.run("never-ending task", inbox=inbox)
+    return tuple(inbox.asked)
+
+
+async def test_all_four_drivers_name_the_agent_identically():
+    """The label a host addresses by is loop semantics, so the four drivers must agree on it.
+
+    Each of the four is driven here, including sync ``run_streamed``, which nothing else in the
+    suite checks the label of: ``tests/test_inbox.py`` covers sync ``run``, ``tests/test_aio_inbox.py``
+    async ``run_streamed``, and ``tests/test_aio_subagent_tools.py`` async ``run`` by way of a spawn.
+    """
+    labels = {
+        "sync run": _sync_opened_labels(stream=False),
+        "sync run_streamed": _sync_opened_labels(stream=True),
+        "async run": await _async_opened_labels(stream=False),
+        "async run_streamed": await _async_opened_labels(stream=True),
+    }
+
+    # The expected value is asserted, not merely agreement: four drivers that each opened no reader
+    # would agree on the empty tuple, and four that dropped the argument would agree on (None,).
+    assert labels == dict.fromkeys(labels, ("researcher",)), labels

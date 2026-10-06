@@ -352,7 +352,11 @@ async def test_a_loop_built_with_no_agent_name_passes_none_through():
     # Agent and this has to construct the loop directly, as test_aio_agents.py does elsewhere.
     # Still worth pinning: a host implementing Inbox must not be handed a placeholder like ""
     # or "agent" for a nameless run, since that could collide with a real agent's label, and
-    # this is the only level where "no name at all" actually occurs.
+    # this is the only level where "no name at all" actually occurs. It discriminates only
+    # against such a placeholder, though: a recorded None cannot tell "the loop passed None"
+    # from "the loop passed nothing and this double's own default supplied it", so the proof
+    # that the argument is passed at all is the sibling above,
+    # test_the_loop_tells_the_inbox_which_agent_is_opening_a_reader, which records a real label.
     from aimu.aio._tool_loop import _AsyncToolLoop
 
     client = MockAsyncModelClient(["done"])
@@ -376,3 +380,56 @@ async def test_two_runs_of_one_agent_each_open_their_own_reader_with_the_same_la
     await collect(await agent.run("second", stream=True, inbox=inbox))
 
     assert inbox.asked == ["researcher", "researcher"]
+
+
+@pytest.mark.asyncio
+async def test_a_structured_run_opens_no_reader_and_does_not_raise():
+    # The `schema=` path returns before the tool loop is built (see `Agent.run`), so there is no
+    # loop to open a reader and the argument is inert rather than refused. Pinned because "inert"
+    # and "raises" are both defensible designs and only one of them is what ships: a host may hand
+    # the same inbox to every run it makes, structured ones included.
+    from pydantic import BaseModel
+
+    class Answer(BaseModel):
+        text: str
+
+    client = MockAsyncModelClient(['{"text": "done"}'])
+    # Parse-path, as in test_a_structured_run_ignores_an_inbox_message_rather_than_raising above:
+    # the mock's _chat() takes no response_format, which the supports_structured_output=True branch
+    # would add.
+    client.model.supports_structured_output = False
+    agent = Agent(client, tools=[a_tool], name="researcher")
+    inbox = RecordingInbox()
+
+    result = await agent.run("start", schema=Answer, inbox=inbox)
+
+    assert result.text == "done"
+    assert inbox.asked == []
+
+
+@pytest.mark.asyncio
+async def test_a_reader_that_takes_no_argument_delivers_nothing(caplog):
+    # The migration fact the 0.34.0 changelog states, pinned so the sentence cannot go stale. The
+    # `agent=None` default makes the signature in `Inbox` optional *to read*, not optional to
+    # accept: the loop passes the label positionally, so a 0.33.0-era `def reader(self)` raises
+    # TypeError at the one place `_open_inbox` guards, and the run continues with no reader at all.
+    # `isinstance` cannot catch it first (a `runtime_checkable` Protocol checks only that the
+    # method exists, which is also what `_check_inbox` is limited to), so a host that updated its
+    # call site to `inbox=` and left its reader alone gets a logged warning and no deliveries.
+    from aimu.agents.inbox import Inbox
+
+    class LegacyReader:
+        def reader(self):
+            return lambda: ["use the other file"]
+
+    inbox = LegacyReader()
+    assert isinstance(inbox, Inbox), "the protocol is structural, so this is the gap being pinned"
+
+    client = MockAsyncModelClient(["tool", "done"])
+    agent = Agent(client, tools=[a_tool], name="researcher")
+
+    with caplog.at_level("WARNING"):
+        await collect(await agent.run("start", stream=True, inbox=inbox))
+
+    assert [m["content"] for m in client.messages if m["role"] == "user"] == ["start"]
+    assert any("could not open a reader" in record.message for record in caplog.records)
