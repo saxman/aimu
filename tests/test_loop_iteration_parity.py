@@ -278,7 +278,7 @@ async def test_sync_and_async_announce_the_same_boundaries_for_the_same_run():
 
 
 # ---------------------------------------------------------------------------
-# Steering: a delivered message moves the round budget's base, which is loop semantics and so
+# Inbox: a delivered message moves the round budget's base, which is loop semantics and so
 # belongs under this file's parity rule. The two surfaces compute the move differently in surface
 # form (the sync drivers compare chat counts, the async ones compare iteration indices) and are
 # equal only because `chats == iteration + 1`, so without this the arithmetic could drift between
@@ -286,7 +286,7 @@ async def test_sync_and_async_announce_the_same_boundaries_for_the_same_run():
 # ---------------------------------------------------------------------------
 
 
-class _OneShotSteering:
+class _OneShotInbox:
     """Delivers one message at the first boundary a run drains, and nothing after it."""
 
     def reader(self):
@@ -302,57 +302,57 @@ class _OneShotSteering:
         return drain
 
 
-def _sync_steered_calls(max_iterations, stream):
+def _sync_messaged_calls(max_iterations, stream):
     seen = []
     agent = SyncAgent(_AlwaysToolClient(), tools=[_noop_tool], max_iterations=max_iterations, events=seen.append)
     if stream:
-        list(agent.run("never-ending task", stream=True, steering=_OneShotSteering()))
+        list(agent.run("never-ending task", stream=True, inbox=_OneShotInbox()))
     else:
-        agent.run("never-ending task", steering=_OneShotSteering())
+        agent.run("never-ending task", inbox=_OneShotInbox())
     return _count(ModelTurnStarted, seen)
 
 
-async def _async_steered_calls(max_iterations, stream):
+async def _async_messaged_calls(max_iterations, stream):
     seen = []
     agent = AsyncAgent(_AsyncAlwaysToolClient(), tools=[_noop_tool], max_iterations=max_iterations, events=seen.append)
     if stream:
-        stream_obj = await agent.run("never-ending task", stream=True, steering=_OneShotSteering())
+        stream_obj = await agent.run("never-ending task", stream=True, inbox=_OneShotInbox())
         async for _ in stream_obj:
             pass
     else:
-        await agent.run("never-ending task", steering=_OneShotSteering())
+        await agent.run("never-ending task", inbox=_OneShotInbox())
     return _count(ModelTurnStarted, seen)
 
 
 @pytest.mark.parametrize("max_iterations", [1, 2, 3, 4])
-async def test_all_four_drivers_agree_on_the_call_count_of_a_steered_run(max_iterations):
+async def test_all_four_drivers_agree_on_the_call_count_of_a_messaged_run(max_iterations):
     counts = {
-        "sync run": _sync_steered_calls(max_iterations, stream=False),
-        "sync run_streamed": _sync_steered_calls(max_iterations, stream=True),
-        "async run": await _async_steered_calls(max_iterations, stream=False),
-        "async run_streamed": await _async_steered_calls(max_iterations, stream=True),
+        "sync run": _sync_messaged_calls(max_iterations, stream=False),
+        "sync run_streamed": _sync_messaged_calls(max_iterations, stream=True),
+        "async run": await _async_messaged_calls(max_iterations, stream=False),
+        "async run_streamed": await _async_messaged_calls(max_iterations, stream=True),
     }
 
     assert len(set(counts.values())) == 1, counts
 
 
-@pytest.mark.parametrize("max_iterations", [2, 3, 4])  # 1 offers no boundary to steer at; see below
-async def test_steering_buys_a_fresh_budget_on_every_driver(max_iterations):
-    # Guards the reset itself, not just agreement about it: four drivers that all ignored steering
-    # would agree too. The client never finishes on its own, so one delivered message has to buy
-    # strictly more real calls than the same run unsteered.
+@pytest.mark.parametrize("max_iterations", [2, 3, 4])  # 1 offers no boundary to deliver at; see below
+async def test_a_delivered_message_buys_a_fresh_budget_on_every_driver(max_iterations):
+    # Guards the reset itself, not just agreement about it: four drivers that all ignored the
+    # inbox would agree too. The client never finishes on its own, so one delivered message has to
+    # buy strictly more real calls than the same run with an empty inbox.
     #
     # max_iterations=1 is excluded because the loop never reaches a round boundary there: the
     # opening call already exhausts the budget, so the while condition is false before the first
-    # drain and the run goes straight to its forced wrap-up. Nothing to steer, by construction.
+    # drain and the run goes straight to its forced wrap-up. Nothing to deliver, by construction.
     # The agreement test above still covers 1, since all four drivers agree on making no drain.
-    unsteered = max_iterations + 1  # the bounded loop plus the uncounted wrap-up
+    unmessaged = max_iterations + 1  # the bounded loop plus the uncounted wrap-up
     counts = {
-        "sync run": _sync_steered_calls(max_iterations, stream=False),
-        "sync run_streamed": _sync_steered_calls(max_iterations, stream=True),
-        "async run": await _async_steered_calls(max_iterations, stream=False),
-        "async run_streamed": await _async_steered_calls(max_iterations, stream=True),
+        "sync run": _sync_messaged_calls(max_iterations, stream=False),
+        "sync run_streamed": _sync_messaged_calls(max_iterations, stream=True),
+        "async run": await _async_messaged_calls(max_iterations, stream=False),
+        "async run_streamed": await _async_messaged_calls(max_iterations, stream=True),
     }
 
     for driver, count in counts.items():
-        assert count > unsteered, f"{driver} made {count} calls, no more than the unsteered {unsteered}"
+        assert count > unmessaged, f"{driver} made {count} calls, no more than the unmessaged {unmessaged}"

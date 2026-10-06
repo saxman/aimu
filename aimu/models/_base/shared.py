@@ -54,7 +54,7 @@ class StreamingContentType(str, Enum):
     THINKING = "thinking"
     TOOL_CALLING = "tool_calling"
     CONTINUING = "continuing"
-    STEERING = "steering"
+    MESSAGE = "message"
     GENERATING = "generating"
     IMAGE_GENERATING = "image_generating"
     AUDIO_GENERATING = "audio_generating"
@@ -67,7 +67,7 @@ class StreamChunk(NamedTuple):
     ``image_client.generate(stream=True)``, or any streaming tool / workflow.
 
     Fields:
-        phase:     content type of this chunk (THINKING, TOOL_CALLING, CONTINUING, STEERING,
+        phase:     content type of this chunk (THINKING, TOOL_CALLING, CONTINUING, MESSAGE,
                    GENERATING, IMAGE_GENERATING, AUDIO_GENERATING, SPEECH_GENERATING, DONE)
         content:   shape depends on phase:
                    - ``str`` for THINKING / GENERATING (token).
@@ -83,7 +83,7 @@ class StreamChunk(NamedTuple):
                      reports that rather than the built-in default. The value travels under three
                      names: ``PROVENANCE_KEY`` (``"provenance"``) on the message, ``kind`` here on
                      the chunk, and ``reason`` in ``WebChannel``'s ``loop`` frame.
-                   - ``dict {"text"}`` for STEERING: a message the host handed the run while it
+                   - ``dict {"text"}`` for MESSAGE: a message the host handed the run while it
                      was in progress, and the round that follows is the model reading it. Distinct
                      from CONTINUING because the words are the user's, not the loop's.
                    - ``dict {"step", "total_steps", "image", "final", "result"}`` for

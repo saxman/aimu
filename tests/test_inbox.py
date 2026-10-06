@@ -1,4 +1,4 @@
-"""Mid-run steering on the sync surface. Mirrors tests/test_aio_steering.py."""
+"""An agent's inbox on the sync surface. Mirrors tests/test_aio_inbox.py."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from aimu.models import StreamingContentType
 from tests.helpers import MockModelClient
 
 
-class ListSteering:
+class ListInbox:
     def __init__(self, messages=None):
         self.messages = list(messages or [])
 
@@ -32,7 +32,7 @@ def test_the_sync_driver_delivers_at_a_tool_round():
     client = MockModelClient(["tool", "done"])
     agent = Agent(client, tools=[a_tool])
 
-    assert agent.run("start", steering=ListSteering(["use the other file"])) == "done"
+    assert agent.run("start", inbox=ListInbox(["use the other file"])) == "done"
     assert {"role": "user", "content": "use the other file"} in client.messages
 
 
@@ -40,24 +40,24 @@ def test_the_sync_driver_extends_a_finished_turn():
     client = MockModelClient(["first answer", "second answer"])
     agent = Agent(client, tools=[a_tool])
 
-    assert agent.run("start", steering=ListSteering(["also check the log"])) == "second answer"
+    assert agent.run("start", inbox=ListInbox(["also check the log"])) == "second answer"
 
 
-def test_the_sync_streamed_driver_emits_a_steering_chunk():
+def test_the_sync_streamed_driver_emits_a_message_chunk():
     client = MockModelClient(["tool", "done"])
     agent = Agent(client, tools=[a_tool])
 
-    chunks = list(agent.run("start", stream=True, steering=ListSteering(["stop that"])))
+    chunks = list(agent.run("start", stream=True, inbox=ListInbox(["stop that"])))
 
-    steering_chunks = [c for c in chunks if c.phase == StreamingContentType.STEERING]
-    assert [c.content for c in steering_chunks] == [{"text": "stop that"}]
+    message_chunks = [c for c in chunks if c.phase == StreamingContentType.MESSAGE]
+    assert [c.content for c in message_chunks] == [{"text": "stop that"}]
 
 
 def test_the_sync_driver_replaces_the_nudge():
     client = MockModelClient(["", "done"])
     agent = Agent(client, tools=[a_tool])
 
-    agent.run("start", steering=ListSteering(["try the cache"]))
+    agent.run("start", inbox=ListInbox(["try the cache"]))
 
     assert [m["content"] for m in client.messages if m["role"] == "user"] == ["start", "try the cache"]
 
@@ -70,7 +70,7 @@ def test_a_source_whose_reader_raises_does_not_end_the_run_on_the_sync_surface()
     client = MockModelClient(["tool", "done"])
     agent = Agent(client, tools=[a_tool])
 
-    assert agent.run("start", steering=ExplodingReader()) == "done"
+    assert agent.run("start", inbox=ExplodingReader()) == "done"
 
 
 def test_a_sync_run_whose_reader_raises_still_reports_that_it_finished():
@@ -82,7 +82,7 @@ def test_a_sync_run_whose_reader_raises_still_reports_that_it_finished():
     seen = []
     agent = Agent(client, tools=[a_tool], events=seen.append)
 
-    agent.run("start", steering=ExplodingReader())
+    agent.run("start", inbox=ExplodingReader())
 
     assert [type(event).__name__ for event in seen].count("RunFinished") == 1
 
@@ -95,7 +95,7 @@ def test_the_sync_surface_refuses_a_bare_string_drain():
     client = MockModelClient(["tool", "done"])
     agent = Agent(client, tools=[a_tool])
 
-    agent.run("start", steering=StringDrain())
+    agent.run("start", inbox=StringDrain())
 
     assert [m["content"] for m in client.messages if m["role"] == "user"] == ["start"]
 
@@ -108,6 +108,6 @@ def test_the_sync_surface_bounds_a_drain_that_never_advances():
     client = MockModelClient(["tool"] * 4 + ["done"] * 50)
     agent = Agent(client, tools=[a_tool], max_iterations=2)
 
-    agent.run("start", steering=NeverAdvancing())
+    agent.run("start", inbox=NeverAdvancing())
 
     assert client._call_count <= (2 + 1) * 2 + 1

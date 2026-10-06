@@ -589,7 +589,7 @@ def test_skill_agent_run_accepts_everything_agent_run_does():
     That is forced: it has to prepare, set skills up, then delegate to the post-prepare helpers,
     so it cannot call ``super().run()``. The cost is that every parameter added to
     ``aio.Agent.run`` has to be hand-copied here, which ``compaction`` and ``script_env`` each
-    needed and ``steering`` was missed on. Asserting the subset is cheaper than remembering.
+    needed and ``inbox`` was missed on. Asserting the subset is cheaper than remembering.
     """
     import inspect
 

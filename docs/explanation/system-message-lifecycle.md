@@ -29,7 +29,7 @@ The active system prompt the model sees at request time is the system entry **in
 
 Allowing mid-conversation mutation has two consequences, both accepted on purpose:
 
-- **The transcript becomes counterfactual.** Prior assistant turns were generated under the *old* prompt but now sit beneath the new system entry. For a persona swap this is the intended, seamless behaviour; if you need an honest record of where the switch happened, append a steering user turn instead, or `reset()` to start fresh.
+- **The transcript becomes counterfactual.** Prior assistant turns were generated under the *old* prompt but now sit beneath the new system entry. For a persona swap this is the intended, seamless behaviour; if you need an honest record of where the switch happened, append a redirecting user turn instead, or `reset()` to start fresh.
 - **No guard against silent cross-agent mutation.** Earlier versions raised `RuntimeError` if you reassigned `system_message` after a conversation started, which incidentally caught the case of one agent mutating a `ModelClient` whose conversation another agent owns. That guard is gone. Don't share a single live-conversation client across agents that each set `system_message`; give each agent its own client (as the prebuilt orchestrator agents do, one `ModelClient(model_client.model)` per worker).
 
 ## `reset()`: change the prompt *and* drop history

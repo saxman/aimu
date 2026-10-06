@@ -36,10 +36,10 @@ from aimu.models._base.shared import ContextOverflowError
 # package would force full execution of `aimu.agents` (Agent, OrchestratorAgent, SkillAgent, every
 # workflow) while this module is itself mid-import as part of `aimu.tools.__init__`'s
 # `from . import builtin`. The leaf imports nothing but `typing`, so there is no cycle here and no
-# need for a TYPE_CHECKING guard, which matters: `_check_steering` below needs the real class at
+# need for a TYPE_CHECKING guard, which matters: `_check_inbox` below needs the real class at
 # runtime, and a guarded name is unresolvable there (and, contrary to what this comment used to
 # claim, `get_type_hints` cannot resolve it either, since the import never runs).
-from aimu.agents.steering import Steering
+from aimu.agents.inbox import Inbox
 
 from . import _execute_python_worker
 from ._documents import DocumentConversionError, html_to_markdown, pdf_to_markdown
@@ -2372,7 +2372,7 @@ SUBAGENT_SPEC_KEYS = frozenset(
         "generate_kwargs",
         "max_iterations",
         "compaction",
-        "steering",
+        "inbox",
     }
 )
 
@@ -2388,26 +2388,26 @@ def _check_compaction(compaction, where: str) -> None:
         raise ValueError(f"{where} must be a callable taking and returning list[dict], got {compaction!r}.")
 
 
-def _check_steering(steering, where: str) -> None:
-    """Reject a value that is not a ``Steering`` at factory-call time, naming where it came from.
+def _check_inbox(inbox, where: str) -> None:
+    """Reject a value that is not an ``Inbox`` at factory-call time, naming where it came from.
 
     ``_check_compaction``'s argument exactly: deferred, this surfaces from inside the child's tool
     loop as ``AttributeError: 'str' object has no attribute 'reader'``, which the parent loop turns
     into a *tool* failure the parent model is asked to recover from. A programmer error reported to
-    a model is the wrong reader. ``Steering`` is ``runtime_checkable``, so the check costs one line.
+    a model is the wrong reader. ``Inbox`` is ``runtime_checkable``, so the check costs one line.
     """
-    if steering is not None and not isinstance(steering, Steering):
-        raise ValueError(f"{where} must implement Steering (a reader() method), got {steering!r}.")
+    if inbox is not None and not isinstance(inbox, Inbox):
+        raise ValueError(f"{where} must implement Inbox (a reader() method), got {inbox!r}.")
 
 
 def _validate_subagent_config(
-    max_depth: int, agent_types: Optional[dict[str, dict]], compaction=None, steering=None
+    max_depth: int, agent_types: Optional[dict[str, dict]], compaction=None, inbox=None
 ) -> None:
     """Raise ``ValueError`` for programmer errors at factory-call time (failures apparent)."""
     if max_depth < 1:
         raise ValueError(f"max_depth must be >= 1 (got {max_depth}).")
     _check_compaction(compaction, "compaction")
-    _check_steering(steering, "steering")
+    _check_inbox(inbox, "inbox")
     if agent_types is not None:
         if not agent_types:
             raise ValueError("agent_types must be a non-empty dict, or None for a generic sub-agent.")
@@ -2428,8 +2428,8 @@ def _validate_subagent_config(
                     raise ValueError(f"agent_types[{type_name!r}]['max_iterations'] must be an int >= 1, got {cap!r}.")
             if "compaction" in spec:
                 _check_compaction(spec["compaction"], f"agent_types[{type_name!r}]['compaction']")
-            if "steering" in spec:
-                _check_steering(spec["steering"], f"agent_types[{type_name!r}]['steering']")
+            if "inbox" in spec:
+                _check_inbox(spec["inbox"], f"agent_types[{type_name!r}]['inbox']")
 
 
 def _subagent_overflow_result(agent_type: Optional[str], exc: BaseException) -> str:
@@ -2476,7 +2476,7 @@ def make_subagent_tool(
     tool_name: str = "spawn_subagent",
     events: Optional[EventSink] = None,
     compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
-    steering: Optional[Steering] = None,
+    inbox: Optional[Inbox] = None,
 ) -> Callable:
     """Build a ``spawn_subagent`` tool that delegates subtasks to fresh, isolated sub-agents.
 
@@ -2500,7 +2500,7 @@ def make_subagent_tool(
     * Typed (``agent_types`` given): the tool is ``spawn_subagent(agent_type, task)`` over a registry
       of named specialists (each value a dict with ``"system_message"`` and optional ``"tools"`` /
       ``"model"`` / ``"thinking"`` / ``"generate_kwargs"`` / ``"max_iterations"`` / ``"compaction"`` /
-      ``"steering"``, and nothing else -- an unrecognized spec key raises at factory-call time rather
+      ``"inbox"``, and nothing else -- an unrecognized spec key raises at factory-call time rather
       than being ignored, since an ignored key reads exactly like an applied one); the available names
       are listed in the tool description. An
       unknown ``agent_type``, by contrast, is returned to the model as a tool result (self-correction),
@@ -2527,9 +2527,9 @@ def make_subagent_tool(
       ``compaction`` (a third key with a factory tier, alongside ``"model"`` and ``"max_iterations"``),
       while a spec naming ``"compaction": None`` turns that policy off for one specialist. Those two
       cases are indistinguishable to ``.get()``, which is why this key does not follow the others.
-      ``"steering"`` is a :class:`~aimu.agents.steering.Steering` source of mid-run messages for one
+      ``"inbox"`` is an :class:`~aimu.agents.inbox.Inbox` source of mid-run messages for one
       spawned agent, read by the same *membership* rule as ``"compaction"`` and for the same reason: a
-      spec naming ``"steering": None`` is turning the factory's source off for this one specialist,
+      spec naming ``"inbox": None`` is turning the factory's source off for this one specialist,
       which ``.get()`` cannot tell apart from a spec that never mentioned the key.
 
     A spawned sub-agent that runs out of context does not raise: the ``ContextOverflowError`` becomes a
@@ -2570,10 +2570,10 @@ def make_subagent_tool(
             spawned agent, so a long-running worker trims its own context rather than dying in it.
             The parent's conversation is untouched: this reaches the child's messages only. A spec's
             own ``"compaction"`` overrides it, and ``"compaction": None`` in a spec turns it off.
-        steering: A :class:`~aimu.agents.steering.Steering` source of mid-run messages for every
+        inbox: An :class:`~aimu.agents.inbox.Inbox` source of mid-run messages for every
             spawned agent. Each spawn opens its own reader from it, so several spawns (or nested
-            ones) sharing one source never share a cursor. A spec's own ``"steering"`` overrides it,
-            and ``"steering": None`` in a spec turns it off for that one specialist.
+            ones) sharing one source never share a cursor. A spec's own ``"inbox"`` overrides it,
+            and ``"inbox": None`` in a spec turns it off for that one specialist.
 
     Example::
 
@@ -2586,7 +2586,7 @@ def make_subagent_tool(
     """
     from aimu.models.base import BaseModelClient
 
-    _validate_subagent_config(max_depth, agent_types, compaction, steering)
+    _validate_subagent_config(max_depth, agent_types, compaction, inbox)
 
     # Normalize to an enum/string the sub-agent client is rebuilt from each call (never share a live client).
     default_model = model.model if isinstance(model, BaseModelClient) else model
@@ -2600,7 +2600,7 @@ def make_subagent_tool(
         generate_kwargs=None,
         max_iter=None,
         compact=None,
-        steer=None,
+        agent_inbox=None,
     ):
         from aimu.agents.agent import Agent
         from aimu.models.model_client import ModelClient
@@ -2627,7 +2627,7 @@ def make_subagent_tool(
                     tool_name=tool_name,
                     events=events,
                     compaction=compaction,
-                    steering=steering,
+                    inbox=inbox,
                 )
             )
         client = ModelClient(m)
@@ -2647,13 +2647,13 @@ def make_subagent_tool(
             thinking=thinking,
             events=events,
             compaction=compact,
-            steering=steer,
+            inbox=agent_inbox,
         )
 
     if agent_types is None:
 
         def spawn_subagent(task: str) -> str:
-            agent = _build_agent(system_message, tools, name="subagent", compact=compaction, steer=steering)
+            agent = _build_agent(system_message, tools, name="subagent", compact=compaction, agent_inbox=inbox)
             try:
                 return agent.run(task)
             except ContextOverflowError as exc:
@@ -2679,9 +2679,9 @@ def make_subagent_tool(
                 # factory's policy *off* for this one specialist, which ``.get()`` cannot distinguish
                 # from a spec that never mentioned the key.
                 compact=spec["compaction"] if "compaction" in spec else compaction,
-                # Membership, not ``.get()``, for the same reason: a spec naming ``"steering": None``
+                # Membership, not ``.get()``, for the same reason: a spec naming ``"inbox": None``
                 # is turning the factory's source off for this one specialist.
-                steer=spec["steering"] if "steering" in spec else steering,
+                agent_inbox=spec["inbox"] if "inbox" in spec else inbox,
             )
             try:
                 return agent.run(task)

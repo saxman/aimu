@@ -49,7 +49,7 @@ class _RecordingAsyncAgent:
         thinking=None,
         events=None,
         compaction=None,
-        steering=None,
+        inbox=None,
     ):
         self.model_client = model_client
         self.system_message = system_message
@@ -62,7 +62,7 @@ class _RecordingAsyncAgent:
         self.thinking = thinking
         self.events = events
         self.compaction = compaction
-        self.steering = steering
+        self.inbox = inbox
         self.enter = None
         self.exit = None
         _RecordingAsyncAgent.instances.append(self)
@@ -753,80 +753,80 @@ def test_a_non_callable_compaction_raises_at_factory_call_time():
 
 
 # ---------------------------------------------------------------------------
-# steering
+# inbox
 # ---------------------------------------------------------------------------
 
 
-class _NoopAsyncSteering:
+class _NoopAsyncInbox:
     def reader(self):
         return lambda: []
 
 
-_noop_async_steering = _NoopAsyncSteering()
-_other_async_steering = _NoopAsyncSteering()
+_noop_async_inbox = _NoopAsyncInbox()
+_other_async_inbox = _NoopAsyncInbox()
 
 
-async def test_the_factory_steering_reaches_every_spawned_agent():
-    await make_async_subagent_tool(MODEL, steering=_noop_async_steering)("task")
-    assert _RecordingAsyncAgent.instances[-1].steering is _noop_async_steering
+async def test_the_factory_inbox_reaches_every_spawned_agent():
+    await make_async_subagent_tool(MODEL, inbox=_noop_async_inbox)("task")
+    assert _RecordingAsyncAgent.instances[-1].inbox is _noop_async_inbox
 
 
-async def test_a_spec_steering_overrides_the_factory_one():
-    types = {"heavy": {"system_message": "Read a lot.", "steering": _other_async_steering}}
-    await make_async_subagent_tool(MODEL, agent_types=types, steering=_noop_async_steering)("heavy", "task")
-    assert _RecordingAsyncAgent.instances[-1].steering is _other_async_steering
+async def test_a_spec_inbox_overrides_the_factory_one():
+    types = {"heavy": {"system_message": "Read a lot.", "inbox": _other_async_inbox}}
+    await make_async_subagent_tool(MODEL, agent_types=types, inbox=_noop_async_inbox)("heavy", "task")
+    assert _RecordingAsyncAgent.instances[-1].inbox is _other_async_inbox
 
 
-async def test_a_spec_omitting_steering_inherits_the_factory_one():
-    await make_async_subagent_tool(MODEL, agent_types=TYPES, steering=_noop_async_steering)("writer", "task")
-    assert _RecordingAsyncAgent.instances[-1].steering is _noop_async_steering
+async def test_a_spec_omitting_inbox_inherits_the_factory_one():
+    await make_async_subagent_tool(MODEL, agent_types=TYPES, inbox=_noop_async_inbox)("writer", "task")
+    assert _RecordingAsyncAgent.instances[-1].inbox is _noop_async_inbox
 
 
-async def test_a_spec_can_turn_the_factory_steering_off():
-    types = {"short": {"system_message": "Answer briefly.", "steering": None}}
-    await make_async_subagent_tool(MODEL, agent_types=types, steering=_noop_async_steering)("short", "task")
-    assert _RecordingAsyncAgent.instances[-1].steering is None
+async def test_a_spec_can_turn_the_factory_inbox_off():
+    types = {"short": {"system_message": "Answer briefly.", "inbox": None}}
+    await make_async_subagent_tool(MODEL, agent_types=types, inbox=_noop_async_inbox)("short", "task")
+    assert _RecordingAsyncAgent.instances[-1].inbox is None
 
 
-async def test_no_steering_by_default():
+async def test_no_inbox_by_default():
     await make_async_subagent_tool(MODEL)("task")
-    assert _RecordingAsyncAgent.instances[-1].steering is None
+    assert _RecordingAsyncAgent.instances[-1].inbox is None
 
 
-async def test_a_nested_spawn_tool_carries_the_factory_steering():
-    spawn = make_async_subagent_tool(MODEL, max_depth=2, steering=_noop_async_steering)
+async def test_a_nested_spawn_tool_carries_the_factory_inbox():
+    spawn = make_async_subagent_tool(MODEL, max_depth=2, inbox=_noop_async_inbox)
     await spawn("task")
     nested = [t for t in _RecordingAsyncAgent.instances[-1].tools if getattr(t, "__name__", "") == "spawn_subagent"]
     assert nested, "depth 2 should have injected a nested spawn tool"
     await nested[0]("deeper task")
-    assert _RecordingAsyncAgent.instances[-1].steering is _noop_async_steering
+    assert _RecordingAsyncAgent.instances[-1].inbox is _noop_async_inbox
 
 
-def test_steering_is_an_accepted_spec_key():
+def test_inbox_is_an_accepted_spec_key():
     from aimu.tools.builtin import SUBAGENT_SPEC_KEYS
 
-    assert "steering" in SUBAGENT_SPEC_KEYS
+    assert "inbox" in SUBAGENT_SPEC_KEYS
 
 
-def test_a_spec_carrying_steering_is_accepted_by_the_validator():
+def test_a_spec_carrying_an_inbox_is_accepted_by_the_validator():
     from aimu.tools.builtin import _validate_subagent_config
 
-    class NoopSteering:
+    class NoopInbox:
         def reader(self):
             return lambda: []
 
-    # Raises ValueError naming the key if "steering" is not in SUBAGENT_SPEC_KEYS.
-    _validate_subagent_config(1, {"worker": {"system_message": "work", "steering": NoopSteering()}})
+    # Raises ValueError naming the key if "inbox" is not in SUBAGENT_SPEC_KEYS.
+    _validate_subagent_config(1, {"worker": {"system_message": "work", "inbox": NoopInbox()}})
 
 
 def test_a_spec_level_source_reaches_the_agent_the_spawn_builds(monkeypatch):
     from aimu.tools import builtin
 
-    class NoopSteering:
+    class NoopInbox:
         def reader(self):
             return lambda: []
 
-    source = NoopSteering()
+    source = NoopInbox()
     built = {}
 
     class RecordingAgent:
@@ -843,19 +843,19 @@ def test_a_spec_level_source_reaches_the_agent_the_spawn_builds(monkeypatch):
     monkeypatch.setattr("aimu.models.model_client.ModelClient", lambda m: m)
     spawn = builtin.make_subagent_tool(
         "ollama:test",
-        agent_types={"worker": {"system_message": "work", "steering": source}},
+        agent_types={"worker": {"system_message": "work", "inbox": source}},
     )
     spawn("worker", "do the thing")
 
-    assert built["steering"] is source
+    assert built["inbox"] is source
 
 
-def test_a_non_steering_factory_argument_raises_at_factory_call_time():
-    with pytest.raises(ValueError, match="steering must implement"):
-        make_async_subagent_tool(MODEL, steering="yes")
+def test_a_non_inbox_factory_argument_raises_at_factory_call_time():
+    with pytest.raises(ValueError, match="inbox must implement"):
+        make_async_subagent_tool(MODEL, inbox="yes")
 
 
-def test_a_non_steering_spec_value_raises_at_factory_call_time():
-    types = {"bad": {"system_message": "x", "steering": 5}}
-    with pytest.raises(ValueError, match=r"agent_types\['bad'\]\['steering'\]"):
+def test_a_non_inbox_spec_value_raises_at_factory_call_time():
+    types = {"bad": {"system_message": "x", "inbox": 5}}
+    with pytest.raises(ValueError, match=r"agent_types\['bad'\]\['inbox'\]"):
         make_async_subagent_tool(MODEL, agent_types=types)

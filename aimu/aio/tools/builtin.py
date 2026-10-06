@@ -45,7 +45,7 @@ if TYPE_CHECKING:
     # Type-annotation-only, mirroring the sync twin's reason: this module already has `from
     # __future__ import annotations`, so a module-level import here is unnecessary rather than unsafe,
     # but there is no reason to pay for it when the sync twin's identical import has to avoid it.
-    from aimu.agents.steering import Steering
+    from aimu.agents.inbox import Inbox
 
 logger = logging.getLogger(__name__)
 
@@ -269,7 +269,7 @@ def make_async_subagent_tool(
     observer: Optional[SubagentObserver] = None,
     events: Optional[EventSink] = None,
     compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
-    steering: Optional[Steering] = None,
+    inbox: Optional[Inbox] = None,
 ) -> Callable:
     """Async twin of :func:`aimu.tools.builtin.make_subagent_tool`.
 
@@ -278,7 +278,7 @@ def make_async_subagent_tool(
     parent :class:`aimu.aio.Agent` ``concurrent_tool_calls=True`` and multiple spawn calls in one turn
     overlap under an ``asyncio.TaskGroup``. See the sync docstring for the full contract (generic vs
     typed mode, the per-spec ``"model"`` / ``"thinking"`` / ``"generate_kwargs"`` / ``"max_iterations"`` /
-    ``"steering"`` keys, ``max_depth`` recursion guard, unknown-``agent_type`` handling, and the
+    ``"inbox"`` keys, ``max_depth`` recursion guard, unknown-``agent_type`` handling, and the
     ``tool_approval`` gate forwarded to every spawned sub-agent).
 
     In-process providers (HuggingFace, LlamaCpp) are wrapped per spawn via a fresh sync client (the aio
@@ -300,15 +300,15 @@ def make_async_subagent_tool(
     turn. Set on the child ``Agent`` rather than passed to its ``run``, which covers the observed
     path too (``_run_observed`` calls ``run`` itself).
 
-    ``steering`` is the :class:`~aimu.agents.steering.Steering` source each spawned agent's loop drains
+    ``inbox`` is the :class:`~aimu.agents.inbox.Inbox` source each spawned agent's loop drains
     for mid-run messages. Each spawn opens its own reader from it, so several concurrent spawns (or
-    nested ones) sharing one source never share a cursor. A spec's own ``"steering"`` key overrides it,
-    and ``"steering": None`` in a spec turns it off for that one specialist, read by the same
+    nested ones) sharing one source never share a cursor. A spec's own ``"inbox"`` key overrides it,
+    and ``"inbox": None`` in a spec turns it off for that one specialist, read by the same
     *membership* rule as ``"compaction"``.
     """
     from aimu.models.base import BaseModelClient
 
-    _validate_subagent_config(max_depth, agent_types, compaction, steering)
+    _validate_subagent_config(max_depth, agent_types, compaction, inbox)
     default_model = model.model if isinstance(model, BaseModelClient) else model
 
     def _build_agent(
@@ -320,7 +320,7 @@ def make_async_subagent_tool(
         generate_kwargs=None,
         max_iter=None,
         compact=None,
-        steer=None,
+        agent_inbox=None,
     ):
         from aimu.aio.agent import Agent
 
@@ -346,7 +346,7 @@ def make_async_subagent_tool(
                     observer=observer,
                     events=events,
                     compaction=compaction,
-                    steering=steering,
+                    inbox=inbox,
                 )
             )
         client = _fresh_async_subagent_client(m)
@@ -365,7 +365,7 @@ def make_async_subagent_tool(
             thinking=thinking,
             events=events,
             compaction=compact,
-            steering=steer,
+            inbox=agent_inbox,
         )
 
     async def _dispatch(agent, agent_type: Optional[str], task: str) -> str:
@@ -386,7 +386,7 @@ def make_async_subagent_tool(
     if agent_types is None:
 
         async def spawn_subagent(task: str) -> str:
-            agent = _build_agent(system_message, tools, name="subagent", compact=compaction, steer=steering)
+            agent = _build_agent(system_message, tools, name="subagent", compact=compaction, agent_inbox=inbox)
             return await _dispatch(agent, None, task)
 
     else:
@@ -408,9 +408,9 @@ def make_async_subagent_tool(
                 # Membership, not `.get()`: see the sync twin. A spec naming `"compaction": None` is
                 # turning the factory's policy off, not omitting the key.
                 compact=spec["compaction"] if "compaction" in spec else compaction,
-                # Membership, not `.get()`, for the same reason: a spec naming `"steering": None` is
+                # Membership, not `.get()`, for the same reason: a spec naming `"inbox": None` is
                 # turning the factory's source off, not omitting the key.
-                steer=spec["steering"] if "steering" in spec else steering,
+                agent_inbox=spec["inbox"] if "inbox" in spec else inbox,
             )
             return await _dispatch(agent, agent_type, task)
 

@@ -37,7 +37,7 @@ except PackageNotFoundError:  # not installed (e.g. running from a source checko
 if TYPE_CHECKING:
     from . import aio
     from .agents import Agent
-    from .agents.steering import Steering
+    from .agents.inbox import Inbox
     from .events import EventSink
 
 from .models import (
@@ -641,7 +641,7 @@ __all__ = [
     "SpeechSpec",
     "StreamChunk",
     "StreamingContentType",
-    "Steering",
+    "Inbox",
     "INERT_MESSAGE_KEYS",
     "PROVENANCE_KEY",
     "PROVENANCE_CONTINUATION",
@@ -765,11 +765,11 @@ def __getattr__(name: str):
 
         globals()["Agent"] = _Agent  # cache, so later attribute access is a plain lookup
         return _Agent
-    if name == "Steering":
-        from .agents.steering import Steering as _Steering
+    if name == "Inbox":
+        from .agents.inbox import Inbox as _Inbox
 
-        globals()["Steering"] = _Steering  # cache, so later attribute access is a plain lookup
-        return _Steering
+        globals()["Inbox"] = _Inbox  # cache, so later attribute access is a plain lookup
+        return _Inbox
     if name == "aio":
         # importlib.import_module (not `from . import aio`) sidesteps CPython's
         # _handle_fromlist, which probes the parent package with hasattr() first --

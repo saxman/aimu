@@ -50,7 +50,7 @@ class _RecordingAgent:
         thinking=None,
         events=None,
         compaction=None,
-        steering=None,
+        inbox=None,
     ):
         self.model_client = model_client
         self.system_message = system_message
@@ -63,7 +63,7 @@ class _RecordingAgent:
         self.thinking = thinking
         self.events = events
         self.compaction = compaction
-        self.steering = steering
+        self.inbox = inbox
         self.enter = None
         self.exit = None
         _RecordingAgent.instances.append(self)
@@ -244,7 +244,7 @@ def test_agent_type_with_an_unknown_key_raises():
 
 def test_the_unknown_key_error_names_the_keys_that_are_accepted():
     with pytest.raises(
-        ValueError, match="generate_kwargs, max_iterations, model, steering, system_message, thinking, tools"
+        ValueError, match="generate_kwargs, inbox, max_iterations, model, system_message, thinking, tools"
     ):
         make_subagent_tool(MODEL, agent_types={"bad": {"system_message": "S.", "temperture": 0.2}})
 
@@ -604,70 +604,70 @@ def test_a_non_callable_spec_compaction_raises_at_factory_call_time():
 
 
 # ---------------------------------------------------------------------------
-# steering
+# inbox
 # ---------------------------------------------------------------------------
 
 
-class _NoopSteering:
+class _NoopInbox:
     def reader(self):
         return lambda: []
 
 
-_noop_steering = _NoopSteering()
-_other_steering = _NoopSteering()
+_noop_inbox = _NoopInbox()
+_other_inbox = _NoopInbox()
 
 
-def test_the_factory_steering_reaches_every_spawned_agent():
-    spawn = make_subagent_tool(MODEL, steering=_noop_steering)
+def test_the_factory_inbox_reaches_every_spawned_agent():
+    spawn = make_subagent_tool(MODEL, inbox=_noop_inbox)
     spawn("task")
-    assert _RecordingAgent.instances[-1].steering is _noop_steering
+    assert _RecordingAgent.instances[-1].inbox is _noop_inbox
 
 
-def test_a_spec_steering_overrides_the_factory_one():
-    types = {"heavy": {"system_message": "Read a lot.", "steering": _other_steering}}
-    spawn = make_subagent_tool(MODEL, agent_types=types, steering=_noop_steering)
+def test_a_spec_inbox_overrides_the_factory_one():
+    types = {"heavy": {"system_message": "Read a lot.", "inbox": _other_inbox}}
+    spawn = make_subagent_tool(MODEL, agent_types=types, inbox=_noop_inbox)
     spawn("heavy", "task")
-    assert _RecordingAgent.instances[-1].steering is _other_steering
+    assert _RecordingAgent.instances[-1].inbox is _other_inbox
 
 
-def test_a_spec_omitting_steering_inherits_the_factory_one():
-    spawn = make_subagent_tool(MODEL, agent_types=TYPES, steering=_noop_steering)
+def test_a_spec_omitting_inbox_inherits_the_factory_one():
+    spawn = make_subagent_tool(MODEL, agent_types=TYPES, inbox=_noop_inbox)
     spawn("writer", "task")
-    assert _RecordingAgent.instances[-1].steering is _noop_steering
+    assert _RecordingAgent.instances[-1].inbox is _noop_inbox
 
 
-def test_a_spec_can_turn_the_factory_steering_off():
-    """``"steering": None`` is a decision, and ``.get()`` could not tell it from an absent key."""
-    types = {"short": {"system_message": "Answer briefly.", "steering": None}}
-    spawn = make_subagent_tool(MODEL, agent_types=types, steering=_noop_steering)
+def test_a_spec_can_turn_the_factory_inbox_off():
+    """``"inbox": None`` is a decision, and ``.get()`` could not tell it from an absent key."""
+    types = {"short": {"system_message": "Answer briefly.", "inbox": None}}
+    spawn = make_subagent_tool(MODEL, agent_types=types, inbox=_noop_inbox)
     spawn("short", "task")
-    assert _RecordingAgent.instances[-1].steering is None
+    assert _RecordingAgent.instances[-1].inbox is None
 
 
-def test_no_steering_by_default():
+def test_no_inbox_by_default():
     make_subagent_tool(MODEL)("task")
-    assert _RecordingAgent.instances[-1].steering is None
+    assert _RecordingAgent.instances[-1].inbox is None
 
 
-def test_a_nested_spawn_tool_carries_the_factory_steering():
+def test_a_nested_spawn_tool_carries_the_factory_inbox():
     """The factory tier, like compaction: a nested tool serves the whole roster again."""
-    spawn = make_subagent_tool(MODEL, max_depth=2, steering=_noop_steering)
+    spawn = make_subagent_tool(MODEL, max_depth=2, inbox=_noop_inbox)
     spawn("task")
     nested = [t for t in _RecordingAgent.instances[-1].tools if getattr(t, "__name__", "") == "spawn_subagent"]
     assert nested, "depth 2 should have injected a nested spawn tool"
     nested[0]("deeper task")
-    assert _RecordingAgent.instances[-1].steering is _noop_steering
+    assert _RecordingAgent.instances[-1].inbox is _noop_inbox
 
 
-def test_a_non_steering_factory_argument_raises_at_factory_call_time():
+def test_a_non_inbox_factory_argument_raises_at_factory_call_time():
     # Deferred, this surfaces as `AttributeError: 'str' object has no attribute 'reader'` from
     # inside the child's loop, i.e. as a tool failure the parent model is asked to recover from.
-    # Same argument as compaction's check above; Steering is runtime_checkable, so this is cheap.
-    with pytest.raises(ValueError, match="steering must implement"):
-        make_subagent_tool(MODEL, steering="yes")
+    # Same argument as compaction's check above; Inbox is runtime_checkable, so this is cheap.
+    with pytest.raises(ValueError, match="inbox must implement"):
+        make_subagent_tool(MODEL, inbox="yes")
 
 
-def test_a_non_steering_spec_value_raises_at_factory_call_time():
-    types = {"bad": {"system_message": "x", "steering": 5}}
-    with pytest.raises(ValueError, match=r"agent_types\['bad'\]\['steering'\]"):
+def test_a_non_inbox_spec_value_raises_at_factory_call_time():
+    types = {"bad": {"system_message": "x", "inbox": 5}}
+    with pytest.raises(ValueError, match=r"agent_types\['bad'\]\['inbox'\]"):
         make_subagent_tool(MODEL, agent_types=types)
