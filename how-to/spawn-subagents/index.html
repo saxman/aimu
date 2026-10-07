@@ -16,7 +16,7 @@
         <link rel="prev" href="../build-orchestrator/">
       
       
-        <link rel="next" href="../build-personal-assistant/">
+        <link rel="next" href="../use-an-inbox/">
       
       
         
@@ -725,6 +725,8 @@
       
         
           
+        
+      
         
       
         
@@ -1968,6 +1970,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../use-an-inbox/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Give a running agent an inbox
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -3431,7 +3461,7 @@
 </span></code></pre></div>
 <p>The tool the model sees is <code>spawn_subagent(task: str) -&gt; str</code>. Give each sub-agent a complete, self-contained task — it has no view of the parent conversation.</p>
 <h2 id="typed-sub-agents-a-registry-of-specialists">Typed sub-agents (a registry of specialists)<a class="headerlink" href="#typed-sub-agents-a-registry-of-specialists" title="Permanent link">&para;</a></h2>
-<p>Pass <code>agent_types</code> to switch the tool to <code>spawn_subagent(agent_type, task)</code>, mirroring Claude Code's <code>subagent_type</code> + <code>prompt</code>. Each entry is a dict with <code>system_message</code> and optional <code>tools</code> / <code>model</code> / <code>thinking</code> (see <a href="../control-thinking/">Control thinking effort</a>) / <code>generate_kwargs</code> / <code>max_iterations</code> / <code>compaction</code> / <code>steering</code> — those eight keys and no others. <code>generate_kwargs</code> is a dict assigned to the spawned client's <code>default_generate_kwargs</code>, so one specialist can run at a cold temperature while another runs at a long context window; like <code>thinking</code> and unlike <code>model</code>, an omitted <code>generate_kwargs</code> inherits nothing, since there is no factory-level generation tier to fall back to. <code>max_iterations</code> is that specialist's tool-loop cap, and it goes the other way: like <code>model</code> and unlike the two keys above, an omitted <code>max_iterations</code> falls back to the one this factory was built with, so a roster can share a default and let a single search-heavy specialist run longer. <code>compaction</code> and <code>steering</code> are the two keys with a factory-level tier that are read by <em>membership</em> rather than by lookup: an absent key inherits the factory's callable or source, while <code>"compaction": None</code> / <code>"steering": None</code> written into a spec turns it off for that one specialist. Those two cases are indistinguishable to a <code>.get()</code>, which is why these keys alone are read that way. <code>steering</code> is a <a href="../../reference/api/agents/"><code>Steering</code></a> source of mid-run messages, <code>aimu.agents.steering.Steering</code>; a nested spawn (<code>max_depth &gt; 1</code>) carries the same source to a grandchild it spawns in turn, and each spawned agent still opens its own reader over it. The available type names are listed in the tool description, so the model knows the menu.</p>
+<p>Pass <code>agent_types</code> to switch the tool to <code>spawn_subagent(agent_type, task)</code>, mirroring Claude Code's <code>subagent_type</code> + <code>prompt</code>. Each entry is a dict with <code>system_message</code> and optional <code>tools</code> / <code>model</code> / <code>thinking</code> (see <a href="../control-thinking/">Control thinking effort</a>) / <code>generate_kwargs</code> / <code>max_iterations</code> / <code>compaction</code> / <code>inbox</code>: those eight keys and no others. <code>generate_kwargs</code> is a dict assigned to the spawned client's <code>default_generate_kwargs</code>, so one specialist can run at a cold temperature while another runs at a long context window; like <code>thinking</code> and unlike <code>model</code>, an omitted <code>generate_kwargs</code> inherits nothing, since there is no factory-level generation tier to fall back to. <code>max_iterations</code> is that specialist's tool-loop cap, and it goes the other way: like <code>model</code> and unlike the two keys above, an omitted <code>max_iterations</code> falls back to the one this factory was built with, so a roster can share a default and let a single search-heavy specialist run longer. <code>compaction</code> and <code>inbox</code> are the two keys with a factory-level tier that are read by <em>membership</em> rather than by lookup: an absent key inherits the factory's callable or source, while <code>"compaction": None</code> / <code>"inbox": None</code> written into a spec turns it off for that one specialist. Those two cases are indistinguishable to a <code>.get()</code>, which is why these keys alone are read that way. <code>inbox</code> is an <a href="../../reference/api/agents/"><code>Inbox</code></a> source of mid-run messages, <code>aimu.agents.inbox.Inbox</code>; a nested spawn (<code>max_depth &gt; 1</code>) carries the same source to a grandchild it spawns in turn, and each spawned agent still opens its own reader over it, under its own run name (<code>subagent-&lt;agent_type&gt;</code>), which is the argument <code>reader(agent)</code> receives: one mailbox can serve a whole roster and still be routed to one worker. The available type names are listed in the tool description, so the model knows the menu.</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">spawn</span> <span class="o">=</span> <span class="n">make_subagent_tool</span><span class="p">(</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="s2">"anthropic:claude-sonnet-4-6"</span><span class="p">,</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">agent_types</span><span class="o">=</span><span class="p">{</span>
@@ -3520,6 +3550,8 @@
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../build-orchestrator/">Build an orchestrator</a>: the static-roster counterpart</li>
+<li><a href="../use-an-inbox/">Give a running agent an inbox</a>: the <code>"inbox"</code> spec key in full, including
+  the <code>subagent-&lt;agent_type&gt;</code> name each spawned run opens its reader under</li>
 <li>The <code>--method spawn</code> variant in <a href="https://github.com/saxman/aimu/blob/main/examples/news-summarizer/news_summarizer.py"><code>examples/news-summarizer</code></a></li>
 <li><a href="../../reference/api/tools/"><code>aimu.tools.builtin.make_subagent_tool</code></a></li>
 </ul>

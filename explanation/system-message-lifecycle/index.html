@@ -805,6 +805,8 @@
       
         
       
+        
+      
     
     
     
@@ -1798,6 +1800,34 @@
     
   
     Spawn sub-agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/use-an-inbox/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Give a running agent an inbox
   
 
     
@@ -3359,7 +3389,7 @@
 <h2 id="the-deliberate-tradeoffs">The deliberate tradeoffs<a class="headerlink" href="#the-deliberate-tradeoffs" title="Permanent link">&para;</a></h2>
 <p>Allowing mid-conversation mutation has two consequences, both accepted on purpose:</p>
 <ul>
-<li><strong>The transcript becomes counterfactual.</strong> Prior assistant turns were generated under the <em>old</em> prompt but now sit beneath the new system entry. For a persona swap this is the intended, seamless behaviour; if you need an honest record of where the switch happened, append a steering user turn instead, or <code>reset()</code> to start fresh.</li>
+<li><strong>The transcript becomes counterfactual.</strong> Prior assistant turns were generated under the <em>old</em> prompt but now sit beneath the new system entry. For a persona swap this is the intended, seamless behaviour; if you need an honest record of where the switch happened, append a redirecting user turn instead, or <code>reset()</code> to start fresh.</li>
 <li><strong>No guard against silent cross-agent mutation.</strong> Earlier versions raised <code>RuntimeError</code> if you reassigned <code>system_message</code> after a conversation started, which incidentally caught the case of one agent mutating a <code>ModelClient</code> whose conversation another agent owns. That guard is gone. Don't share a single live-conversation client across agents that each set <code>system_message</code>; give each agent its own client (as the prebuilt orchestrator agents do, one <code>ModelClient(model_client.model)</code> per worker).</li>
 </ul>
 <h2 id="reset-change-the-prompt-and-drop-history"><code>reset()</code>: change the prompt <em>and</em> drop history<a class="headerlink" href="#reset-change-the-prompt-and-drop-history" title="Permanent link">&para;</a></h2>

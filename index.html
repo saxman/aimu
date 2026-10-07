@@ -927,6 +927,8 @@
       
         
       
+        
+      
     
     
     
@@ -1920,6 +1922,34 @@
     
   
     Spawn sub-agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="how-to/use-an-inbox/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Give a running agent an inbox
   
 
     
@@ -3397,6 +3427,7 @@ path to seeing what a model can actually do.</p>
 <li><strong>Text-to-audio</strong>: <code>aimu.audio_client()</code> and <code>aimu.generate_audio()</code> for music and sound generation (not TTS). HuggingFace MusicGen, AudioLDM2, and Stable Audio Open. See <a href="how-to/generate-audio/">how-to: generate audio</a>.</li>
 <li><strong>Text-to-speech</strong>: <code>aimu.speech_client()</code> and <code>aimu.generate_speech()</code> for TTS. HuggingFace MMS-TTS/BARK locally; OpenAI tts-1/tts-1-hd in the cloud. Live sentence-by-sentence narration in the Streamlit chatbot. See <a href="how-to/generate-speech/">how-to: generate speech</a>.</li>
 <li><strong>Agents and workflows</strong>: <code>Agent</code> for autonomous tool-using loops; <code>Chain</code> / <code>Router</code> / <code>Parallel</code> / <code>EvaluatorOptimizer</code> for code-controlled patterns from Anthropic's <em>Building Effective Agents</em>.</li>
+<li><strong>An inbox for a run in progress</strong>: <code>Agent(inbox=...)</code> delivers a user message to a run that is already going, at the next round boundary, instead of queueing it behind the whole run. One mailbox can serve a roster of spawned sub-agents, routed by the name each run opens its reader under. See <a href="how-to/use-an-inbox/">how-to: give a running agent an inbox</a>.</li>
 <li><strong>Tools</strong>: <code>@tool</code> decorator for plain Python functions, plus a synchronous <code>MCPClient</code> wrapper for cross-process tools.</li>
 <li><strong>Skills</strong>: filesystem-discovered <code>SKILL.md</code> files that auto-inject capabilities into a <code>SkillAgent</code>.</li>
 <li><strong>Memory</strong>: semantic facts (ChromaDB, <code>aimu[memory]</code>), path-based documents (Anthropic Memory API, no extra needed), and conversation history (TinyDB).</li>
@@ -3407,7 +3438,7 @@ path to seeing what a model can actually do.</p>
 <h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h2>
 <p>The <a href="https://github.com/saxman/aimu/tree/main/examples"><code>examples/</code></a> directory ships larger, real-world programs organized by theme: <code>text-refinement/</code> and <code>image-refinement/</code> (the same generate → judge → refine loop in two modalities, each implemented as a code loop, an <code>Agent</code>, an <code>EvaluatorOptimizer</code> workflow, and simulated annealing), <code>news-summarizer/</code> (one task solved with <code>Agent</code>, <code>Chain</code>, <code>Parallel</code>, and <code>OrchestratorAgent</code>), and <code>skills/</code> (demo skills for <code>SkillAgent</code> discovery). See the <a href="examples/">examples overview</a>.</p>
 <h2 id="notebooks">Notebooks<a class="headerlink" href="#notebooks" title="Permanent link">&para;</a></h2>
-<p>The <a href="https://github.com/saxman/aimu/tree/main/notebooks"><code>notebooks/</code></a> directory ships 26 runnable demos ordered to build up incrementally, from <code>01-model-client</code>, <code>03-structured-output</code>, and <code>06-tools</code> through <code>07-agents</code>, <code>11-embeddings</code>, <code>13-rag</code>, and the generative-modality and <code>22-async</code> notebooks. They are authored as plain-text <a href="https://quarto.org">Quarto</a> <code>.qmd</code> files (markdown with executable <code>python</code> cells); the numbered filenames are self-describing, so browse the directory to read or run them.</p>
+<p>The <a href="https://github.com/saxman/aimu/tree/main/notebooks"><code>notebooks/</code></a> directory ships 29 runnable demos ordered to build up incrementally, from <code>01-model-client</code>, <code>03-structured-output</code>, and <code>06-tools</code> through <code>07-agents</code>, <code>11-embeddings</code>, <code>13-rag</code>, and the generative-modality and <code>22-async</code> notebooks. They are authored as plain-text <a href="https://quarto.org">Quarto</a> <code>.qmd</code> files (markdown with executable <code>python</code> cells); the numbered filenames are self-describing, so browse the directory to read or run them.</p>
 <h2 id="web-apps">Web apps<a class="headerlink" href="#web-apps" title="Permanent link">&para;</a></h2>
 <p>The <a href="https://github.com/saxman/aimu/tree/main/examples/web"><code>examples/web/</code></a> directory ships two Streamlit chat applications (install the UI stack with <code>pip install aimu[web]</code>). <code>streamlit_chatbot_basic.py</code> (~70 lines) is a minimal showcase (provider/model selector, streaming chat, built-in tools) illustrating how little code a working AIMU chatbot takes. <code>streamlit_chatbot.py</code> is a full-featured version that adds image generation, audio generation, speech narration (live sentence-by-sentence TTS as the model streams), agentic mode, thinking display, and generation sliders; it's intended as an extensible starting point for more sophisticated apps. A Gradio variant is also included. The <a href="https://github.com/saxman/aimu/tree/main/examples/personal-assistant">personal-assistant</a> example also ships a WebSocket front end (<code>web_assistant.py</code>) that streams replies and pushes proactive messages to the browser.</p>
 

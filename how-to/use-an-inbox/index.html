@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://saxman.github.io/aimu/tutorials/05-vision-and-audio/">
+        <link rel="canonical" href="https://saxman.github.io/aimu/how-to/use-an-inbox/">
       
       
-        <link rel="prev" href="../04-streaming/">
+        <link rel="prev" href="../spawn-subagents/">
       
       
-        <link rel="next" href="../../examples/">
+        <link rel="next" href="../build-personal-assistant/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Vision and audio input - AIMU</title>
+        <title>Give a running agent an inbox - AIMU</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#vision-audio-input" class="md-skip">
+        <a href="#give-a-running-agent-an-inbox" class="md-skip">
           Skip to content
         </a>
       
@@ -116,7 +116,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Vision and audio input
+              Give a running agent an inbox
             
           </span>
         </div>
@@ -240,13 +240,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../tutorials/" class="md-tabs__link">
           
   
   
@@ -283,11 +281,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../how-to/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
           
   
   
@@ -465,8 +465,6 @@
       
   
   
-    
-  
   
   
     
@@ -490,23 +488,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../" class="md-nav__link ">
+            <a href="../../tutorials/" class="md-nav__link ">
               
   
   
@@ -524,13 +519,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -550,7 +545,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../01-getting-started/" class="md-nav__link">
+      <a href="../../tutorials/01-getting-started/" class="md-nav__link">
         
   
   
@@ -578,7 +573,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../02-first-agent-with-tools/" class="md-nav__link">
+      <a href="../../tutorials/02-first-agent-with-tools/" class="md-nav__link">
         
   
   
@@ -606,7 +601,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../03-workflows/" class="md-nav__link">
+      <a href="../../tutorials/03-workflows/" class="md-nav__link">
         
   
   
@@ -634,7 +629,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../04-streaming/" class="md-nav__link">
+      <a href="../../tutorials/04-streaming/" class="md-nav__link">
         
   
   
@@ -659,37 +654,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Vision and audio input
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../tutorials/05-vision-and-audio/" class="md-nav__link">
         
   
   
@@ -705,92 +673,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#setup" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Setup
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#1-send-an-image" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Send an image
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#2-send-audio" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Send audio
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#3-images-through-an-agent" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Images through an agent
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#4-images-through-workflows" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Images through workflows
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#whats-next" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What's next
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -834,6 +716,8 @@
       
   
   
+    
+  
   
   
     
@@ -929,20 +813,23 @@
     
     
       
+        
+        
+      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="../../how-to/" class="md-nav__link ">
+            <a href="../" class="md-nav__link ">
               
   
   
@@ -960,13 +847,13 @@
             </a>
             
               
-              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -986,7 +873,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/compare-models/" class="md-nav__link">
+      <a href="../compare-models/" class="md-nav__link">
         
   
   
@@ -1014,7 +901,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/observe-a-run/" class="md-nav__link">
+      <a href="../observe-a-run/" class="md-nav__link">
         
   
   
@@ -1042,7 +929,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/switch-providers/" class="md-nav__link">
+      <a href="../switch-providers/" class="md-nav__link">
         
   
   
@@ -1070,7 +957,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/add-custom-tool/" class="md-nav__link">
+      <a href="../add-custom-tool/" class="md-nav__link">
         
   
   
@@ -1098,7 +985,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/add-new-model/" class="md-nav__link">
+      <a href="../add-new-model/" class="md-nav__link">
         
   
   
@@ -1126,7 +1013,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/add-new-provider/" class="md-nav__link">
+      <a href="../add-new-provider/" class="md-nav__link">
         
   
   
@@ -1154,7 +1041,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/use-mcp-tools/" class="md-nav__link">
+      <a href="../use-mcp-tools/" class="md-nav__link">
         
   
   
@@ -1182,7 +1069,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/gate-tool-calls/" class="md-nav__link">
+      <a href="../gate-tool-calls/" class="md-nav__link">
         
   
   
@@ -1210,7 +1097,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/browse-and-submit-forms/" class="md-nav__link">
+      <a href="../browse-and-submit-forms/" class="md-nav__link">
         
   
   
@@ -1238,7 +1125,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/cancel-a-run/" class="md-nav__link">
+      <a href="../cancel-a-run/" class="md-nav__link">
         
   
   
@@ -1266,7 +1153,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/use-skills/" class="md-nav__link">
+      <a href="../use-skills/" class="md-nav__link">
         
   
   
@@ -1294,7 +1181,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/stream-output/" class="md-nav__link">
+      <a href="../stream-output/" class="md-nav__link">
         
   
   
@@ -1322,7 +1209,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/use-structured-output/" class="md-nav__link">
+      <a href="../use-structured-output/" class="md-nav__link">
         
   
   
@@ -1350,7 +1237,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/control-thinking/" class="md-nav__link">
+      <a href="../control-thinking/" class="md-nav__link">
         
   
   
@@ -1378,7 +1265,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/set-context-length/" class="md-nav__link">
+      <a href="../set-context-length/" class="md-nav__link">
         
   
   
@@ -1406,7 +1293,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/manage-context/" class="md-nav__link">
+      <a href="../manage-context/" class="md-nav__link">
         
   
   
@@ -1434,7 +1321,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/use-async/" class="md-nav__link">
+      <a href="../use-async/" class="md-nav__link">
         
   
   
@@ -1462,7 +1349,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/handle-vision/" class="md-nav__link">
+      <a href="../handle-vision/" class="md-nav__link">
         
   
   
@@ -1490,7 +1377,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/handle-audio-input/" class="md-nav__link">
+      <a href="../handle-audio-input/" class="md-nav__link">
         
   
   
@@ -1518,7 +1405,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/generate-images/" class="md-nav__link">
+      <a href="../generate-images/" class="md-nav__link">
         
   
   
@@ -1546,7 +1433,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/generate-audio/" class="md-nav__link">
+      <a href="../generate-audio/" class="md-nav__link">
         
   
   
@@ -1574,7 +1461,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/generate-speech/" class="md-nav__link">
+      <a href="../generate-speech/" class="md-nav__link">
         
   
   
@@ -1602,7 +1489,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/transcribe-audio/" class="md-nav__link">
+      <a href="../transcribe-audio/" class="md-nav__link">
         
   
   
@@ -1630,7 +1517,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/use-embeddings/" class="md-nav__link">
+      <a href="../use-embeddings/" class="md-nav__link">
         
   
   
@@ -1658,7 +1545,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/iterative-image-refinement/" class="md-nav__link">
+      <a href="../iterative-image-refinement/" class="md-nav__link">
         
   
   
@@ -1686,7 +1573,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/iterative-text-refinement/" class="md-nav__link">
+      <a href="../iterative-text-refinement/" class="md-nav__link">
         
   
   
@@ -1714,7 +1601,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/persist-conversations/" class="md-nav__link">
+      <a href="../persist-conversations/" class="md-nav__link">
         
   
   
@@ -1742,7 +1629,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/use-sessions/" class="md-nav__link">
+      <a href="../use-sessions/" class="md-nav__link">
         
   
   
@@ -1770,7 +1657,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/use-semantic-memory/" class="md-nav__link">
+      <a href="../use-semantic-memory/" class="md-nav__link">
         
   
   
@@ -1798,7 +1685,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/use-document-memory/" class="md-nav__link">
+      <a href="../use-document-memory/" class="md-nav__link">
         
   
   
@@ -1826,7 +1713,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/use-rag/" class="md-nav__link">
+      <a href="../use-rag/" class="md-nav__link">
         
   
   
@@ -1854,7 +1741,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/using-llms-inside-tools/" class="md-nav__link">
+      <a href="../using-llms-inside-tools/" class="md-nav__link">
         
   
   
@@ -1882,7 +1769,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/build-orchestrator/" class="md-nav__link">
+      <a href="../build-orchestrator/" class="md-nav__link">
         
   
   
@@ -1910,7 +1797,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/spawn-subagents/" class="md-nav__link">
+      <a href="../spawn-subagents/" class="md-nav__link">
         
   
   
@@ -1935,10 +1822,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../how-to/use-an-inbox/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Give a running agent an inbox
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1954,6 +1868,136 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-protocol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The protocol
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#wiring-it-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wiring it in
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#where-a-message-lands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where a message lands
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#seeing-it-happen" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Seeing it happen
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-round-budget" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The round budget
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#one-reader-per-run-and-the-name-it-is-opened-under" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One reader per run, and the name it is opened under
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-an-inbox-misbehaves" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When an inbox misbehaves
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#one-mailbox-for-a-roster-of-sub-agents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One mailbox for a roster of sub-agents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-deliberately-does-not-cross-this-seam" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What deliberately does not cross this seam
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1966,7 +2010,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/build-personal-assistant/" class="md-nav__link">
+      <a href="../build-personal-assistant/" class="md-nav__link">
         
   
   
@@ -1994,7 +2038,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/connect-agents-a2a/" class="md-nav__link">
+      <a href="../connect-agents-a2a/" class="md-nav__link">
         
   
   
@@ -2022,7 +2066,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/plan-execute-evaluate/" class="md-nav__link">
+      <a href="../plan-execute-evaluate/" class="md-nav__link">
         
   
   
@@ -2050,7 +2094,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/tune-prompts/" class="md-nav__link">
+      <a href="../tune-prompts/" class="md-nav__link">
         
   
   
@@ -2078,7 +2122,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/benchmark-models/" class="md-nav__link">
+      <a href="../benchmark-models/" class="md-nav__link">
         
   
   
@@ -2106,7 +2150,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../how-to/integrate-deepeval/" class="md-nav__link">
+      <a href="../integrate-deepeval/" class="md-nav__link">
         
   
   
@@ -3267,10 +3311,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#setup" class="md-nav__link">
+  <a href="#the-protocol" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Setup
+        The protocol
       
     </span>
   </a>
@@ -3278,10 +3322,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#1-send-an-image" class="md-nav__link">
+  <a href="#wiring-it-in" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Send an image
+        Wiring it in
       
     </span>
   </a>
@@ -3289,10 +3333,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#2-send-audio" class="md-nav__link">
+  <a href="#where-a-message-lands" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Send audio
+        Where a message lands
       
     </span>
   </a>
@@ -3300,10 +3344,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#3-images-through-an-agent" class="md-nav__link">
+  <a href="#seeing-it-happen" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Images through an agent
+        Seeing it happen
       
     </span>
   </a>
@@ -3311,10 +3355,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#4-images-through-workflows" class="md-nav__link">
+  <a href="#the-round-budget" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Images through workflows
+        The round budget
       
     </span>
   </a>
@@ -3322,10 +3366,54 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#whats-next" class="md-nav__link">
+  <a href="#one-reader-per-run-and-the-name-it-is-opened-under" class="md-nav__link">
     <span class="md-ellipsis">
       
-        What's next
+        One reader per run, and the name it is opened under
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-an-inbox-misbehaves" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When an inbox misbehaves
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#one-mailbox-for-a-roster-of-sub-agents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        One mailbox for a roster of sub-agents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-deliberately-does-not-cross-this-seam" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What deliberately does not cross this seam
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
       
     </span>
   </a>
@@ -3352,112 +3440,236 @@
   
 
 
-<h1 id="vision-audio-input">Vision &amp; audio input<a class="headerlink" href="#vision-audio-input" title="Permanent link">&para;</a></h1>
-<p>In ~10 minutes you'll send images — and audio — to a capable model, from a single <code>chat()</code> call up
-through agents and workflows.</p>
-<p>This is the last tutorial; it fills in the remaining <em>input modalities</em>. (For output modalities —
-generating images, speech, or music — see the how-to guides.)</p>
-<h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
-<p>You need a vision-capable model. The fastest free option is <strong>Ollama with Gemma 4</strong>:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>ollama<span class="w"> </span>pull<span class="w"> </span>gemma4:e4b
+<h1 id="give-a-running-agent-an-inbox">Give a running agent an inbox<a class="headerlink" href="#give-a-running-agent-an-inbox" title="Permanent link">&para;</a></h1>
+<p>A run that is already in progress is unreachable. The user types "actually, check the staging log
+instead", and the agent is three tool rounds into the wrong file. Without somewhere to put that
+message, a host has two options: drop it, or queue it behind the whole run and deliver it as the
+next turn, by which point the run has finished doing the wrong thing.</p>
+<p><code>Inbox</code> is the third option. The agent loop asks for pending messages at each round boundary and
+sends whatever it gets as that round's user message, on a model call it was going to make anyway.
+The run is redirected rather than restarted.</p>
+<p>This is the complement to <a href="../cancel-a-run/">cancelling a run</a>, not a replacement for it:
+cancelling throws the turn away, an inbox keeps the context and changes where it is pointed.</p>
+<h2 id="the-protocol">The protocol<a class="headerlink" href="#the-protocol" title="Permanent link">&para;</a></h2>
+<p><code>aimu.agents.inbox.Inbox</code> is a <code>Protocol</code> with one method:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Protocol</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">class</span><span class="w"> </span><span class="nc">Inbox</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">reader</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">agent</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span> <span class="o">...</span>
 </span></code></pre></div>
-<p>Or use any cloud model that supports vision (GPT-4o, Claude 4.x, Gemini 2.x).</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:gemma4:e4b"</span><span class="p">)</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">client</span><span class="o">.</span><span class="n">is_vision_model</span>   <span class="c1"># True</span>
+<p><code>reader()</code> is called <strong>once per run</strong>, at its start, and returns that run's own drain. The drain
+returns every message that arrived since it was last called, oldest first, and an empty list when
+there is nothing. It is called from inside the loop, so it must not block.</p>
+<p>A minimal host-side implementation, thread-safe because the feeding side is usually another thread:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">deque</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">class</span><span class="w"> </span><span class="nc">QueueInbox</span><span class="p">:</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="sd">"""A mailbox a host writes to and a run reads from."""</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span> <span class="o">=</span> <span class="n">deque</span><span class="p">()</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>        <span class="c1"># the host's side</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">reader</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">agent</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>             <span class="c1"># the run's side</span>
+</span><span id="__span-1-16"><a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>        <span class="k">def</span><span class="w"> </span><span class="nf">drain</span><span class="p">():</span>
+</span><span id="__span-1-17"><a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+</span><span id="__span-1-18"><a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>                <span class="n">pending</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="p">)</span>
+</span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>                <span class="bp">self</span><span class="o">.</span><span class="n">_pending</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>         <span class="c1"># advance the cursor, or see "The round budget"</span>
+</span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>                <span class="k">return</span> <span class="n">pending</span>
+</span><span id="__span-1-21"><a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a>
+</span><span id="__span-1-22"><a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>        <span class="k">return</span> <span class="n">drain</span>
 </span></code></pre></div>
-<h2 id="1-send-an-image">1. Send an image<a class="headerlink" href="#1-send-an-image" title="Permanent link">&para;</a></h2>
-<p>Pass <code>images=[...]</code> to <code>chat()</code>. Each item can be a file path, raw bytes, an http(s) URL, or a
-<code>data:image/...</code> URL:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">response</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"What's in this image?"</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">"./cat.jpg"</span><span class="p">])</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+<p><code>Inbox</code> is <code>runtime_checkable</code>, so any object with a <code>reader</code> method satisfies it. There is no base
+class to inherit.</p>
+<h2 id="wiring-it-in">Wiring it in<a class="headerlink" href="#wiring-it-in" title="Permanent link">&para;</a></h2>
+<p><code>inbox</code> is a standing field on <code>Agent</code> with a per-run override, the same shape as <code>compaction</code>:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">mailbox</span> <span class="o">=</span> <span class="n">QueueInbox</span><span class="p">()</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3:8b"</span><span class="p">),</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">],</span> <span class="n">inbox</span><span class="o">=</span><span class="n">mailbox</span><span class="p">)</span>   <span class="c1"># every run</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"summarize the staging logs"</span><span class="p">)</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3:8b"</span><span class="p">),</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="o">...</span><span class="p">])</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"summarize the staging logs"</span><span class="p">,</span> <span class="n">inbox</span><span class="o">=</span><span class="n">mailbox</span><span class="p">)</span>                     <span class="c1"># this run only</span>
 </span></code></pre></div>
-<p>Multiple images? Just add to the list:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"Compare these."</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">"a.png"</span><span class="p">,</span> <span class="s2">"b.png"</span><span class="p">])</span>
-</span></code></pre></div>
-<p>For a one-shot "look once and answer" call that <em>doesn't</em> keep history, use <code>generate(images=...)</code> —
-the stateless sibling of <code>chat()</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">caption</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"Caption this image."</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">"./cat.jpg"</span><span class="p">])</span>  <span class="c1"># client.messages stays empty</span>
-</span></code></pre></div>
-<p><code>client.messages</code> keeps everything in OpenAI content-block format internally; each provider adapts at
-request time. See <a href="../../how-to/handle-vision/">how-to: handle vision</a> for the per-provider details.</p>
-<h2 id="2-send-audio">2. Send audio<a class="headerlink" href="#2-send-audio" title="Permanent link">&para;</a></h2>
-<p>Audio input mirrors images one-for-one. Pass <code>audio=[...]</code> to an <strong>audio-capable</strong> model (OpenAI
-GPT-4o / GPT-4.1, Google Gemini 2.x, or HuggingFace Gemma 4 — note the Ollama build of Gemma 4 is
-vision-only), with the same input forms (file path, bytes, <code>https://</code> URL, or a <code>data:audio/...</code>
-URL):</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"openai:gpt-4o"</span><span class="p">)</span>   <span class="c1"># an audio-capable model</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nb">print</span><span class="p">(</span><span class="n">client</span><span class="o">.</span><span class="n">chat</span><span class="p">(</span><span class="s2">"Transcribe and summarise this clip."</span><span class="p">,</span> <span class="n">audio</span><span class="o">=</span><span class="p">[</span><span class="s2">"./note.mp3"</span><span class="p">]))</span>
-</span></code></pre></div>
-<p><code>images=</code> and <code>audio=</code> are mutually exclusive per turn (passing both raises <code>ValueError</code>). Both are
-available on <code>chat()</code> (stateful) and <code>generate()</code> (stateless). See
-<a href="../../how-to/handle-audio-input/">how-to: handle audio input</a>.</p>
-<blockquote>
-<p>Transcription and speech are separate, dedicated surfaces: use <code>aimu.transcribe()</code> for
-speech-to-text with a Whisper-class model, and <code>aimu.generate_speech()</code> for text-to-speech. <code>audio=</code>
-here is for an audio-capable <em>chat</em> model reasoning over a clip.</p>
-</blockquote>
-<h2 id="3-images-through-an-agent">3. Images through an agent<a class="headerlink" href="#3-images-through-an-agent" title="Permanent link">&para;</a></h2>
-<p><code>images=</code> threads through <code>Agent.run()</code>. Only the initial task turn carries the image; the agent's
-continuation turns are text-only:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="s2">"You are a helpful image analyst."</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">"vision-bot"</span><span class="p">)</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="nb">print</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Describe the scene, then list any text you can read."</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">"./photo.jpg"</span><span class="p">]))</span>
-</span></code></pre></div>
-<p>(Streaming works here too — the same <code>stream=True</code> iterator from the
-<a href="../04-streaming/">Streaming tutorial</a>.)</p>
-<h2 id="4-images-through-workflows">4. Images through workflows<a class="headerlink" href="#4-images-through-workflows" title="Permanent link">&para;</a></h2>
-<p><code>images=</code> is forwarded through every workflow's <code>run()</code>, to the turns where it makes sense:</p>
+<p>Identical on the async surface (<code>aio.Agent(inbox=...)</code> / <code>await agent.run(..., inbox=...)</code>), and
+<code>SkillAgent</code> takes it on both.</p>
+<p>One case it does <strong>not</strong> cover: <code>run(schema=...)</code> makes a single structured-output turn instead of
+running the tool loop, so there is no round boundary to drain at and the inbox is unused.</p>
+<h2 id="where-a-message-lands">Where a message lands<a class="headerlink" href="#where-a-message-lands" title="Permanent link">&para;</a></h2>
+<p>The loop checks for a pending message at each of the three round-boundary branches, and what the
+message does differs by branch:</p>
 <table>
 <thead>
 <tr>
-<th>Workflow</th>
-<th>Where the image goes</th>
+<th>Branch</th>
+<th>What a pending message does</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>Chain.run(task, images=[...])</code></td>
-<td>step 0 only (later steps see step 0's text)</td>
+<td>After a tool round</td>
+<td>Sent as the next round's user message, before the model sees the tool results</td>
 </tr>
 <tr>
-<td><code>Router.run(task, images=[...])</code></td>
-<td>the dispatched handler</td>
+<td>After a degenerate turn (no content, no tool calls)</td>
+<td><strong>Replaces</strong> the built-in continuation nudge, rather than running alongside it</td>
 </tr>
 <tr>
-<td><code>Parallel.run(task, images=[...])</code></td>
-<td>every worker</td>
-</tr>
-<tr>
-<td><code>EvaluatorOptimizer.run(task, images=[...])</code></td>
-<td>the initial generator turn only</td>
+<td>After what would have been the final turn</td>
+<td><strong>Extends</strong> the run by one more round, so a message landing as the model composes its answer is not dropped</td>
 </tr>
 </tbody>
 </table>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Chain</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">chain</span> <span class="o">=</span> <span class="n">Chain</span><span class="o">.</span><span class="n">from_client</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="p">[</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="s2">"Describe what you see in detail."</span><span class="p">,</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="s2">"Summarise the description in one sentence."</span><span class="p">,</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="p">])</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">chain</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Tell me about this photo."</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="s2">"./photo.jpg"</span><span class="p">]))</span>
+<p>That last branch is what makes the timing forgiving: you do not have to land a message inside the
+run's working rounds for it to be read. A healthy turn with nothing pending ends exactly as it did
+before the run had an inbox.</p>
+<p>A drain returning only whitespace delivers nothing, so a host that polls with an empty heartbeat
+does not manufacture a round for it.</p>
+<h2 id="seeing-it-happen">Seeing it happen<a class="headerlink" href="#seeing-it-happen" title="Permanent link">&para;</a></h2>
+<p>A streamed run yields a <code>StreamingContentType.INBOX</code> chunk immediately before the round that reads
+the message:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"summarize the staging logs"</span><span class="p">,</span> <span class="n">stream</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">inbox</span><span class="o">=</span><span class="n">mailbox</span><span class="p">):</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="k">if</span> <span class="n">chunk</span><span class="o">.</span><span class="n">is_inbox</span><span class="p">():</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"[delivered] </span><span class="si">{</span><span class="n">chunk</span><span class="o">.</span><span class="n">content</span><span class="p">[</span><span class="s1">'text'</span><span class="p">]</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 </span></code></pre></div>
-<p>Step 0 sees the image; step 1 sees only step 0's text output.</p>
-<h2 id="whats-next">What's next<a class="headerlink" href="#whats-next" title="Permanent link">&para;</a></h2>
-<p>You've completed the tutorials. You now know:</p>
+<p>The content is <code>dict {"text": str}</code>. Every shipped consumer renders it:</p>
 <ul>
-<li>The top-level API: <code>aimu.chat()</code>, <code>aimu.client()</code>, <code>aimu.agent()</code>, and model strings.</li>
-<li>The agent loop and the <code>@tool</code> decorator.</li>
-<li>The code-controlled workflows: Chain, Router, Parallel, EvaluatorOptimizer.</li>
-<li>The full <code>StreamChunk</code> streaming API.</li>
-<li>Vision and audio input into chats, agents, and workflows.</li>
+<li><code>aimu.pretty_print</code> and <code>CLIChannel</code> print a <code>[message] &lt;text&gt;</code> line, ungated by the
+  <code>show_thinking</code> / <code>show_tools</code> flags (it is one line per delivered round, and it is what explains
+  a run changing direction).</li>
+<li><code>WebChannel</code> emits a frame of its own, <code>{"type": "inbox", "text": str}</code>, rather than a third
+  <code>reason</code> on its <code>loop</code> frame. <code>loop</code> means the loop injected the round, and conflating the two
+  would attribute the user's words to the assistant.</li>
 </ul>
-<p>For specific tasks, browse the <a href="../../how-to/">how-to guides</a> — including
-<a href="../../how-to/generate-images/">generating images</a>, <a href="../../how-to/generate-speech/">speech</a>, and
-<a href="../../how-to/transcribe-audio/">transcription</a>. For the design intent behind any of this, see the
-<a href="../../explanation/">explanation pages</a>.</p>
+<p>In the stored transcript, a delivered message is an ordinary <code>{"role": "user"}</code> entry carrying <strong>no
+provenance tag</strong>, unlike the loop's own <code>PROVENANCE_CONTINUATION</code> / <code>PROVENANCE_FINAL_ANSWER</code>
+injections (see <a href="../../reference/stream-phases/">stream phases</a>). The words are the user's, arriving
+through a different channel; they are not a prompt the loop composed for itself.</p>
+<h2 id="the-round-budget">The round budget<a class="headerlink" href="#the-round-budget" title="Permanent link">&para;</a></h2>
+<p><code>max_iterations</code> bounds <em>autonomous</em> iteration: how far the loop may run with no human in it. A
+delivered message puts a human back in the loop, so it resets the budget. The cap is measured from
+the round the last message landed in, not from the raw round count.</p>
+<p>Without the reset, a long-running delegate would spend its whole messageable window on the rounds
+before you said anything, and a late message could still be cut off by the forced wrap-up moments
+later. A run that is never messaged has its cap unaffected.</p>
+<p>The reset is capped at one extension per permitted round. That is not tidiness: the reset is the
+only thing standing between a run and an unbounded bill, and a drain that returns its whole list
+instead of the unread slice is a one-character mistake that makes every round look like a fresh
+human message. Past the cap the loop logs once:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>The inbox has extended this run's round budget 10 times; refusing further extensions.
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>A drain returning already-delivered messages instead of the unread slice does this.
+</span></code></pre></div>
+<p>The count is the run's <code>max_iterations</code> (10 by default), since the allowance is one extension per
+permitted round. Past that point the loop stops extending while still <em>delivering</em> the message, so
+a host that genuinely messages this often gets a turn that ends sooner rather than one that drops
+input. If you see that warning, your drain is not advancing its cursor.</p>
+<h2 id="one-reader-per-run-and-the-name-it-is-opened-under">One reader per run, and the name it is opened under<a class="headerlink" href="#one-reader-per-run-and-the-name-it-is-opened-under" title="Permanent link">&para;</a></h2>
+<p><code>reader()</code> is called per run rather than once per <code>Inbox</code>, and the reason is worth knowing because
+it constrains what a host can key on. Under sequential tool dispatch, a spawned sub-agent's loop
+executes in the <em>same</em> asyncio task as the agent that spawned it, so a reader keyed by task would
+let two runs consume each other's messages. Two runs of the same agent type would collide on a name
+for the same reason.</p>
+<p>The run's name is passed to <code>reader(agent)</code> so a host can route a message to one run instead of
+broadcasting to every drain:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">RoutedInbox</span><span class="p">:</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_per_agent</span> <span class="o">=</span> <span class="p">{}</span>      <span class="c1"># agent name -&gt; list of pending messages</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">send</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">agent</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_per_agent</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="p">[])</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">text</span><span class="p">)</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">reader</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">agent</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>        <span class="k">def</span><span class="w"> </span><span class="nf">drain</span><span class="p">():</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>            <span class="n">pending</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_per_agent</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">agent</span><span class="p">,</span> <span class="p">[])</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>            <span class="k">return</span> <span class="n">pending</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>        <span class="k">return</span> <span class="n">drain</span>
+</span></code></pre></div>
+<p>The name is passed <strong>positionally</strong>, so the parameter may be called anything, and a reader that
+ignores the label may keep the <code>agent=None</code> default. What it may not do is refuse the argument: a
+zero-argument <code>reader()</code> cannot be called at all, and that is checked at run start (see below).</p>
+<p><strong>Name your agents if you intend to route.</strong> <code>Agent</code> generates <code>agent-{id:06x}</code> when you pass no
+<code>name=</code>, and a generated name is unguessable from outside the run that got it, so a host that never
+names its agents ends up with runs it has a label for but cannot address.</p>
+<h2 id="when-an-inbox-misbehaves">When an inbox misbehaves<a class="headerlink" href="#when-an-inbox-misbehaves" title="Permanent link">&para;</a></h2>
+<p>Four failures are logged and the run continues with no reader, because an inbox that cannot deliver
+should not end a run that is otherwise working:</p>
+<ul>
+<li><code>reader()</code> raises.</li>
+<li>The drain raises.</li>
+<li>The drain returns the wrong shape. A bare <code>str</code> is <strong>refused rather than iterated</strong>: <code>str</code> is
+  iterable, so an unchecked drain would accept <code>"stop"</code> and deliver it as four one-character
+  messages, which is worse than a raise for looking like it worked.</li>
+<li>The drain never advances its cursor (the budget cap above).</li>
+</ul>
+<p>One shape is refused instead, and refused <em>before</em> the run starts rather than ending one in
+progress: a <code>reader</code> the loop cannot call. <code>isinstance</code> cannot catch it first, because a
+<code>runtime_checkable</code> Protocol only checks that the method exists. So the loop's constructor rehearses
+the real call and raises <code>TypeError</code> naming the class, the signature it found, and the fix:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>...QueueInbox.reader() cannot be called the way an agent's loop calls it: reader(agent),
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>passing the name of the run opening the reader as one positional argument. Widen the signature
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>in the class body, `def reader(self, agent=None)`, ...
+</span></code></pre></div>
+<p>This one is an error rather than a log line because an inbox that never delivers is
+indistinguishable from a user who never typed: it was the one failure here a host could not
+discover. It fails open on a reader whose signature cannot be read (a <code>functools.partial</code> over a
+C-implemented function), since an unreadable signature is no evidence of a wrong one.</p>
+<h2 id="one-mailbox-for-a-roster-of-sub-agents">One mailbox for a roster of sub-agents<a class="headerlink" href="#one-mailbox-for-a-roster-of-sub-agents" title="Permanent link">&para;</a></h2>
+<p>An <code>Inbox</code> reaches spawned sub-agents through the same two seams <code>compaction</code> uses. The factory
+takes one, and a typed <code>agent_types</code> spec may carry its own:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">builtin</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools.builtin</span><span class="w"> </span><span class="kn">import</span> <span class="n">make_subagent_tool</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">spawn</span> <span class="o">=</span> <span class="n">make_subagent_tool</span><span class="p">(</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="s2">"ollama:qwen3:8b"</span><span class="p">,</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">inbox</span><span class="o">=</span><span class="n">mailbox</span><span class="p">,</span>                                     <span class="c1"># every spawned agent reads this</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">agent_types</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>        <span class="s2">"researcher"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"system_message"</span><span class="p">:</span> <span class="s2">"You research."</span><span class="p">,</span> <span class="s2">"tools"</span><span class="p">:</span> <span class="n">builtin</span><span class="o">.</span><span class="n">web</span><span class="p">},</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>        <span class="s2">"writer"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"system_message"</span><span class="p">:</span> <span class="s2">"You write."</span><span class="p">,</span> <span class="s2">"inbox"</span><span class="p">:</span> <span class="kc">None</span><span class="p">},</span>   <span class="c1"># this one reads nothing</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>    <span class="p">},</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>Both tiers read the key by <strong>membership</strong>, not by <code>.get()</code>: an absent key inherits the factory's
+source, and <code>"inbox": None</code> turns it off for one specialist. A <code>.get()</code> cannot tell those apart.</p>
+<p>Each spawned run opens <strong>its own</strong> reader, so a caller's run and a delegate's run never share a
+cursor even when both read the same <code>Inbox</code> object. The label a spawned run opens under is its own:
+<code>subagent-&lt;agent_type&gt;</code> on the typed shape (which is what lets <code>RoutedInbox</code> above address one
+specialist), and the fixed <code>subagent</code> on the generic shape, where there is no type to name. A nested
+spawn (<code>max_depth &gt; 1</code>) carries the same source to a grandchild, so one host mailbox reaches however
+deep a roster's delegation goes.</p>
+<p>A value that does not implement the protocol raises <code>ValueError</code> at factory-call time at both tiers.
+Deferred, it would arrive from inside the child's loop as
+<code>AttributeError: 'str' object has no attribute 'reader'</code>, which the parent turns into a <em>tool</em>
+failure the parent model is asked to recover from, and a programmer error reported to a model has
+the wrong reader.</p>
+<h2 id="what-deliberately-does-not-cross-this-seam">What deliberately does not cross this seam<a class="headerlink" href="#what-deliberately-does-not-cross-this-seam" title="Permanent link">&para;</a></h2>
+<p>The drain returns <code>list[str]</code>, and an <code>INBOX</code> chunk carries <code>{"text": str}</code>. No sender, no address,
+no selector, no group, no roster, no receipt. Who a message came from, who may send one, and whether
+delivery is acknowledged are your application's model, and a protocol carrying envelopes would make
+every host inherit one host's addressing scheme. The agent name is the one thing that crosses, and
+it is thin on purpose: AIMU attaches no meaning to the string beyond handing it back.</p>
+<p>If you need routing richer than a name, put it on your side of <code>reader(agent)</code>, where you already
+have the whole language of your own application available.</p>
+<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Notebook <a href="https://github.com/saxman/aimu/blob/main/notebooks/29-agent-inbox.qmd">29 - An Agent's Inbox</a>:
+  the runnable version of this page, including a threaded host and the async twin</li>
+<li><a href="../cancel-a-run/">Cancel a run</a>: stop a run instead of redirecting it</li>
+<li><a href="../spawn-subagents/">Spawn sub-agents</a>: the <code>"inbox"</code> spec key among the rest of a spawn roster</li>
+<li><a href="../../reference/stream-phases/">Stream phases</a>: <code>INBOX</code> next to the other phases, and how it
+  differs from <code>CONTINUING</code></li>
+<li><a href="../observe-a-run/">Observe a run</a>: the telemetry channel, for what the library did with a message</li>
+<li><a href="../build-personal-assistant/">Build a personal assistant</a>: a host that already reads input
+  concurrently with a run, which is what an inbox needs</li>
+</ul>
 
 
 

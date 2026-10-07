@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://saxman.github.io/aimu/how-to/build-personal-assistant/">
       
       
-        <link rel="prev" href="../spawn-subagents/">
+        <link rel="prev" href="../use-an-inbox/">
       
       
         <link rel="next" href="../connect-agents-a2a/">
@@ -725,6 +725,8 @@
       
         
           
+        
+      
         
       
         
@@ -1803,6 +1805,34 @@
     
   
     Spawn sub-agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../use-an-inbox/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Give a running agent an inbox
   
 
     
@@ -3651,6 +3681,9 @@ those. An app extends <code>WebChannel</code> by subclassing it and adding frame
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../use-skills/">Use skills</a>: the <code>SkillAgent</code> and <code>SKILL.md</code> format the authoring tool writes to</li>
+<li><a href="../use-an-inbox/">Give a running agent an inbox</a>: a serve loop that already reads input
+  concurrently with a turn is the host an <code>Inbox</code> wants, so a message typed mid-turn can redirect
+  it instead of waiting for it</li>
 <li><a href="../use-async/">Use async (<code>aio</code>)</a>: the async surface these primitives live on</li>
 <li><a href="../persist-conversations/">Persist conversations</a>: <code>ConversationManager</code></li>
 <li>Add capabilities the example leaves out: <a href="../use-mcp-tools/">use MCP tools</a>, <a href="../use-semantic-memory/">semantic memory</a>, <a href="../use-document-memory/">document memory</a></li>

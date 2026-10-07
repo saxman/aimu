@@ -807,6 +807,8 @@
       
         
       
+        
+      
     
     
     
@@ -1916,6 +1918,34 @@
     
   
     Spawn sub-agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../use-an-inbox/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Give a running agent an inbox
   
 
     
@@ -3324,8 +3354,8 @@
 
 <h1 id="observe-a-run">Observe a run<a class="headerlink" href="#observe-a-run" title="Permanent link">&para;</a></h1>
 <p>A <code>chat()</code> call and an <code>Agent.run()</code> both do more than the string they return: a generate_kwargs
-merge, a thinking-effort resolution, zero-or-more tool calls, maybe a compaction pass, maybe a
-steering message drained at a round boundary, one or more requests to a provider. None of that is
+merge, a thinking-effort resolution, zero-or-more tool calls, maybe a compaction pass, maybe an
+inbox message drained at a round boundary, one or more requests to a provider. None of that is
 visible in the return value. <code>aimu.events</code> is the
 telemetry channel that makes it visible: a sink is one callable that takes one event, and you
 attach it to a client, an agent, an orchestrator, or a workflow to see what actually happened.</p>
@@ -3585,9 +3615,9 @@ reported to it. The window is bounded and self-healing (it is not the permanent 
 <ul>
 <li><a href="../manage-context/">Manage context</a> — <code>ContextCompacted</code> is the event this page didn't cover;
   it fires when a conversation is trimmed or summarized mid-run.</li>
-<li><a href="../../reference/api/agents/"><code>aimu.agents.steering.Steering</code></a>: the run behavior this page
-  mentions but doesn't cover: <code>Agent.run(steering=...)</code> drains a source of user messages at each
-  round boundary, so a host can steer a run already in progress instead of queuing behind it.</li>
+<li><a href="../use-an-inbox/">Give a running agent an inbox</a> — the run behavior this page mentions but
+  doesn't cover: <code>Agent.run(inbox=...)</code> drains a source of user messages at each round boundary,
+  so a host can message a run already in progress instead of queuing behind it.</li>
 <li><a href="../compare-models/">Compare models</a> — <code>last_usage</code> and <code>extract_tool_calls</code> for after-the-fact
   comparison across models, rather than a live sink.</li>
 <li><a href="../gate-tool-calls/">Gate tool calls</a> — the <code>tool_approval</code> hook that produces <code>ToolDenied</code>.</li>

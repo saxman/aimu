@@ -805,6 +805,8 @@
       
         
       
+        
+      
     
     
     
@@ -1798,6 +1800,34 @@
     
   
     Spawn sub-agents
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/use-an-inbox/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Give a running agent an inbox
   
 
     
@@ -2990,6 +3020,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#why-inbox-is-not-a-kind-of-continuing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why INBOX is not a kind of CONTINUING
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#phase-semantics" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3314,6 +3355,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#why-inbox-is-not-a-kind-of-continuing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why INBOX is not a kind of CONTINUING
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#phase-semantics" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3433,6 +3485,9 @@
 <p>The <code>include=[...]</code> parameter on <code>chat()</code> and <code>generate()</code> is the only filtering primitive we need; it covers "skip thinking", "skip tool calls", and any combination.</p>
 <h2 id="why-continuing-needs-its-own-phase">Why CONTINUING needs its own phase<a class="headerlink" href="#why-continuing-needs-its-own-phase" title="Permanent link">&para;</a></h2>
 <p><code>chunk.iteration</code> already answers "did the round number move": it increments on every pass through the agent loop, tool round or not. It does not answer "who moved it, and what did they say". A tool round and a framework-injected round both bump <code>iteration</code> the same way, so a consumer watching <code>iteration</code> alone cannot tell one from the other. The two injections a loop can make say opposite things to the model: a continuation nudge after an empty turn leaves tools enabled and asks for another attempt, while the forced wrap-up at the round cap disables tools and asks for whatever answer the model already has. That difference is not cosmetic, so <code>CONTINUING</code> names it directly, carrying the injected prompt and its kind, instead of leaving a consumer to reconstruct it from <code>iteration</code> and guesswork.</p>
+<h2 id="why-inbox-is-not-a-kind-of-continuing">Why INBOX is not a kind of CONTINUING<a class="headerlink" href="#why-inbox-is-not-a-kind-of-continuing" title="Permanent link">&para;</a></h2>
+<p><code>INBOX</code> opens an injected round too, so the cheap move would have been a third <code>kind</code> on <code>CONTINUING</code> and no new phase. The reason it is a phase of its own is that <code>CONTINUING</code>'s <code>kind</code> names <em>a prompt the loop composed for itself</em>, and an inbox message is the opposite: the user's own words, arriving mid-run through a different channel. Folding the two together would make every consumer render a transcript in which the loop appears to have said what the user said, which is a worse failure than the one <code>CONTINUING</code> was added to fix (a run visibly changing direction for no visible reason).</p>
+<p>The same distinction decides two things downstream, which is how you can tell it is load-bearing rather than taxonomy. The delivered message is stored with <strong>no</strong> <code>provenance</code> tag, while both <code>CONTINUING</code> kinds are tagged, so a stored transcript and a live stream agree on who spoke. And <code>WebChannel</code> gives a delivery its own <code>{"type": "inbox"}</code> frame rather than a third <code>reason</code> on its <code>loop</code> frame, for exactly the attribution reason above.</p>
 <h2 id="phase-semantics">Phase semantics<a class="headerlink" href="#phase-semantics" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3464,13 +3519,23 @@
 <td><code>dict {"step": int, "total_steps": int, "image": PIL.Image \| None, "final": bool, "result": str \| bytes \| None}</code></td>
 </tr>
 <tr>
+<td><code>CONTINUING</code></td>
+<td>A streamed agent loop is about to open a round it injected itself</td>
+<td><code>dict {"kind": str, "prompt": str}</code></td>
+</tr>
+<tr>
+<td><code>INBOX</code></td>
+<td>A streamed agent loop is about to open a round that delivers a message the host handed the run</td>
+<td><code>dict {"text": str}</code></td>
+</tr>
+<tr>
 <td><code>DONE</code></td>
 <td>Terminal marker (rarely yielded by providers; reserved)</td>
 <td><code>str</code> (usually empty)</td>
 </tr>
 </tbody>
 </table>
-<p>For thinking models, you typically see THINKING chunks first, then GENERATING. For tool-using models, you may see THINKING → TOOL_CALLING (one per tool used) → GENERATING. For image generation, you see <code>IMAGE_GENERATING</code> chunks per denoising step (or coarse start/done pair on Gemini); the last one of each image has <code>final=True</code> and carries the encoded <code>result</code>.</p>
+<p>For thinking models, you typically see THINKING chunks first, then GENERATING. For tool-using models, you may see THINKING → TOOL_CALLING (one per tool used) → GENERATING. For image generation, you see <code>IMAGE_GENERATING</code> chunks per denoising step (or coarse start/done pair on Gemini); the last one of each image has <code>final=True</code> and carries the encoded <code>result</code>. <a href="../../reference/stream-phases/">Reference: stream phases</a> is the complete list, including the audio and speech phases this table leaves out.</p>
 <h2 id="streaming-tools-a-unified-surface">Streaming tools: a unified surface<a class="headerlink" href="#streaming-tools-a-unified-surface" title="Permanent link">&para;</a></h2>
 <p>A <code>@tool</code>-decorated Python function may be <strong>plain</strong> (<code>def fn() -&gt; T</code>), <strong>async</strong> (<code>async def fn() -&gt; T</code>), a <strong>sync generator</strong> (<code>def fn(): yield ...; return T</code>), or an <strong>async generator</strong> (<code>async def fn(): yield ...</code>). Generator tools yield <code>StreamChunk</code> objects during execution; the agent's tool dispatcher forwards them through <code>agent.run(stream=True)</code>, so callers see per-step progress live without any side-channel callbacks. This is how the built-in <code>generate_image</code> tool delivers <code>IMAGE_GENERATING</code> chunks into the agent stream.</p>
 <p>The unification means <em>every</em> streaming source (model output, image generation, custom long-running tools) flows through the same <code>Iterator[StreamChunk]</code> shape and dispatches on the same <code>phase</code> field. UIs and loggers handle one type, not three.</p>
