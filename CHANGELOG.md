@@ -11,8 +11,25 @@
   make that expressible: `load_kwargs` (default `SentenceTransformer` kwargs, merged under the
   caller's) and `rejected_dtypes`. The second exists because this model in float16 returns NaN or
   degraded vectors rather than an error; asking for a rejected dtype now raises at construction.
-  Its query/document prompts and Matryoshka truncation (`truncate_dim=`) are not yet surfaced
-  portably; `prompt_name=` and `truncate_dim=` pass through to `encode()` in the meantime.
+  Matryoshka truncation is not yet surfaced portably; `truncate_dim=` passes through to
+  `encode()` in the meantime.
+- **New: `embed(texts, input_type="query" | "document")` on every embedding client (sync and
+  async).** Retrieval-tuned models embed a search differently from the text it searches, and AIMU
+  had no way to say which side a call was on, so the advice was to hand-prefix strings. The prefix
+  each model's card specifies is now declared on the spec (`EmbeddingSpec.query_prompt` /
+  `document_prompt`) and prepended for you: E5 (`query: ` / `passage: `), BGE v1.5 and mxbai (query
+  only), EmbeddingGemma 2, and Ollama's nomic-embed-text and mxbai-embed-large. Symmetric models
+  declare none, so `input_type` changes nothing for them, and `None` (the default) sends text as
+  given. The spec, not a model's own sentence-transformers `prompts` config, is the source: it is
+  the one mechanism that also covers Ollama (whose API has no input type), and it keeps the exact
+  text sent readable in the catalog. For EmbeddingGemma 2 the result is identical to
+  `encode_query` / `encode_document`. An unknown `input_type` raises `ValueError`.
+- **Change: `SemanticMemoryStore(embedding_client=...)` now embeds stored facts as documents and
+  searches as queries.** It overrides ChromaDB's `embed_query()` hook, which ChromaDB calls for
+  searches. Two consequences: a persistent collection built earlier with a model that now declares
+  prefixes (E5, BGE v1.5, mxbai, nomic-embed-text) holds unprefixed vectors and should be rebuilt,
+  and a duck-typed `embedding_client` whose `embed()` does not accept `input_type` now raises
+  `TypeError`.
 - **Change: the `[hf]` extra now requires `transformers>=5.19` and `sentence-transformers>=6.1`.**
   5.19 is the first transformers release that knows the `embedding_gemma2` architecture, and 6.1 is
   what the model's own config declares. Existing embedding models run unchanged on 6.1.

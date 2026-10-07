@@ -87,11 +87,18 @@ print("vector length:", len(ollama_client.embed("hello from ollama")))
 
 ```{python}
 # HuggingFace - local sentence-transformers (requires the [hf] extra).
-# Retrieval-tuned models (BGE / E5) expect "query: " / "passage: " prefixes for
-# asymmetric retrieval; pass already-prefixed strings when you need that.
 hf_client = aimu.embedding_client("hf:BAAI/bge-small-en-v1.5")
 print("hf dims:", hf_client.dimensions)
 print("vector length:", len(hf_client.embed("hello from huggingface")))
+```
+
+Retrieval-tuned models embed a search differently from the text it searches. Pass `input_type="query"` or `"document"` and AIMU prepends the prefix the model's card specifies, declared on the spec so you can see it:
+
+```{python}
+print("query prefix:", repr(hf_client.spec.query_prompt))
+print("document prefix:", repr(hf_client.spec.document_prompt))  # BGE prefixes queries only
+query_vector = hf_client.embed("capital of france", input_type="query")
+doc_vectors = hf_client.embed(["Paris is the capital of France."], input_type="document")
 ```
 
 ## 5. Pluggable embeddings in `SemanticMemoryStore`

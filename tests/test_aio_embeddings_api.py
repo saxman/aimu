@@ -43,3 +43,22 @@ async def test_async_embed_single_and_list():
 async def test_async_top_level_embed_accepts_sync_client():
     out = await aio.embed(["x", "y"], model=_SyncStub())
     assert out == [[1.0, 2.0], [1.0, 2.0]]
+
+
+async def test_async_embed_forwards_input_type():
+    from aimu.models.base import EmbeddingSpec
+
+    class Recording(_SyncStub):
+        def __init__(self):
+            super().__init__()
+            self.spec = EmbeddingSpec("stub", dimensions=2, query_prompt="q: ")
+            self.sent = []
+
+        def _embed(self, texts, **kwargs):
+            self.sent.append(list(texts))
+            return super()._embed(texts, **kwargs)
+
+    sync = Recording()
+    await aio.embedding_client(sync).embed("hi", input_type="query")
+    await aio.embed("hi", model=sync, input_type="query")
+    assert sync.sent == [["q: hi"], ["q: hi"]]

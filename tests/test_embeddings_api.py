@@ -137,6 +137,76 @@ def test_openai_embed_list_returns_list_of_vectors(monkeypatch):
     assert out == [[1.0], [2.0]]
 
 
+class _RecordingEmbeddingClient:
+    """A minimal concrete client recording exactly the texts its provider call receives."""
+
+    @staticmethod
+    def build(spec):
+        from aimu.models import BaseEmbeddingClient
+
+        class Recording(BaseEmbeddingClient):
+            def __init__(self):
+                super().__init__(model=spec)
+                self.spec = spec
+                self.sent = []
+
+            def _embed(self, texts, **kwargs):
+                self.sent.append(list(texts))
+                return [[0.0] for _ in texts]
+
+        return Recording()
+
+
+def test_input_type_prepends_the_spec_prompts():
+    client = _RecordingEmbeddingClient.build(EmbeddingSpec("m", query_prompt="q: ", document_prompt="d: "))
+    client.embed("hi", input_type="query")
+    client.embed(["a", "b"], input_type="document")
+    client.embed("raw")
+    assert client.sent == [["q: hi"], ["d: a", "d: b"], ["raw"]]
+
+
+def test_input_type_is_a_no_op_for_a_side_the_model_has_no_prompt_for():
+    client = _RecordingEmbeddingClient.build(EmbeddingSpec("m", query_prompt="q: "))
+    client.embed("doc", input_type="document")
+    assert client.sent == [["doc"]]
+
+
+def test_input_type_rejects_an_unknown_value():
+    client = _RecordingEmbeddingClient.build(EmbeddingSpec("m", query_prompt="q: "))
+    with pytest.raises(ValueError, match="input_type"):
+        client.embed("x", input_type="passage")
+
+
+@pytest.mark.parametrize(
+    "member, query_prompt, document_prompt",
+    [
+        ("E5_LARGE_V2", "query: ", "passage: "),
+        ("BGE_SMALL_EN_V1_5", "Represent this sentence for searching relevant passages: ", None),
+        ("MXBAI_EMBED_LARGE_V1", "Represent this sentence for searching relevant passages: ", None),
+        ("EMBEDDING_GEMMA_2", "task: search result | query: ", "title: none | text: "),
+        ("ALL_MINILM_L6_V2", None, None),
+    ],
+)
+def test_hf_catalog_declares_each_model_card_prompt(hf_embedding_module, member, query_prompt, document_prompt):
+    module, _ = hf_embedding_module
+    spec = module.HuggingFaceEmbeddingModel[member].spec
+    assert (spec.query_prompt, spec.document_prompt) == (query_prompt, document_prompt)
+
+
+def test_hf_input_type_reaches_encode_prefixed(hf_embedding_module):
+    module, _ = hf_embedding_module
+    client = module.HuggingFaceEmbeddingClient(module.HuggingFaceEmbeddingModel.E5_LARGE_V2)
+    # The stub encodes each text as [len(text), 1, 0], so the prefix shows up in the length.
+    assert client.embed("abc", input_type="query")[0] == len("query: abc")
+
+
+def test_ollama_nomic_declares_its_search_prefixes():
+    from aimu.models.providers.ollama import OllamaEmbeddingModel
+
+    spec = OllamaEmbeddingModel.NOMIC_EMBED_TEXT.spec
+    assert (spec.query_prompt, spec.document_prompt) == ("search_query: ", "search_document: ")
+
+
 def test_embed_empty_list_returns_empty():
     client = _openai_client()
     assert client.embed([]) == []
@@ -184,14 +254,15 @@ def test_semantic_store_uses_provided_embedding_client():
     calls = []
 
     class FakeEmbeddingClient:
-        def embed(self, texts):
-            calls.append(list(texts))
+        def embed(self, texts, input_type=None):
+            calls.append((input_type, list(texts)))
             return [[float(len(t)), 1.0, 0.0] for t in texts]
 
     store = SemanticMemoryStore(collection_name="api_test_custom", embedding_client=FakeEmbeddingClient())
     store.store("Paul works at Google")
     assert store.search("work", n_results=1)  # non-empty
-    assert calls  # the custom client was invoked for embedding
+    assert ("document", ["Paul works at Google"]) in calls
+    assert ("query", ["work"]) in calls
 
 
 def test_semantic_store_default_embedding_unchanged():

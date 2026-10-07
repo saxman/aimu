@@ -9,7 +9,10 @@ maps text to fixed-length vectors. ``BaseEmbeddingClient`` is its own ABC for th
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional, Union
+from typing import Any, Literal, Optional, Union, get_args
+
+InputType = Literal["query", "document"]
+INPUT_TYPES: tuple[str, ...] = get_args(InputType)
 
 
 @dataclass
@@ -21,6 +24,11 @@ class EmbeddingSpec:
     budget); both may be ``None`` when not pinned. Provider-specific subclasses add
     their own fields.
 
+    ``query_prompt`` / ``document_prompt`` are the prefixes the model's card says to prepend
+    for asymmetric retrieval, applied by ``embed(input_type="query" | "document")``. They are
+    declared here, per model, rather than read from a provider's config, so the exact text
+    sent is visible in the catalog and is the same whichever provider serves the model.
+
     Equality and hash are by ``id`` only so the spec can be used directly as an enum
     value.
     """
@@ -28,6 +36,8 @@ class EmbeddingSpec:
     id: str
     dimensions: Optional[int] = None
     max_input_tokens: Optional[int] = None
+    query_prompt: Optional[str] = None
+    document_prompt: Optional[str] = None
 
     def __hash__(self) -> int:
         return hash(self.id)
@@ -110,19 +120,37 @@ class BaseEmbeddingClient(ABC):
         """Provider-specific embedding. ``texts`` is always a non-empty list; returns one
         vector per input in the same order."""
 
-    def embed(self, texts: Union[str, list[str]], **kwargs: Any) -> Union[list[float], list[list[float]]]:
+    def embed(
+        self,
+        texts: Union[str, list[str]],
+        *,
+        input_type: Optional[InputType] = None,
+        **kwargs: Any,
+    ) -> Union[list[float], list[list[float]]]:
         """Embed one string or a list of strings.
 
         A single ``str`` returns one vector (``list[float]``); a list returns a list of
         vectors (``list[list[float]]``), preserving order. An empty list returns ``[]``.
+
+        ``input_type`` says which side of an asymmetric retrieval the texts are: ``"query"``
+        or ``"document"`` prepends the spec's ``query_prompt`` / ``document_prompt``, and is a
+        no-op when the model declares none for that side (a symmetric model needs none).
+        ``None`` sends the texts as given. Embed a corpus and its queries with the same
+        convention: vectors from prompted and unprompted text are not comparable.
+
         Extra ``**kwargs`` are forwarded to the provider call.
         """
+        if input_type not in (None, *INPUT_TYPES):
+            raise ValueError(f"input_type must be one of {INPUT_TYPES} or None. Got: {input_type!r}")
         single = isinstance(texts, str)
         items = [texts] if single else list(texts)
         if not items:
             return []
         if any(not isinstance(t, str) for t in items):
             raise ValueError("embed() expects a string or a list of strings.")
+        prompt = getattr(self.spec, f"{input_type}_prompt") if input_type else None
+        if prompt:
+            items = [prompt + text for text in items]
         vectors = self._embed(items, **kwargs)
         return vectors[0] if single else vectors
 

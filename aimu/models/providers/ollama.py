@@ -444,8 +444,21 @@ class OllamaEmbeddingModel(EmbeddingModel):
     model tag; ``.spec`` returns the full spec.
     """
 
-    NOMIC_EMBED_TEXT = OllamaEmbeddingSpec("nomic-embed-text", dimensions=768, max_input_tokens=8192)
-    MXBAI_EMBED_LARGE = OllamaEmbeddingSpec("mxbai-embed-large", dimensions=1024, max_input_tokens=512)
+    # Ollama's embed API has no query/document switch, so these prefixes are how
+    # embed(input_type=...) reaches the models whose cards ask for them.
+    NOMIC_EMBED_TEXT = OllamaEmbeddingSpec(
+        "nomic-embed-text",
+        dimensions=768,
+        max_input_tokens=8192,
+        query_prompt="search_query: ",
+        document_prompt="search_document: ",
+    )
+    MXBAI_EMBED_LARGE = OllamaEmbeddingSpec(
+        "mxbai-embed-large",
+        dimensions=1024,
+        max_input_tokens=512,
+        query_prompt="Represent this sentence for searching relevant passages: ",
+    )
     BGE_M3 = OllamaEmbeddingSpec("bge-m3", dimensions=1024, max_input_tokens=8192)
     ALL_MINILM = OllamaEmbeddingSpec("all-minilm", dimensions=384, max_input_tokens=512)
 
