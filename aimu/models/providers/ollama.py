@@ -449,10 +449,12 @@ class OllamaEmbeddingModel(EmbeddingModel):
     # No member declares matryoshka_dimensions. nomic-embed-text is v1.5, which is trained for
     # 768/512/256/128/64, but nomic's recipe layer-norms before slicing and nothing confirms
     # Ollama's `dimensions` parameter does, so a width here would promise unverified quality.
+    # 2048, not the 8192 nomic v1.5 reaches elsewhere: the GGUF's context_length is 2048 and
+    # Ollama enforces that, ignoring the Modelfile's num_ctx 8192.
     NOMIC_EMBED_TEXT = OllamaEmbeddingSpec(
         "nomic-embed-text",
         dimensions=768,
-        max_input_tokens=8192,
+        max_input_tokens=2048,
         query_prompt="search_query: ",
         document_prompt="search_document: ",
     )

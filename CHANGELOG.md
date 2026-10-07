@@ -31,6 +31,11 @@
   error. Declared: EmbeddingGemma 2 (768/512/256/128) and OpenAI text-embedding-3 (any width up to
   native). Ollama's nomic-embed-text is Matryoshka-trained but left undeclared, since nomic's recipe
   layer-norms before slicing and nothing confirms Ollama's `dimensions` parameter does.
+- **Fix: `OllamaEmbeddingModel.NOMIC_EMBED_TEXT.spec.max_input_tokens` is 2048, not 8192.** 8192 is
+  what nomic v1.5 reaches elsewhere, and Ollama's Modelfile sets `num_ctx 8192`, but the GGUF's
+  `context_length` is 2048 and Ollama enforces that: measured, a 2048-token input fits and anything
+  longer is a 400 under `truncate=False`. The field is informational, so no behavior changes; it now
+  tells the truth about how much text one vector covers.
 - **Change: `embed(..., dimensions=N)` per call now raises; set the width on the client.** OpenAI
   previously forwarded a per-call `dimensions=` to its API. One width per client is what keeps a
   corpus and its queries comparable, so the per-call form points at the constructor instead.

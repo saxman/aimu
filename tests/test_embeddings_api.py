@@ -207,6 +207,14 @@ def test_ollama_nomic_declares_its_search_prefixes():
     assert (spec.query_prompt, spec.document_prompt) == ("search_query: ", "search_document: ")
 
 
+def test_ollama_nomic_declares_the_context_ollama_enforces():
+    # Measured: a 2048-token input fits and anything longer is a 400 with truncate=False. The
+    # GGUF's context_length is 2048; the Modelfile's num_ctx 8192 does not raise it.
+    from aimu.models.providers.ollama import OllamaEmbeddingModel
+
+    assert OllamaEmbeddingModel.NOMIC_EMBED_TEXT.spec.max_input_tokens == 2048
+
+
 def test_embed_empty_list_returns_empty():
     client = _openai_client()
     assert client.embed([]) == []
