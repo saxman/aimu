@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.35.0 (2026-10-07): EmbeddingGemma 2, query/document prompts, and shorter embedding vectors
 
 ### Models
 
