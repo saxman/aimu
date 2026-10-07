@@ -77,7 +77,10 @@ async def test_web_channel_emits_thinking_and_tool_frames_by_default():
     await channel.send(gen())
     assert ws.frames == [
         {"type": "thinking", "text": "hmm"},
-        {"type": "tool", "name": "calc", "arguments": {"x": 2}},
+        # `response` is part of the tool frame whether or not the chunk carried one; a
+        # TOOL_CALLING chunk that omits it sends None rather than dropping the key, so a page
+        # reading the frame does not have to ask whether it is there.
+        {"type": "tool", "name": "calc", "arguments": {"x": 2}, "response": None},
         {"type": "token", "text": "4"},
         {"type": "done"},
     ]
