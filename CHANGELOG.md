@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.34.0 (2026-10-05): a run already in progress has an inbox, and the inbox knows whose it is
+## v0.34.0 (2026-10-07): a run already in progress has an inbox, and the inbox knows whose it is
 
 ### Agents
 
