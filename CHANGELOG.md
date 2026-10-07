@@ -169,6 +169,21 @@
   `{"type": "inbox"}`. Each name was chosen for its own consumer, so neither is wrong on its own
   terms, and neither is changing. See **Console output** above for the related cost on the CLI side.
 
+### Documentation
+
+- **New: the inbox has a how-to and a notebook**, which the feature has not had since it shipped
+  under its old name in 0.33.0: [docs/how-to/use-an-inbox.md](docs/how-to/use-an-inbox.md) and
+  [notebook 29](notebooks/29-agent-inbox.qmd). Before this, the only prose was incidental: the
+  `INBOX` phase in the stream-phase table, the `"inbox"` key in the spawn-roster page's list of
+  spec keys, and the `Inbox` protocol's own docstring in the API reference. Each is accurate and
+  none of them answers "how do I message a run that is already going", so the capability was
+  documented in the places you look *after* you already know it exists. Both pages carry the
+  parts a host gets wrong rather than only the happy path: the three round boundaries a message can
+  land on (and that the third one rescues a message arriving after the model's final answer), the
+  round budget a delivered message resets, the non-advancing drain that uncaps that reset and the
+  warning it earns, the name each run opens its reader under, and the four failures that are
+  survived against the one that is refused at run start.
+
 ## v0.33.0 (2026-09-29): a run already in progress can be steered, and a refused tool call says why
 
 ### Tools

@@ -315,9 +315,9 @@ reported to it. The window is bounded and self-healing (it is not the permanent 
 
 - [Manage context](manage-context.md) — `ContextCompacted` is the event this page didn't cover;
   it fires when a conversation is trimmed or summarized mid-run.
-- [`aimu.agents.inbox.Inbox`](../reference/api/agents.md): the run behavior this page
-  mentions but doesn't cover: `Agent.run(inbox=...)` drains a source of user messages at each
-  round boundary, so a host can message a run already in progress instead of queuing behind it.
+- [Give a running agent an inbox](use-an-inbox.md) — the run behavior this page mentions but
+  doesn't cover: `Agent.run(inbox=...)` drains a source of user messages at each round boundary,
+  so a host can message a run already in progress instead of queuing behind it.
 - [Compare models](compare-models.md) — `last_usage` and `extract_tool_calls` for after-the-fact
   comparison across models, rather than a live sink.
 - [Gate tool calls](gate-tool-calls.md) — the `tool_approval` hook that produces `ToolDenied`.

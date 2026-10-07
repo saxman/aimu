@@ -43,3 +43,4 @@ execute against your own backend.
 26. [Remote MCP Servers](26-remote-mcp-servers.qmd)
 27. [Observing Runs](27-observing-runs.qmd)
 28. [Managing Context](28-managing-context.qmd)
+29. [An Agent's Inbox](29-agent-inbox.qmd)

@@ -1,0 +1,642 @@
+---
+title: "An Agent's Inbox"
+jupyter: python3
+---
+
+
+An agent run that is already in progress is unreachable. You ask it to check the prod log, it
+starts reading, and then you realise you meant staging. Without somewhere to put that message, a
+host application has two options: drop it, or queue it behind the whole run and send it as the next
+turn, by which point the agent has finished investigating the wrong file.
+
+`Inbox` is the third option. The loop asks for pending messages at each round boundary and sends
+whatever it gets as that round's user message, on a model call it was going to make anyway. The run
+is redirected rather than restarted, and it keeps everything it had already learned.
+
+This is the complement to cancelling a run (`aio.RunHandle`, see
+[docs/how-to/cancel-a-run.md](../docs/how-to/cancel-a-run.md)), not a replacement for it:
+cancelling throws the turn away, an inbox keeps the context and changes where it is pointed.
+
+**What this notebook covers:**
+
+- The `Inbox` protocol: one method, `reader(agent=None)`, and the smallest thing that satisfies it
+- `Agent(inbox=...)` as a standing field and `run(inbox=...)` per run
+- Where a delivered message lands: the three round boundaries, and which one rescues a late message
+- Watching it happen: the `INBOX` stream phase, `is_inbox()`, and `pretty_print`
+- A real host: a background thread feeding a running agent
+- The round budget a message resets, and the one-character drain bug that uncaps it
+- The async twin, with an `asyncio.Queue`
+- One mailbox for a roster of sub-agents, routed by the name each run opens its reader under
+- The four failures that are survived, the one that is refused, and what the protocol deliberately
+  does not carry
+
+> This notebook runs a local Ollama model (`qwen3:8b`) throughout. The *content* of a model's reply
+> varies between runs, and so does exactly which round a threaded host's message lands in; the
+> delivery mechanics, phase names, and transcript shapes do not. Outputs below are from a real run,
+> with the varying parts called out inline rather than presented as exact.
+
+## Setup
+
+```{python}
+import logging
+
+logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
+MODEL = "ollama:qwen3:8b"
+```
+
+A tool with two readable answers, so a redirected run is visibly redirected:
+
+```{python}
+import aimu
+
+
+@aimu.tool
+def read_log(name: str) -> str:
+    """Read a log file by name.
+
+    Args:
+        name: The log's name, e.g. "prod" or "staging".
+    """
+    return {
+        "prod": "prod.log: 2 warnings, no errors.",
+        "staging": "staging.log: ERROR connection refused on port 5432.",
+    }.get(name, f"no log named {name}")
+
+
+SYSTEM = "You investigate logs. Use the read_log tool. Be brief."
+```
+
+## A. The problem: a run you cannot reach
+
+A plain run takes its task up front and is then closed to input until it returns:
+
+```{python}
+from aimu.agents import Agent
+
+agent = Agent(aimu.client(MODEL), SYSTEM, name="investigator", tools=[read_log])
+print(agent.run("Check the prod log and tell me what you find."))
+```
+
+```
+The **prod.log** file contains **2 warnings** and **no errors**. Let me know if you need further details!
+```
+
+Whatever you learn while that is running has nowhere to go. The rest of this notebook is about
+giving it somewhere.
+
+## B. The protocol, and the smallest inbox that works
+
+`aimu.agents.inbox.Inbox` is a `Protocol` with exactly one method:
+
+```python
+def reader(self, agent: Optional[str] = None) -> Callable[[], list[str]]: ...
+```
+
+`reader()` is called **once per run**, at its start, and returns that run's own drain. The drain
+returns everything that arrived since it was last called, oldest first, and an empty list when
+there is nothing. It is called from inside the loop, so it must not block.
+
+For a notebook we want delivery without the timing noise of a real host, so this one delivers on a
+chosen drain instead of when a human types:
+
+```{python}
+class ScriptedInbox:
+    """Delivers each scripted message on a later drain, so a demo needs no threads."""
+
+    def __init__(self, messages, after=1):
+        self._messages = list(messages)
+        self._after = after
+        self._drains = 0
+
+    def reader(self, agent=None):
+        def drain():
+            self._drains += 1
+            if self._drains >= self._after and self._messages:
+                return [self._messages.pop(0)]
+            return []
+
+        return drain
+```
+
+That is the whole contract. `Inbox` is `runtime_checkable`, so there is no base class to inherit:
+
+```{python}
+from aimu.agents.inbox import Inbox
+
+print("satisfies Inbox:", isinstance(ScriptedInbox([]), Inbox))
+```
+
+```
+satisfies Inbox: True
+```
+
+Now the same run as section A, reachable:
+
+```{python}
+agent = Agent(aimu.client(MODEL), SYSTEM, name="investigator", tools=[read_log])
+mailbox = ScriptedInbox(["Actually, check the staging log instead."])
+
+print(agent.run("Check the prod log and tell me what you find.", inbox=mailbox))
+```
+
+```
+The staging log shows an ERROR: "connection refused on port 5432." This suggests a database
+connectivity issue. Would you like me to check related logs or provide mitigation steps?
+```
+
+The transcript shows what happened: the agent read prod, was handed a message, and read staging,
+all inside one `run()`:
+
+```{python}
+for m in agent.model_client.messages:
+    if m["role"] == "user":
+        print(f"user: {m['content']!r}  provenance={m.get('provenance')}")
+    elif m["role"] == "tool":
+        print(f"tool: {m['content']!r}")
+```
+
+```
+user: 'Check the prod log and tell me what you find.'  provenance=None
+tool: 'prod.log: 2 warnings, no errors.'
+user: 'Actually, check the staging log instead.'  provenance=None
+tool: 'staging.log: ERROR connection refused on port 5432.'
+```
+
+Note `provenance=None` on **both** user turns. The loop tags prompts it composes for itself
+(`PROVENANCE_CONTINUATION`, `PROVENANCE_FINAL_ANSWER`; see
+[notebook 07](07-agents.qmd)), and deliberately does not tag a delivered message: the words are
+yours, arriving through a different channel, not something the loop invented. A transcript reader
+cannot tell this turn from one you typed before the run, which is the point.
+
+### Standing field or per run
+
+`inbox` is a field on `Agent` with a per-run override, the same shape as `compaction`:
+
+```{python}
+standing = ScriptedInbox(["Actually, check the staging log instead."])
+override = ScriptedInbox(["Actually, check the staging log instead."])
+
+# the field: read by every run of this agent
+always = Agent(aimu.client(MODEL), SYSTEM, tools=[read_log], inbox=standing)
+always.run("Check the prod log.")
+print("standing field was read:", standing._drains > 0)
+print("logs read:", [m["content"].split(":")[0] for m in always.model_client.messages if m["role"] == "tool"])
+
+# the per-run argument: replaces the field for this run only
+override_demo = Agent(aimu.client(MODEL), SYSTEM, tools=[read_log], inbox=standing)
+override_demo.run("Check the prod log.", inbox=override)
+print("per-run override was read:", override._drains > 0)
+```
+
+```
+standing field was read: True
+logs read: ['prod.log', 'staging.log']
+per-run override was read: True
+```
+
+One case it does not cover: `run(schema=...)` makes a single structured-output turn instead of
+running the tool loop, so there is no round boundary to drain at and the inbox goes unread.
+
+## C. Where a message lands
+
+The loop checks for a pending message at each of three round boundaries, and what the message does
+differs by branch:
+
+| Branch | What a pending message does |
+| --- | --- |
+| After a tool round | Sent as the next round's user message (section B) |
+| After a degenerate turn (no content, no tool calls) | **Replaces** the loop's continuation nudge, rather than running alongside it |
+| After what would have been the final turn | **Extends** the run by one more round |
+
+The third branch is the forgiving one, and it is worth seeing on its own. Here nothing is pending
+while the model works, so the run reaches a complete answer; only then does a message arrive, and
+the run continues instead of returning:
+
+```{python}
+# No tools, so this run has exactly one round boundary: the terminal one, reached once the
+# model has already produced a complete answer to the question it was given.
+late = Agent(aimu.client(MODEL), "Answer briefly.", name="late-demo")
+print(late.run("What is 2 + 2?", inbox=ScriptedInbox(["Now what is 10 + 10?"])))
+print("user turns:", [m["content"] for m in late.model_client.messages if m["role"] == "user"])
+```
+
+```
+20
+user turns: ['What is 2 + 2?', 'Now what is 10 + 10?']
+```
+
+The answer is to the *second* question: the run had finished, and the message brought it back for
+one more round. Without that branch, a message landing while the model composes its last reply
+would be silently dropped, and the usable window for reaching a run would be much narrower than
+the run's wall-clock time.
+
+A drain returning only whitespace delivers nothing, so a host that polls with an empty heartbeat
+does not manufacture a round for it:
+
+```{python}
+class HeartbeatInbox:
+    def reader(self, agent=None):
+        return lambda: ["   "]
+
+
+hb = Agent(aimu.client(MODEL), "Answer briefly.", tools=[read_log])
+hb.run("What is 2 + 2?", inbox=HeartbeatInbox())
+print("user turns:", [m["content"] for m in hb.model_client.messages if m["role"] == "user"])
+```
+
+```
+user turns: ['What is 2 + 2?']
+```
+
+## D. Watching it happen
+
+A streamed run yields a `StreamingContentType.INBOX` chunk immediately before the round that reads
+the message. `chunk.is_inbox()` dispatches on it, and the content is `dict {"text": str}`:
+
+```{python}
+from aimu.models import StreamingContentType
+
+watched = Agent(aimu.client(MODEL), SYSTEM, name="watched", tools=[read_log])
+mailbox = ScriptedInbox(["Actually, check the staging log instead."])
+
+for chunk in watched.run("Check the prod log.", stream=True, inbox=mailbox):
+    if chunk.is_inbox():
+        print(f"\n[delivered] {chunk.content['text']}  (round {chunk.iteration})")
+    elif chunk.is_tool_call():
+        print(f"\n[tool] {chunk.content['name']}({chunk.content['arguments']})")
+```
+
+```
+[tool] read_log({'name': 'prod'})
+
+[delivered] Actually, check the staging log instead.  (round 1)
+
+[tool] read_log({'name': 'staging'})
+```
+
+`INBOX` is deliberately its own phase rather than a `kind` on `CONTINUING`. `CONTINUING` names a
+prompt the loop composed for itself; this one carries your words. A renderer that conflated them
+would credit the loop with what you said, and a renderer that showed neither (which is what
+happened before these phases existed) leaves a redirected run looking like the model changed its
+own mind.
+
+Every shipped consumer renders it. `aimu.pretty_print` prints a `[message]` line, ungated by its
+`show_thinking` / `show_tools` flags, because it is at most a handful of lines per run and it is
+what explains a change of direction:
+
+```{python}
+printed = Agent(aimu.client(MODEL), SYSTEM, name="printed", tools=[read_log])
+aimu.pretty_print(
+    printed.run(
+        "Check the prod log.",
+        stream=True,
+        inbox=ScriptedInbox(["Actually, check the staging log instead."]),
+    ),
+    show_thinking=False,
+)
+```
+
+```
+  [tool] read_log
+
+  [message] Actually, check the staging log instead.
+
+  [tool] read_log
+The **staging** log shows:
+**ERROR** connection refused on port 5432.
+```
+
+`CLIChannel` prints the same `[message] <text>` line, and `WebChannel` emits a frame of its own,
+`{"type": "inbox", "text": str}`, rather than a third `reason` on its `loop` frame (see
+[notebook 24](24-personal-assistants.qmd)).
+
+## E. A real host: a thread that feeds a running agent
+
+A scripted inbox keeps a demo deterministic, but a real host writes from somewhere else while the
+run is in progress. The sync version of that is a lock-guarded deque plus a thread:
+
+```{python}
+import threading
+import time
+from collections import deque
+
+
+class QueueInbox:
+    """A mailbox a host writes to and a run reads from."""
+
+    def __init__(self):
+        self._pending = deque()
+        self._lock = threading.Lock()
+
+    def send(self, text: str) -> None:            # the host's side
+        with self._lock:
+            self._pending.append(text)
+
+    def reader(self, agent=None):                 # the run's side
+        def drain():
+            with self._lock:
+                pending = list(self._pending)
+                self._pending.clear()             # advance the cursor; see section F
+                return pending
+
+        return drain
+
+
+mailbox = QueueInbox()
+threaded = Agent(aimu.client(MODEL), SYSTEM, name="threaded", tools=[read_log])
+
+
+def a_user_who_changes_their_mind():
+    time.sleep(4)                                 # the run is already going
+    mailbox.send("Actually, check the staging log instead.")
+
+
+threading.Thread(target=a_user_who_changes_their_mind, daemon=True).start()
+print(threaded.run("Check the prod log and tell me what you find.", inbox=mailbox))
+```
+
+```
+The `staging.log` file shows an **ERROR**: "connection refused on port 5432." This suggests a
+database connectivity issue.
+```
+
+The `sleep(4)` is theatre; what makes this robust is section C's third branch. The message does not
+have to land inside a working round. If it arrives after the model has already produced its final
+answer, the run is extended to read it, so a host does not have to reason about the loop's timing
+at all.
+
+Note the drain clears under the lock. The whole drain contract is "what arrived since last time",
+and section F is what happens if you get that wrong.
+
+## F. The round budget, and the drain bug it guards
+
+`max_iterations` bounds *autonomous* iteration: how far the loop may run with no human in it. A
+delivered message puts a human back in the loop, so it resets the budget, measured from the round
+the last message landed in rather than from the raw round count.
+
+Without the reset, a long-running delegate would spend its whole messageable window on the rounds
+before you said anything, and a late message could still be cut off by the forced wrap-up moments
+later. A run that is never messaged has its cap unaffected.
+
+That reset is also the only thing standing between a run and an unbounded bill, so it is capped at
+one extension per permitted round. The mistake it guards against is one character wide: a drain
+that returns its whole list instead of the unread slice makes every round look like a fresh human
+message.
+
+```{python}
+class LeakyInbox:
+    """The bug: it never advances its cursor, so every round sees a 'new' message."""
+
+    def reader(self, agent=None):
+        return lambda: ["keep going"]
+
+
+leaky = Agent(aimu.client(MODEL), "Answer briefly.", tools=[read_log], max_iterations=4)
+leaky.run("What is 2 + 2?", inbox=LeakyInbox())
+print("model calls:", sum(1 for m in leaky.model_client.messages if m["role"] == "assistant"))
+```
+
+```
+WARNING: The inbox has extended this run's round budget 4 times; refusing further extensions. A drain returning already-delivered messages instead of the unread slice does this.
+model calls: 8
+```
+
+The run stays bounded (`max_iterations` permitted rounds plus at most that many extensions) and
+logs once. Past the cap it still *delivers* the message on the call it was making anyway, so a host
+that genuinely messages this often gets a turn that ends sooner rather than one that drops input.
+If you see that warning, your drain is not advancing its cursor.
+
+## G. The async twin
+
+Identical on `aimu.aio`, where the natural mailbox is an `asyncio.Queue` and the natural host is a
+task rather than a thread:
+
+```{python}
+import asyncio
+
+from aimu import aio
+
+
+class AsyncQueueInbox:
+    def __init__(self):
+        self._queue: asyncio.Queue = asyncio.Queue()
+
+    async def send(self, text: str) -> None:
+        await self._queue.put(text)
+
+    def reader(self, agent=None):
+        def drain():
+            pending = []
+            while not self._queue.empty():       # non-blocking, as the drain must be
+                pending.append(self._queue.get_nowait())
+            return pending
+
+        return drain
+
+
+mailbox = AsyncQueueInbox()
+async_agent = aio.Agent(aio.client(MODEL), SYSTEM, name="async-investigator", tools=[read_log])
+
+
+async def a_user_task():
+    await asyncio.sleep(4)
+    await mailbox.send("Actually, check the staging log instead.")
+
+
+feeder = asyncio.ensure_future(a_user_task())
+print(await async_agent.run("Check the prod log and tell me what you find.", inbox=mailbox))
+await feeder
+```
+
+```
+The **staging log** shows an error:
+- **ERROR connection refused on port 5432**
+
+This suggests a database connectivity issue.
+```
+
+The drain stays synchronous and non-blocking on both surfaces; it is called from inside the loop,
+so `get_nowait()` in a `while not empty()` is the shape you want, not `await queue.get()`.
+
+## H. One mailbox, a roster of delegates
+
+`reader()` is called per run rather than once per `Inbox`, and that is what makes a shared mailbox
+safe. Under sequential tool dispatch a spawned sub-agent's loop runs in the *same* asyncio task as
+the agent that spawned it, so a reader keyed by task would let two runs eat each other's messages.
+Two runs of the same agent type would collide on a name for the same reason.
+
+The run's name is handed to `reader(agent)`, which is the hook for routing to one run instead of
+broadcasting:
+
+```{python}
+class RoutedInbox:
+    """One mailbox, addressed per run."""
+
+    def __init__(self):
+        self._per_agent: dict = {}
+        self.opened: list = []
+
+    def send(self, agent: str, text: str) -> None:
+        self._per_agent.setdefault(agent, []).append(text)
+
+    def reader(self, agent=None):
+        self.opened.append(agent)                # just to show what the loop passed
+
+        def drain():
+            return self._per_agent.pop(agent, [])
+
+        return drain
+```
+
+Which names are there to address? The one you pass, or a generated one if you pass none:
+
+```{python}
+probe = RoutedInbox()
+Agent(aimu.client(MODEL), "Answer briefly.", name="investigator").run("Say OK.", inbox=probe)
+Agent(aimu.client(MODEL), "Answer briefly.").run("Say OK.", inbox=probe)
+print("readers opened under:", probe.opened)
+```
+
+```
+readers opened under: ['investigator', 'agent-10f4c0']
+```
+
+`Agent` generates `agent-{id:06x}` when you pass no `name=`. A generated name is unguessable from
+outside the run that got it, so **name your agents if you intend to route**: otherwise you end up
+with runs you have a label for but cannot address.
+
+A spawn roster is where this pays off. `make_subagent_tool` takes a factory-level `inbox`, and a
+typed `agent_types` spec may carry its own:
+
+```{python}
+from aimu.tools.builtin import make_subagent_tool
+
+roster_mailbox = RoutedInbox()
+roster_mailbox.send("subagent-researcher", "Actually, check the staging log instead.")
+
+spawn = make_subagent_tool(
+    MODEL,
+    inbox=roster_mailbox,                        # every spawned agent reads this
+    agent_types={
+        "researcher": {"system_message": SYSTEM, "tools": [read_log]},
+        "writer": {"system_message": "You write one-sentence summaries. Be brief.", "inbox": None},
+    },
+)
+
+print(spawn("researcher", "Check the prod log."))
+print("---")
+print(spawn("writer", "Summarize this in one sentence: staging refuses connections on port 5432."))
+print("readers opened under:", roster_mailbox.opened)
+```
+
+```
+The staging log shows an ERROR: "connection refused on port 5432." Would you like me to
+investigate further or take action?
+---
+The staging environment is refusing connections on port 5432.
+readers opened under: ['subagent-researcher']
+```
+
+Three things in that output. The researcher was reached mid-run through a mailbox its *parent*
+owns, and answered about staging despite being told to check prod. The label it opened its reader
+under is its own, `subagent-<agent_type>`, which is what made addressing one specialist possible.
+And each spawned run opens **its own** reader, so a caller's run and a delegate's run never share a
+cursor even when both read the same object.
+
+The `writer` opened no reader at all, which is the third thing: `inbox` and `compaction` are the
+two spec keys read by **membership** rather than by `.get()`. An absent key inherits the factory's
+source, and `"inbox": None` written into a spec turns it off for that one specialist. Those two
+cases are indistinguishable to a `.get()`, which is why these keys alone are read that way. Drop
+the `"inbox"` key from the `writer` spec and it would appear in `opened` alongside the
+researcher.
+
+A nested spawn (`max_depth > 1`) carries the same source to a grandchild, so one host mailbox
+reaches however deep a roster's delegation goes.
+
+## I. When it goes wrong, and what the protocol will not carry
+
+Four failures are logged and the run continues with no reader, because an inbox that cannot deliver
+should not end a run that is otherwise working: `reader()` raising, the drain raising, the drain
+returning the wrong shape, and the drain never advancing (section F).
+
+The shape check earns its keep on one case in particular. A bare `str` is refused rather than
+iterated, because `str` is iterable, so an unchecked drain would accept `"stop"` and deliver it as
+four one-character messages, which is worse than a raise for looking like it worked:
+
+```{python}
+class StrInbox:
+    def reader(self, agent=None):
+        return lambda: "stop"                    # a list of strings, not a string
+
+
+survived = Agent(aimu.client(MODEL), "Answer briefly.", tools=[read_log])
+survived.run("What is 2 + 2?", inbox=StrInbox())
+print("user turns:", [m["content"] for m in survived.model_client.messages if m["role"] == "user"])
+```
+
+```
+WARNING: Inbox misbehaved; the run continues without delivering its message.
+Traceback (most recent call last):
+  ...
+TypeError: an inbox drain must return a list of strings, got str
+user turns: ['What is 2 + 2?']
+```
+
+The traceback is logged, not raised: the run returned its answer to the original question. The log
+carries the cause so a host can fix the drain, which is the whole point of surviving rather than
+failing silently.
+
+One shape is refused instead, and refused before the run starts rather than ending one in progress:
+a `reader` the loop cannot call at all. `isinstance` cannot catch this first, because a
+`runtime_checkable` Protocol only checks that the method exists. So the loop's constructor
+rehearses the real call:
+
+```{python}
+class ZeroArgInbox:
+    def reader(self):                            # the loop calls reader(agent), positionally
+        return lambda: []
+
+
+try:
+    Agent(aimu.client(MODEL), "Answer briefly.").run("Say OK.", inbox=ZeroArgInbox())
+except TypeError as exc:
+    print(exc)
+```
+
+```
+__main__.ZeroArgInbox.reader() cannot be called the way an agent's loop calls it: reader(agent), passing the name of the run opening the reader as one positional argument. Widen the signature in the class body, `def reader(self, agent=None)`, which is generally not the file the `run(inbox=...)` keyword took you to; grep for `def reader(`. The name is passed positionally, so the parameter may be called anything, and an unused label may be ignored: only its presence matters.
+```
+
+This one is an error rather than a log line because an inbox that never delivers is
+indistinguishable from a user who never typed: it was the one failure here a host could not
+discover for itself. The name is passed positionally, so the parameter may be called anything, and
+a reader that ignores the label can keep the `agent=None` default. It only may not *refuse* the
+argument.
+
+Finally, what deliberately does not cross this seam. The drain returns `list[str]`, and an `INBOX`
+chunk carries `{"text": str}`. No sender, no address, no selector, no group, no roster, no receipt.
+Who a message came from, who may send one, and whether delivery is acknowledged are your
+application's model, and a protocol carrying envelopes would make every host inherit one host's
+addressing scheme. The agent name is the one thing that crosses, and it is thin on purpose: AIMU
+attaches no meaning to the string beyond handing it back. If you need routing richer than a name,
+put it on your side of `reader(agent)`, where the whole language of your own application is
+already available.
+
+## See also
+
+- [docs/how-to/use-an-inbox.md](../docs/how-to/use-an-inbox.md): the task-oriented version of this
+  notebook
+- [docs/reference/stream-phases.md](../docs/reference/stream-phases.md): `INBOX` beside the other
+  phases
+- [notebook 24](24-personal-assistants.qmd): a host that already reads input concurrently with a
+  run, which is what an inbox needs
+- [notebook 07](07-agents.qmd): the agent loop a message is delivered into
+
+## Clean up
+
+```{python}
+del agent, always, override_demo, late, hb, watched, printed, threaded, leaky, async_agent, survived
+print("Cleaned up.")
+```

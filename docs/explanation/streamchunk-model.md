@@ -63,6 +63,12 @@ The `include=[...]` parameter on `chat()` and `generate()` is the only filtering
 
 `chunk.iteration` already answers "did the round number move": it increments on every pass through the agent loop, tool round or not. It does not answer "who moved it, and what did they say". A tool round and a framework-injected round both bump `iteration` the same way, so a consumer watching `iteration` alone cannot tell one from the other. The two injections a loop can make say opposite things to the model: a continuation nudge after an empty turn leaves tools enabled and asks for another attempt, while the forced wrap-up at the round cap disables tools and asks for whatever answer the model already has. That difference is not cosmetic, so `CONTINUING` names it directly, carrying the injected prompt and its kind, instead of leaving a consumer to reconstruct it from `iteration` and guesswork.
 
+## Why INBOX is not a kind of CONTINUING
+
+`INBOX` opens an injected round too, so the cheap move would have been a third `kind` on `CONTINUING` and no new phase. The reason it is a phase of its own is that `CONTINUING`'s `kind` names *a prompt the loop composed for itself*, and an inbox message is the opposite: the user's own words, arriving mid-run through a different channel. Folding the two together would make every consumer render a transcript in which the loop appears to have said what the user said, which is a worse failure than the one `CONTINUING` was added to fix (a run visibly changing direction for no visible reason).
+
+The same distinction decides two things downstream, which is how you can tell it is load-bearing rather than taxonomy. The delivered message is stored with **no** `provenance` tag, while both `CONTINUING` kinds are tagged, so a stored transcript and a live stream agree on who spoke. And `WebChannel` gives a delivery its own `{"type": "inbox"}` frame rather than a third `reason` on its `loop` frame, for exactly the attribution reason above.
+
 ## Phase semantics
 
 | Phase | When | `content` |
@@ -71,9 +77,11 @@ The `include=[...]` parameter on `chat()` and `generate()` is the only filtering
 | `TOOL_CALLING` | A tool call has just been dispatched and its result is back | `dict {"name": str, "arguments": dict, "response": str}` |
 | `GENERATING` | The final response stream | `str` (token) |
 | `IMAGE_GENERATING` | Per-step progress from an image generator (HF diffusers callback, Gemini coarse start/done) | `dict {"step": int, "total_steps": int, "image": PIL.Image \| None, "final": bool, "result": str \| bytes \| None}` |
+| `CONTINUING` | A streamed agent loop is about to open a round it injected itself | `dict {"kind": str, "prompt": str}` |
+| `INBOX` | A streamed agent loop is about to open a round that delivers a message the host handed the run | `dict {"text": str}` |
 | `DONE` | Terminal marker (rarely yielded by providers; reserved) | `str` (usually empty) |
 
-For thinking models, you typically see THINKING chunks first, then GENERATING. For tool-using models, you may see THINKING → TOOL_CALLING (one per tool used) → GENERATING. For image generation, you see `IMAGE_GENERATING` chunks per denoising step (or coarse start/done pair on Gemini); the last one of each image has `final=True` and carries the encoded `result`.
+For thinking models, you typically see THINKING chunks first, then GENERATING. For tool-using models, you may see THINKING → TOOL_CALLING (one per tool used) → GENERATING. For image generation, you see `IMAGE_GENERATING` chunks per denoising step (or coarse start/done pair on Gemini); the last one of each image has `final=True` and carries the encoded `result`. [Reference: stream phases](../reference/stream-phases.md) is the complete list, including the audio and speech phases this table leaves out.
 
 ## Streaming tools: a unified surface
 
