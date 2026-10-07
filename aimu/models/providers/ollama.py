@@ -444,8 +444,26 @@ class OllamaEmbeddingModel(EmbeddingModel):
     model tag; ``.spec`` returns the full spec.
     """
 
-    NOMIC_EMBED_TEXT = OllamaEmbeddingSpec("nomic-embed-text", dimensions=768, max_input_tokens=8192)
-    MXBAI_EMBED_LARGE = OllamaEmbeddingSpec("mxbai-embed-large", dimensions=1024, max_input_tokens=512)
+    # Ollama's embed API has no query/document switch, so these prefixes are how
+    # embed(input_type=...) reaches the models whose cards ask for them.
+    # No member declares matryoshka_dimensions. nomic-embed-text is v1.5, which is trained for
+    # 768/512/256/128/64, but nomic's recipe layer-norms before slicing and nothing confirms
+    # Ollama's `dimensions` parameter does, so a width here would promise unverified quality.
+    # 2048, not the 8192 nomic v1.5 reaches elsewhere: the GGUF's context_length is 2048 and
+    # Ollama enforces that, ignoring the Modelfile's num_ctx 8192.
+    NOMIC_EMBED_TEXT = OllamaEmbeddingSpec(
+        "nomic-embed-text",
+        dimensions=768,
+        max_input_tokens=2048,
+        query_prompt="search_query: ",
+        document_prompt="search_document: ",
+    )
+    MXBAI_EMBED_LARGE = OllamaEmbeddingSpec(
+        "mxbai-embed-large",
+        dimensions=1024,
+        max_input_tokens=512,
+        query_prompt="Represent this sentence for searching relevant passages: ",
+    )
     BGE_M3 = OllamaEmbeddingSpec("bge-m3", dimensions=1024, max_input_tokens=8192)
     ALL_MINILM = OllamaEmbeddingSpec("all-minilm", dimensions=384, max_input_tokens=512)
 
@@ -492,6 +510,7 @@ class OllamaEmbeddingClient(BaseEmbeddingClient):
         *,
         host: Optional[str] = None,
         timeout: Optional[float] = None,
+        dimensions: Optional[int] = None,
     ):
         if isinstance(model, str):
             spec = _parse_embedding_model_string(model)
@@ -504,12 +523,13 @@ class OllamaEmbeddingClient(BaseEmbeddingClient):
                 f"OllamaEmbeddingClient expects an OllamaEmbeddingModel member, OllamaEmbeddingSpec, "
                 f"or 'ollama:<model_id>' string. Got: {type(model).__name__}"
             )
-        super().__init__(model=model, model_kwargs=model_kwargs)
-        self.spec = spec
+        super().__init__(model=model, model_kwargs=model_kwargs, spec=spec, dimensions=dimensions)
         self._client = ollama.Client(**_ollama_client_kwargs(host, timeout))
         self._client.pull(spec.id)
 
     def _embed(self, texts: list[str], **kwargs: Any) -> list[list[float]]:
+        if self._output_dimensions:
+            kwargs["dimensions"] = self._output_dimensions
         response = self._client.embed(model=self.spec.id, input=texts, **kwargs)
         return [list(vector) for vector in response["embeddings"]]
 

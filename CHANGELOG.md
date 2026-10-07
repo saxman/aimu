@@ -2,6 +2,76 @@
 
 ## Unreleased
 
+### Models
+
+- **Fix: `model_kwargs=` on `aimu.image_client()` / `audio_client()` / `speech_client()` /
+  `transcription_client()` / `embedding_client()` (and their `*Client` classes) was dropped.**
+  These factories bundled every keyword they did not recognize into the client's `model_kwargs`,
+  so a caller's own `model_kwargs={"device": "cuda:1"}` arrived as
+  `{"model_kwargs": {"device": "cuda:1"}}` and the loader never saw the device. That was the form
+  the image how-to documented for GPU pinning and `device_map`, and it silently did nothing: the
+  automatic placement ran instead. The same nesting let a float16 request slip past the new
+  EmbeddingGemma 2 dtype guard. The factories now forward keywords to the client unchanged, as
+  `aimu.client()` always has, so `model_kwargs=` means the loader's dict at every level.
+- **Change: a loader setting passed as a bare keyword to a modality factory now raises
+  `TypeError`.** `aimu.image_client(m, device="cuda:1")` used to work by the same bundling; write
+  `aimu.image_client(m, model_kwargs={"device": "cuda:1"})`. The payoff is that a misspelled keyword
+  (`hots=` for `host=`) is an error naming it, where it used to vanish into a loader that might
+  ignore it. Keywords the client declares itself (`host=`, `timeout=`, `dimensions=` on the
+  embedding clients) are unchanged.
+- **New: EmbeddingGemma 2 (`HuggingFaceEmbeddingModel.EMBEDDING_GEMMA_2`, `hf:google/embeddinggemma-2`).**
+  768-dim vectors, 8K context. The checkpoint also carries vision and audio encoders (740M
+  parameters in all), but `embed()` takes text only, so the spec loads the 270M text backbone; pass
+  `model_kwargs={"config_kwargs": {}}` to load the rest. Two new `HuggingFaceEmbeddingSpec` fields
+  make that expressible: `load_kwargs` (default `SentenceTransformer` kwargs, merged under the
+  caller's) and `rejected_dtypes`. The second exists because this model in float16 returns NaN or
+  degraded vectors rather than an error; asking for a rejected dtype now raises at construction.
+- **New: `embed(texts, input_type="query" | "document")` on every embedding client (sync and
+  async).** Retrieval-tuned models embed a search differently from the text it searches, and AIMU
+  had no way to say which side a call was on, so the advice was to hand-prefix strings. The prefix
+  each model's card specifies is now declared on the spec (`EmbeddingSpec.query_prompt` /
+  `document_prompt`) and prepended for you: E5 (`query: ` / `passage: `), BGE v1.5 and mxbai (query
+  only), EmbeddingGemma 2, and Ollama's nomic-embed-text and mxbai-embed-large. Symmetric models
+  declare none, so `input_type` changes nothing for them, and `None` (the default) sends text as
+  given. The spec, not a model's own sentence-transformers `prompts` config, is the source: it is
+  the one mechanism that also covers Ollama (whose API has no input type), and it keeps the exact
+  text sent readable in the catalog. For EmbeddingGemma 2 the result is identical to
+  `encode_query` / `encode_document`. An unknown `input_type` raises `ValueError`.
+- **New: `dimensions=` on every embedding client, for Matryoshka truncation.**
+  `aimu.embedding_client("hf:google/embeddinggemma-2", dimensions=256)` returns 256-wide vectors
+  from every call, and `client.dimensions` reports 256. Each spec declares the widths its model was
+  trained to be truncated to (`EmbeddingSpec.matryoshka_dimensions`); any other width raises
+  `ValueError` at construction, naming the accepted ones. That is stricter than the warn-and-drop
+  rule for generation kwargs on purpose: a vector of the wrong width corrupts a store without an
+  error. Declared: EmbeddingGemma 2 (768/512/256/128) and OpenAI text-embedding-3 (any width up to
+  native). Ollama's nomic-embed-text is Matryoshka-trained but left undeclared, since nomic's recipe
+  layer-norms before slicing and nothing confirms Ollama's `dimensions` parameter does.
+- **Fix: `OllamaEmbeddingModel.NOMIC_EMBED_TEXT.spec.max_input_tokens` is 2048, not 8192.** 8192 is
+  what nomic v1.5 reaches elsewhere, and Ollama's Modelfile sets `num_ctx 8192`, but the GGUF's
+  `context_length` is 2048 and Ollama enforces that: measured, a 2048-token input fits and anything
+  longer is a 400 under `truncate=False`. The field is informational, so no behavior changes; it now
+  tells the truth about how much text one vector covers.
+- **Change: `embed(..., dimensions=N)` per call now raises; set the width on the client.** OpenAI
+  previously forwarded a per-call `dimensions=` to its API. One width per client is what keeps a
+  corpus and its queries comparable, so the per-call form points at the constructor instead.
+- **Change: `SemanticMemoryStore(embedding_client=...)` now embeds stored facts as documents and
+  searches as queries.** It overrides ChromaDB's `embed_query()` hook, which ChromaDB calls for
+  searches. Two consequences: a persistent collection built earlier with a model that now declares
+  prefixes (E5, BGE v1.5, mxbai, nomic-embed-text) holds unprefixed vectors and should be rebuilt,
+  and a duck-typed `embedding_client` whose `embed()` does not accept `input_type` now raises
+  `TypeError`.
+- **Change: the `[hf]` extra now requires `transformers>=5.19` and `sentence-transformers>=6.1`.**
+  5.19 is the first transformers release that knows the `embedding_gemma2` architecture, and 6.1 is
+  what the model's own config declares. Existing embedding models run unchanged on 6.1.
+- **Change: `[evals]` now requires `deepeval>=4`, and `aimu[all]` no longer includes `[evals]`.** transformers 5.19 pulls `huggingface-hub>=1.31`, which needs
+  `click>=8.4.2`; every deepeval 4.x pins `click<8.4`. Left unpinned, the resolver silently fell back
+  to deepeval 2.6.6, which fails on import (it needs `langchain`) and, through its pytest plugin,
+  takes the test suite down with it. The repo's uv lock overrides the click pin
+  (`[tool.uv] override-dependencies`; deepeval 4 runs fine on click 8.5), but that override does not
+  reach pip users, so `aimu[hf,evals]` is unresolvable under pip. `[all]` drops `[evals]` so that
+  `pip install aimu[all]` still works; install `aimu[evals]` into its own environment until deepeval
+  relaxes its pin. `uv sync --all-extras` in the repo still installs both.
+
 ### Examples
 
 - **Fix: the personal-assistant example tagged every message of a proactive run `proactive`, and

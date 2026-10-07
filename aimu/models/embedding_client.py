@@ -46,10 +46,6 @@ def _entries() -> list[ProviderEntry]:
             client_name="OllamaEmbeddingClient",
             requires="ollama",
             install_hint=_OLLAMA_HINT,
-            # Ollama has no weight loader, so these are real constructor params rather than
-            # loader kwargs; without this the factory would bundle them into an ignored
-            # model_kwargs and a remote host would silently fall back to localhost.
-            direct_kwargs=frozenset({"host", "timeout"}),
         ),
         ProviderEntry(
             prefix="hf",
@@ -91,18 +87,18 @@ class EmbeddingClient(FactoryDelegate):
         client = EmbeddingClient("openai:text-embedding-3-small")
         client = EmbeddingClient("ollama:nomic-embed-text")
 
-    Provider-specific construction kwargs are forwarded. A param the concrete client declares
-    itself reaches it directly (``ProviderEntry.direct_kwargs``); anything else is bundled into
-    ``model_kwargs``, which is where a weight-loading client wants it::
+    Keyword arguments reach the concrete client's constructor unchanged, as with
+    :class:`aimu.models.ModelClient`; loader settings go in its ``model_kwargs`` dict::
 
-        EmbeddingClient("ollama:nomic-embed-text", host="gpu-box")                  # -> host=
-        EmbeddingClient(HuggingFaceEmbeddingModel.BGE_SMALL_EN_V1_5, device="cpu")  # -> model_kwargs=
+        EmbeddingClient("ollama:nomic-embed-text", host="gpu-box")
+        EmbeddingClient("hf:google/embeddinggemma-2", dimensions=256)
+        EmbeddingClient(HuggingFaceEmbeddingModel.BGE_SMALL_EN_V1_5, model_kwargs={"device": "cpu"})
     """
 
     def __init__(self, model: EmbeddingModel | EmbeddingSpec | str, **kwargs: Any) -> None:
         self._client: BaseEmbeddingClient = build_client(
             model,
-            kwargs or None,
+            kwargs,
             _entries(),
             modality="embedding",
             model_base=EmbeddingModel,

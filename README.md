@@ -60,7 +60,7 @@ Or install only what you need. AIMU's extras fall into two kinds:
 - `aimu[evals]`: DeepEval metric adapters
 - `aimu[a2a]`: Agent-to-Agent protocol interop
 
-`aimu[all]` is every provider backend plus every capability (development extras `dev` / `notebooks` / `docs` are separate). See [installation in the docs](https://saxman.github.io/aimu/tutorials/01-getting-started/) for the full list.
+`aimu[all]` is every provider backend plus every capability except `[evals]` (development extras `dev` / `notebooks` / `docs` are separate). `[evals]` can't share an environment with `[hf]` for now: every deepeval 4.x release pins `click<8.4`, and the transformers release the HF catalog needs requires a newer click. Install `aimu[evals]` in its own environment until deepeval relaxes that pin. See [installation in the docs](https://saxman.github.io/aimu/tutorials/01-getting-started/) for the full list.
 
 > **Want the newest features?** The PyPI release can lag `main`: anything under **Unreleased** in the [CHANGELOG](CHANGELOG.md) (currently the personal-assistant primitives, multi-user sessions, `make_document_tools`, and remote MCP via `MCPClient(url=...)`) ships on `main` but is **not yet on PyPI**, and `main` carries the same version string as the last release. To use those features, install from source until the next release:
 >

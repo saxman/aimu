@@ -26,7 +26,7 @@ class _EmbeddingClientFunction(chromadb.EmbeddingFunction):
 
     ChromaDB calls this with a list of documents and expects one vector per document;
     it delegates to the client's ``embed()`` (which returns ``list[list[float]]`` for a
-    list input). Lets a caller pick the embedding model instead of ChromaDB's built-in
+    list input), marking stored facts ``input_type="document"`` and searches ``"query"``. Lets a caller pick the embedding model instead of ChromaDB's built-in
     default.
     """
 
@@ -34,7 +34,12 @@ class _EmbeddingClientFunction(chromadb.EmbeddingFunction):
         self._client = client
 
     def __call__(self, input: Any) -> Any:  # noqa: A002 - ChromaDB requires the param named `input`
-        return self._client.embed(list(input))
+        return self._client.embed(list(input), input_type="document")
+
+    def embed_query(self, input: Any) -> Any:  # noqa: A002 - ChromaDB requires the param named `input`
+        # ChromaDB calls this, not __call__, for query_texts, which is what lets an asymmetric
+        # model embed a search differently from the facts it searches.
+        return self._client.embed(list(input), input_type="query")
 
     @staticmethod
     def name() -> str:

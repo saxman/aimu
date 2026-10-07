@@ -9,9 +9,9 @@ AIMU provides a dedicated text-embedding surface via `aimu.embedding_client()` a
 ## What this notebook covers
 
 1. One-shot embedding with `aimu.embed()`
-2. Reusable client: single vs. list, and `dimensions`
+2. Reusable client: single vs. list, and shorter vectors with `dimensions=`
 3. Semantic similarity (cosine)
-4. Providers: OpenAI (cloud), Ollama (local server), HuggingFace (local)
+4. Providers: OpenAI (cloud), Ollama (local server), HuggingFace (local); queries vs. documents with `input_type=`
 5. Pluggable embeddings in `SemanticMemoryStore`
 6. Async surface
 7. Model catalog
@@ -35,7 +35,7 @@ print("first 5 dims:", [round(x, 4) for x in vector[:5]])
 
 ## 2. Reusable client
 
-For more than a one-off, construct a client once and reuse it. `embed()` accepts a single string or a list; `dimensions` reports the vector width declared by the model spec.
+For more than a one-off, construct a client once and reuse it. `embed()` accepts a single string or a list; `dimensions` reports the width of the vectors the client returns.
 
 ```{python}
 client = aimu.embedding_client("openai:text-embedding-3-small")
@@ -48,6 +48,13 @@ print("batch:", len(many), "vectors x", len(many[0]), "dims")
 
 # An empty list returns [] without calling the provider.
 print("empty:", client.embed([]))
+```
+
+Matryoshka-trained models can return shorter vectors. Set the width once, on the client, so every vector it returns has the same size; widths the model wasn't trained for raise `ValueError` at construction. `spec.matryoshka_dimensions` lists the accepted ones (any width up to native for OpenAI's text-embedding-3 models).
+
+```{python}
+short = aimu.embedding_client("openai:text-embedding-3-small", dimensions=256)
+print("dimensions:", short.dimensions, "| vector length:", len(short.embed("hello")))
 ```
 
 ## 3. Semantic similarity
@@ -87,16 +94,23 @@ print("vector length:", len(ollama_client.embed("hello from ollama")))
 
 ```{python}
 # HuggingFace - local sentence-transformers (requires the [hf] extra).
-# Retrieval-tuned models (BGE / E5) expect "query: " / "passage: " prefixes for
-# asymmetric retrieval; pass already-prefixed strings when you need that.
 hf_client = aimu.embedding_client("hf:BAAI/bge-small-en-v1.5")
 print("hf dims:", hf_client.dimensions)
 print("vector length:", len(hf_client.embed("hello from huggingface")))
 ```
 
+Retrieval-tuned models embed a search differently from the text it searches. Pass `input_type="query"` or `"document"` and AIMU prepends the prefix the model's card specifies, declared on the spec so you can see it:
+
+```{python}
+print("query prefix:", repr(hf_client.spec.query_prompt))
+print("document prefix:", repr(hf_client.spec.document_prompt))  # BGE prefixes queries only
+query_vector = hf_client.embed("capital of france", input_type="query")
+doc_vectors = hf_client.embed(["Paris is the capital of France."], input_type="document")
+```
+
 ## 5. Pluggable embeddings in `SemanticMemoryStore`
 
-`SemanticMemoryStore` embeds and retrieves facts by meaning. By default it uses ChromaDB's built-in embedding model; pass `embedding_client=` to choose your own model instead. (A custom embedding model isn't persisted in the collection config, so reopen a persistent store with the same `embedding_client=`.)
+`SemanticMemoryStore` embeds and retrieves facts by meaning. By default it uses ChromaDB's built-in embedding model; pass `embedding_client=` to choose your own model instead. (A custom embedding model isn't persisted in the collection config, so reopen a persistent store with the same `embedding_client=`.) The store embeds facts with `input_type="document"` and searches with `input_type="query"`, so a retrieval-tuned model gets its prefixes automatically.
 
 ```{python}
 from aimu.memory import SemanticMemoryStore

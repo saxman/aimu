@@ -32,6 +32,9 @@ def _make_cache_key(spec_id: str, model_kwargs: dict | None) -> tuple:
     return (spec_id, *sorted((k, str(v)) for k, v in (model_kwargs or {}).items()))
 
 
+_BGE_QUERY_PROMPT = "Represent this sentence for searching relevant passages: "
+
+
 class HuggingFaceEmbeddingModel(EmbeddingModel):
     """Catalog of curated HuggingFace (sentence-transformers) embedding models.
 
@@ -43,14 +46,65 @@ class HuggingFaceEmbeddingModel(EmbeddingModel):
     ALL_MINILM_L6_V2 = HuggingFaceEmbeddingSpec(
         "sentence-transformers/all-MiniLM-L6-v2", dimensions=384, max_input_tokens=256
     )
-    BGE_SMALL_EN_V1_5 = HuggingFaceEmbeddingSpec("BAAI/bge-small-en-v1.5", dimensions=384, max_input_tokens=512)
-    BGE_BASE_EN_V1_5 = HuggingFaceEmbeddingSpec("BAAI/bge-base-en-v1.5", dimensions=768, max_input_tokens=512)
-    BGE_LARGE_EN_V1_5 = HuggingFaceEmbeddingSpec("BAAI/bge-large-en-v1.5", dimensions=1024, max_input_tokens=512)
-    GTE_LARGE = HuggingFaceEmbeddingSpec("thenlper/gte-large", dimensions=1024, max_input_tokens=512)
-    E5_LARGE_V2 = HuggingFaceEmbeddingSpec("intfloat/e5-large-v2", dimensions=1024, max_input_tokens=512)
-    MXBAI_EMBED_LARGE_V1 = HuggingFaceEmbeddingSpec(
-        "mixedbread-ai/mxbai-embed-large-v1", dimensions=1024, max_input_tokens=512
+    BGE_SMALL_EN_V1_5 = HuggingFaceEmbeddingSpec(
+        "BAAI/bge-small-en-v1.5", dimensions=384, max_input_tokens=512, query_prompt=_BGE_QUERY_PROMPT
     )
+    BGE_BASE_EN_V1_5 = HuggingFaceEmbeddingSpec(
+        "BAAI/bge-base-en-v1.5", dimensions=768, max_input_tokens=512, query_prompt=_BGE_QUERY_PROMPT
+    )
+    BGE_LARGE_EN_V1_5 = HuggingFaceEmbeddingSpec(
+        "BAAI/bge-large-en-v1.5", dimensions=1024, max_input_tokens=512, query_prompt=_BGE_QUERY_PROMPT
+    )
+    GTE_LARGE = HuggingFaceEmbeddingSpec("thenlper/gte-large", dimensions=1024, max_input_tokens=512)
+    E5_LARGE_V2 = HuggingFaceEmbeddingSpec(
+        "intfloat/e5-large-v2",
+        dimensions=1024,
+        max_input_tokens=512,
+        query_prompt="query: ",
+        document_prompt="passage: ",
+    )
+    MXBAI_EMBED_LARGE_V1 = HuggingFaceEmbeddingSpec(
+        "mixedbread-ai/mxbai-embed-large-v1", dimensions=1024, max_input_tokens=512, query_prompt=_BGE_QUERY_PROMPT
+    )
+    # Ships vision and audio encoders too (740M parameters in all). embed() takes text only, so
+    # the spec loads the 270M text backbone; pass model_kwargs={"config_kwargs": {}} for the rest.
+    EMBEDDING_GEMMA_2 = HuggingFaceEmbeddingSpec(
+        "google/embeddinggemma-2",
+        dimensions=768,
+        max_input_tokens=8192,
+        query_prompt="task: search result | query: ",
+        document_prompt="title: none | text: ",
+        matryoshka_dimensions=(768, 512, 256, 128),
+        load_kwargs={"config_kwargs": {"vision_config": None, "audio_config": None}},
+        rejected_dtypes=("float16",),
+    )
+
+
+_DTYPE_ALIASES = {"half": "float16", "fp16": "float16", "bf16": "bfloat16", "fp32": "float32", "float": "float32"}
+
+
+def _dtype_name(dtype: Any) -> str:
+    """Canonical name for a dtype given as a ``torch.dtype`` or any of its usual string spellings."""
+    name = str(dtype).removeprefix("torch.")
+    return _DTYPE_ALIASES.get(name, name)
+
+
+def _check_dtype(spec: HuggingFaceEmbeddingSpec, model_kwargs: dict | None) -> None:
+    """Raise if ``model_kwargs`` requests a weight dtype the spec declares unusable.
+
+    sentence-transformers takes the dtype nested under its own ``model_kwargs``, spelled either
+    ``dtype`` or the older ``torch_dtype``.
+    """
+    if not spec.rejected_dtypes:
+        return
+    transformer_kwargs = (model_kwargs or {}).get("model_kwargs") or {}
+    for key in ("dtype", "torch_dtype"):
+        if key in transformer_kwargs and _dtype_name(transformer_kwargs[key]) in spec.rejected_dtypes:
+            raise ValueError(
+                f"{spec.id} cannot run in {_dtype_name(transformer_kwargs[key])}: it returns NaN or degraded "
+                f"vectors rather than an error. Pass a dtype other than {', '.join(spec.rejected_dtypes)}, "
+                f"or omit it."
+            )
 
 
 def _parse_model_string(s: str) -> HuggingFaceEmbeddingSpec:
@@ -89,9 +143,14 @@ class HuggingFaceEmbeddingClient(BaseEmbeddingClient):
     ``"hf:<repo_id>"`` string. Target a device with ``model_kwargs={"device": "cuda:1"}``;
     other ``model_kwargs`` are forwarded to ``SentenceTransformer``.
 
-    Note on retrieval-tuned models: E5 / BGE expect query/passage prefixes (e.g.
-    ``"query: ..."``) for asymmetric retrieval. Pass already-prefixed strings when you need
-    that; symmetric similarity does not.
+    ``dimensions=`` truncates every vector to one of the widths the spec declares in
+    ``matryoshka_dimensions`` (sent as sentence-transformers' ``truncate_dim``). The default
+    ``normalize_embeddings=True`` re-normalizes after truncation, which cosine retrieval needs.
+
+    Retrieval-tuned models (E5, BGE, mxbai, EmbeddingGemma 2) want a query or document prefix
+    for asymmetric retrieval; ``embed(texts, input_type="query" | "document")`` prepends the
+    one the spec declares. The model's own sentence-transformers ``prompts`` config is not
+    consulted, so the spec is the one place that text comes from.
     """
 
     MODELS = HuggingFaceEmbeddingModel
@@ -100,6 +159,7 @@ class HuggingFaceEmbeddingClient(BaseEmbeddingClient):
         self,
         model: "HuggingFaceEmbeddingModel | HuggingFaceEmbeddingSpec | str",
         model_kwargs: dict | None = None,
+        dimensions: int | None = None,
     ):
         if isinstance(model, str):
             spec = _parse_model_string(model)
@@ -112,15 +172,15 @@ class HuggingFaceEmbeddingClient(BaseEmbeddingClient):
                 f"HuggingFaceEmbeddingClient expects a HuggingFaceEmbeddingModel member, "
                 f"HuggingFaceEmbeddingSpec, or 'hf:<repo_id>' string. Got: {type(model).__name__}"
             )
-        super().__init__(model=model, model_kwargs=model_kwargs)
-        self.spec = spec
+        _check_dtype(spec, model_kwargs)
+        super().__init__(model=model, model_kwargs=model_kwargs, spec=spec, dimensions=dimensions)
         self._model: Any = None  # lazy
         self._cache_key = _make_cache_key(spec.id, model_kwargs)
 
     def _load_model(self) -> Any:
         from sentence_transformers import SentenceTransformer
 
-        kwargs: dict[str, Any] = dict(self.model_kwargs or {})
+        kwargs: dict[str, Any] = {**(self.spec.load_kwargs or {}), **(self.model_kwargs or {})}
         device = pop_device_hint(kwargs)
 
         logger.info("Loading sentence-transformers model %s", self.spec.id)
@@ -146,6 +206,8 @@ class HuggingFaceEmbeddingClient(BaseEmbeddingClient):
     def _embed(self, texts: list[str], **kwargs: Any) -> list[list[float]]:
         self._ensure_loaded()
         kwargs.setdefault("normalize_embeddings", self.spec.normalize)
+        if self._output_dimensions:
+            kwargs["truncate_dim"] = self._output_dimensions
         vectors = self._model.encode(texts, convert_to_numpy=True, **kwargs)
         return [vector.tolist() for vector in vectors]
 

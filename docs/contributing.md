@@ -9,14 +9,14 @@ Clone and install with all extras:
 ```bash
 git clone https://github.com/saxman/aimu
 cd aimu
-pip install -e '.[all,dev,notebooks,docs]'
-```
-
-Or with [uv](https://docs.astral.sh/uv/) (faster):
-
-```bash
 uv sync --all-extras
 ```
+
+Use [uv](https://docs.astral.sh/uv/): it is the only installer that gets the full development
+environment. `[evals]` (deepeval) and `[hf]` conflict on `click` as published, and the repo's uv
+lock carries an override that resolves it. pip ignores that override, so
+`pip install -e '.[all,dev,notebooks,docs]'` works but leaves deepeval out, and the DeepEval
+adapter tests skip.
 
 For gated HuggingFace models, log in once:
 

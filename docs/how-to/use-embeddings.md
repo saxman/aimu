@@ -53,9 +53,44 @@ aimu.embedding_client("hf:BAAI/bge-small-en-v1.5")      # local sentence-transfo
 - **Ollama** (local server): pull the model first, e.g. `ollama pull nomic-embed-text`.
 - **HuggingFace** (local): backed by `sentence-transformers` (the `[hf]` extra), so each
   model's own pooling/normalization config is honoured. Weights download on first use and
-  are cached; free them with `aimu.clear_hf_cache()`. Retrieval-tuned models (BGE / E5)
-  expect `"query: "` / `"passage: "` prefixes for asymmetric retrieval (pass already-prefixed
-  strings when you need that; symmetric similarity does not).
+  are cached; free them with `aimu.clear_hf_cache()`.
+
+## Queries and documents
+
+Retrieval-tuned models embed a search differently from the text it searches: E5 wants
+`"query: "` and `"passage: "` in front of each, EmbeddingGemma 2 and nomic have their own
+pair, and BGE and mxbai prefix only the query. Say which side you are embedding and AIMU
+prepends the prefix the model's card specifies:
+
+```python
+client = aimu.embedding_client("hf:intfloat/e5-large-v2")
+doc_vectors = client.embed(["Paris is the capital of France."], input_type="document")
+query_vector = client.embed("capital of france", input_type="query")
+```
+
+The prefixes are declared on the spec (`client.spec.query_prompt`,
+`client.spec.document_prompt`), so you can read exactly what is sent. For a symmetric model
+(OpenAI, MiniLM, GTE, BGE-M3) `input_type` changes nothing. `input_type=None`, the default,
+sends the text as given. Embed a corpus and its queries the same way: a prompted query
+compared against unprompted documents is a mismatch, not an improvement.
+
+## Shorter vectors
+
+Some models are trained so the front of each vector is a usable embedding on its own
+(Matryoshka Representation Learning). Ask for a narrower width when you build the client and
+every vector it returns has that width, stored at a fraction of the size:
+
+```python
+client = aimu.embedding_client("hf:google/embeddinggemma-2", dimensions=256)
+client.dimensions                 # 256
+len(client.embed("hello"))        # 256
+```
+
+The width is set once per client, not per call, so a corpus and its queries cannot end up
+with different widths. Only widths the model was trained for are accepted; anything else
+raises `ValueError` at construction, naming the ones that are. `client.spec.matryoshka_dimensions`
+lists them: `(768, 512, 256, 128)` for EmbeddingGemma 2, and any width up to native for OpenAI's
+text-embedding-3 models. A model whose spec declares none cannot be truncated through AIMU.
 
 ## Available models
 
@@ -67,6 +102,7 @@ aimu.embedding_client("hf:BAAI/bge-small-en-v1.5")      # local sentence-transfo
 | Ollama | `OllamaEmbeddingModel.MXBAI_EMBED_LARGE` | `mxbai-embed-large` | 1024 |
 | HuggingFace | `HuggingFaceEmbeddingModel.BGE_SMALL_EN_V1_5` | `BAAI/bge-small-en-v1.5` | 384 |
 | HuggingFace | `HuggingFaceEmbeddingModel.BGE_LARGE_EN_V1_5` | `BAAI/bge-large-en-v1.5` | 1024 |
+| HuggingFace | `HuggingFaceEmbeddingModel.EMBEDDING_GEMMA_2` | `google/embeddinggemma-2` | 768 |
 
 `aimu.embedding_client(...).MODELS` (or each provider enum) lists the full catalog.
 
@@ -95,6 +131,15 @@ store.search("employment")
 
 A custom embedding model is not persisted in the collection config, so reopen a persistent
 store with the same `embedding_client=`.
+
+The store embeds stored facts with `input_type="document"` and searches with
+`input_type="query"`, so a retrieval-tuned model gets its prefixes without extra wiring. A
+persistent collection built before AIMU did this, with a model that declares prefixes, holds
+unprefixed vectors: rebuild it.
+
+EmbeddingGemma 2 loads only its 270M-parameter text encoder by default (the checkpoint also
+carries vision and audio encoders that `embed()` cannot use), and refuses float16, which it
+answers with NaN or degraded vectors rather than an error.
 
 ## Async surface
 

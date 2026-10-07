@@ -754,10 +754,21 @@ def test_top_level_image_client_dispatches_hf_enum():
     assert isinstance(c._client, HuggingFaceImageClient)
 
 
-def test_image_client_forwards_direct_kwargs_as_model_kwargs():
-    """ImageClient(model, key=val) packs provider kwargs into the concrete client's model_kwargs."""
-    c = aimu.ImageClient(HuggingFaceImageModel.SD_1_5, variant="fp16")
-    assert c._client.model_kwargs == {"variant": "fp16"}
+def test_image_client_passes_model_kwargs_through_unchanged():
+    """The factory forwards kwargs verbatim, so model_kwargs= is the client's own loader dict.
+
+    It used to bundle every keyword into model_kwargs, so the documented
+    ``model_kwargs={"device_map": ...}`` arrived nested one level deep and never reached
+    ``from_pretrained``; the loader's view is what this asserts.
+    """
+    c = aimu.image_client(HuggingFaceImageModel.FLUX_1_DEV, model_kwargs={"device_map": "balanced"})
+    assert c._client.model_kwargs == {"device_map": "balanced"}
+    assert c._client.pipeline.load_kwargs["device_map"] == "balanced"
+
+
+def test_image_client_rejects_a_loader_kwarg_outside_model_kwargs():
+    with pytest.raises(TypeError, match="variant"):
+        aimu.ImageClient(HuggingFaceImageModel.SD_1_5, variant="fp16")
 
 
 def test_image_client_no_kwargs_is_none():
