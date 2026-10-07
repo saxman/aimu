@@ -11,8 +11,6 @@
   make that expressible: `load_kwargs` (default `SentenceTransformer` kwargs, merged under the
   caller's) and `rejected_dtypes`. The second exists because this model in float16 returns NaN or
   degraded vectors rather than an error; asking for a rejected dtype now raises at construction.
-  Matryoshka truncation is not yet surfaced portably; `truncate_dim=` passes through to
-  `encode()` in the meantime.
 - **New: `embed(texts, input_type="query" | "document")` on every embedding client (sync and
   async).** Retrieval-tuned models embed a search differently from the text it searches, and AIMU
   had no way to say which side a call was on, so the advice was to hand-prefix strings. The prefix
@@ -24,6 +22,18 @@
   the one mechanism that also covers Ollama (whose API has no input type), and it keeps the exact
   text sent readable in the catalog. For EmbeddingGemma 2 the result is identical to
   `encode_query` / `encode_document`. An unknown `input_type` raises `ValueError`.
+- **New: `dimensions=` on every embedding client, for Matryoshka truncation.**
+  `aimu.embedding_client("hf:google/embeddinggemma-2", dimensions=256)` returns 256-wide vectors
+  from every call, and `client.dimensions` reports 256. Each spec declares the widths its model was
+  trained to be truncated to (`EmbeddingSpec.matryoshka_dimensions`); any other width raises
+  `ValueError` at construction, naming the accepted ones. That is stricter than the warn-and-drop
+  rule for generation kwargs on purpose: a vector of the wrong width corrupts a store without an
+  error. Declared: EmbeddingGemma 2 (768/512/256/128) and OpenAI text-embedding-3 (any width up to
+  native). Ollama's nomic-embed-text is Matryoshka-trained but left undeclared, since nomic's recipe
+  layer-norms before slicing and nothing confirms Ollama's `dimensions` parameter does.
+- **Change: `embed(..., dimensions=N)` per call now raises; set the width on the client.** OpenAI
+  previously forwarded a per-call `dimensions=` to its API. One width per client is what keeps a
+  corpus and its queries comparable, so the per-call form points at the constructor instead.
 - **Change: `SemanticMemoryStore(embedding_client=...)` now embeds stored facts as documents and
   searches as queries.** It overrides ChromaDB's `embed_query()` hook, which ChromaDB calls for
   searches. Two consequences: a persistent collection built earlier with a model that now declares

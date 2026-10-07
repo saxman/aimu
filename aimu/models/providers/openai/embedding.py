@@ -21,12 +21,17 @@ class OpenAIEmbeddingModel(EmbeddingModel):
     """Catalog of OpenAI embedding models.
 
     Each member's value is an :class:`OpenAIEmbeddingSpec`. ``.value`` returns the
-    OpenAI model id; ``.spec`` returns the full spec. ``text-embedding-3-*`` support a
-    ``dimensions=`` override at call time (passed through ``embed()``).
+    OpenAI model id; ``.spec`` returns the full spec. ``text-embedding-3-*`` truncate
+    server-side to any width up to native, so ``embedding_client(model, dimensions=N)``
+    accepts any ``N`` in that range; ada-002 cannot be truncated.
     """
 
-    TEXT_EMBEDDING_3_SMALL = OpenAIEmbeddingSpec("text-embedding-3-small", dimensions=1536, max_input_tokens=8191)
-    TEXT_EMBEDDING_3_LARGE = OpenAIEmbeddingSpec("text-embedding-3-large", dimensions=3072, max_input_tokens=8191)
+    TEXT_EMBEDDING_3_SMALL = OpenAIEmbeddingSpec(
+        "text-embedding-3-small", dimensions=1536, max_input_tokens=8191, matryoshka_dimensions=range(1, 1537)
+    )
+    TEXT_EMBEDDING_3_LARGE = OpenAIEmbeddingSpec(
+        "text-embedding-3-large", dimensions=3072, max_input_tokens=8191, matryoshka_dimensions=range(1, 3073)
+    )
     TEXT_EMBEDDING_ADA_002 = OpenAIEmbeddingSpec("text-embedding-ada-002", dimensions=1536, max_input_tokens=8191)
 
 
@@ -65,6 +70,7 @@ class OpenAIEmbeddingClient(BaseEmbeddingClient):
         self,
         model: "OpenAIEmbeddingModel | OpenAIEmbeddingSpec | str",
         model_kwargs: Optional[dict] = None,
+        dimensions: Optional[int] = None,
     ):
         if isinstance(model, str):
             spec = _parse_model_string(model)
@@ -77,8 +83,7 @@ class OpenAIEmbeddingClient(BaseEmbeddingClient):
                 f"OpenAIEmbeddingClient expects an OpenAIEmbeddingModel member, OpenAIEmbeddingSpec, "
                 f"or 'openai:<model_id>' string. Got: {type(model).__name__}"
             )
-        super().__init__(model=model, model_kwargs=model_kwargs)
-        self.spec = spec
+        super().__init__(model=model, model_kwargs=model_kwargs, spec=spec, dimensions=dimensions)
 
         import openai
 
@@ -89,6 +94,8 @@ class OpenAIEmbeddingClient(BaseEmbeddingClient):
         self._client = openai.OpenAI(api_key=api_key, base_url=base_url, **kwargs)
 
     def _embed(self, texts: list[str], **kwargs: Any) -> list[list[float]]:
+        if self._output_dimensions:
+            kwargs["dimensions"] = self._output_dimensions
         response = self._client.embeddings.create(model=self.spec.id, input=texts, **kwargs)
         return [item.embedding for item in response.data]
 

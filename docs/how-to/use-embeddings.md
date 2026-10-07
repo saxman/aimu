@@ -74,6 +74,24 @@ The prefixes are declared on the spec (`client.spec.query_prompt`,
 sends the text as given. Embed a corpus and its queries the same way: a prompted query
 compared against unprompted documents is a mismatch, not an improvement.
 
+## Shorter vectors
+
+Some models are trained so the front of each vector is a usable embedding on its own
+(Matryoshka Representation Learning). Ask for a narrower width when you build the client and
+every vector it returns has that width, stored at a fraction of the size:
+
+```python
+client = aimu.embedding_client("hf:google/embeddinggemma-2", dimensions=256)
+client.dimensions                 # 256
+len(client.embed("hello"))        # 256
+```
+
+The width is set once per client, not per call, so a corpus and its queries cannot end up
+with different widths. Only widths the model was trained for are accepted; anything else
+raises `ValueError` at construction, naming the ones that are. `client.spec.matryoshka_dimensions`
+lists them: `(768, 512, 256, 128)` for EmbeddingGemma 2, and any width up to native for OpenAI's
+text-embedding-3 models. A model whose spec declares none cannot be truncated through AIMU.
+
 ## Available models
 
 | Provider | Enum member | Model ID | Dims |

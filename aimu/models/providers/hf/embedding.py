@@ -74,6 +74,7 @@ class HuggingFaceEmbeddingModel(EmbeddingModel):
         max_input_tokens=8192,
         query_prompt="task: search result | query: ",
         document_prompt="title: none | text: ",
+        matryoshka_dimensions=(768, 512, 256, 128),
         load_kwargs={"config_kwargs": {"vision_config": None, "audio_config": None}},
         rejected_dtypes=("float16",),
     )
@@ -142,6 +143,10 @@ class HuggingFaceEmbeddingClient(BaseEmbeddingClient):
     ``"hf:<repo_id>"`` string. Target a device with ``model_kwargs={"device": "cuda:1"}``;
     other ``model_kwargs`` are forwarded to ``SentenceTransformer``.
 
+    ``dimensions=`` truncates every vector to one of the widths the spec declares in
+    ``matryoshka_dimensions`` (sent as sentence-transformers' ``truncate_dim``). The default
+    ``normalize_embeddings=True`` re-normalizes after truncation, which cosine retrieval needs.
+
     Retrieval-tuned models (E5, BGE, mxbai, EmbeddingGemma 2) want a query or document prefix
     for asymmetric retrieval; ``embed(texts, input_type="query" | "document")`` prepends the
     one the spec declares. The model's own sentence-transformers ``prompts`` config is not
@@ -154,6 +159,7 @@ class HuggingFaceEmbeddingClient(BaseEmbeddingClient):
         self,
         model: "HuggingFaceEmbeddingModel | HuggingFaceEmbeddingSpec | str",
         model_kwargs: dict | None = None,
+        dimensions: int | None = None,
     ):
         if isinstance(model, str):
             spec = _parse_model_string(model)
@@ -167,8 +173,7 @@ class HuggingFaceEmbeddingClient(BaseEmbeddingClient):
                 f"HuggingFaceEmbeddingSpec, or 'hf:<repo_id>' string. Got: {type(model).__name__}"
             )
         _check_dtype(spec, model_kwargs)
-        super().__init__(model=model, model_kwargs=model_kwargs)
-        self.spec = spec
+        super().__init__(model=model, model_kwargs=model_kwargs, spec=spec, dimensions=dimensions)
         self._model: Any = None  # lazy
         self._cache_key = _make_cache_key(spec.id, model_kwargs)
 
@@ -201,6 +206,8 @@ class HuggingFaceEmbeddingClient(BaseEmbeddingClient):
     def _embed(self, texts: list[str], **kwargs: Any) -> list[list[float]]:
         self._ensure_loaded()
         kwargs.setdefault("normalize_embeddings", self.spec.normalize)
+        if self._output_dimensions:
+            kwargs["truncate_dim"] = self._output_dimensions
         vectors = self._model.encode(texts, convert_to_numpy=True, **kwargs)
         return [vector.tolist() for vector in vectors]
 

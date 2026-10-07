@@ -38,6 +38,7 @@ def _entries() -> list[ProviderEntry]:
             client_name="OpenAIEmbeddingClient",
             requires="openai",
             install_hint=_OPENAI_HINT,
+            direct_kwargs=frozenset({"dimensions"}),
         ),
         ProviderEntry(
             prefix="ollama",
@@ -49,7 +50,7 @@ def _entries() -> list[ProviderEntry]:
             # Ollama has no weight loader, so these are real constructor params rather than
             # loader kwargs; without this the factory would bundle them into an ignored
             # model_kwargs and a remote host would silently fall back to localhost.
-            direct_kwargs=frozenset({"host", "timeout"}),
+            direct_kwargs=frozenset({"host", "timeout", "dimensions"}),
         ),
         ProviderEntry(
             prefix="hf",
@@ -58,6 +59,8 @@ def _entries() -> list[ProviderEntry]:
             client_name="HuggingFaceEmbeddingClient",
             requires="sentence_transformers",
             install_hint=_HF_HINT,
+            # The output width is a client setting, not a SentenceTransformer loader kwarg.
+            direct_kwargs=frozenset({"dimensions"}),
         ),
     ]
 

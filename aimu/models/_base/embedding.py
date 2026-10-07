@@ -9,6 +9,7 @@ maps text to fixed-length vectors. ``BaseEmbeddingClient`` is its own ABC for th
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
+from collections.abc import Sequence
 from typing import Any, Literal, Optional, Union, get_args
 
 InputType = Literal["query", "document"]
@@ -29,6 +30,11 @@ class EmbeddingSpec:
     declared here, per model, rather than read from a provider's config, so the exact text
     sent is visible in the catalog and is the same whichever provider serves the model.
 
+    ``matryoshka_dimensions`` lists the output widths the model was trained to be truncated to
+    (Matryoshka Representation Learning), the only widths a client's ``dimensions=`` accepts.
+    ``None`` means the model is not truncatable. A ``range`` expresses "any width up to native"
+    for an API that truncates server-side at any size (OpenAI's text-embedding-3).
+
     Equality and hash are by ``id`` only so the spec can be used directly as an enum
     value.
     """
@@ -38,6 +44,7 @@ class EmbeddingSpec:
     max_input_tokens: Optional[int] = None
     query_prompt: Optional[str] = None
     document_prompt: Optional[str] = None
+    matryoshka_dimensions: Optional[Sequence[int]] = None
 
     def __hash__(self) -> int:
         return hash(self.id)
@@ -93,6 +100,32 @@ class EmbeddingModel(Enum):
         self.spec = spec
 
 
+def _describe_widths(widths: Sequence[int]) -> str:
+    if isinstance(widths, range) and widths.step == 1:
+        return f"any width from {widths.start} to {widths.stop - 1}"
+    return ", ".join(str(width) for width in widths)
+
+
+def _check_dimensions(spec: EmbeddingSpec, dimensions: Any) -> None:
+    """Raise unless ``dimensions`` is a width ``spec`` was trained to be truncated to.
+
+    Raising rather than warning is deliberate: a vector of the wrong width, or one truncated
+    where the model was not trained for it, corrupts a persisted store without an error.
+    """
+    if isinstance(dimensions, bool) or not isinstance(dimensions, int) or dimensions < 1:
+        raise ValueError(f"dimensions must be a positive int. Got: {dimensions!r}")
+    if not spec.matryoshka_dimensions:
+        raise ValueError(
+            f"{spec.id} declares no widths it can be truncated to (its spec's matryoshka_dimensions "
+            f"is empty); omit dimensions= to get its native {spec.dimensions}-wide vectors."
+        )
+    if dimensions not in spec.matryoshka_dimensions:
+        raise ValueError(
+            f"{spec.id} accepts dimensions= of {_describe_widths(spec.matryoshka_dimensions)}, "
+            f"the widths it was trained to be truncated to. Got: {dimensions}"
+        )
+
+
 class BaseEmbeddingClient(ABC):
     """Abstract base for text-embedding provider clients.
 
@@ -104,16 +137,34 @@ class BaseEmbeddingClient(ABC):
 
     model: Any
     spec: EmbeddingSpec
+    # The width requested at construction, which providers send to their own truncation
+    # parameter. A class attribute so a subclass that skips super().__init__ still reads None.
+    _output_dimensions: Optional[int] = None
 
     @abstractmethod
-    def __init__(self, model: Any, model_kwargs: Optional[dict] = None):
+    def __init__(
+        self,
+        model: Any,
+        model_kwargs: Optional[dict] = None,
+        *,
+        spec: Optional[EmbeddingSpec] = None,
+        dimensions: Optional[int] = None,
+    ):
         self.model = model
         self.model_kwargs = model_kwargs
+        if spec is not None:
+            self.spec = spec
+        if dimensions is not None:
+            if spec is None:
+                raise TypeError("BaseEmbeddingClient needs spec= to validate dimensions=.")
+            _check_dimensions(spec, dimensions)
+            self._output_dimensions = dimensions
 
     @property
     def dimensions(self) -> Optional[int]:
-        """The embedding vector width declared by the spec, or ``None`` if unspecified."""
-        return self.spec.dimensions
+        """The width of the vectors this client returns: the ``dimensions=`` it was built with,
+        else the spec's native width, or ``None`` if neither is pinned."""
+        return self._output_dimensions or self.spec.dimensions
 
     @abstractmethod
     def _embed(self, texts: list[str], **kwargs: Any) -> list[list[float]]:
@@ -140,6 +191,11 @@ class BaseEmbeddingClient(ABC):
 
         Extra ``**kwargs`` are forwarded to the provider call.
         """
+        if "dimensions" in kwargs:
+            raise ValueError(
+                "dimensions= is set once per client, so every vector it returns has the same width: "
+                "aimu.embedding_client(model, dimensions=N)."
+            )
         if input_type not in (None, *INPUT_TYPES):
             raise ValueError(f"input_type must be one of {INPUT_TYPES} or None. Got: {input_type!r}")
         single = isinstance(texts, str)
