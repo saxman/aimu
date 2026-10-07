@@ -3135,6 +3135,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unreleased
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Unreleased">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v0340-2026-10-07-a-run-already-in-progress-has-an-inbox-and-the-inbox-knows-whose-it-is" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3480,7 +3508,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#examples" class="md-nav__link">
+  <a href="#examples_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Examples
@@ -4725,7 +4753,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#examples_1" class="md-nav__link">
+  <a href="#examples_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Examples
@@ -5184,7 +5212,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#examples_2" class="md-nav__link">
+  <a href="#examples_3" class="md-nav__link">
     <span class="md-ellipsis">
       
         Examples
@@ -5355,6 +5383,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unreleased
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Unreleased">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v0340-2026-10-07-a-run-already-in-progress-has-an-inbox-and-the-inbox-knows-whose-it-is" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5700,7 +5756,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#examples" class="md-nav__link">
+  <a href="#examples_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Examples
@@ -6945,7 +7001,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#examples_1" class="md-nav__link">
+  <a href="#examples_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Examples
@@ -7404,7 +7460,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#examples_2" class="md-nav__link">
+  <a href="#examples_3" class="md-nav__link">
     <span class="md-ellipsis">
       
         Examples
@@ -7540,6 +7596,26 @@ not this stub.
 -->
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
+<h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Fix: the personal-assistant example tagged every message of a proactive run <code>proactive</code>, and
+  overwrote the agent loop's own provenance doing it.</strong> Both halves were one line: a sweep over
+  <code>messages[start:]</code> with plain assignment. A scheduled task that runs tool rounds appends an
+  assistant turn and a tool result per round, so a verified-summary task replayed as a dozen
+  "proactive" messages, a claim true only of the reply actually pushed. That also contradicts the
+  rule stated in <code>message_meta.py</code>: ordinary assistant turns carry no provenance, and absence means
+  "ordinary turn". Now exactly two messages are tagged -- the reminder turn nobody typed, and the
+  reply that lands in the conversation the user is reading -- and the sweep uses <code>setdefault</code>, so a
+  <code>continuation</code> nudge injected <em>inside</em> a proactive run keeps its own tag instead of replaying as a
+  user bubble reading "Continue working on the task...". The old behavior was pinned by a test
+  asserting <code>all(... == PROVENANCE_PROACTIVE ...)</code>, which passed only because its mock was a
+  single-turn reply with no tools; the replacement covers a tool-using run and a degenerate one.
+  Note for hosts building on this: a host that mints a conversation per firing and announces it out
+  of band (a notification) should tag <strong>nothing</strong>, since the user is not reading that conversation
+  and no one message in it arrived unasked-for -- the whole conversation did. Tests:
+  <code>examples/personal-assistant/tests/test_assistant.py</code>.</li>
+</ul>
 <h2 id="v0340-2026-10-07-a-run-already-in-progress-has-an-inbox-and-the-inbox-knows-whose-it-is">v0.34.0 (2026-10-07): a run already in progress has an inbox, and the inbox knows whose it is<a class="headerlink" href="#v0340-2026-10-07-a-run-already-in-progress-has-an-inbox-and-the-inbox-knows-whose-it-is" title="Permanent link">&para;</a></h2>
 <h3 id="agents">Agents<a class="headerlink" href="#agents" title="Permanent link">&para;</a></h3>
 <ul>
@@ -8396,7 +8472,7 @@ not this stub.
   prompt. Both are unconditional rather than behind <code>stream_thinking</code> / <code>stream_tools</code>, for the
   reason above.</li>
 </ul>
-<h3 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h3>
+<h3 id="examples_1">Examples<a class="headerlink" href="#examples_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Fixed</strong> <code>examples/personal-assistant</code>'s page renders the <code>loop</code> frame instead of dropping it on
   the floor of a frame chain with no default arm, and resets its answer bubble when one arrives, so
@@ -9312,7 +9388,7 @@ release. Breaking changes are free before 1.0 and expensive after, so it ships n
 <ul>
 <li><strong>New</strong> README "Agents and workflows", "Tools", "Output and utilities", and quick-start sections cover <code>ToolContext</code> injection, the configurable <code>EvaluatorOptimizer</code> acceptance (<code>pass_keyword</code> / <code>stop_when</code> / <code>verdict_schema</code>), and <code>pretty_print</code>, with a runnable example combining all three.</li>
 </ul>
-<h3 id="examples_1">Examples<a class="headerlink" href="#examples_1" title="Permanent link">&para;</a></h3>
+<h3 id="examples_2">Examples<a class="headerlink" href="#examples_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Change</strong> Consolidated the loose <code>scripts/</code> directory and the <code>data/skills/</code> demo skills into a single top-level <code>examples/</code> tree, organized by theme: <code>examples/text-refinement/</code> (the <code>epic_*</code> family), <code>examples/image-refinement/</code> (the <code>hotdog_*</code> family), <code>examples/news-summarizer/</code>, and <code>examples/skills/</code> (<code>haiku-poet</code>, <code>unit-converter</code>). Each example directory has its own <code>README.md</code>, and <code>examples/README.md</code> indexes them. Files were moved with <code>git mv</code> (history preserved); <code>scripts/</code> and <code>data/</code> are removed.</li>
 <li><strong>New</strong> <code>aimu.paths.examples</code> constant pointing at the <code>examples/</code> directory. <code>aimu.paths.skills</code> now resolves to <code>examples/skills</code> (was <code>data/skills</code>); the unused <code>aimu.paths.data</code> constant is removed.</li>
@@ -9544,7 +9620,7 @@ release. Breaking changes are free before 1.0 and expensive after, so it ships n
 <li><strong>New</strong> <code>images=</code> is now accepted on stateless <code>generate()</code> (one-shot vision Q&amp;A that does not touch <code>self.messages</code>), in addition to stateful <code>chat()</code>.</li>
 <li><strong>New</strong> <code>builtin.make_tools(base_client, image_client=None, audio_client=None, speech_client=None)</code> assembles the full built-in tool list with automatic image/vision/audio/speech wiring.</li>
 </ul>
-<h3 id="examples_2">Examples<a class="headerlink" href="#examples_2" title="Permanent link">&para;</a></h3>
+<h3 id="examples_3">Examples<a class="headerlink" href="#examples_3" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Changed</strong> The full-featured Streamlit chatbot (<code>web/streamlit_chatbot.py</code>) gains image, audio, and speech generation, plus optional TTS narration of completed responses.</li>
 </ul>

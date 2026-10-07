@@ -408,7 +408,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </blockquote>
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
-<div id="d808b97a" class="cell" data-execution_count="1">
+<div id="882d20ba" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> logging</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>logging.basicConfig(level<span class="op">=</span>logging.WARNING, <span class="bu">format</span><span class="op">=</span><span class="st">"</span><span class="sc">%(levelname)s</span><span class="st">: </span><span class="sc">%(message)s</span><span class="st">"</span>)</span>
@@ -417,7 +417,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>MODEL <span class="op">=</span> <span class="st">"ollama:qwen3:8b"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>A tool with two readable answers, so a redirected run is visibly redirected:</p>
-<div id="7e470557" class="cell" data-execution_count="2">
+<div id="5007d212" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -440,7 +440,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a.-the-problem-a-run-you-cannot-reach" class="level2">
 <h2 class="anchored" data-anchor-id="a.-the-problem-a-run-you-cannot-reach">A. The problem: a run you cannot reach</h2>
 <p>A plain run takes its task up front and is then closed to input until it returns:</p>
-<div id="f27bca8c" class="cell" data-execution_count="3">
+<div id="b8c63110" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(aimu.client(MODEL), SYSTEM, name<span class="op">=</span><span class="st">"investigator"</span>, tools<span class="op">=</span>[read_log])</span>
@@ -455,7 +455,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> reader(<span class="va">self</span>, agent: Optional[<span class="bu">str</span>] <span class="op">=</span> <span class="va">None</span>) <span class="op">-&gt;</span> Callable[[], <span class="bu">list</span>[<span class="bu">str</span>]]: ...</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><code>reader()</code> is called <strong>once per run</strong>, at its start, and returns that run’s own drain. The drain returns everything that arrived since it was last called, oldest first, and an empty list when there is nothing. It is called from inside the loop, so it must not block.</p>
 <p>For a notebook we want delivery without the timing noise of a real host, so this one delivers on a chosen drain instead of when a human types:</p>
-<div id="0998bbbd" class="cell" data-execution_count="4">
+<div id="3c0ae135" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> ScriptedInbox:</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Delivers each scripted message on a later drain, so a demo needs no threads."""</span></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -474,14 +474,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> drain</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>That is the whole contract. <code>Inbox</code> is <code>runtime_checkable</code>, so there is no base class to inherit:</p>
-<div id="47fcfc99" class="cell" data-execution_count="5">
+<div id="14102423" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents.inbox <span class="im">import</span> Inbox</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"satisfies Inbox:"</span>, <span class="bu">isinstance</span>(ScriptedInbox([]), Inbox))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <pre><code>satisfies Inbox: True</code></pre>
 <p>Now the same run as section A, reachable:</p>
-<div id="320344cd" class="cell" data-execution_count="6">
+<div id="61a3620e" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(aimu.client(MODEL), SYSTEM, name<span class="op">=</span><span class="st">"investigator"</span>, tools<span class="op">=</span>[read_log])</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>mailbox <span class="op">=</span> ScriptedInbox([<span class="st">"Actually, check the staging log instead."</span>])</span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -490,7 +490,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <pre><code>The staging log shows an ERROR: "connection refused on port 5432." This suggests a database
 connectivity issue. Would you like me to check related logs or provide mitigation steps?</code></pre>
 <p>The transcript shows what happened: the agent read prod, was handed a message, and read staging, all inside one <code>run()</code>:</p>
-<div id="07856104" class="cell" data-execution_count="7">
+<div id="c0d3c8ee" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> m <span class="kw">in</span> agent.model_client.messages:</span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> m[<span class="st">"role"</span>] <span class="op">==</span> <span class="st">"user"</span>:</span>
 <span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"user: </span><span class="sc">{</span>m[<span class="st">'content'</span>]<span class="sc">!r}</span><span class="ss">  provenance=</span><span class="sc">{</span>m<span class="sc">.</span>get(<span class="st">'provenance'</span>)<span class="sc">}</span><span class="ss">"</span>)</span>
@@ -505,7 +505,7 @@ tool: 'staging.log: ERROR connection refused on port 5432.'</code></pre>
 <section id="standing-field-or-per-run" class="level3">
 <h3 class="anchored" data-anchor-id="standing-field-or-per-run">Standing field or per run</h3>
 <p><code>inbox</code> is a field on <code>Agent</code> with a per-run override, the same shape as <code>compaction</code>:</p>
-<div id="2cd60291" class="cell" data-execution_count="8">
+<div id="c6f66160" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>standing <span class="op">=</span> ScriptedInbox([<span class="st">"Actually, check the staging log instead."</span>])</span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>override <span class="op">=</span> ScriptedInbox([<span class="st">"Actually, check the staging log instead."</span>])</span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -556,7 +556,7 @@ per-run override was read: True</code></pre>
 </tbody>
 </table>
 <p>The third branch is the forgiving one, and it is worth seeing on its own. Here nothing is pending while the model works, so the run reaches a complete answer; only then does a message arrive, and the run continues instead of returning:</p>
-<div id="26c26641" class="cell" data-execution_count="9">
+<div id="1e7f5cde" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># No tools, so this run has exactly one round boundary: the terminal one, reached once the</span></span>
 <span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="co"># model has already produced a complete answer to the question it was given.</span></span>
 <span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>late <span class="op">=</span> Agent(aimu.client(MODEL), <span class="st">"Answer briefly."</span>, name<span class="op">=</span><span class="st">"late-demo"</span>)</span>
@@ -567,7 +567,7 @@ per-run override was read: True</code></pre>
 user turns: ['What is 2 + 2?', 'Now what is 10 + 10?']</code></pre>
 <p>The answer is to the <em>second</em> question: the run had finished, and the message brought it back for one more round. Without that branch, a message landing while the model composes its last reply would be silently dropped, and the usable window for reaching a run would be much narrower than the run’s wall-clock time.</p>
 <p>A drain returning only whitespace delivers nothing, so a host that polls with an empty heartbeat does not manufacture a round for it:</p>
-<div id="10a9f86e" class="cell" data-execution_count="10">
+<div id="fb551fae" class="cell" data-execution_count="10">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> HeartbeatInbox:</span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> reader(<span class="va">self</span>, agent<span class="op">=</span><span class="va">None</span>):</span>
 <span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="kw">lambda</span>: [<span class="st">"   "</span>]</span>
@@ -582,7 +582,7 @@ user turns: ['What is 2 + 2?', 'Now what is 10 + 10?']</code></pre>
 <section id="d.-watching-it-happen" class="level2">
 <h2 class="anchored" data-anchor-id="d.-watching-it-happen">D. Watching it happen</h2>
 <p>A streamed run yields a <code>StreamingContentType.INBOX</code> chunk immediately before the round that reads the message. <code>chunk.is_inbox()</code> dispatches on it, and the content is <code>dict {"text": str}</code>:</p>
-<div id="c45ee0a0" class="cell" data-execution_count="11">
+<div id="fd684aec" class="cell" data-execution_count="11">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
 <span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>watched <span class="op">=</span> Agent(aimu.client(MODEL), SYSTEM, name<span class="op">=</span><span class="st">"watched"</span>, tools<span class="op">=</span>[read_log])</span>
@@ -601,7 +601,7 @@ user turns: ['What is 2 + 2?', 'Now what is 10 + 10?']</code></pre>
 [tool] read_log({'name': 'staging'})</code></pre>
 <p><code>INBOX</code> is deliberately its own phase rather than a <code>kind</code> on <code>CONTINUING</code>. <code>CONTINUING</code> names a prompt the loop composed for itself; this one carries your words. A renderer that conflated them would credit the loop with what you said, and a renderer that showed neither (which is what happened before these phases existed) leaves a redirected run looking like the model changed its own mind.</p>
 <p>Every shipped consumer renders it. <code>aimu.pretty_print</code> prints a <code>[message]</code> line, ungated by its <code>show_thinking</code> / <code>show_tools</code> flags, because it is at most a handful of lines per run and it is what explains a change of direction:</p>
-<div id="6ba3b057" class="cell" data-execution_count="12">
+<div id="c8bcbe54" class="cell" data-execution_count="12">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>printed <span class="op">=</span> Agent(aimu.client(MODEL), SYSTEM, name<span class="op">=</span><span class="st">"printed"</span>, tools<span class="op">=</span>[read_log])</span>
 <span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>aimu.pretty_print(</span>
 <span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>    printed.run(</span>
@@ -624,7 +624,7 @@ The **staging** log shows:
 <section id="e.-a-real-host-a-thread-that-feeds-a-running-agent" class="level2">
 <h2 class="anchored" data-anchor-id="e.-a-real-host-a-thread-that-feeds-a-running-agent">E. A real host: a thread that feeds a running agent</h2>
 <p>A scripted inbox keeps a demo deterministic, but a real host writes from somewhere else while the run is in progress. The sync version of that is a lock-guarded deque plus a thread:</p>
-<div id="5a2f6e7f" class="cell" data-execution_count="13">
+<div id="a475c10b" class="cell" data-execution_count="13">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> threading</span>
 <span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> time</span>
 <span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> collections <span class="im">import</span> deque</span>
@@ -673,7 +673,7 @@ database connectivity issue.</code></pre>
 <p><code>max_iterations</code> bounds <em>autonomous</em> iteration: how far the loop may run with no human in it. A delivered message puts a human back in the loop, so it resets the budget, measured from the round the last message landed in rather than from the raw round count.</p>
 <p>Without the reset, a long-running delegate would spend its whole messageable window on the rounds before you said anything, and a late message could still be cut off by the forced wrap-up moments later. A run that is never messaged has its cap unaffected.</p>
 <p>That reset is also the only thing standing between a run and an unbounded bill, so it is capped at one extension per permitted round. The mistake it guards against is one character wide: a drain that returns its whole list instead of the unread slice makes every round look like a fresh human message.</p>
-<div id="59517b12" class="cell" data-execution_count="14">
+<div id="3689c1f3" class="cell" data-execution_count="14">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> LeakyInbox:</span>
 <span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""The bug: it never advances its cursor, so every round sees a 'new' message."""</span></span>
 <span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -692,7 +692,7 @@ model calls: 8</code></pre>
 <section id="g.-the-async-twin" class="level2">
 <h2 class="anchored" data-anchor-id="g.-the-async-twin">G. The async twin</h2>
 <p>Identical on <code>aimu.aio</code>, where the natural mailbox is an <code>asyncio.Queue</code> and the natural host is a task rather than a thread:</p>
-<div id="9c6a8aa5" class="cell" data-execution_count="15">
+<div id="994a9d01" class="cell" data-execution_count="15">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb27"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> asyncio</span>
 <span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> aio</span>
@@ -738,7 +738,7 @@ This suggests a database connectivity issue.</code></pre>
 <h2 class="anchored" data-anchor-id="h.-one-mailbox-a-roster-of-delegates">H. One mailbox, a roster of delegates</h2>
 <p><code>reader()</code> is called per run rather than once per <code>Inbox</code>, and that is what makes a shared mailbox safe. Under sequential tool dispatch a spawned sub-agent’s loop runs in the <em>same</em> asyncio task as the agent that spawned it, so a reader keyed by task would let two runs eat each other’s messages. Two runs of the same agent type would collide on a name for the same reason.</p>
 <p>The run’s name is handed to <code>reader(agent)</code>, which is the hook for routing to one run instead of broadcasting:</p>
-<div id="1cb59e3d" class="cell" data-execution_count="16">
+<div id="3a02c86d" class="cell" data-execution_count="16">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb29"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> RoutedInbox:</span>
 <span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""One mailbox, addressed per run."""</span></span>
 <span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -758,7 +758,7 @@ This suggests a database connectivity issue.</code></pre>
 <span id="cb29-17"><a href="#cb29-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> drain</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>Which names are there to address? The one you pass, or a generated one if you pass none:</p>
-<div id="f5104970" class="cell" data-execution_count="17">
+<div id="f279592e" class="cell" data-execution_count="17">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb30"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>probe <span class="op">=</span> RoutedInbox()</span>
 <span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>Agent(aimu.client(MODEL), <span class="st">"Answer briefly."</span>, name<span class="op">=</span><span class="st">"investigator"</span>).run(<span class="st">"Say OK."</span>, inbox<span class="op">=</span>probe)</span>
 <span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>Agent(aimu.client(MODEL), <span class="st">"Answer briefly."</span>).run(<span class="st">"Say OK."</span>, inbox<span class="op">=</span>probe)</span>
@@ -767,7 +767,7 @@ This suggests a database connectivity issue.</code></pre>
 <pre><code>readers opened under: ['investigator', 'agent-10f4c0']</code></pre>
 <p><code>Agent</code> generates <code>agent-{id:06x}</code> when you pass no <code>name=</code>. A generated name is unguessable from outside the run that got it, so <strong>name your agents if you intend to route</strong>: otherwise you end up with runs you have a label for but cannot address.</p>
 <p>A spawn roster is where this pays off. <code>make_subagent_tool</code> takes a factory-level <code>inbox</code>, and a typed <code>agent_types</code> spec may carry its own:</p>
-<div id="d57fac07" class="cell" data-execution_count="18">
+<div id="f3cec963" class="cell" data-execution_count="18">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb32"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools.builtin <span class="im">import</span> make_subagent_tool</span>
 <span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>roster_mailbox <span class="op">=</span> RoutedInbox()</span>
@@ -800,7 +800,7 @@ readers opened under: ['subagent-researcher']</code></pre>
 <h2 class="anchored" data-anchor-id="i.-when-it-goes-wrong-and-what-the-protocol-will-not-carry">I. When it goes wrong, and what the protocol will not carry</h2>
 <p>Four failures are logged and the run continues with no reader, because an inbox that cannot deliver should not end a run that is otherwise working: <code>reader()</code> raising, the drain raising, the drain returning the wrong shape, and the drain never advancing (section F).</p>
 <p>The shape check earns its keep on one case in particular. A bare <code>str</code> is refused rather than iterated, because <code>str</code> is iterable, so an unchecked drain would accept <code>"stop"</code> and deliver it as four one-character messages, which is worse than a raise for looking like it worked:</p>
-<div id="bc80e6d7" class="cell" data-execution_count="19">
+<div id="c320a568" class="cell" data-execution_count="19">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb34"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> StrInbox:</span>
 <span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> reader(<span class="va">self</span>, agent<span class="op">=</span><span class="va">None</span>):</span>
 <span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="kw">lambda</span>: <span class="st">"stop"</span>                    <span class="co"># a list of strings, not a string</span></span>
@@ -817,7 +817,7 @@ TypeError: an inbox drain must return a list of strings, got str
 user turns: ['What is 2 + 2?']</code></pre>
 <p>The traceback is logged, not raised: the run returned its answer to the original question. The log carries the cause so a host can fix the drain, which is the whole point of surviving rather than failing silently.</p>
 <p>One shape is refused instead, and refused before the run starts rather than ending one in progress: a <code>reader</code> the loop cannot call at all. <code>isinstance</code> cannot catch this first, because a <code>runtime_checkable</code> Protocol only checks that the method exists. So the loop’s constructor rehearses the real call:</p>
-<div id="1600e386" class="cell" data-execution_count="20">
+<div id="57bc46f9" class="cell" data-execution_count="20">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb36"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> ZeroArgInbox:</span>
 <span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> reader(<span class="va">self</span>):                            <span class="co"># the loop calls reader(agent), positionally</span></span>
 <span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="kw">lambda</span>: []</span>
@@ -843,7 +843,7 @@ user turns: ['What is 2 + 2?']</code></pre>
 </section>
 <section id="clean-up" class="level2">
 <h2 class="anchored" data-anchor-id="clean-up">Clean up</h2>
-<div id="16684552" class="cell" data-execution_count="21">
+<div id="ac1eacde" class="cell" data-execution_count="21">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb38"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> agent, always, override_demo, late, hb, watched, printed, threaded, leaky, async_agent, survived</span>
 <span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Cleaned up."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
