@@ -63,14 +63,14 @@
 - **Change: the `[hf]` extra now requires `transformers>=5.19` and `sentence-transformers>=6.1`.**
   5.19 is the first transformers release that knows the `embedding_gemma2` architecture, and 6.1 is
   what the model's own config declares. Existing embedding models run unchanged on 6.1.
-- **Change: `[evals]` now requires `deepeval>=4`, and `aimu[hf,evals]` (so `aimu[all]`) cannot be
-  installed with pip for now.** transformers 5.19 pulls `huggingface-hub>=1.31`, which needs
+- **Change: `[evals]` now requires `deepeval>=4`, and `aimu[all]` no longer includes `[evals]`.** transformers 5.19 pulls `huggingface-hub>=1.31`, which needs
   `click>=8.4.2`; every deepeval 4.x pins `click<8.4`. Left unpinned, the resolver silently fell back
   to deepeval 2.6.6, which fails on import (it needs `langchain`) and, through its pytest plugin,
   takes the test suite down with it. The repo's uv lock overrides the click pin
   (`[tool.uv] override-dependencies`; deepeval 4 runs fine on click 8.5), but that override does not
-  reach pip users. Install `[hf]` and `[evals]` into separate environments until deepeval relaxes
-  its pin.
+  reach pip users, so `aimu[hf,evals]` is unresolvable under pip. `[all]` drops `[evals]` so that
+  `pip install aimu[all]` still works; install `aimu[evals]` into its own environment until deepeval
+  relaxes its pin. `uv sync --all-extras` in the repo still installs both.
 
 ### Examples
 

@@ -80,7 +80,6 @@ all = [
     { name = "anthropic" },
     { name = "bitsandbytes" },
     { name = "chromadb" },
-    { name = "deepeval" },
     { name = "diffusers" },
     { name = "google-genai" },
     { name = "gradio" },
@@ -173,7 +172,7 @@ web = [
 requires-dist = [
     { name = "a2a-sdk", marker = "extra == 'a2a'", specifier = ">=0.3.24,<0.4" },
     { name = "accelerate", marker = "extra == 'hf'" },
-    { name = "aimu", extras = ["ollama", "anthropic", "openai-compat", "google", "llamacpp", "hf", "web", "tuning", "evals", "a2a", "memory", "prompts"], marker = "extra == 'all'" },
+    { name = "aimu", extras = ["ollama", "anthropic", "openai-compat", "google", "llamacpp", "hf", "web", "tuning", "a2a", "memory", "prompts"], marker = "extra == 'all'" },
     { name = "anthropic", marker = "extra == 'anthropic'", specifier = ">=1,<2" },
     { name = "bitsandbytes", marker = "extra == 'hf'" },
     { name = "chromadb", marker = "extra == 'memory'" },

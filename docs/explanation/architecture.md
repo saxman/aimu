@@ -304,8 +304,9 @@ A few subsystems are newer than the client/agent core and worth calling out:
 - **`aimu.skills`** discovers `SKILL.md` files and can *author* new skills (and runnable scripts) at
   run time; `SkillAgent` surfaces them through its tool list mid-run.
 
-Each package has its own optional dependency; `aimu[all]` installs everything, and piecewise installs
-degrade gracefully via `HAS_*` flags.
+Each package has its own optional dependency; `aimu[all]` installs everything but `[evals]` (which
+cannot currently share an environment with `[hf]`), and piecewise installs degrade gracefully via
+`HAS_*` flags.
 
 ## See also
 

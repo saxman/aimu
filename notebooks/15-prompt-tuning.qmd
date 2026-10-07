@@ -330,7 +330,7 @@ print(best_extraction_prompt)
 `JudgedPromptTuner` handles tasks where there is no single correct answer (summarisation, rewriting, question answering) by delegating per-row evaluation to a pluggable `Scorer`. Two implementations ship with AIMU:
 
 - **`LLMJudgeScorer`** (built-in): asks a separate judge model for a 1-10 rating and parses the score.
-- **`DeepEvalScorer`** (`aimu[deepeval]`): wraps one or more [DeepEval](https://deepeval.com/) `BaseMetric` instances (e.g. `GEval`, `AnswerRelevancyMetric`, `FaithfulnessMetric`) and averages their scores.
+- **`DeepEvalScorer`** (`aimu[evals]`): wraps one or more [DeepEval](https://deepeval.com/) `BaseMetric` instances (e.g. `GEval`, `AnswerRelevancyMetric`, `FaithfulnessMetric`) and averages their scores.
 
 Key differences from the other tuners:
 - **Two model clients**: `model_client` generates responses; the `Scorer` carries its own judge.
@@ -438,7 +438,7 @@ print(best_judged_prompt)
 
 Swap `LLMJudgeScorer` for `DeepEvalScorer` to drive the same hill-climbing loop with one or more [DeepEval](https://deepeval.com/) metrics. Each metric is given an `LLMTestCase` built from the row (`content` -> `input`, generated `output` -> `actual_output`, optional `reference` -> `expected_output`); per-metric scores are averaged.
 
-Requires `aimu[deepeval]`.
+Requires `aimu[evals]`.
 
 ```{python}
 from deepeval.metrics import GEval

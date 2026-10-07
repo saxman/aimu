@@ -11,6 +11,12 @@
 pip install aimu[evals]
 ```
 
+Install it in an environment without `aimu[hf]` for now: every deepeval 4.x release pins
+`click<8.4`, and the transformers release the HuggingFace catalog needs requires a newer click, so
+pip cannot resolve the two together. That is also why `aimu[all]` leaves `[evals]` out. A judge
+backed by a cloud or server provider (`[anthropic]`, `[openai_compat]`, `[ollama]`) installs fine
+alongside it.
+
 ## Use any AIMU client as a DeepEval judge
 
 ```python

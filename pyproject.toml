@@ -138,7 +138,8 @@ docs = [
 ]
 
 # Every provider backend + every runtime capability (development tooling excluded).
-all = ["aimu[ollama,anthropic,openai_compat,google,llamacpp,hf,web,tuning,evals,a2a,memory,prompts]"]
+# evals is left out until deepeval relaxes its click pin; see the override under [tool.uv].
+all = ["aimu[ollama,anthropic,openai_compat,google,llamacpp,hf,web,tuning,a2a,memory,prompts]"]
 
 [build-system]
 requires = ["setuptools"]
