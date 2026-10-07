@@ -179,16 +179,43 @@ class Assistant:
     async def _proactive(self) -> None:
         """Scheduled callback: produce a message unprompted and push it to the channel."""
         async with self._lock:
-            # Tag the whole proactive exchange (the framework-injected reminder turn and the
-            # assistant's push) so replayed history can distinguish it from a user-driven turn.
             # The agent doesn't reset on run here (system prompt lives on the client), so the
             # pre-run length is a stable start index for this exchange.
             start = len(self._agent.model_client.messages)
             reply = await self._agent.run(self._config.reminder_text)
-            for message in self._agent.model_client.messages[start:]:
-                message[PROVENANCE_KEY] = PROVENANCE_PROACTIVE
+            self._tag_proactive(self._agent.model_client.messages[start:])
             await self._channel.send(reply)
             self._persist()
+
+    @staticmethod
+    def _tag_proactive(appended: list[dict]) -> None:
+        """Mark the two messages of an unprompted run that the user did not ask for.
+
+        Those are the reminder turn nobody typed, and the reply that lands in the conversation
+        the user is reading. Everything between them -- the tool calls, the tool results, the
+        assistant turns that narrate them -- is ordinary loop work, and AIMU's contract is that
+        ordinary assistant turns carry no provenance at all (see
+        ``aimu/models/_internal/message_meta.py``): absence means "ordinary turn". Tagging the
+        whole exchange made a task that ran a dozen tool rounds replay as a dozen proactive
+        messages, which is a claim about every one of them that is only true of the last.
+
+        ``setdefault``, not assignment: the agent loop tags the turns it injects itself
+        (``continuation``, ``final_answer``), and those tags are how a replay tells an injected
+        nudge from something the user typed. Overwriting them made a nudge inside a proactive
+        run come back as a user bubble reading "Continue working on the task...".
+
+        This assistant always echoes its reply into the one conversation it has. A host that
+        instead mints a conversation per firing and announces it out of band (a notification)
+        should tag nothing here: the user is not reading that conversation, so no message in it
+        arrived unasked-for -- the whole conversation did.
+        """
+        prompt = next((message for message in appended if message.get("role") == "user"), None)
+        # The final answer, when there is one: a run that failed or was cancelled mid-loop ends on
+        # a tool result instead, and nothing was pushed to anybody.
+        push = appended[-1] if appended and appended[-1].get("role") == "assistant" else None
+        for message in (prompt, push):
+            if message is not None:
+                message.setdefault(PROVENANCE_KEY, PROVENANCE_PROACTIVE)
 
     def _persist(self) -> None:
         # Copy each message so the manager's timestamp annotation doesn't leak into the live

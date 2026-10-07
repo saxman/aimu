@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+### Examples
+
+- **Fix: the personal-assistant example tagged every message of a proactive run `proactive`, and
+  overwrote the agent loop's own provenance doing it.** Both halves were one line: a sweep over
+  `messages[start:]` with plain assignment. A scheduled task that runs tool rounds appends an
+  assistant turn and a tool result per round, so a verified-summary task replayed as a dozen
+  "proactive" messages, a claim true only of the reply actually pushed. That also contradicts the
+  rule stated in `message_meta.py`: ordinary assistant turns carry no provenance, and absence means
+  "ordinary turn". Now exactly two messages are tagged -- the reminder turn nobody typed, and the
+  reply that lands in the conversation the user is reading -- and the sweep uses `setdefault`, so a
+  `continuation` nudge injected *inside* a proactive run keeps its own tag instead of replaying as a
+  user bubble reading "Continue working on the task...". The old behavior was pinned by a test
+  asserting `all(... == PROVENANCE_PROACTIVE ...)`, which passed only because its mock was a
+  single-turn reply with no tools; the replacement covers a tool-using run and a degenerate one.
+  Note for hosts building on this: a host that mints a conversation per firing and announces it out
+  of band (a notification) should tag **nothing**, since the user is not reading that conversation
+  and no one message in it arrived unasked-for -- the whole conversation did. Tests:
+  `examples/personal-assistant/tests/test_assistant.py`.
+
 ## v0.34.0 (2026-10-07): a run already in progress has an inbox, and the inbox knows whose it is
 
 ### Agents

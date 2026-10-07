@@ -120,11 +120,66 @@ async def test_assistant_proactive_message(tmp_path):
     await assistant._proactive()
 
     assert channel.sent == ["Don't forget lunch."]
-    # The whole proactive exchange (the injected reminder turn and the assistant push) is tagged,
-    # so replayed history can distinguish it from a user-driven turn.
-    proactive = [m for m in assistant._agent.model_client.messages if m.get(PROVENANCE_KEY) == PROVENANCE_PROACTIVE]
-    assert proactive, assistant._agent.model_client.messages
-    assert all(m.get(PROVENANCE_KEY) == PROVENANCE_PROACTIVE for m in assistant._agent.model_client.messages)
+    # Two messages are tagged and no others: the reminder turn nobody typed, and the reply that
+    # arrived in the user's conversation without them asking.
+    messages = assistant._agent.model_client.messages
+    tagged = [(m["role"], m.get(PROVENANCE_KEY)) for m in messages if m.get(PROVENANCE_KEY)]
+    assert tagged == [("user", PROVENANCE_PROACTIVE), ("assistant", PROVENANCE_PROACTIVE)]
+
+
+async def test_proactive_leaves_the_runs_own_working_turns_untagged(tmp_path):
+    """A scheduled task does many tool rounds, and those are ordinary loop work.
+
+    Tagging the whole exchange made every narrating assistant turn replay as a proactive
+    message, so a verified-summary task showed a dozen of them. AIMU's own contract is that
+    ordinary assistant turns carry no provenance (`models/_internal/message_meta.py`).
+    """
+    from aimu import PROVENANCE_KEY, PROVENANCE_PROACTIVE
+    from aimu.tools import tool
+
+    @tool
+    def search_news(query: str) -> str:
+        """Search the news."""
+        return "headline: a thing happened"
+
+    channel = FakeChannel()
+    client = MockAsyncModelClient(
+        [
+            {"tool": "search_news", "arguments": {"query": "ai"}},
+            {"tool": "search_news", "arguments": {"query": "verify"}},
+            "Here is today's verified summary.",
+        ]
+    )
+    assistant = await Assistant.create(_config(tmp_path, reminder_text="summarise the news"), channel, client=client)
+    assistant._agent.tools = [search_news]
+
+    await assistant._proactive()
+
+    messages = assistant._agent.model_client.messages
+    tagged = [(m["role"], m.get(PROVENANCE_KEY)) for m in messages if m.get(PROVENANCE_KEY)]
+    assert tagged == [("user", PROVENANCE_PROACTIVE), ("assistant", PROVENANCE_PROACTIVE)]
+    # Specifically: no tool result and no intermediate (tool-calling) assistant turn is marked.
+    assert not [m for m in messages if m["role"] == "tool" and m.get(PROVENANCE_KEY)]
+    assert not [m for m in messages if m.get("tool_calls") and m.get(PROVENANCE_KEY)]
+
+
+async def test_proactive_does_not_overwrite_the_loops_own_provenance(tmp_path):
+    """The recovery nudge stays a `continuation`, so a replay still reads it as an injection.
+
+    This tagged with plain assignment, so a degenerate turn inside a proactive run had its
+    `continuation` tag overwritten and replayed as a user bubble reading "Continue working on
+    the task...". Kokua hit this independently and fixed it with setdefault.
+    """
+    from aimu import PROVENANCE_CONTINUATION, PROVENANCE_KEY
+
+    channel = FakeChannel()
+    client = MockAsyncModelClient(["", "Recovered answer."])  # an empty turn is degenerate
+    assistant = await Assistant.create(_config(tmp_path, reminder_text="check in"), channel, client=client)
+
+    await assistant._proactive()
+
+    nudges = [m for m in assistant._agent.model_client.messages if m.get(PROVENANCE_KEY) == PROVENANCE_CONTINUATION]
+    assert len(nudges) == 1, assistant._agent.model_client.messages
 
 
 async def test_assistant_persists_and_restores(tmp_path):
