@@ -3461,44 +3461,46 @@
 <p>Clone and install with all extras:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/saxman/aimu
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>aimu
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">'.[all,dev,notebooks,docs]'</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>uv<span class="w"> </span>sync<span class="w"> </span>--all-extras
 </span></code></pre></div>
-<p>Or with <a href="https://docs.astral.sh/uv/">uv</a> (faster):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>uv<span class="w"> </span>sync<span class="w"> </span>--all-extras
-</span></code></pre></div>
+<p>Use <a href="https://docs.astral.sh/uv/">uv</a>: it is the only installer that gets the full development
+environment. <code>[evals]</code> (deepeval) and <code>[hf]</code> conflict on <code>click</code> as published, and the repo's uv
+lock carries an override that resolves it. pip ignores that override, so
+<code>pip install -e '.[all,dev,notebooks,docs]'</code> works but leaves deepeval out, and the DeepEval
+adapter tests skip.</p>
 <p>For gated HuggingFace models, log in once:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>hf<span class="w"> </span>auth<span class="w"> </span>login
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>hf<span class="w"> </span>auth<span class="w"> </span>login
 </span></code></pre></div>
 <h2 id="run-the-tests">Run the tests<a class="headerlink" href="#run-the-tests" title="Permanent link">&para;</a></h2>
 <p>The default suite is mock-based and needs no backend:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pytest<span class="w"> </span>tests/<span class="w"> </span>--ignore<span class="o">=</span>tests/test_models.py
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pytest<span class="w"> </span>tests/<span class="w"> </span>--ignore<span class="o">=</span>tests/test_models.py
 </span></code></pre></div>
 <p>To run against a real backend:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>pytest<span class="w"> </span>tests/test_models.py<span class="w"> </span>--client<span class="o">=</span>ollama<span class="w"> </span>--model<span class="o">=</span>QWEN_3_5_9B
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>pytest<span class="w"> </span>tests/test_models.py<span class="w"> </span>--client<span class="o">=</span>anthropic
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>pytest<span class="w"> </span>tests/test_models.py<span class="w"> </span>--client<span class="o">=</span>llamacpp<span class="w"> </span>--model-path<span class="o">=</span>/path/to/model.gguf
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pytest<span class="w"> </span>tests/test_models.py<span class="w"> </span>--client<span class="o">=</span>ollama<span class="w"> </span>--model<span class="o">=</span>QWEN_3_5_9B
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>pytest<span class="w"> </span>tests/test_models.py<span class="w"> </span>--client<span class="o">=</span>anthropic
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>pytest<span class="w"> </span>tests/test_models.py<span class="w"> </span>--client<span class="o">=</span>llamacpp<span class="w"> </span>--model-path<span class="o">=</span>/path/to/model.gguf
 </span></code></pre></div>
 <p>See <a href="https://github.com/saxman/aimu/blob/main/CLAUDE.md">CLAUDE.md</a> for the full list of <code>--client</code> options.</p>
 <h2 id="linting">Linting<a class="headerlink" href="#linting" title="Permanent link">&para;</a></h2>
 <p>Ruff is configured in <code>pyproject.toml</code> (line length 120):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>ruff<span class="w"> </span>check<span class="w"> </span>.
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>ruff<span class="w"> </span>format<span class="w"> </span>.
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>ruff<span class="w"> </span>check<span class="w"> </span>.
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>ruff<span class="w"> </span>format<span class="w"> </span>.
 </span></code></pre></div>
 <h2 id="build-the-docs-locally">Build the docs locally<a class="headerlink" href="#build-the-docs-locally" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">'.[docs]'</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>mkdocs<span class="w"> </span>serve
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">'.[docs]'</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>mkdocs<span class="w"> </span>serve
 </span></code></pre></div>
 <p>The site rebuilds on file changes. Browse at <code>http://127.0.0.1:8000</code>.</p>
 <p>To check for broken links and missing pages:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>mkdocs<span class="w"> </span>build<span class="w"> </span>--strict
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>mkdocs<span class="w"> </span>build<span class="w"> </span>--strict
 </span></code></pre></div>
 <h2 id="work-on-the-notebooks">Work on the notebooks<a class="headerlink" href="#work-on-the-notebooks" title="Permanent link">&para;</a></h2>
 <p>The <code>notebooks/</code> collection is authored as plain-text <a href="https://quarto.org">Quarto</a> <code>.qmd</code>
 files (markdown with executable <code>python</code> cells), <em>not</em> <code>.ipynb</code> JSON, so they diff cleanly
 and are easy to edit or hand to an AI assistant. Install the <a href="https://quarto.org/docs/get-started/">Quarto CLI</a>
 (a standalone binary, e.g. <code>brew install quarto</code>) plus the Python toolchain:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">'.[notebooks]'</span><span class="w">    </span><span class="c1"># or: uv sync --extra notebooks — installs jupyter + jupytext</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>quarto<span class="w"> </span>preview<span class="w"> </span>notebooks/<span class="w">        </span><span class="c1"># browsable local render of the whole collection</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">'.[notebooks]'</span><span class="w">    </span><span class="c1"># or: uv sync --extra notebooks — installs jupyter + jupytext</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>quarto<span class="w"> </span>preview<span class="w"> </span>notebooks/<span class="w">        </span><span class="c1"># browsable local render of the whole collection</span>
 </span></code></pre></div>
 <p><code>quarto preview</code>/<code>render</code> produce the rendered site; they are <strong>not</strong> how you iterate
 cell-by-cell. For interactive execution, pick one:</p>

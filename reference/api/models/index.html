@@ -6482,11 +6482,11 @@ client = EmbeddingClient(OpenAIEmbeddingModel.TEXT_EMBEDDING_3_SMALL)
 client = EmbeddingClient("openai:text-embedding-3-small")
 client = EmbeddingClient("ollama:nomic-embed-text")
 </code></pre></div>
-<p>Provider-specific construction kwargs are forwarded. A param the concrete client declares
-itself reaches it directly (<code>ProviderEntry.direct_kwargs</code>); anything else is bundled into
-<code>model_kwargs</code>, which is where a weight-loading client wants it::</p>
-<div class="language-text highlight"><pre><span></span><code>EmbeddingClient("ollama:nomic-embed-text", host="gpu-box")                  # -&gt; host=
-EmbeddingClient(HuggingFaceEmbeddingModel.BGE_SMALL_EN_V1_5, device="cpu")  # -&gt; model_kwargs=
+<p>Keyword arguments reach the concrete client's constructor unchanged, as with
+:class:<code>aimu.models.ModelClient</code>; loader settings go in its <code>model_kwargs</code> dict::</p>
+<div class="language-text highlight"><pre><span></span><code>EmbeddingClient("ollama:nomic-embed-text", host="gpu-box")
+EmbeddingClient("hf:google/embeddinggemma-2", dimensions=256)
+EmbeddingClient(HuggingFaceEmbeddingModel.BGE_SMALL_EN_V1_5, model_kwargs={"device": "cpu"})
 </code></pre></div>
 
 
@@ -6547,7 +6547,7 @@ EmbeddingClient(HuggingFaceEmbeddingModel.BGE_SMALL_EN_V1_5, device="cpu")  # -&
 
 
 <a href="#aimu.models.BaseEmbeddingClient" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">BaseEmbeddingClient</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">model_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">BaseEmbeddingClient</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">model_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">spec</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EmbeddingSpec</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dimensions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -6598,7 +6598,8 @@ every provider offers the same ergonomic surface.</p>
 
     <div class="doc doc-contents ">
 
-        <p>The embedding vector width declared by the spec, or <code>None</code> if unspecified.</p>
+        <p>The width of the vectors this client returns: the <code>dimensions=</code> it was built with,
+else the spec's native width, or <code>None</code> if neither is pinned.</p>
 
     </div>
 
@@ -6615,15 +6616,20 @@ every provider offers the same ergonomic surface.</p>
 
 
 <a href="#aimu.models.BaseEmbeddingClient.embed" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">embed</span><span class="p">(</span><span class="n">texts</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">embed</span><span class="p">(</span><span class="n">texts</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span> <span class="o">*</span><span class="p">,</span> <span class="n">input_type</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">InputType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Embed one string or a list of strings.</p>
 <p>A single <code>str</code> returns one vector (<code>list[float]</code>); a list returns a list of
-vectors (<code>list[list[float]]</code>), preserving order. An empty list returns <code>[]</code>.
-Extra <code>**kwargs</code> are forwarded to the provider call.</p>
+vectors (<code>list[list[float]]</code>), preserving order. An empty list returns <code>[]</code>.</p>
+<p><code>input_type</code> says which side of an asymmetric retrieval the texts are: <code>"query"</code>
+or <code>"document"</code> prepends the spec's <code>query_prompt</code> / <code>document_prompt</code>, and is a
+no-op when the model declares none for that side (a symmetric model needs none).
+<code>None</code> sends the texts as given. Embed a corpus and its queries with the same
+convention: vectors from prompted and unprompted text are not comparable.</p>
+<p>Extra <code>**kwargs</code> are forwarded to the provider call.</p>
 
 
     </div>
@@ -6669,7 +6675,7 @@ Extra <code>**kwargs</code> are forwarded to the provider call.</p>
 
 
 <a href="#aimu.models.OpenAIEmbeddingClient" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">OpenAIEmbeddingClient</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="s1">'OpenAIEmbeddingModel | OpenAIEmbeddingSpec | str'</span><span class="p">,</span> <span class="n">model_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">OpenAIEmbeddingClient</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="s1">'OpenAIEmbeddingModel | OpenAIEmbeddingSpec | str'</span><span class="p">,</span> <span class="n">model_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dimensions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -6721,7 +6727,7 @@ overrides; otherwise <code>OPENAI_API_KEY</code> is read from the environment.</
 
 
 <a href="#aimu.models.OllamaEmbeddingClient" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">OllamaEmbeddingClient</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">OllamaEmbeddingModel</span> <span class="o">|</span> <span class="n">OllamaEmbeddingSpec</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span> <span class="n">model_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">host</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">OllamaEmbeddingClient</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">OllamaEmbeddingModel</span> <span class="o">|</span> <span class="n">OllamaEmbeddingSpec</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span> <span class="n">model_kwargs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">host</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dimensions</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -6776,7 +6782,7 @@ from two different models.</p>
 
 
 <a href="#aimu.models.HuggingFaceEmbeddingClient" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">HuggingFaceEmbeddingClient</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="s1">'HuggingFaceEmbeddingModel | HuggingFaceEmbeddingSpec | str'</span><span class="p">,</span> <span class="n">model_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">HuggingFaceEmbeddingClient</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="s1">'HuggingFaceEmbeddingModel | HuggingFaceEmbeddingSpec | str'</span><span class="p">,</span> <span class="n">model_kwargs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dimensions</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -6790,9 +6796,13 @@ from two different models.</p>
 :class:<code>HuggingFaceEmbeddingModel</code> member, a :class:<code>HuggingFaceEmbeddingSpec</code>, or a
 <code>"hf:&lt;repo_id&gt;"</code> string. Target a device with <code>model_kwargs={"device": "cuda:1"}</code>;
 other <code>model_kwargs</code> are forwarded to <code>SentenceTransformer</code>.</p>
-<p>Note on retrieval-tuned models: E5 / BGE expect query/passage prefixes (e.g.
-<code>"query: ..."</code>) for asymmetric retrieval. Pass already-prefixed strings when you need
-that; symmetric similarity does not.</p>
+<p><code>dimensions=</code> truncates every vector to one of the widths the spec declares in
+<code>matryoshka_dimensions</code> (sent as sentence-transformers' <code>truncate_dim</code>). The default
+<code>normalize_embeddings=True</code> re-normalizes after truncation, which cosine retrieval needs.</p>
+<p>Retrieval-tuned models (E5, BGE, mxbai, EmbeddingGemma 2) want a query or document prefix
+for asymmetric retrieval; <code>embed(texts, input_type="query" | "document")</code> prepends the
+one the spec declares. The model's own sentence-transformers <code>prompts</code> config is not
+consulted, so the spec is the one place that text comes from.</p>
 
 
 

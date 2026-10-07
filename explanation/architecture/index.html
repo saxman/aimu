@@ -3887,8 +3887,9 @@ and streaming tools. Earlier versions had separate <code>AgentChunk</code> / <co
 <li><strong><code>aimu.skills</code></strong> discovers <code>SKILL.md</code> files and can <em>author</em> new skills (and runnable scripts) at
   run time; <code>SkillAgent</code> surfaces them through its tool list mid-run.</li>
 </ul>
-<p>Each package has its own optional dependency; <code>aimu[all]</code> installs everything, and piecewise installs
-degrade gracefully via <code>HAS_*</code> flags.</p>
+<p>Each package has its own optional dependency; <code>aimu[all]</code> installs everything but <code>[evals]</code> (which
+cannot currently share an environment with <code>[hf]</code>), and piecewise installs degrade gracefully via
+<code>HAS_*</code> flags.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../design-principles/">Design principles</a>: what AIMU deliberately doesn't do, and why.</li>

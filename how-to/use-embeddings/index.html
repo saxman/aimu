@@ -1610,6 +1610,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#queries-and-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Queries and documents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shorter-vectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shorter vectors
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#available-models" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3322,6 +3344,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#queries-and-documents" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Queries and documents
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#shorter-vectors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Shorter vectors
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#available-models" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3438,10 +3482,35 @@ vector width declared by the model spec.</p>
 <li><strong>Ollama</strong> (local server): pull the model first, e.g. <code>ollama pull nomic-embed-text</code>.</li>
 <li><strong>HuggingFace</strong> (local): backed by <code>sentence-transformers</code> (the <code>[hf]</code> extra), so each
   model's own pooling/normalization config is honoured. Weights download on first use and
-  are cached; free them with <code>aimu.clear_hf_cache()</code>. Retrieval-tuned models (BGE / E5)
-  expect <code>"query: "</code> / <code>"passage: "</code> prefixes for asymmetric retrieval (pass already-prefixed
-  strings when you need that; symmetric similarity does not).</li>
+  are cached; free them with <code>aimu.clear_hf_cache()</code>.</li>
 </ul>
+<h2 id="queries-and-documents">Queries and documents<a class="headerlink" href="#queries-and-documents" title="Permanent link">&para;</a></h2>
+<p>Retrieval-tuned models embed a search differently from the text it searches: E5 wants
+<code>"query: "</code> and <code>"passage: "</code> in front of each, EmbeddingGemma 2 and nomic have their own
+pair, and BGE and mxbai prefix only the query. Say which side you are embedding and AIMU
+prepends the prefix the model's card specifies:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="s2">"hf:intfloat/e5-large-v2"</span><span class="p">)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">doc_vectors</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">embed</span><span class="p">([</span><span class="s2">"Paris is the capital of France."</span><span class="p">],</span> <span class="n">input_type</span><span class="o">=</span><span class="s2">"document"</span><span class="p">)</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">query_vector</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">embed</span><span class="p">(</span><span class="s2">"capital of france"</span><span class="p">,</span> <span class="n">input_type</span><span class="o">=</span><span class="s2">"query"</span><span class="p">)</span>
+</span></code></pre></div>
+<p>The prefixes are declared on the spec (<code>client.spec.query_prompt</code>,
+<code>client.spec.document_prompt</code>), so you can read exactly what is sent. For a symmetric model
+(OpenAI, MiniLM, GTE, BGE-M3) <code>input_type</code> changes nothing. <code>input_type=None</code>, the default,
+sends the text as given. Embed a corpus and its queries the same way: a prompted query
+compared against unprompted documents is a mismatch, not an improvement.</p>
+<h2 id="shorter-vectors">Shorter vectors<a class="headerlink" href="#shorter-vectors" title="Permanent link">&para;</a></h2>
+<p>Some models are trained so the front of each vector is a usable embedding on its own
+(Matryoshka Representation Learning). Ask for a narrower width when you build the client and
+every vector it returns has that width, stored at a fraction of the size:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="s2">"hf:google/embeddinggemma-2"</span><span class="p">,</span> <span class="n">dimensions</span><span class="o">=</span><span class="mi">256</span><span class="p">)</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">client</span><span class="o">.</span><span class="n">dimensions</span>                 <span class="c1"># 256</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nb">len</span><span class="p">(</span><span class="n">client</span><span class="o">.</span><span class="n">embed</span><span class="p">(</span><span class="s2">"hello"</span><span class="p">))</span>        <span class="c1"># 256</span>
+</span></code></pre></div>
+<p>The width is set once per client, not per call, so a corpus and its queries cannot end up
+with different widths. Only widths the model was trained for are accepted; anything else
+raises <code>ValueError</code> at construction, naming the ones that are. <code>client.spec.matryoshka_dimensions</code>
+lists them: <code>(768, 512, 256, 128)</code> for EmbeddingGemma 2, and any width up to native for OpenAI's
+text-embedding-3 models. A model whose spec declares none cannot be truncated through AIMU.</p>
 <h2 id="available-models">Available models<a class="headerlink" href="#available-models" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3489,11 +3558,17 @@ vector width declared by the model spec.</p>
 <td><code>BAAI/bge-large-en-v1.5</code></td>
 <td>1024</td>
 </tr>
+<tr>
+<td>HuggingFace</td>
+<td><code>HuggingFaceEmbeddingModel.EMBEDDING_GEMMA_2</code></td>
+<td><code>google/embeddinggemma-2</code></td>
+<td>768</td>
+</tr>
 </tbody>
 </table>
 <p><code>aimu.embedding_client(...).MODELS</code> (or each provider enum) lists the full catalog.</p>
 <h2 id="default-model-via-env-var">Default model via env var<a class="headerlink" href="#default-model-via-env-var" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AIMU_EMBEDDING_MODEL</span><span class="o">=</span><span class="s2">"openai:text-embedding-3-small"</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">AIMU_EMBEDDING_MODEL</span><span class="o">=</span><span class="s2">"openai:text-embedding-3-small"</span>
 </span></code></pre></div>
 <p>Then <code>aimu.embedding_client()</code> and <code>aimu.embed()</code> resolve the model without an explicit
 argument. No model is ever downloaded implicitly; if the var is unset and no model is
@@ -3501,28 +3576,35 @@ passed, a <code>ValueError</code> is raised.</p>
 <h2 id="pluggable-embeddings-in-semantic-memory">Pluggable embeddings in semantic memory<a class="headerlink" href="#pluggable-embeddings-in-semantic-memory" title="Permanent link">&para;</a></h2>
 <p><code>SemanticMemoryStore</code> uses ChromaDB's built-in embedding model by default. Pass
 <code>embedding_client=</code> to choose your own model instead:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">SemanticMemoryStore</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">store</span> <span class="o">=</span> <span class="n">SemanticMemoryStore</span><span class="p">(</span><span class="n">embedding_client</span><span class="o">=</span><span class="n">aimu</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="s2">"openai:text-embedding-3-small"</span><span class="p">))</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">store</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">"Paul works at Google"</span><span class="p">)</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">store</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">"employment"</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">SemanticMemoryStore</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">store</span> <span class="o">=</span> <span class="n">SemanticMemoryStore</span><span class="p">(</span><span class="n">embedding_client</span><span class="o">=</span><span class="n">aimu</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="s2">"openai:text-embedding-3-small"</span><span class="p">))</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">store</span><span class="o">.</span><span class="n">store</span><span class="p">(</span><span class="s2">"Paul works at Google"</span><span class="p">)</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">store</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">"employment"</span><span class="p">)</span>
 </span></code></pre></div>
 <p>A custom embedding model is not persisted in the collection config, so reopen a persistent
 store with the same <code>embedding_client=</code>.</p>
+<p>The store embeds stored facts with <code>input_type="document"</code> and searches with
+<code>input_type="query"</code>, so a retrieval-tuned model gets its prefixes without extra wiring. A
+persistent collection built before AIMU did this, with a model that declares prefixes, holds
+unprefixed vectors: rebuild it.</p>
+<p>EmbeddingGemma 2 loads only its 270M-parameter text encoder by default (the checkpoint also
+carries vision and audio encoders that <code>embed()</code> cannot use), and refuses float16, which it
+answers with NaN or degraded vectors rather than an error.</p>
 <h2 id="async-surface">Async surface<a class="headerlink" href="#async-surface" title="Permanent link">&para;</a></h2>
 <p>Embedding clients have no chat lifecycle, so the async surface wraps a sync client and
 routes <code>embed()</code> through <code>asyncio.to_thread</code> (the same pattern as the other modalities).
 Construct a sync client first, then wrap it.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="n">sync_client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="s2">"openai:text-embedding-3-small"</span><span class="p">)</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="n">async_client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="n">sync_client</span><span class="p">)</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">vectors</span> <span class="o">=</span> <span class="k">await</span> <span class="n">async_client</span><span class="o">.</span><span class="n">embed</span><span class="p">([</span><span class="s2">"alpha"</span><span class="p">,</span> <span class="s2">"beta"</span><span class="p">])</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">vectors</span><span class="p">),</span> <span class="s2">"x"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">vectors</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">sync_client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="s2">"openai:text-embedding-3-small"</span><span class="p">)</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="n">async_client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="n">sync_client</span><span class="p">)</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">vectors</span> <span class="o">=</span> <span class="k">await</span> <span class="n">async_client</span><span class="o">.</span><span class="n">embed</span><span class="p">([</span><span class="s2">"alpha"</span><span class="p">,</span> <span class="s2">"beta"</span><span class="p">])</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">vectors</span><span class="p">),</span> <span class="s2">"x"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">vectors</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
 </span></code></pre></div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
