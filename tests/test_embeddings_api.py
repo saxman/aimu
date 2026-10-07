@@ -310,3 +310,49 @@ def test_hf_lazy_load_and_weight_cache(hf_embedding_module):
     c2 = module.HuggingFaceEmbeddingClient(module.HuggingFaceEmbeddingModel.ALL_MINILM_L6_V2)
     c2.embed("again")
     assert c2._model is c1._model  # shared via module-level registry
+
+
+def test_hf_embeddinggemma_2_loads_the_text_encoder_only(hf_embedding_module):
+    module, _ = hf_embedding_module
+    client = module.HuggingFaceEmbeddingClient(module.HuggingFaceEmbeddingModel.EMBEDDING_GEMMA_2)
+    assert client.dimensions == 768
+    client.embed("trigger load")
+    assert client.sentence_transformer.kwargs["config_kwargs"] == {"vision_config": None, "audio_config": None}
+
+
+def test_hf_caller_model_kwargs_win_over_spec_load_kwargs(hf_embedding_module):
+    module, _ = hf_embedding_module
+    client = module.HuggingFaceEmbeddingClient(
+        module.HuggingFaceEmbeddingModel.EMBEDDING_GEMMA_2, model_kwargs={"config_kwargs": {}}
+    )
+    client.embed("trigger load")
+    assert client.sentence_transformer.kwargs["config_kwargs"] == {}
+
+
+@pytest.mark.parametrize("key", ["dtype", "torch_dtype"])
+@pytest.mark.parametrize("dtype", ["float16", "fp16", "half", "torch.float16"])
+def test_hf_rejected_dtype_raises_at_construction(hf_embedding_module, key, dtype):
+    module, _ = hf_embedding_module
+    with pytest.raises(ValueError, match="float16"):
+        module.HuggingFaceEmbeddingClient(
+            module.HuggingFaceEmbeddingModel.EMBEDDING_GEMMA_2, model_kwargs={"model_kwargs": {key: dtype}}
+        )
+
+
+def test_hf_rejected_dtype_accepts_a_torch_dtype_object(hf_embedding_module):
+    torch = pytest.importorskip("torch")
+    module, _ = hf_embedding_module
+    with pytest.raises(ValueError, match="float16"):
+        module.HuggingFaceEmbeddingClient(
+            module.HuggingFaceEmbeddingModel.EMBEDDING_GEMMA_2, model_kwargs={"model_kwargs": {"dtype": torch.float16}}
+        )
+    module.HuggingFaceEmbeddingClient(
+        module.HuggingFaceEmbeddingModel.EMBEDDING_GEMMA_2, model_kwargs={"model_kwargs": {"dtype": torch.bfloat16}}
+    )
+
+
+def test_hf_dtype_guard_only_applies_to_models_that_declare_it(hf_embedding_module):
+    module, _ = hf_embedding_module
+    module.HuggingFaceEmbeddingClient(
+        module.HuggingFaceEmbeddingModel.BGE_SMALL_EN_V1_5, model_kwargs={"model_kwargs": {"dtype": "float16"}}
+    )

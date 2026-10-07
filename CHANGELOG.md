@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+### Models
+
+- **New: EmbeddingGemma 2 (`HuggingFaceEmbeddingModel.EMBEDDING_GEMMA_2`, `hf:google/embeddinggemma-2`).**
+  768-dim vectors, 8K context. The checkpoint also carries vision and audio encoders (740M
+  parameters in all), but `embed()` takes text only, so the spec loads the 270M text backbone; pass
+  `model_kwargs={"config_kwargs": {}}` to load the rest. Two new `HuggingFaceEmbeddingSpec` fields
+  make that expressible: `load_kwargs` (default `SentenceTransformer` kwargs, merged under the
+  caller's) and `rejected_dtypes`. The second exists because this model in float16 returns NaN or
+  degraded vectors rather than an error; asking for a rejected dtype now raises at construction.
+  Its query/document prompts and Matryoshka truncation (`truncate_dim=`) are not yet surfaced
+  portably; `prompt_name=` and `truncate_dim=` pass through to `encode()` in the meantime.
+- **Change: the `[hf]` extra now requires `transformers>=5.19` and `sentence-transformers>=6.1`.**
+  5.19 is the first transformers release that knows the `embedding_gemma2` architecture, and 6.1 is
+  what the model's own config declares. Existing embedding models run unchanged on 6.1.
+- **Change: `[evals]` now requires `deepeval>=4`, and `aimu[hf,evals]` (so `aimu[all]`) cannot be
+  installed with pip for now.** transformers 5.19 pulls `huggingface-hub>=1.31`, which needs
+  `click>=8.4.2`; every deepeval 4.x pins `click<8.4`. Left unpinned, the resolver silently fell back
+  to deepeval 2.6.6, which fails on import (it needs `langchain`) and, through its pytest plugin,
+  takes the test suite down with it. The repo's uv lock overrides the click pin
+  (`[tool.uv] override-dependencies`; deepeval 4 runs fine on click 8.5), but that override does not
+  reach pip users. Install `[hf]` and `[evals]` into separate environments until deepeval relaxes
+  its pin.
+
 ### Examples
 
 - **Fix: the personal-assistant example tagged every message of a proactive run `proactive`, and

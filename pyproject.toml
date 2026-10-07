@@ -55,7 +55,7 @@ llamacpp = [
 ]
 hf = [
     "torch",
-    "transformers>=5,<6", # catalog targets 5.x models (Qwen 3.6, Gemma 4, GPT-OSS); cap the major to avoid surprise breakage on the next
+    "transformers>=5.19,<6", # catalog targets 5.x models (Qwen 3.6, Gemma 4, GPT-OSS); 5.19 is the first release with EmbeddingGemma 2; cap the major to avoid surprise breakage on the next
     "torchvision", # required for gemma 4 e4b
     "accelerate",
     "sentencepiece",
@@ -69,7 +69,7 @@ hf = [
     # Audio generation output (HuggingFaceAudioClient WAV encoding)
     "soundfile",
     # Local text embeddings (HuggingFaceEmbeddingClient); reads each model's own pooling config
-    "sentence-transformers>=3",
+    "sentence-transformers>=6.1", # 6.1 is what EmbeddingGemma 2 declares; older releases mis-order multimodal inputs
 ]
 
 # === Capabilities ===
@@ -92,7 +92,7 @@ tuning = [
 ]
 evals = [
     # DeepEval metric adapters (DeepEvalModel / DeepEvalScorer in aimu.evals).
-    "deepeval",
+    "deepeval>=4", # 2.x imports langchain at module load; see the click override under [tool.uv]
 ]
 a2a = [
     # Agent-to-Agent protocol interop (RemoteAgent client + serve_a2a server).
@@ -163,3 +163,11 @@ pythonpath = [
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
+
+[tool.uv]
+# deepeval 4.x pins click<8.4, while huggingface-hub>=1.31 (required by transformers>=5.19, the
+# first release with EmbeddingGemma 2) needs click>=8.4.2. Without this override uv backtracks to
+# deepeval 2.6.6, whose pytest plugin imports langchain and breaks the whole test suite. deepeval 4
+# runs fine on click 8.5 (its tests and CLI pass). Applies to the uv lock only, not to pip users:
+# `aimu[hf,evals]` stays unresolvable under pip until deepeval relaxes the pin. Remove it then.
+override-dependencies = ["click>=8.4.2"]

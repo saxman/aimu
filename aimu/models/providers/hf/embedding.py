@@ -51,6 +51,42 @@ class HuggingFaceEmbeddingModel(EmbeddingModel):
     MXBAI_EMBED_LARGE_V1 = HuggingFaceEmbeddingSpec(
         "mixedbread-ai/mxbai-embed-large-v1", dimensions=1024, max_input_tokens=512
     )
+    # Ships vision and audio encoders too (740M parameters in all). embed() takes text only, so
+    # the spec loads the 270M text backbone; pass model_kwargs={"config_kwargs": {}} for the rest.
+    EMBEDDING_GEMMA_2 = HuggingFaceEmbeddingSpec(
+        "google/embeddinggemma-2",
+        dimensions=768,
+        max_input_tokens=8192,
+        load_kwargs={"config_kwargs": {"vision_config": None, "audio_config": None}},
+        rejected_dtypes=("float16",),
+    )
+
+
+_DTYPE_ALIASES = {"half": "float16", "fp16": "float16", "bf16": "bfloat16", "fp32": "float32", "float": "float32"}
+
+
+def _dtype_name(dtype: Any) -> str:
+    """Canonical name for a dtype given as a ``torch.dtype`` or any of its usual string spellings."""
+    name = str(dtype).removeprefix("torch.")
+    return _DTYPE_ALIASES.get(name, name)
+
+
+def _check_dtype(spec: HuggingFaceEmbeddingSpec, model_kwargs: dict | None) -> None:
+    """Raise if ``model_kwargs`` requests a weight dtype the spec declares unusable.
+
+    sentence-transformers takes the dtype nested under its own ``model_kwargs``, spelled either
+    ``dtype`` or the older ``torch_dtype``.
+    """
+    if not spec.rejected_dtypes:
+        return
+    transformer_kwargs = (model_kwargs or {}).get("model_kwargs") or {}
+    for key in ("dtype", "torch_dtype"):
+        if key in transformer_kwargs and _dtype_name(transformer_kwargs[key]) in spec.rejected_dtypes:
+            raise ValueError(
+                f"{spec.id} cannot run in {_dtype_name(transformer_kwargs[key])}: it returns NaN or degraded "
+                f"vectors rather than an error. Pass a dtype other than {', '.join(spec.rejected_dtypes)}, "
+                f"or omit it."
+            )
 
 
 def _parse_model_string(s: str) -> HuggingFaceEmbeddingSpec:
@@ -112,6 +148,7 @@ class HuggingFaceEmbeddingClient(BaseEmbeddingClient):
                 f"HuggingFaceEmbeddingClient expects a HuggingFaceEmbeddingModel member, "
                 f"HuggingFaceEmbeddingSpec, or 'hf:<repo_id>' string. Got: {type(model).__name__}"
             )
+        _check_dtype(spec, model_kwargs)
         super().__init__(model=model, model_kwargs=model_kwargs)
         self.spec = spec
         self._model: Any = None  # lazy
@@ -120,7 +157,7 @@ class HuggingFaceEmbeddingClient(BaseEmbeddingClient):
     def _load_model(self) -> Any:
         from sentence_transformers import SentenceTransformer
 
-        kwargs: dict[str, Any] = dict(self.model_kwargs or {})
+        kwargs: dict[str, Any] = {**(self.spec.load_kwargs or {}), **(self.model_kwargs or {})}
         device = pop_device_hint(kwargs)
 
         logger.info("Loading sentence-transformers model %s", self.spec.id)

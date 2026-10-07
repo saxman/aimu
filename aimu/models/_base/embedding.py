@@ -7,7 +7,7 @@ maps text to fixed-length vectors. ``BaseEmbeddingClient`` is its own ABC for th
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional, Union
 
@@ -55,10 +55,20 @@ class HuggingFaceEmbeddingSpec(EmbeddingSpec):
     ``normalize`` is the default L2-normalization applied by the client (overridable per
     call via ``embed(normalize_embeddings=...)``); cosine-similarity retrieval wants
     normalized vectors. Pooling is read from the model's own config by sentence-transformers,
-    so it is not pinned here. ``eq=False`` keeps id-only equality.
+    so it is not pinned here.
+
+    ``load_kwargs`` are default ``SentenceTransformer`` constructor kwargs for this model, merged
+    *under* a caller's ``model_kwargs`` (a caller's key replaces the spec's whole, so passing
+    ``config_kwargs={}`` restores everything a spec's ``config_kwargs`` switched off).
+
+    ``rejected_dtypes`` names weight dtypes the model cannot run in. Requesting one raises at
+    construction, because the failure it prevents is silent: EmbeddingGemma 2 in float16 returns
+    NaN or degraded vectors rather than an error. ``eq=False`` keeps id-only equality.
     """
 
     normalize: bool = True
+    load_kwargs: Optional[dict] = field(default=None)
+    rejected_dtypes: tuple[str, ...] = ()
 
 
 class EmbeddingModel(Enum):
