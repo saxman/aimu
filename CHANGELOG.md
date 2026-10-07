@@ -4,6 +4,21 @@
 
 ### Models
 
+- **Fix: `model_kwargs=` on `aimu.image_client()` / `audio_client()` / `speech_client()` /
+  `transcription_client()` / `embedding_client()` (and their `*Client` classes) was dropped.**
+  These factories bundled every keyword they did not recognize into the client's `model_kwargs`,
+  so a caller's own `model_kwargs={"device": "cuda:1"}` arrived as
+  `{"model_kwargs": {"device": "cuda:1"}}` and the loader never saw the device. That was the form
+  the image how-to documented for GPU pinning and `device_map`, and it silently did nothing: the
+  automatic placement ran instead. The same nesting let a float16 request slip past the new
+  EmbeddingGemma 2 dtype guard. The factories now forward keywords to the client unchanged, as
+  `aimu.client()` always has, so `model_kwargs=` means the loader's dict at every level.
+- **Change: a loader setting passed as a bare keyword to a modality factory now raises
+  `TypeError`.** `aimu.image_client(m, device="cuda:1")` used to work by the same bundling; write
+  `aimu.image_client(m, model_kwargs={"device": "cuda:1"})`. The payoff is that a misspelled keyword
+  (`hots=` for `host=`) is an error naming it, where it used to vanish into a loader that might
+  ignore it. Keywords the client declares itself (`host=`, `timeout=`, `dimensions=` on the
+  embedding clients) are unchanged.
 - **New: EmbeddingGemma 2 (`HuggingFaceEmbeddingModel.EMBEDDING_GEMMA_2`, `hf:google/embeddinggemma-2`).**
   768-dim vectors, 8K context. The checkpoint also carries vision and audio encoders (740M
   parameters in all), but `embed()` takes text only, so the spec loads the 270M text backbone; pass

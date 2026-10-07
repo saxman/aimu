@@ -112,8 +112,7 @@ class ImageClient(FactoryDelegate):
 
     Parallel to :class:`aimu.models.ModelClient` for the image modality. Accepts
     a provider's :class:`ImageModel` enum member, an :class:`ImageSpec`, or a
-    ``"provider:model_id"`` string. Provider-specific construction kwargs are
-    passed directly, e.g. ``ImageClient(model, variant="fp16")``.
+    ``"provider:model_id"`` string.
 
     Examples::
 
@@ -127,16 +126,17 @@ class ImageClient(FactoryDelegate):
         client = ImageClient("hf:runwayml/stable-diffusion-v1-5")
         client = ImageClient("gemini:nano-banana")
 
-    Provider-specific construction kwargs are passed directly::
+    Keyword arguments reach the concrete client's constructor unchanged, as with
+    :class:`aimu.models.ModelClient`; loader settings go in its ``model_kwargs`` dict::
 
-        ImageClient(HuggingFaceImageModel.SDXL_BASE, variant="fp16")
-        ImageClient(GeminiImageModel.NANO_BANANA, api_key="...")
+        ImageClient(HuggingFaceImageModel.SDXL_BASE, model_kwargs={"device": "cuda:1"})
+        ImageClient(GeminiImageModel.NANO_BANANA, model_kwargs={"api_key": "..."})
     """
 
     def __init__(self, model: ImageModel | ImageSpec | str, **kwargs: Any) -> None:
         self._client: BaseImageClient = build_client(
             model,
-            kwargs or None,
+            kwargs,
             _entries(),
             modality="image",
             model_base=ImageModel,

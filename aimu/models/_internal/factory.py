@@ -55,14 +55,6 @@ class ProviderEntry:
     ``requires`` is the third-party module probed for availability (``"openai"``,
     ``"sentence_transformers"``), not AIMU's own module. ``install_hint`` is the
     ``ImportError`` text shown when a recognized-but-uninstalled provider is requested.
-
-    ``direct_kwargs`` names the constructor parameters this client declares in its own
-    signature. A factory kwarg named here is forwarded as a real keyword argument; every
-    other one is bundled into ``model_kwargs`` (which is what a weight-loading client wants
-    -- ``device=`` reaching ``from_pretrained``). Listing them explicitly beats inspecting
-    the signature: the split is visible in the provider table, and a client that declares a
-    parameter the table forgot fails loudly rather than having the kwarg vanish into an
-    ignored ``model_kwargs``.
     """
 
     prefix: str
@@ -71,15 +63,6 @@ class ProviderEntry:
     client_name: str
     requires: str
     install_hint: str = ""
-    direct_kwargs: frozenset[str] = frozenset()
-
-    def split_kwargs(self, kwargs: Optional[dict]) -> tuple[dict, Optional[dict]]:
-        """Split factory kwargs into ``(direct, model_kwargs)`` per :attr:`direct_kwargs`."""
-        if not kwargs:
-            return {}, None
-        direct = {k: v for k, v in kwargs.items() if k in self.direct_kwargs}
-        model_kwargs = {k: v for k, v in kwargs.items() if k not in self.direct_kwargs}
-        return direct, model_kwargs or None
 
     @property
     def available(self) -> bool:
@@ -151,7 +134,7 @@ def resolve_model_string(model_str: str, entries: list[ProviderEntry], *, modali
 
 def build_client(
     model: Any,
-    model_kwargs: Optional[dict],
+    kwargs: dict,
     entries: list[ProviderEntry],
     *,
     modality: str,
@@ -164,6 +147,11 @@ def build_client(
     ``spec_base`` instance is rejected (it's the enum's value type, not a selector);
     an enum member dispatches by the defining module of its class, which imports
     nothing (an enum member cannot exist unless its module was already imported).
+
+    ``kwargs`` reach the client's constructor unchanged, exactly as ``aimu.client()`` forwards
+    them, so ``model_kwargs=`` means the client's own loader dict here as it does on every
+    client, and a misspelled keyword is a ``TypeError`` naming it rather than a key handed to
+    a loader that may ignore it.
     """
     label = modality.capitalize()
 
@@ -177,8 +165,7 @@ def build_client(
         if not entry.available:
             raise ImportError(entry.install_hint)
         _enum_cls, client_cls = entry.load()
-        direct, rest = entry.split_kwargs(model_kwargs)
-        return client_cls(model, model_kwargs=rest, **direct)
+        return client_cls(model, **kwargs)
 
     if isinstance(model, spec_base) and not isinstance(model, model_base):
         raise TypeError(
@@ -195,8 +182,7 @@ def build_client(
     for entry in entries:
         if entry.module == member_module and entry.enum_name == member_enum:
             _enum_cls, client_cls = entry.load()
-            direct, rest = entry.split_kwargs(model_kwargs)
-            return client_cls(model, model_kwargs=rest, **direct)
+            return client_cls(model, **kwargs)
 
     raise ValueError(
         f"No available client for {modality}-model type {type(model).__name__!r}. "

@@ -68,8 +68,6 @@ class SpeechClient(FactoryDelegate):
     Parallel to :class:`aimu.models.AudioClient` for the speech modality. Accepts
     a provider's :class:`SpeechModel` enum member, a :class:`SpeechSpec`, or a
     ``"provider:model_id"`` string (``"hf:..."`` or ``"openai:..."``).
-    Provider-specific construction kwargs are passed directly, e.g.
-    ``SpeechClient(model, device="cpu")``.
 
     Examples::
 
@@ -79,15 +77,16 @@ class SpeechClient(FactoryDelegate):
         client = SpeechClient("openai:tts-1")
         client = SpeechClient("hf:facebook/mms-tts-eng")
 
-    Provider-specific construction kwargs are passed directly::
+    Keyword arguments reach the concrete client's constructor unchanged, as with
+    :class:`aimu.models.ModelClient`; loader settings go in its ``model_kwargs`` dict::
 
-        SpeechClient(HuggingFaceSpeechModel.MMS_TTS_ENG, device="cpu")
+        SpeechClient(HuggingFaceSpeechModel.MMS_TTS_ENG, model_kwargs={"device": "cpu"})
     """
 
     def __init__(self, model: SpeechModel | SpeechSpec | str, **kwargs: Any) -> None:
         self._client: BaseSpeechClient = build_client(
             model,
-            kwargs or None,
+            kwargs,
             _entries(),
             modality="speech",
             model_base=SpeechModel,

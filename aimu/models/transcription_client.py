@@ -74,8 +74,7 @@ class TranscriptionClient(FactoryDelegate):
     Parallel to :class:`aimu.models.SpeechClient` for the transcription modality.
     Accepts a provider's :class:`TranscriptionModel` enum member, a
     :class:`TranscriptionSpec`, or a ``"provider:model_id"`` string
-    (``"hf:..."`` or ``"openai:..."``). Provider-specific construction kwargs are
-    passed directly, e.g. ``TranscriptionClient(model, device="cpu")``.
+    (``"hf:..."`` or ``"openai:..."``).
 
     Examples::
 
@@ -85,15 +84,16 @@ class TranscriptionClient(FactoryDelegate):
         client = TranscriptionClient("openai:whisper-1")
         client = TranscriptionClient("hf:openai/whisper-tiny")
 
-    Provider-specific construction kwargs are passed directly::
+    Keyword arguments reach the concrete client's constructor unchanged, as with
+    :class:`aimu.models.ModelClient`; loader settings go in its ``model_kwargs`` dict::
 
-        TranscriptionClient(HuggingFaceTranscriptionModel.WHISPER_TINY, device="cpu")
+        TranscriptionClient(HuggingFaceTranscriptionModel.WHISPER_TINY, model_kwargs={"device": "cpu"})
     """
 
     def __init__(self, model: TranscriptionModel | TranscriptionSpec | str, **kwargs: Any) -> None:
         self._client: BaseTranscriptionClient = build_client(
             model,
-            kwargs or None,
+            kwargs,
             _entries(),
             modality="transcription",
             model_base=TranscriptionModel,

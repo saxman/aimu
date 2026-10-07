@@ -220,14 +220,11 @@ def test_embedding_factory_forwards_host_from_enum(sync_clients):
     assert sync_clients[0].kwargs == {"host": REMOTE, "timeout": 9}
 
 
-def test_provider_entry_splits_declared_kwargs_from_model_kwargs():
-    # The modality factories bundle unrecognized kwargs into `model_kwargs` (where a
-    # weight-loading client wants `device=`), and forward only declared params directly.
-    from aimu.models.embedding_client import _entries
+def test_embedding_factory_rejects_a_keyword_the_client_does_not_declare(sync_clients):
+    # The factory forwards kwargs verbatim, so a misspelling is a TypeError naming it. When it
+    # bundled unknown keywords into model_kwargs, `hots=` vanished and the client quietly
+    # talked to localhost.
+    import aimu
 
-    ollama_entry = next(e for e in _entries() if e.prefix == "ollama")
-    assert ollama_entry.split_kwargs({"host": REMOTE, "device": "cpu"}) == ({"host": REMOTE}, {"device": "cpu"})
-    assert ollama_entry.split_kwargs(None) == ({}, None)
-
-    hf_entry = next(e for e in _entries() if e.prefix == "hf")
-    assert hf_entry.split_kwargs({"device": "cpu"}) == ({}, {"device": "cpu"})
+    with pytest.raises(TypeError, match="hots"):
+        aimu.embedding_client("ollama:nomic-embed-text", hots=REMOTE)

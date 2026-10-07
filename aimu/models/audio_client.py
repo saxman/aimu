@@ -63,8 +63,7 @@ class AudioClient(FactoryDelegate):
 
     Parallel to :class:`aimu.models.ImageClient` for the audio modality. Accepts
     a provider's :class:`AudioModel` enum member, an :class:`AudioSpec`, or a
-    ``"provider:model_id"`` string. Provider-specific construction kwargs are
-    passed directly, e.g. ``AudioClient(model, torch_dtype="auto")``.
+    ``"provider:model_id"`` string.
 
     Examples::
 
@@ -77,15 +76,16 @@ class AudioClient(FactoryDelegate):
         client = AudioClient("hf:facebook/musicgen-small")
         client = AudioClient("hf:myorg/custom-audioldm2")
 
-    Provider-specific construction kwargs are passed directly::
+    Keyword arguments reach the concrete client's constructor unchanged, as with
+    :class:`aimu.models.ModelClient`; loader settings go in its ``model_kwargs`` dict::
 
-        AudioClient(HuggingFaceAudioModel.STABLE_AUDIO_OPEN, torch_dtype="auto")
+        AudioClient(HuggingFaceAudioModel.STABLE_AUDIO_OPEN, model_kwargs={"torch_dtype": "auto"})
     """
 
     def __init__(self, model: AudioModel | AudioSpec | str, **kwargs: Any) -> None:
         self._client: BaseAudioClient = build_client(
             model,
-            kwargs or None,
+            kwargs,
             _entries(),
             modality="audio",
             model_base=AudioModel,
