@@ -309,6 +309,9 @@ those. An app extends `WebChannel` by subclassing it and adding frame types thro
 ## See also
 
 - [Use skills](use-skills.md): the `SkillAgent` and `SKILL.md` format the authoring tool writes to
+- [Give a running agent an inbox](use-an-inbox.md): a serve loop that already reads input
+  concurrently with a turn is the host an `Inbox` wants, so a message typed mid-turn can redirect
+  it instead of waiting for it
 - [Use async (`aio`)](use-async.md): the async surface these primitives live on
 - [Persist conversations](persist-conversations.md): `ConversationManager`
 - Add capabilities the example leaves out: [use MCP tools](use-mcp-tools.md), [semantic memory](use-semantic-memory.md), [document memory](use-document-memory.md)

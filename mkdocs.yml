@@ -136,6 +136,7 @@ nav:
       - Use LLMs inside tools: how-to/using-llms-inside-tools.md
       - Build an orchestrator: how-to/build-orchestrator.md
       - Spawn sub-agents: how-to/spawn-subagents.md
+      - Give a running agent an inbox: how-to/use-an-inbox.md
       - Build a personal assistant: how-to/build-personal-assistant.md
       - Connect agents (A2A): how-to/connect-agents-a2a.md
       - Plan, execute, evaluate, replan: how-to/plan-execute-evaluate.md

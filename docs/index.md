@@ -76,6 +76,7 @@ path to seeing what a model can actually do.
 - **Text-to-audio**: `aimu.audio_client()` and `aimu.generate_audio()` for music and sound generation (not TTS). HuggingFace MusicGen, AudioLDM2, and Stable Audio Open. See [how-to: generate audio](how-to/generate-audio.md).
 - **Text-to-speech**: `aimu.speech_client()` and `aimu.generate_speech()` for TTS. HuggingFace MMS-TTS/BARK locally; OpenAI tts-1/tts-1-hd in the cloud. Live sentence-by-sentence narration in the Streamlit chatbot. See [how-to: generate speech](how-to/generate-speech.md).
 - **Agents and workflows**: `Agent` for autonomous tool-using loops; `Chain` / `Router` / `Parallel` / `EvaluatorOptimizer` for code-controlled patterns from Anthropic's *Building Effective Agents*.
+- **An inbox for a run in progress**: `Agent(inbox=...)` delivers a user message to a run that is already going, at the next round boundary, instead of queueing it behind the whole run. One mailbox can serve a roster of spawned sub-agents, routed by the name each run opens its reader under. See [how-to: give a running agent an inbox](how-to/use-an-inbox.md).
 - **Tools**: `@tool` decorator for plain Python functions, plus a synchronous `MCPClient` wrapper for cross-process tools.
 - **Skills**: filesystem-discovered `SKILL.md` files that auto-inject capabilities into a `SkillAgent`.
 - **Memory**: semantic facts (ChromaDB, `aimu[memory]`), path-based documents (Anthropic Memory API, no extra needed), and conversation history (TinyDB).
@@ -89,7 +90,7 @@ The [`examples/`](https://github.com/saxman/aimu/tree/main/examples) directory s
 
 ## Notebooks
 
-The [`notebooks/`](https://github.com/saxman/aimu/tree/main/notebooks) directory ships 26 runnable demos ordered to build up incrementally, from `01-model-client`, `03-structured-output`, and `06-tools` through `07-agents`, `11-embeddings`, `13-rag`, and the generative-modality and `22-async` notebooks. They are authored as plain-text [Quarto](https://quarto.org) `.qmd` files (markdown with executable `python` cells); the numbered filenames are self-describing, so browse the directory to read or run them.
+The [`notebooks/`](https://github.com/saxman/aimu/tree/main/notebooks) directory ships 29 runnable demos ordered to build up incrementally, from `01-model-client`, `03-structured-output`, and `06-tools` through `07-agents`, `11-embeddings`, `13-rag`, and the generative-modality and `22-async` notebooks. They are authored as plain-text [Quarto](https://quarto.org) `.qmd` files (markdown with executable `python` cells); the numbered filenames are self-describing, so browse the directory to read or run them.
 
 ## Web apps
 

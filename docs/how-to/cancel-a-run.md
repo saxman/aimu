@@ -60,4 +60,5 @@ each turn as a `RunHandle`, and a `/stop` message cancels the current one (which
 ## See also
 
 - [Build a personal assistant](build-personal-assistant.md): the `/stop` demo in context
+- [Give a running agent an inbox](use-an-inbox.md): redirect a run instead of stopping it
 - [Use async (`aio`)](use-async.md): the async surface this lives on

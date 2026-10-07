@@ -81,4 +81,5 @@ them on `chunk.phase` in your own loop if you do not want them.
 - [How-to: generate audio](../how-to/generate-audio.md): `AUDIO_GENERATING` chunks
 - [How-to: generate speech](../how-to/generate-speech.md): `SPEECH_GENERATING` chunks
 - [`aimu.models.StreamingContentType`](api/models.md#aimu.models.StreamingContentType): API reference
+- [How-to: give a running agent an inbox](../how-to/use-an-inbox.md): what produces an `INBOX` chunk
 - [`aimu.agents.inbox.Inbox`](api/agents.md): the source an `INBOX` chunk's round reads from

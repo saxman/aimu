@@ -154,5 +154,7 @@ Streaming a spawned sub-agent's tokens through the parent stream is intentionall
 ## See also
 
 - [Build an orchestrator](build-orchestrator.md): the static-roster counterpart
+- [Give a running agent an inbox](use-an-inbox.md): the `"inbox"` spec key in full, including
+  the `subagent-<agent_type>` name each spawned run opens its reader under
 - The `--method spawn` variant in [`examples/news-summarizer`](https://github.com/saxman/aimu/blob/main/examples/news-summarizer/news_summarizer.py)
 - [`aimu.tools.builtin.make_subagent_tool`](../reference/api/tools.md)
