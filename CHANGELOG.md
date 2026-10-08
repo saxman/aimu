@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+### Tools
+
+- **New: `generate_image` takes an optional `reference_image`, so an agent can refine an image it
+  generated.** Pass the path an earlier call returned and the call becomes image-to-image, as
+  `client.generate(reference_image=...)` already was. Applies to `builtin.generate_image`,
+  `make_image_tool`, and the async `generate_image` / `make_async_image_tool`. The factories
+  advertise the parameter only when the image model can use it, read from the new
+  `ImageSpec.supports_reference_image` (true for Gemini; on HuggingFace, true when
+  `img2img_pipeline_class` is set, which every catalog member has). The singleton cannot know its
+  model until first call, so it always advertises the parameter and refuses it, as a tool result
+  the model can correct from, on a model without support.
+- **Limitation: the tool accepts one reference image, and only from under `aimu.paths.output`.**
+  The path is the model's choice and a cloud provider uploads the file, so the tool refuses other
+  paths (including symlinks and `..` that resolve outside), URLs, and `data:` URLs; the client
+  keeps accepting all of them. Widening the directory is tracked in
+  [#3](https://github.com/saxman/aimu/issues/3), multiple references in
+  [#4](https://github.com/saxman/aimu/issues/4).
+- **Change: `generate_image`'s tool spec has a second, optional parameter.** A consumer asserting
+  the exact schema of `builtin.generate_image` will see `reference_image` among its properties
+  (`required` is still `["prompt"]`).
+
 ## v0.35.0 (2026-10-07): EmbeddingGemma 2, query/document prompts, and shorter embedding vectors
 
 ### Models

@@ -1672,9 +1672,72 @@ _image_client = None
 _get_image_client = _lazy_client_getter("_image_client", "image_client")
 
 
+def _reference_image_path(reference_image: str) -> Path:
+    """Resolve a model-supplied reference image to a file under ``aimu.paths.output``.
+
+    The path is the model's choice, and on a cloud provider the file is uploaded with the
+    request, so the tool accepts only files AIMU itself writes output to: the images
+    ``generate_image`` saved, which covers refining one's own output. A relative path is
+    taken relative to ``paths.output``. URLs and paths elsewhere are refused, as a
+    ``ToolArgumentError`` the model can correct from. Lifting this is tracked in
+    https://github.com/saxman/aimu/issues/3; ``client.generate(reference_image=...)``
+    itself has no such restriction.
+    """
+    from aimu import paths
+
+    from .decorator import ToolArgumentError
+
+    root = Path(paths.output).resolve()
+    if "://" in reference_image or reference_image.startswith("data:"):
+        raise ToolArgumentError(
+            f"reference_image must be a file path under {root}, not a URL. "
+            "Pass the path an earlier generate_image call returned."
+        )
+    candidate = Path(reference_image).expanduser()
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    # resolve() follows symlinks, so a link under the output directory cannot point out of it.
+    resolved = candidate.resolve()
+    if not resolved.is_relative_to(root):
+        raise ToolArgumentError(
+            f"reference_image must be under {root}; {reference_image!r} is not. Only images this "
+            "process generated can be used as references."
+        )
+    if not resolved.is_file():
+        raise ToolArgumentError(f"reference_image {reference_image!r} does not exist (looked for {resolved}).")
+    return resolved
+
+
+def _require_reference_support(client) -> None:
+    from .decorator import ToolArgumentError
+
+    if not client.spec.supports_reference_image:
+        raise ToolArgumentError(
+            f"The image model {client.spec.id!r} does not accept a reference image. "
+            "Call generate_image again with the prompt alone, describing the reference in words."
+        )
+
+
+def _stream_image(client, prompt: str, reference_image: Optional[str], **generate_kwargs):
+    """Drive one streamed generation, yielding its chunks and returning the saved path."""
+    if reference_image:
+        _require_reference_support(client)
+        generate_kwargs["reference_image"] = _reference_image_path(reference_image)
+    final_result = None
+    for chunk in client.generate(prompt, format="path", stream=True, **generate_kwargs):
+        yield chunk
+        content = chunk.content
+        if isinstance(content, dict) and content.get("final"):
+            final_result = content.get("result")
+    return final_result
+
+
 @tool
-def generate_image(prompt: str):
+def generate_image(prompt: str, reference_image: Optional[str] = None):
     """Generate an image from a text prompt and return the saved file path.
+
+    Pass reference_image to guide the new image by an existing one, for example to refine
+    an image an earlier call generated. Not every image model accepts one.
 
     This is a **streaming tool**: a generator that yields
     :attr:`~aimu.models.StreamingContentType.IMAGE_GENERATING` chunks during
@@ -1687,18 +1750,17 @@ def generate_image(prompt: str):
     ``"hf:..."`` or ``"gemini:nano-banana"`` for Google Nano Banana); the tool raises
     if it is unset. Override per-agent by constructing your own tool with
     :func:`make_image_tool`; it supports a ``preview_every=N`` kwarg for intermediate
-    denoised-image previews.
+    denoised-image previews, and advertises ``reference_image`` only when its model
+    can use one. This tool's model is not known until its first call, so it always
+    advertises the parameter and refuses it on a model without reference support.
+
+    A reference image must be a single file under the output directory this tool saves to.
 
     Args:
         prompt: A description of the desired image.
+        reference_image: Optional path to one image this tool generated earlier (the path it returned), used as a starting point. Only images under the output directory are accepted.
     """
-    final_result = None
-    for chunk in _get_image_client().generate(prompt, format="path", stream=True):
-        yield chunk
-        content = chunk.content
-        if isinstance(content, dict) and content.get("final"):
-            final_result = content.get("result")
-    return final_result
+    return (yield from _stream_image(_get_image_client(), prompt, reference_image))
 
 
 def make_image_tool(client, *, preview_every: Optional[int] = None, num_inference_steps: Optional[int] = None):
@@ -1711,6 +1773,12 @@ def make_image_tool(client, *, preview_every: Optional[int] = None, num_inferenc
     share a pipeline, or to opt into intermediate-image previews via
     ``preview_every=N`` (decode latents every N denoising steps).
 
+    The tool advertises a ``reference_image`` parameter only when
+    ``client.spec.supports_reference_image`` is true, so the model is never offered an
+    argument its image model would reject. A reference must be one file under
+    ``aimu.paths.output`` (single image: https://github.com/saxman/aimu/issues/4;
+    directory: https://github.com/saxman/aimu/issues/3).
+
     The returned tool is a **streaming tool** (generator); its progress chunks
     flow through ``agent.run(stream=True)`` for live UI updates.
 
@@ -1720,26 +1788,37 @@ def make_image_tool(client, *, preview_every: Optional[int] = None, num_inferenc
         my_tool = make_image_tool(client, preview_every=5, num_inference_steps=20)
         agent = Agent(text_client, tools=[my_tool])
     """
+    generate_kwargs: dict = {"preview_every": preview_every}
+    if num_inference_steps is not None:
+        generate_kwargs["num_inference_steps"] = num_inference_steps
 
-    @tool
-    def generate_image(prompt: str):
-        """Generate an image from a text prompt and return the saved file path.
+    if client.spec.supports_reference_image:
 
-        Streams per-step progress chunks during generation.
+        @tool
+        def generate_image(prompt: str, reference_image: Optional[str] = None):
+            """Generate an image from a text prompt and return the saved file path.
 
-        Args:
-            prompt: A description of the desired image.
-        """
-        final_result = None
-        kw = {"format": "path", "stream": True, "preview_every": preview_every}
-        if num_inference_steps is not None:
-            kw["num_inference_steps"] = num_inference_steps
-        for chunk in client.generate(prompt, **kw):
-            yield chunk
-            content = chunk.content
-            if isinstance(content, dict) and content.get("final"):
-                final_result = content.get("result")
-        return final_result
+            Pass reference_image to guide the new image by an existing one, for example to
+            refine an image an earlier call generated. Streams per-step progress chunks.
+
+            Args:
+                prompt: A description of the desired image.
+                reference_image: Optional path to one image this tool generated earlier (the path it returned), used as a starting point. Only images under the output directory are accepted.
+            """
+            return (yield from _stream_image(client, prompt, reference_image, **generate_kwargs))
+
+    else:
+
+        @tool
+        def generate_image(prompt: str):
+            """Generate an image from a text prompt and return the saved file path.
+
+            Streams per-step progress chunks during generation.
+
+            Args:
+                prompt: A description of the desired image.
+            """
+            return (yield from _stream_image(client, prompt, None, **generate_kwargs))
 
     return generate_image
 

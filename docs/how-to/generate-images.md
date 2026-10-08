@@ -5,7 +5,7 @@ AIMU has a parallel image-generation surface to the text chat client. The shape 
 - **HuggingFace `diffusers`** for local generation (Stable Diffusion 1.5 / XL / 3.5, FLUX 1 dev / schnell, FLUX 2 Klein 4B / 9B)
 - **Google Nano Banana** (`gemini-2.5-flash-image`) via the cloud Gemini API
 
-Both providers support image-to-image generation via `reference_image=` on `generate()`; see [Image-to-image](#image-to-image) below.
+Both providers support image-to-image generation via `reference_image=` on `generate()`; see [Image-to-image](#image-to-image) below. The built-in agent tool supports it too, with narrower limits; see [Refining a generated image](#refining-a-generated-image-reference_image).
 
 ## Install
 
@@ -250,6 +250,23 @@ agent = Agent(text_client, tools=[fast_tool])
 ```
 
 `make_image_tool()` returns a fresh `@tool`-decorated callable bound to the supplied client; the singleton stays untouched. Pass `preview_every=N` to opt into intermediate latent previews and `num_inference_steps=N` to override the model's default denoising step count (HuggingFace diffusers only; ignored by Gemini).
+
+### Refining a generated image: `reference_image`
+
+The tool takes an optional `reference_image`, so an agent can iterate on its own output: generate an image, then call the tool again with the path it returned and a prompt describing the change ("make the sky stormier"). The call becomes image-to-image, exactly as `client.generate(reference_image=...)` does (see [Image-to-image](#image-to-image)).
+
+```python
+agent = Agent(text_client, tools=[make_image_tool(image_client("gemini:nano-banana"))])
+agent.run("Draw a lighthouse at dusk.")
+agent.run("Now add a storm rolling in.")  # the model passes the first image's path as reference_image
+```
+
+Whether the model is offered the parameter depends on the image model. `make_image_tool` advertises it only when `client.spec.supports_reference_image` is true: every Gemini model, and every HuggingFace catalog model (each has an `img2img_pipeline_class`). An ad-hoc `HuggingFaceImageSpec` without one gets a prompt-only tool. `builtin.generate_image` cannot tell in advance, because its client is built on first call, so it always advertises the parameter and refuses it on a model that cannot use it.
+
+!!! warning "Current limitations of the tool (not of the client)"
+    - **Only files under `aimu.paths.output`.** That is where `generate_image` saves, so refining the agent's own images works. A path anywhere else, an `http(s)://` URL, or a `data:` URL is refused with a message the model can act on. The path is chosen by the model, and on a cloud provider the file is uploaded with the request, so the tool does not get the reach of `read_file`. To hand the model a user's image, call `client.generate(reference_image=...)` yourself, or copy the file under `paths.output` first. Tracked in [#3](https://github.com/saxman/aimu/issues/3).
+    - **One reference image per call.** Nano Banana and FLUX.2 Klein can take several (subject from one, style from another), but `generate()` and the tool accept one. Tracked in [#4](https://github.com/saxman/aimu/issues/4).
+    - The tool does not expose `strength`; the HuggingFace default (`0.75`) applies.
 
 ## Skill integration (deeper, optional)
 

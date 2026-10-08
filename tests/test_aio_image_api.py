@@ -135,6 +135,77 @@ def test_make_async_image_tool_wraps_sync_client():
     assert bound is not aio_builtin.generate_image
 
 
+def _capturing_async_client(monkeypatch, spec_or_model):
+    """An AsyncImageClient whose generate() records its kwargs and streams one final chunk."""
+    from aimu.aio.image import AsyncImageClient
+    from aimu.models.base import StreamChunk, StreamingContentType
+
+    client = AsyncImageClient(HuggingFaceImageClient(spec_or_model))
+    captured: dict = {}
+
+    async def fake_generate(prompt, **kwargs):  # noqa: ARG001
+        captured.update(kwargs)
+
+        async def chunks():
+            yield StreamChunk(
+                StreamingContentType.IMAGE_GENERATING,
+                {"step": 1, "total_steps": 1, "image": None, "final": True, "result": "/out/new.png"},
+            )
+
+        return chunks()
+
+    monkeypatch.setattr(client, "generate", fake_generate)
+    return client, captured
+
+
+def test_make_async_image_tool_advertises_reference_image_only_when_supported(monkeypatch):
+    import aimu.aio.tools.builtin as aio_builtin
+    from aimu.models.base import HuggingFaceImageSpec
+
+    capable, _ = _capturing_async_client(monkeypatch, HuggingFaceImageModel.SD_1_5)
+    incapable, _ = _capturing_async_client(monkeypatch, HuggingFaceImageSpec("org/some-model"))
+
+    assert (
+        "reference_image"
+        in aio_builtin.make_async_image_tool(capable).__tool_spec__["function"]["parameters"]["properties"]
+    )
+    assert (
+        "reference_image"
+        not in aio_builtin.make_async_image_tool(incapable).__tool_spec__["function"]["parameters"]["properties"]
+    )
+    assert "reference_image" in aio_builtin.generate_image.__tool_spec__["function"]["parameters"]["properties"]
+
+
+async def test_async_reference_image_under_output_reaches_the_client(monkeypatch, tmp_path):
+    import aimu.aio.tools.builtin as aio_builtin
+    from aimu import paths
+
+    monkeypatch.setattr(paths, "output", tmp_path)
+    reference = tmp_path / "earlier.png"
+    reference.write_bytes(b"png")
+    client, captured = _capturing_async_client(monkeypatch, HuggingFaceImageModel.SD_1_5)
+
+    chunks = [c async for c in aio_builtin.make_async_image_tool(client)("blue", reference_image="earlier.png")]
+
+    assert chunks[-1].content["result"] == "/out/new.png"
+    assert captured["reference_image"] == reference.resolve()
+
+
+async def test_async_reference_image_outside_output_is_refused(monkeypatch, tmp_path):
+    import aimu.aio.tools.builtin as aio_builtin
+    from aimu import paths
+    from aimu.tools import ToolArgumentError
+
+    (tmp_path / "output").mkdir()
+    monkeypatch.setattr(paths, "output", tmp_path / "output")
+    (tmp_path / "secret.png").write_bytes(b"png")
+    client, captured = _capturing_async_client(monkeypatch, HuggingFaceImageModel.SD_1_5)
+
+    with pytest.raises(ToolArgumentError, match="must be under"):
+        [c async for c in aio_builtin.make_async_image_tool(client)("a cat", reference_image="../secret.png")]
+    assert captured == {}
+
+
 # ---------------------------------------------------------------------------
 # Gemini image async: sync wrap + refusal of direct enum
 # ---------------------------------------------------------------------------
