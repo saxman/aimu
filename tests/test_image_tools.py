@@ -13,6 +13,8 @@ _install_diffusers_stub()
 
 import importlib  # noqa: E402
 
+import pytest  # noqa: E402
+
 import aimu.models  # noqa: E402
 
 if not aimu.models.HAS_HF_IMAGE:
@@ -359,3 +361,186 @@ def test_make_tools_with_both_applies_both_transformations():
     names = [t.__tool_spec__["function"]["name"] for t in tools]
     assert "generate_image" in names
     assert "describe_image" in names
+
+
+# ---------------------------------------------------------------------------
+# reference_image: capability gating and the paths.output restriction
+# ---------------------------------------------------------------------------
+
+
+def _drain(gen):
+    try:
+        while True:
+            next(gen)
+    except StopIteration as stop:
+        return stop.value
+
+
+def _capturing_client(monkeypatch, spec_or_model):
+    """An HF image client whose generate() records its kwargs and yields one final chunk."""
+    from aimu.models.base import StreamChunk, StreamingContentType
+    from aimu.models.providers.hf.image import HuggingFaceImageClient
+
+    client = HuggingFaceImageClient(spec_or_model)
+    captured: dict = {}
+
+    def fake_stream(prompt, **kwargs):  # noqa: ARG001
+        captured.update(kwargs)
+        yield StreamChunk(
+            StreamingContentType.IMAGE_GENERATING,
+            {"step": 1, "total_steps": 1, "image": None, "final": True, "result": "/out/new.png"},
+        )
+
+    monkeypatch.setattr(client, "generate", fake_stream)
+    return client, captured
+
+
+@pytest.fixture
+def output_dir(monkeypatch, tmp_path):
+    """Point aimu.paths.output at a fresh directory, beside (not containing) tmp_path's other files."""
+    from aimu import paths
+
+    output = tmp_path / "output"
+    (output / "images").mkdir(parents=True)
+    monkeypatch.setattr(paths, "output", output)
+    return output
+
+
+def test_reference_support_is_declared_per_spec():
+    from aimu.models.base import GeminiImageSpec, HuggingFaceImageSpec, ImageSpec
+    from aimu.models.providers.hf.image import HuggingFaceImageModel
+
+    assert HuggingFaceImageModel.SD_1_5.spec.supports_reference_image is True
+    assert HuggingFaceImageModel.FLUX_2_KLEIN_4B.spec.supports_reference_image is True
+    # An ad-hoc HF spec has no img2img pipeline, so it cannot take a reference.
+    assert HuggingFaceImageSpec("org/some-model").supports_reference_image is False
+    assert GeminiImageSpec("gemini-2.5-flash-image").supports_reference_image is True
+    assert ImageSpec("anything").supports_reference_image is False
+
+
+def test_make_image_tool_advertises_reference_image_only_when_supported(monkeypatch):
+    from aimu.models.base import HuggingFaceImageSpec
+    from aimu.models.providers.hf.image import HuggingFaceImageModel
+
+    capable, _ = _capturing_client(monkeypatch, HuggingFaceImageModel.SD_1_5)
+    incapable, _ = _capturing_client(monkeypatch, HuggingFaceImageSpec("org/some-model"))
+
+    capable_params = builtin.make_image_tool(capable).__tool_spec__["function"]["parameters"]
+    incapable_params = builtin.make_image_tool(incapable).__tool_spec__["function"]["parameters"]
+
+    assert "reference_image" in capable_params["properties"]
+    assert capable_params["required"] == ["prompt"]
+    assert "reference_image" not in incapable_params["properties"]
+
+
+def test_singleton_advertises_optional_reference_image():
+    params = builtin.generate_image.__tool_spec__["function"]["parameters"]
+    assert "reference_image" in params["properties"]
+    assert params["required"] == ["prompt"]
+
+
+def test_reference_image_under_output_reaches_the_client(monkeypatch, output_dir):
+    from aimu.models.providers.hf.image import HuggingFaceImageModel
+
+    reference = output_dir / "images" / "earlier.png"
+    reference.write_bytes(b"png")
+
+    client, captured = _capturing_client(monkeypatch, HuggingFaceImageModel.SD_1_5)
+    result = _drain(builtin.make_image_tool(client)("make it blue", reference_image=str(reference)))
+
+    assert result == "/out/new.png"
+    assert captured["reference_image"] == reference.resolve()
+
+
+def test_relative_reference_image_resolves_against_output(monkeypatch, output_dir):
+    from aimu.models.providers.hf.image import HuggingFaceImageModel
+
+    (output_dir / "images" / "earlier.png").write_bytes(b"png")
+
+    client, captured = _capturing_client(monkeypatch, HuggingFaceImageModel.SD_1_5)
+    _drain(builtin.make_image_tool(client)("make it blue", reference_image="images/earlier.png"))
+
+    assert captured["reference_image"] == (output_dir / "images" / "earlier.png").resolve()
+
+
+def test_no_reference_image_sends_none_to_the_client(monkeypatch):
+    from aimu.models.providers.hf.image import HuggingFaceImageModel
+
+    client, captured = _capturing_client(monkeypatch, HuggingFaceImageModel.SD_1_5)
+    _drain(builtin.make_image_tool(client)("a cat"))
+
+    assert "reference_image" not in captured
+
+
+@pytest.mark.parametrize(
+    ("reference_image", "complaint"),
+    [
+        ("{tmp}/secret.png", "must be under"),
+        ("../secret.png", "must be under"),
+        ("images/link.png", "must be under"),  # a symlink pointing out of the output directory
+        ("https://example.com/cat.png", "not a URL"),
+        ("data:image/png;base64,AAAA", "not a URL"),
+        ("images/never-made.png", "does not exist"),
+    ],
+)
+def test_reference_image_outside_output_is_refused(monkeypatch, tmp_path, output_dir, reference_image, complaint):
+    from aimu.models.providers.hf.image import HuggingFaceImageModel
+    from aimu.tools import ToolArgumentError
+
+    secret = tmp_path / "secret.png"
+    secret.write_bytes(b"png")
+    (output_dir / "images" / "link.png").symlink_to(secret)
+
+    client, captured = _capturing_client(monkeypatch, HuggingFaceImageModel.SD_1_5)
+    tool_fn = builtin.make_image_tool(client)
+
+    with pytest.raises(ToolArgumentError, match=complaint):
+        _drain(tool_fn("a cat", reference_image=reference_image.format(tmp=tmp_path)))
+    assert captured == {}  # refused before the image model was called
+
+
+def test_singleton_refuses_reference_on_a_model_without_support(monkeypatch, output_dir):
+    """The singleton advertises reference_image before its model is known, so it must refuse it where unusable."""
+    from aimu.models.base import HuggingFaceImageSpec
+    from aimu.tools import ToolArgumentError
+
+    (output_dir / "earlier.png").write_bytes(b"png")
+    client, captured = _capturing_client(monkeypatch, HuggingFaceImageSpec("org/some-model"))
+    monkeypatch.setattr(builtin, "_image_client", client)
+
+    with pytest.raises(ToolArgumentError, match="does not accept a reference image"):
+        _drain(builtin.generate_image("a cat", reference_image="earlier.png"))
+    assert captured == {}
+
+
+def test_refusal_reaches_the_model_as_a_tool_result(monkeypatch, output_dir):  # noqa: ARG001
+    """Through the tool loop, a refused reference is a tool message the model can correct from."""
+    from aimu.agents._tool_loop import _ToolLoop
+    from aimu.models.base import StreamingContentType
+    from aimu.models.providers.hf.image import HuggingFaceImageModel
+    from helpers import MockModelClient
+
+    client, _ = _capturing_client(monkeypatch, HuggingFaceImageModel.SD_1_5)
+    model = MockModelClient(["dummy"])
+    model.messages.append(
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "generate_image",
+                        "arguments": {"prompt": "a cat", "reference_image": "/etc/hosts"},
+                    },
+                    "id": "id0",
+                }
+            ],
+        }
+    )
+
+    chunks = list(_ToolLoop(model, [builtin.make_image_tool(client)])._dispatch_streamed(0))
+
+    tool_chunks = [c for c in chunks if c.phase == StreamingContentType.TOOL_CALLING]
+    assert len(tool_chunks) == 1
+    assert "must be under" in tool_chunks[0].content["response"]
+    assert "raised an error" not in tool_chunks[0].content["response"]

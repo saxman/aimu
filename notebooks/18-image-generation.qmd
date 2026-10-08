@@ -110,6 +110,30 @@ The built-in `generate_image` tool lets any chat LLM produce images when the use
 
 The first call loads weights (slow); subsequent calls reuse the singleton.
 
+### Refining the agent's own image: `reference_image`
+
+The tool also takes an optional `reference_image`: the path a previous `generate_image` call returned. That lets the agent iterate ("now add a storm") as image-to-image rather than starting over. `make_image_tool` offers the parameter only when the image model can use it (`client.spec.supports_reference_image`).
+
+```{python}
+import aimu
+from aimu.agents import Agent
+from aimu.tools.builtin import make_image_tool
+
+editor = Agent(
+    aimu.client("anthropic:claude-sonnet-4-6"),
+    tools=[make_image_tool(aimu.image_client("gemini:nano-banana"))],
+)
+editor.run("Draw a lighthouse at dusk.")
+editor.run("Now add a storm rolling in.")  # passes the first image's path as reference_image
+```
+
+::: {.callout-warning}
+## Limitations of the tool today
+
+- **References must be files under `aimu.paths.output`**, where the tool saves its images. Other paths and URLs are refused: the model picks the path, and on a cloud provider the file is uploaded with the request. `client.generate(reference_image=...)` has no such limit. Tracked in [#3](https://github.com/saxman/aimu/issues/3).
+- **One reference image per call**, though Nano Banana and FLUX.2 Klein can take several. Tracked in [#4](https://github.com/saxman/aimu/issues/4).
+:::
+
 ### FLUX.2 Klein: unified pipeline, no `strength`
 
 FLUX.2 Klein uses a single `Flux2KleinPipeline` for both txt2img and img2img. It conditions on the reference image directly without a `strength` scalar; the prompt describes what to change. 4-step distillation makes it as fast as FLUX.1 Schnell with better output quality.
@@ -165,7 +189,7 @@ Combine 2-4 descriptors per prompt. More than that often hurts coherence.
 
 ## Tools
 
-- `generate_image(prompt)`: returns the saved file path.
+- `generate_image(prompt, reference_image=None)`: returns the saved file path. Pass a path it returned earlier as `reference_image` to refine that image.
 ```
 
 Then use `SkillAgent`. It auto-discovers `SKILL.md` files and injects the catalog.

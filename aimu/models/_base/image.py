@@ -38,6 +38,11 @@ class ImageSpec:
     # negative prompt into the main prompt instead of passing it as a kwarg.
     supports_negative_prompt: bool = True
 
+    @property
+    def supports_reference_image(self) -> bool:
+        """Whether ``generate(reference_image=...)`` can be honoured. Subclasses override."""
+        return False
+
     def __hash__(self) -> int:
         return hash(self.id)
 
@@ -70,6 +75,11 @@ class HuggingFaceImageSpec(ImageSpec):
     default_negative_prompt: Optional[str] = None
     pipeline_kwargs: Optional[dict] = field(default=None)
 
+    @property
+    def supports_reference_image(self) -> bool:
+        # Derived rather than declared so the two cannot disagree: img2img loads this class.
+        return bool(self.img2img_pipeline_class)
+
 
 @dataclass(eq=False)
 class GeminiImageSpec(ImageSpec):
@@ -92,6 +102,11 @@ class GeminiImageSpec(ImageSpec):
     default_aspect_ratio: Optional[str] = None  # e.g. "1:1", "16:9"
     default_image_size: Optional[str] = None  # e.g. "1024x1024" (SDK-dependent)
     image_config_kwargs: Optional[dict] = field(default=None)
+
+    @property
+    def supports_reference_image(self) -> bool:
+        # Every Gemini image model accepts an inline image part alongside the prompt.
+        return True
 
 
 class ImageModel(Enum):

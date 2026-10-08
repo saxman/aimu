@@ -38,6 +38,7 @@ from aimu.tools.builtin import (  # noqa: F401 (re-exports)
     web,
     wikipedia,
 )
+from aimu.tools.builtin import _reference_image_path, _require_reference_support
 from aimu.tools.builtin import _subagent_docstring, _subagent_overflow_result, _validate_subagent_config
 from aimu.tools.decorator import tool
 
@@ -143,9 +144,25 @@ def _get_async_image_client():
     return _async_image_client
 
 
+async def _astream_image(client, prompt: str, reference_image: Optional[str], **generate_kwargs):
+    """Async twin of the sync ``_stream_image``: yield one streamed generation's chunks.
+
+    The final chunk's ``content["result"]`` is the saved path, which the tool-loop engine's
+    ``_dispatch_streamed`` takes as the tool response (async generators carry no return value).
+    """
+    if reference_image:
+        _require_reference_support(client)
+        generate_kwargs["reference_image"] = _reference_image_path(reference_image)
+    async for chunk in await client.generate(prompt, format="path", stream=True, **generate_kwargs):
+        yield chunk
+
+
 @tool
-async def generate_image(prompt: str):
+async def generate_image(prompt: str, reference_image: Optional[str] = None):
     """Generate an image from a text prompt and return the saved file path.
+
+    Pass reference_image to guide the new image by an existing one, for example to refine
+    an image an earlier call generated. Not every image model accepts one.
 
     **Streaming async tool**: async generator yielding
     :attr:`~aimu.models.StreamingContentType.IMAGE_GENERATING` chunks during
@@ -154,23 +171,18 @@ async def generate_image(prompt: str):
 
     Uses an :class:`aimu.aio.AsyncImageClient`. The model is controlled by
     ``AIMU_IMAGE_MODEL`` (required; the tool raises if it is unset). Use
-    :func:`make_async_image_tool` to override the client or opt into
-    ``preview_every=N`` intermediate previews.
+    :func:`make_async_image_tool` to override the client, opt into
+    ``preview_every=N`` intermediate previews, or advertise ``reference_image``
+    only when the model can use one.
+
+    A reference image must be a single file under the output directory this tool saves to.
 
     Args:
         prompt: A description of the desired image.
+        reference_image: Optional path to one image this tool generated earlier (the path it returned), used as a starting point. Only images under the output directory are accepted.
     """
-    client = _get_async_image_client()
-    final_result: Optional[str] = None
-    async for chunk in await client.generate(prompt, format="path", stream=True):
+    async for chunk in _astream_image(_get_async_image_client(), prompt, reference_image):
         yield chunk
-        content = chunk.content
-        if isinstance(content, dict) and content.get("final"):
-            final_result = content.get("result")
-    # Final chunk's content["result"] is picked up by the tool-loop engine's
-    # _dispatch_streamed as the canonical tool response; no return-value needed
-    # (PEP 525 async generators don't carry return values anyway).
-    del final_result
 
 
 def make_async_image_tool(client, *, preview_every: Optional[int] = None):
@@ -180,7 +192,9 @@ def make_async_image_tool(client, *, preview_every: Optional[int] = None):
     :class:`HuggingFaceImageClient`, :class:`GeminiImageClient`), which will be
     wrapped automatically, or an existing :class:`aimu.aio.AsyncImageClient`.
     ``preview_every=N`` opts into intermediate denoised-image previews (HF only;
-    Gemini ignores it).
+    Gemini ignores it). As with the sync :func:`aimu.tools.builtin.make_image_tool`,
+    ``reference_image`` is advertised only when ``client.spec.supports_reference_image``
+    is true, and is limited to one file under ``aimu.paths.output``.
     """
     from aimu.aio import image_client as _aio_image_client
     from aimu.aio.image import AsyncImageClient
@@ -193,17 +207,35 @@ def make_async_image_tool(client, *, preview_every: Optional[int] = None):
         # AsyncGeminiImageClient) directly; they expose .generate() too.
         pass
 
-    @tool
-    async def generate_image(prompt: str):
-        """Generate an image from a text prompt and return the saved file path.
+    if client.spec.supports_reference_image:
 
-        Async streaming tool: yields progress chunks during generation.
+        @tool
+        async def generate_image(prompt: str, reference_image: Optional[str] = None):
+            """Generate an image from a text prompt and return the saved file path.
 
-        Args:
-            prompt: A description of the desired image.
-        """
-        async for chunk in await client.generate(prompt, format="path", stream=True, preview_every=preview_every):
-            yield chunk
+            Pass reference_image to guide the new image by an existing one, for example to
+            refine an image an earlier call generated. Yields progress chunks.
+
+            Args:
+                prompt: A description of the desired image.
+                reference_image: Optional path to one image this tool generated earlier (the path it returned), used as a starting point. Only images under the output directory are accepted.
+            """
+            async for chunk in _astream_image(client, prompt, reference_image, preview_every=preview_every):
+                yield chunk
+
+    else:
+
+        @tool
+        async def generate_image(prompt: str):
+            """Generate an image from a text prompt and return the saved file path.
+
+            Async streaming tool: yields progress chunks during generation.
+
+            Args:
+                prompt: A description of the desired image.
+            """
+            async for chunk in _astream_image(client, prompt, None, preview_every=preview_every):
+                yield chunk
 
     return generate_image
 
