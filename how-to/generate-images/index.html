@@ -1615,6 +1615,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#refining-a-generated-image-reference_image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Refining a generated image: reference_image
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3540,6 +3551,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#refining-a-generated-image-reference_image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Refining a generated image: reference_image
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -3604,7 +3626,7 @@
 <li><strong>HuggingFace <code>diffusers</code></strong> for local generation (Stable Diffusion 1.5 / XL / 3.5, FLUX 1 dev / schnell, FLUX 2 Klein 4B / 9B)</li>
 <li><strong>Google Nano Banana</strong> (<code>gemini-2.5-flash-image</code>) via the cloud Gemini API</li>
 </ul>
-<p>Both providers support image-to-image generation via <code>reference_image=</code> on <code>generate()</code>; see <a href="#image-to-image">Image-to-image</a> below.</p>
+<p>Both providers support image-to-image generation via <code>reference_image=</code> on <code>generate()</code>; see <a href="#image-to-image">Image-to-image</a> below. The built-in agent tool supports it too, with narrower limits; see <a href="#refining-a-generated-image-reference_image">Refining a generated image</a>.</p>
 <h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
 <p>Pick the providers you want. Both are opt-in extras:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s1">'.[hf]'</span><span class="w">         </span><span class="c1"># HuggingFace diffusers: local, GPU-friendly</span>
@@ -3782,22 +3804,37 @@
 </span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">text_client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">fast_tool</span><span class="p">])</span>
 </span></code></pre></div>
 <p><code>make_image_tool()</code> returns a fresh <code>@tool</code>-decorated callable bound to the supplied client; the singleton stays untouched. Pass <code>preview_every=N</code> to opt into intermediate latent previews and <code>num_inference_steps=N</code> to override the model's default denoising step count (HuggingFace diffusers only; ignored by Gemini).</p>
+<h3 id="refining-a-generated-image-reference_image">Refining a generated image: <code>reference_image</code><a class="headerlink" href="#refining-a-generated-image-reference_image" title="Permanent link">&para;</a></h3>
+<p>The tool takes an optional <code>reference_image</code>, so an agent can iterate on its own output: generate an image, then call the tool again with the path it returned and a prompt describing the change ("make the sky stormier"). The call becomes image-to-image, exactly as <code>client.generate(reference_image=...)</code> does (see <a href="#image-to-image">Image-to-image</a>).</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">text_client</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="p">[</span><span class="n">make_image_tool</span><span class="p">(</span><span class="n">image_client</span><span class="p">(</span><span class="s2">"gemini:nano-banana"</span><span class="p">))])</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Draw a lighthouse at dusk."</span><span class="p">)</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Now add a storm rolling in."</span><span class="p">)</span>  <span class="c1"># the model passes the first image's path as reference_image</span>
+</span></code></pre></div>
+<p>Whether the model is offered the parameter depends on the image model. <code>make_image_tool</code> advertises it only when <code>client.spec.supports_reference_image</code> is true: every Gemini model, and every HuggingFace catalog model (each has an <code>img2img_pipeline_class</code>). An ad-hoc <code>HuggingFaceImageSpec</code> without one gets a prompt-only tool. <code>builtin.generate_image</code> cannot tell in advance, because its client is built on first call, so it always advertises the parameter and refuses it on a model that cannot use it.</p>
+<div class="admonition warning">
+<p class="admonition-title">Current limitations of the tool (not of the client)</p>
+<ul>
+<li><strong>Only files under <code>aimu.paths.output</code>.</strong> That is where <code>generate_image</code> saves, so refining the agent's own images works. A path anywhere else, an <code>http(s)://</code> URL, or a <code>data:</code> URL is refused with a message the model can act on. The path is chosen by the model, and on a cloud provider the file is uploaded with the request, so the tool does not get the reach of <code>read_file</code>. To hand the model a user's image, call <code>client.generate(reference_image=...)</code> yourself, or copy the file under <code>paths.output</code> first. Tracked in <a href="https://github.com/saxman/aimu/issues/3">#3</a>.</li>
+<li><strong>One reference image per call.</strong> Nano Banana and FLUX.2 Klein can take several (subject from one, style from another), but <code>generate()</code> and the tool accept one. Tracked in <a href="https://github.com/saxman/aimu/issues/4">#4</a>.</li>
+<li>The tool does not expose <code>strength</code>; the HuggingFace default (<code>0.75</code>) applies.</li>
+</ul>
+</div>
 <h2 id="skill-integration-deeper-optional">Skill integration (deeper, optional)<a class="headerlink" href="#skill-integration-deeper-optional" title="Permanent link">&para;</a></h2>
 <p>For <code>SkillAgent</code> users, drop a <code>SKILL.md</code> under <code>.agents/skills/image-generation/</code> with prompt-engineering guidance. Skills are filesystem-discovered (not shipped with AIMU); see <a href="https://github.com/saxman/aimu/blob/main/notebooks/18-image-generation.qmd">notebooks/18-image-generation.qmd</a> for a copyable example.</p>
 <h2 id="async">Async<a class="headerlink" href="#async" title="Permanent link">&para;</a></h2>
 <p>The async surface mirrors the sync surface one-for-one. Because image providers either load weights in-process (HuggingFace) or hold an SDK client (Gemini), the factory follows the wrap pattern established for HF / LlamaCpp text clients: build a sync client first and pass it to <code>aio.image_client()</code>:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span><span class="p">,</span> <span class="n">image_client</span>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="n">sync</span> <span class="o">=</span> <span class="n">image_client</span><span class="p">(</span><span class="s2">"hf:runwayml/stable-diffusion-v1-5"</span><span class="p">)</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="n">async_client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">image_client</span><span class="p">(</span><span class="n">sync</span><span class="p">)</span>
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">make_two</span><span class="p">():</span>
-</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
-</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>        <span class="n">async_client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"a watercolor of a fox"</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">512</span><span class="p">),</span>
-</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>        <span class="n">async_client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"a watercolor of a deer"</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">512</span><span class="p">),</span>
-</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>    <span class="p">)</span>
-</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>    <span class="k">return</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu</span><span class="w"> </span><span class="kn">import</span> <span class="n">aio</span><span class="p">,</span> <span class="n">image_client</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="n">sync</span> <span class="o">=</span> <span class="n">image_client</span><span class="p">(</span><span class="s2">"hf:runwayml/stable-diffusion-v1-5"</span><span class="p">)</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="n">async_client</span> <span class="o">=</span> <span class="n">aio</span><span class="o">.</span><span class="n">image_client</span><span class="p">(</span><span class="n">sync</span><span class="p">)</span>
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">make_two</span><span class="p">():</span>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span>
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>        <span class="n">async_client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"a watercolor of a fox"</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">512</span><span class="p">),</span>
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>        <span class="n">async_client</span><span class="o">.</span><span class="n">generate</span><span class="p">(</span><span class="s2">"a watercolor of a deer"</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">512</span><span class="p">),</span>
+</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>    <span class="p">)</span>
+</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>    <span class="k">return</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span>
 </span></code></pre></div>
 <p>Async <code>generate()</code> routes through <code>asyncio.to_thread</code> so the event loop stays free during inference. On a single GPU, sibling <code>gather</code>-ed HF calls don't truly overlap on the device (CUDA streams + the GIL serialise), but the event loop stays free for other coroutines.</p>
 <p>For Gemini, the cloud SDK could be called natively async; that is kept as a follow-up for shape consistency with the in-process wrap pattern.</p>
