@@ -26,7 +26,17 @@ from typing import Any, Callable, Iterator, Optional, Union
 
 from aimu.agents.inbox import Inbox
 from aimu.context import count_tokens
-from aimu.events import ContextCompacted, EventSink, RunEvent, RunFinished, RunStarted, ToolCalled, ToolDenied, emit
+from aimu.events import (
+    ContextCompacted,
+    EventSink,
+    RunEnding,
+    RunEvent,
+    RunFinished,
+    RunStarted,
+    ToolCalled,
+    ToolDenied,
+    emit,
+)
 from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER, PROVENANCE_KEY
 from aimu.models.base import StreamChunk, StreamingContentType
 from aimu.tools.approval import Denied
@@ -278,6 +288,21 @@ class _BaseToolLoop:
         # sink (see _attributing_sink) can report which round a client-emitted event happened
         # in without the client itself ever knowing about rounds.
         self._current_iteration = 0
+        # The decision that ended the current run, set where the loop makes it and reported on
+        # RunFinished. An exception overrides it (see _run_finished): a wrap-up that raised did not
+        # end the run by wrapping up.
+        self._ended_by: Optional[RunEnding] = None
+
+    def _run_finished(self, iteration: int, result: Optional[str], error: Optional[BaseException]) -> RunFinished:
+        """The ``RunFinished`` all four drivers emit, built once so they cannot report a run differently."""
+        return RunFinished(
+            agent=self._agent_name,
+            iteration=iteration,
+            result=result,
+            error=error,
+            ended_by="error" if error is not None else self._ended_by,
+            max_iterations=self._max_rounds,
+        )
 
     def _attributing_sink(self) -> Optional[EventSink]:
         """The sink installed on the client for the run's duration: ``self._events``, wrapped
@@ -627,6 +652,7 @@ class _ToolLoop(_BaseToolLoop):
     ) -> str:
         emit(self._events, RunStarted(agent=self._agent_name, iteration=0, task=user_message or ""))
         self._open_inbox()
+        self._ended_by = None
         result: Optional[str] = None
         error: Optional[BaseException] = None
         last_iteration = 0
@@ -688,6 +714,7 @@ class _ToolLoop(_BaseToolLoop):
                     else:  # TERMINAL_HEALTHY
                         message = self._take_message()
                         if message is None:
+                            self._ended_by = "answered"
                             result = response
                             return result
                         # A message that arrived while the model was producing its answer. Taking
@@ -713,10 +740,7 @@ class _ToolLoop(_BaseToolLoop):
             # self._current_iteration (not last_iteration) so the forced-wrap-up turn -- one
             # more real model call, made after the while loop above stops updating either
             # variable -- is reported at the round it actually happened in.
-            emit(
-                self._events,
-                RunFinished(agent=self._agent_name, iteration=self._current_iteration, result=result, error=error),
-            )
+            emit(self._events, self._run_finished(self._current_iteration, result, error))
 
     def run_streamed(
         self,
@@ -727,6 +751,7 @@ class _ToolLoop(_BaseToolLoop):
     ) -> Iterator[StreamChunk]:
         emit(self._events, RunStarted(agent=self._agent_name, iteration=0, task=user_message or ""))
         self._open_inbox()
+        self._ended_by = None
         error: Optional[BaseException] = None
         iteration = 0
         self._current_iteration = 0
@@ -799,6 +824,7 @@ class _ToolLoop(_BaseToolLoop):
                     else:  # TERMINAL_HEALTHY
                         message = self._take_message()
                         if message is None:
+                            self._ended_by = "answered"
                             return
                         # A message that arrived while the model was producing its answer. Taking
                         # one more round rather than ending here is what makes the inbox usable at
@@ -819,7 +845,9 @@ class _ToolLoop(_BaseToolLoop):
                             iteration,
                         )
 
+                self._ended_by = "answered"
                 if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
+                    self._ended_by = "wrap_up"
                     iteration += 1
                     self._current_iteration = iteration
                     # Before injected_at is read: the wrap-up prompt must still be the message at
@@ -850,7 +878,7 @@ class _ToolLoop(_BaseToolLoop):
             error = exc
             raise
         finally:
-            emit(self._events, RunFinished(agent=self._agent_name, iteration=iteration, result=None, error=error))
+            emit(self._events, self._run_finished(iteration, None, error))
 
     def _forced_wrap_up(self, response: str, generate_kwargs: Optional[dict[str, Any]]) -> str:
         """At the round cap with a degenerate terminal turn, force one tools-disabled answer.
@@ -861,7 +889,9 @@ class _ToolLoop(_BaseToolLoop):
         silent empty output.
         """
         if classify_terminal_turn(self._client.messages) == TERMINAL_HEALTHY:
+            self._ended_by = "answered"
             return response
+        self._ended_by = "wrap_up"
         # Only advance past the last real turn's iteration when a real call is about to be
         # made (this branch): the healthy check above already returned without one, so
         # self._current_iteration must stay put and keep pointing at that last real turn.

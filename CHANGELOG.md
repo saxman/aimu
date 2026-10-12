@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Events
+
+- **New: `RunFinished.ended_by` says which rule ended a run, and `RunFinished.max_iterations` the
+  budget it ran under.** `"answered"` (the model's last turn was a real answer), `"wrap_up"` (the
+  round budget ran out while the model still wanted tools, and the forced tools-disabled call
+  produced the answer), or `"error"` (the run raised; `error` says what). Before this, telling a
+  forced wrap-up from a real answer meant re-deriving the loop's control flow from the events
+  before it. All four tool-loop drivers report it identically; a `schema=` run reports
+  `"answered"` / `"error"` with `max_iterations=None`, and a workflow reports neither. The
+  `RunEnding` literal is exported from `aimu.events`.
+- **New: `ModelTurnFinished.stop_reason` carries the provider's own word for how the turn ended**,
+  the value of `client.last_stop_reason`. A sink receiving a spawned sub-agent's events never holds
+  that sub-agent's client, so before this it had no way to read it.
+
 ### Tools
 
 - **New: `generate_image` takes an optional `reference_image`, so an agent can refine an image it
