@@ -70,12 +70,12 @@ agent.run("What is 12 + 30? Use the add tool.")
 RunStarted RunStarted(agent='agent-679be0', iteration=0, task='What is 12 + 30? Use the add tool.')
 ModelTurnStarted ModelTurnStarted(agent='agent-679be0', iteration=0, model='qwen3:8b', message_count=2, tool_names=('add',))
 RequestPrepared RequestPrepared(agent='agent-679be0', iteration=0, ...)
-ModelTurnFinished ModelTurnFinished(agent='agent-679be0', iteration=0, model='qwen3:8b', text='', usage={'input_tokens': 160, ...}, duration_s=...)
+ModelTurnFinished ModelTurnFinished(agent='agent-679be0', iteration=0, model='qwen3:8b', text='', usage={'input_tokens': 160, ...}, duration_s=..., stop_reason=...)
 ToolCalled ToolCalled(agent='agent-679be0', iteration=0, name='add', arguments={'a': 12, 'b': 30}, result='42', error=None, duration_s=...)
 ModelTurnStarted ModelTurnStarted(agent='agent-679be0', iteration=1, model='qwen3:8b', message_count=4, tool_names=('add',))
 RequestPrepared RequestPrepared(agent='agent-679be0', iteration=1, ...)
 ModelTurnFinished ModelTurnFinished(agent='agent-679be0', iteration=1, model='qwen3:8b', text=..., ...)
-RunFinished RunFinished(agent='agent-679be0', iteration=1, result=..., error=None)
+RunFinished RunFinished(agent='agent-679be0', iteration=1, result=..., error=None, ended_by='answered', max_iterations=10)
 ```
 
 (`duration_s` is a wall-clock timing and will differ on any other machine; the final answer text
@@ -114,6 +114,30 @@ Two contracts worth knowing before you write one:
   idea a level up, and `RunFinished.result` is `None` on a streamed run (the chunks went to you,
   so the runner never assembled a final string) and on a `schema=` run (the result is a typed
   object, not a string; it is the return value, and is also on `client.last_structured`).
+
+## Why a turn ended, and why a run did
+
+Two fields answer "why did it stop?" at the two levels a run has, and they are deliberately
+separate, because one is the model's answer and the other is the loop's:
+
+- **`ModelTurnFinished.stop_reason`** is the provider's own word for how one model turn ended
+  (`"end_turn"`, `"tool_use"`, `"length"`, `"refusal"`, ...; spellings differ by backend), the
+  same value as `client.last_stop_reason`. It is on the event because a sink often never holds
+  the client: one receiving a spawned sub-agent's events cannot reach that sub-agent's client at
+  all. `None` means the provider said nothing.
+- **`RunFinished.ended_by`** is the decision the agent loop made: `"answered"` (the model's last
+  turn was a real answer and no inbox message was waiting), `"wrap_up"` (the round budget ran out
+  while the model still wanted tools, so the loop made one tools-disabled call asking for a final
+  answer, and got one), or `"error"` (the run raised; `error` says what, e.g. a
+  `DegenerateTurnError` when even the wrap-up produced nothing). `RunFinished.max_iterations` is
+  the budget it ran under, so a `"wrap_up"` reads as "round `iteration`, after a cap of
+  `max_iterations`". A delivered inbox message restarts that count (see
+  [use an inbox](use-an-inbox.md)), so a messaged run can pass it legitimately. On a `schema=`
+  run, which makes one call rather than looping, `ended_by` is `"answered"` or `"error"` and
+  `max_iterations` is `None`; a workflow reports neither.
+
+Read together, the last `ModelTurnFinished` of a run and its `RunFinished` show both halves of
+the stop: what the model did on its final turn, and which rule in the loop acted on it.
 
 ## `last_request`: did the library do this, or the model?
 

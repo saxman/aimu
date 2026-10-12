@@ -454,6 +454,7 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                 usage=getattr(self, "last_usage", None),
                 duration_s=time.monotonic() - started,
                 error=error,
+                stop_reason=getattr(self, "last_stop_reason", None),
             ),
         )
 
@@ -496,6 +497,7 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                     usage=getattr(self, "last_usage", None),
                     duration_s=time.monotonic() - started,
                     error=error,
+                    stop_reason=getattr(self, "last_stop_reason", None),
                 ),
             )
 

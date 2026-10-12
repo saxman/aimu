@@ -297,6 +297,40 @@ def test_generate_emits_turn_events_too():
     assert any(isinstance(e, ModelTurnFinished) for e in seen)
 
 
+class _EndTurnClient(MockModelClient):
+    """Reports how each turn ended through the seam every real provider calls."""
+
+    def _chat(self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
+        result = super()._chat(user_message, generate_kwargs, use_tools, stream, images, audio)
+        if stream:
+            return self._recorded_on_drain(result)
+        self._record_stop_reason("end_turn")
+        return result
+
+    def _recorded_on_drain(self, chunks):
+        # A streaming provider learns its stop reason from the terminal chunk, so record it last.
+        yield from chunks
+        self._record_stop_reason("end_turn")
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_turn_finished_carries_the_providers_stop_reason(stream):
+    """A sink handed a sub-agent's events never holds that sub-agent's client, so
+    ``client.last_stop_reason`` is out of its reach; the event is the only place to read it."""
+    from aimu.events import ModelTurnFinished
+
+    seen = []
+    client = _EndTurnClient(["hello"])
+    client.events = seen.append
+    if stream:
+        list(client.chat("hi", stream=True))
+    else:
+        client.chat("hi")
+
+    finished = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert [e.stop_reason for e in finished] == ["end_turn"]
+
+
 def test_streamed_chat_emits_turn_finished_once_on_drain():
     """ModelTurnFinished must not fire until the iterator is fully drained: usage only
     populates then, and emitting eagerly would report a turn that hasn't run yet."""
@@ -631,7 +665,10 @@ def test_structured_run_emits_attributed_bracketed_events():
     assert kinds[-1] == "RunFinished"
     assert "RequestPrepared" in kinds, kinds
     assert all(e.agent == "critic" for e in seen), kinds
-    assert next(e for e in seen if isinstance(e, RunFinished)).error is None
+    finished = next(e for e in seen if isinstance(e, RunFinished))
+    assert finished.error is None
+    assert finished.ended_by == "answered"
+    assert finished.max_iterations is None  # one call, not a loop: there is no cap to report
 
 
 def test_structured_run_reports_the_error_when_it_raises():
@@ -655,6 +692,7 @@ def test_structured_run_reports_the_error_when_it_raises():
     finished = [e for e in seen if isinstance(e, RunFinished)]
     assert len(finished) == 1
     assert isinstance(finished[0].error, RuntimeError)
+    assert finished[0].ended_by == "error"
 
 
 def test_streamed_structured_run_emits_attributed_bracketed_events():

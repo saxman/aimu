@@ -19,7 +19,7 @@ from aimu.agents._tool_loop import (
     _BaseToolLoop,
     classify_terminal_turn,
 )
-from aimu.events import RunFinished, RunStarted, ToolCalled, emit
+from aimu.events import RunStarted, ToolCalled, emit
 from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER
 from aimu.models.base import StreamChunk, StreamingContentType
 from aimu.tools.approval import Denied
@@ -48,6 +48,7 @@ class _AsyncToolLoop(_BaseToolLoop):
     ) -> str:
         emit(self._events, RunStarted(agent=self._agent_name, iteration=0, task=user_message or ""))
         self._open_inbox()
+        self._ended_by = None
         result: Optional[str] = None
         error: Optional[BaseException] = None
         last_iteration = 0
@@ -110,6 +111,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                     else:  # TERMINAL_HEALTHY
                         message = self._take_message()
                         if message is None:
+                            self._ended_by = "answered"
                             result = response
                             return result
                         # A message that arrived while the model was producing its answer. Taking
@@ -135,10 +137,7 @@ class _AsyncToolLoop(_BaseToolLoop):
             # self._current_iteration (not last_iteration) so the forced-wrap-up turn -- one
             # more real model call, made after the while loop above stops updating either
             # variable -- is reported at the round it actually happened in.
-            emit(
-                self._events,
-                RunFinished(agent=self._agent_name, iteration=self._current_iteration, result=result, error=error),
-            )
+            emit(self._events, self._run_finished(self._current_iteration, result, error))
 
     async def run_streamed(
         self,
@@ -149,6 +148,7 @@ class _AsyncToolLoop(_BaseToolLoop):
     ) -> AsyncIterator[StreamChunk]:
         emit(self._events, RunStarted(agent=self._agent_name, iteration=0, task=user_message or ""))
         self._open_inbox()
+        self._ended_by = None
         error: Optional[BaseException] = None
         iteration = 0
         self._current_iteration = 0
@@ -225,6 +225,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                     else:  # TERMINAL_HEALTHY
                         message = self._take_message()
                         if message is None:
+                            self._ended_by = "answered"
                             return
                         # A message that arrived while the model was producing its answer. Taking
                         # one more round rather than ending here is what makes the inbox usable at
@@ -244,7 +245,9 @@ class _AsyncToolLoop(_BaseToolLoop):
                         async for chunk in stream:
                             yield StreamChunk(chunk.phase, chunk.content, agent=chunk.agent, iteration=iteration)
 
+                self._ended_by = "answered"
                 if classify_terminal_turn(self._client.messages) != TERMINAL_HEALTHY:
+                    self._ended_by = "wrap_up"
                     iteration += 1
                     self._current_iteration = iteration
                     # Before injected_at is read: the wrap-up prompt must still be the message at
@@ -274,7 +277,7 @@ class _AsyncToolLoop(_BaseToolLoop):
             error = exc
             raise
         finally:
-            emit(self._events, RunFinished(agent=self._agent_name, iteration=iteration, result=None, error=error))
+            emit(self._events, self._run_finished(iteration, None, error))
 
     async def _forced_wrap_up(self, response: str, generate_kwargs: Optional[dict[str, Any]]) -> str:
         """At the round cap with a degenerate terminal turn, force one tools-disabled answer.
@@ -284,7 +287,9 @@ class _AsyncToolLoop(_BaseToolLoop):
         silent empty output.
         """
         if classify_terminal_turn(self._client.messages) == TERMINAL_HEALTHY:
+            self._ended_by = "answered"
             return response
+        self._ended_by = "wrap_up"
         # Only advance past the last real turn's iteration when a real call is about to be
         # made (this branch): the healthy check above already returned without one, so
         # self._current_iteration must stay put and keep pointing at that last real turn.

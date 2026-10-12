@@ -22,10 +22,13 @@ import pytest
 from aimu.aio import Agent as AsyncAgent
 from aimu.aio._base import AsyncBaseModelClient
 from aimu.agents import Agent as SyncAgent
+from aimu.agents._tool_loop import DegenerateTurnError
 from aimu.events import ModelTurnStarted, RunFinished
 from aimu.models import BaseModelClient, StreamingContentType
 from aimu.models.base import StreamChunk
 from aimu.tools import tool
+from tests.helpers import MockModelClient
+from tests.helpers_aio import MockAsyncModelClient
 
 
 @tool
@@ -416,3 +419,75 @@ async def test_all_four_drivers_name_the_agent_identically():
     # The expected value is asserted, not merely agreement: four drivers that each opened no reader
     # would agree on the empty tuple, and four that dropped the argument would agree on (None,).
     assert labels == dict.fromkeys(labels, ("researcher",)), labels
+
+
+# ---------------------------------------------------------------------------
+# Why a run ended. ``RunFinished.ended_by`` names the loop's own decision, and every driver
+# has to reach the same one for the same run: a host explaining "the tool-use limit was
+# reached" must not get a different story depending on whether it streamed.
+# ---------------------------------------------------------------------------
+
+
+def _sync_finished(client, max_iterations, stream):
+    seen = []
+    agent = SyncAgent(client, tools=[_noop_tool], max_iterations=max_iterations, events=seen.append)
+    try:
+        if stream:
+            list(agent.run("task", stream=True))
+        else:
+            agent.run("task")
+    except DegenerateTurnError:
+        pass
+    return [e for e in seen if isinstance(e, RunFinished)][-1]
+
+
+async def _async_finished(client, max_iterations, stream):
+    seen = []
+    agent = AsyncAgent(client, tools=[_noop_tool], max_iterations=max_iterations, events=seen.append)
+    try:
+        if stream:
+            async for _ in await agent.run("task", stream=True):
+                pass
+        else:
+            await agent.run("task")
+    except DegenerateTurnError:
+        pass
+    return [e for e in seen if isinstance(e, RunFinished)][-1]
+
+
+async def _on_every_driver(sync_client, async_client, max_iterations):
+    return {
+        "sync run": _sync_finished(sync_client(), max_iterations, stream=False),
+        "sync run_streamed": _sync_finished(sync_client(), max_iterations, stream=True),
+        "async run": await _async_finished(async_client(), max_iterations, stream=False),
+        "async run_streamed": await _async_finished(async_client(), max_iterations, stream=True),
+    }
+
+
+async def test_a_run_the_model_answered_ended_by_answered_on_every_driver():
+    finished = await _on_every_driver(
+        lambda: MockModelClient(["the answer"]), lambda: MockAsyncModelClient(["the answer"]), max_iterations=3
+    )
+
+    assert {name: (e.ended_by, e.max_iterations) for name, e in finished.items()} == {
+        name: ("answered", 3) for name in finished
+    }
+
+
+@pytest.mark.parametrize("max_iterations", [1, 2, 3])
+async def test_a_run_that_hit_the_cap_ended_by_wrap_up_on_every_driver(max_iterations):
+    finished = await _on_every_driver(_AlwaysToolClient, _AsyncAlwaysToolClient, max_iterations)
+
+    assert {name: (e.ended_by, e.max_iterations) for name, e in finished.items()} == {
+        name: ("wrap_up", max_iterations) for name in finished
+    }
+
+
+async def test_a_run_that_raised_ended_by_error_on_every_driver():
+    # Empty on every turn, the forced wrap-up included, so the loop raises DegenerateTurnError.
+    finished = await _on_every_driver(
+        lambda: MockModelClient([""] * 5), lambda: MockAsyncModelClient([""] * 5), max_iterations=2
+    )
+
+    for name, event in finished.items():
+        assert (event.ended_by, type(event.error)) == ("error", DegenerateTurnError), name

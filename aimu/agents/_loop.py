@@ -51,7 +51,8 @@ class _AgentLoopMixin:
         sink pairing the two does not leak. ``RunFinished.result`` is ``None`` here because
         the run returns a validated object rather than a string (it is the return value, and
         is also on ``model_client.last_structured``); ``error`` carries an exception that
-        ended the run.
+        ended the run. ``ended_by`` is ``"answered"`` or ``"error"``, and ``max_iterations`` stays
+        ``None``: one call is not a loop, so there is no budget to report.
         """
         from aimu.events import RunFinished, RunStarted, emit
 
@@ -63,7 +64,8 @@ class _AgentLoopMixin:
             error = exc
             raise
         finally:
-            emit(events, RunFinished(agent=self.name, iteration=0, result=None, error=error))
+            ended_by = "error" if error is not None else "answered"
+            emit(events, RunFinished(agent=self.name, iteration=0, result=None, error=error, ended_by=ended_by))
 
     def _prepare_run(self, deps: Any = None, tool_approval: Any = None) -> None:
         """Reset client state and re-apply system_message before a run, when configured.

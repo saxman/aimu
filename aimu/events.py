@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Literal, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +28,7 @@ __all__ = [
     "ModelTurnFinished",
     "ModelTurnStarted",
     "RequestPrepared",
+    "RunEnding",
     "RunEvent",
     "RunFinished",
     "RunStarted",
@@ -36,6 +37,10 @@ __all__ = [
     "emit",
     "log_events",
 ]
+
+
+# Why a run ended; see RunFinished.ended_by.
+RunEnding = Literal["answered", "wrap_up", "error"]
 
 
 @dataclass(frozen=True)
@@ -71,10 +76,29 @@ class RunFinished(RunEvent):
     ``result`` is also ``None`` on a **streamed** run (``run(stream=True)``): the chunks go
     to the caller as they arrive and the runner never assembles a final string, so there is
     no result to report. Read the text off the ``GENERATING`` chunks instead.
+
+    ``ended_by`` names the decision that ended the run, so a host can say *why* without
+    re-deriving the loop's control flow from the events before it:
+
+    - ``"answered"``: the model's last turn was a real answer and no inbox message was waiting.
+    - ``"wrap_up"``: the round budget ran out while the model still wanted tools (or had produced
+      nothing), so the loop made one tools-disabled call asking for a final answer, and got one.
+    - ``"error"``: the run raised; ``error`` is the exception (``DegenerateTurnError`` when even
+      the wrap-up produced nothing, ``TruncatedTurnError``, ``ModelRefusalError``,
+      ``CancelledError``, ...).
+
+    It is ``None`` from a ``Runner`` that has no such decision to report (a workflow).
+
+    ``max_iterations`` is the round budget the loop ran under, for reading ``iteration`` against:
+    a wrap-up at ``iteration == max_iterations`` is the uncounted call after the cap. A delivered
+    inbox message restarts the count, so a messaged run can legitimately pass it. ``None`` where
+    there was no loop (a ``schema=`` run makes one call).
     """
 
     result: Optional[str] = None
     error: Optional[BaseException] = None
+    ended_by: Optional[RunEnding] = None
+    max_iterations: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -134,6 +158,12 @@ class ModelTurnFinished(RunEvent):
     makes exactly one call and reports itself a different way (see
     ``Agent._structured_run_events`` / :class:`RunFinished`). There is therefore no started
     turn to leave unpaired there either.
+
+    ``stop_reason`` is the provider's own word for how the turn ended (``"end_turn"``,
+    ``"tool_use"``, ``"length"``, ``"refusal"``, ...), the same value as
+    ``client.last_stop_reason``. It is here because a sink often never holds the client: one
+    handed a spawned sub-agent's events cannot read that sub-agent's client at all. ``None``
+    means the provider said nothing.
     """
 
     model: str = ""
@@ -141,6 +171,7 @@ class ModelTurnFinished(RunEvent):
     usage: Optional[dict] = None
     duration_s: float = 0.0
     error: Optional[BaseException] = None
+    stop_reason: Optional[str] = None
 
 
 @dataclass(frozen=True)

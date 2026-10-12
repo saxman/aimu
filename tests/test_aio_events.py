@@ -143,7 +143,9 @@ async def test_async_structured_run_emits_attributed_bracketed_events():
     assert kinds[-1] == "RunFinished"
     assert "RequestPrepared" in kinds, kinds
     assert all(e.agent == "critic" for e in seen), kinds
-    assert next(e for e in seen if isinstance(e, RunFinished)).error is None
+    finished = next(e for e in seen if isinstance(e, RunFinished))
+    assert finished.error is None
+    assert finished.ended_by == "answered"
 
 
 async def test_async_streamed_structured_run_emits_attributed_bracketed_events():
@@ -289,6 +291,42 @@ async def test_async_generate_emits_turn_events_too():
     client.events = seen.append
     await client.generate("prompt")
     assert any(isinstance(e, ModelTurnFinished) for e in seen)
+
+
+class _AsyncEndTurnClient(MockAsyncModelClient):
+    """Reports how each turn ended through the seam every real provider calls."""
+
+    async def _chat(
+        self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None
+    ):
+        result = await super()._chat(user_message, generate_kwargs, use_tools, stream, images, audio)
+        if stream:
+            return self._recorded_on_drain(result)
+        self._record_stop_reason("end_turn")
+        return result
+
+    async def _recorded_on_drain(self, chunks):
+        # A streaming provider learns its stop reason from the terminal chunk, so record it last.
+        async for chunk in chunks:
+            yield chunk
+        self._record_stop_reason("end_turn")
+
+
+@pytest.mark.parametrize("stream", [False, True])
+async def test_async_turn_finished_carries_the_providers_stop_reason(stream):
+    from aimu.events import ModelTurnFinished
+
+    seen = []
+    client = _AsyncEndTurnClient(["hello"])
+    client.events = seen.append
+    if stream:
+        async for _ in await client.chat("hi", stream=True):
+            pass
+    else:
+        await client.chat("hi")
+
+    finished = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert [e.stop_reason for e in finished] == ["end_turn"]
 
 
 async def test_async_streamed_chat_emits_turn_finished_once_on_drain():
