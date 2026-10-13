@@ -1456,3 +1456,64 @@ async def test_a_real_spawn_reports_a_child_run_parented_to_the_parent(monkeypat
 
     children = [e for e in seen if isinstance(e, RunStarted) and e.run_id != "lead-1"]
     assert len(children) == 1 and children[0].parent_run_id == "lead-1"
+
+
+async def test_async_generate_after_a_tool_requesting_chat_reports_no_tool_calls():
+    from aimu.events import ModelTurnFinished
+
+    class ToolsOnChatOnly(_AsyncToolCallingClient):
+        async def _generate(self, prompt, generate_kwargs=None, stream=False, images=None, audio=None):
+            return "plain"
+
+    seen = []
+    client = ToolsOnChatOnly([])
+    client.events = seen.append
+    await client.chat("find it")
+    seen.clear()
+    await client.generate("again")
+
+    (finished,) = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert finished.tool_calls == []
+
+
+async def test_async_unserializable_payload_does_not_fail_the_request():
+    from aimu.events import RequestPrepared
+    from tests.test_events import _Unserializable
+
+    seen = []
+    client = MockAsyncModelClient(["ok"])
+    client.events = seen.append
+    client._record_request(_Unserializable())
+
+    (prepared,) = [e for e in seen if isinstance(e, RequestPrepared)]
+    assert prepared.endpoint is None
+    assert prepared.payload == "<unserializable: RecursionError>"
+
+
+async def test_async_bad_endpoint_does_not_fail_the_request():
+    from aimu.events import RequestPrepared
+
+    class Broken(MockAsyncModelClient):
+        def _request_endpoint(self):
+            raise ValueError("bad port")
+
+    seen = []
+    client = Broken(["ok"])
+    client.events = seen.append
+    client._record_request({"a": 1})
+
+    (prepared,) = [e for e in seen if isinstance(e, RequestPrepared)]
+    assert prepared.endpoint is None
+
+
+async def test_async_no_sink_means_no_payload_walk(monkeypatch):
+    import aimu.aio._base as base
+
+    def boom(_):
+        raise AssertionError("json_safe must not run with no sink attached")
+
+    monkeypatch.setattr(base, "json_safe", boom)
+    client = MockAsyncModelClient(["ok"])
+    client._record_request({"a": 1})
+
+    assert client.last_request == {"a": 1}

@@ -102,13 +102,25 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         for the in-process providers, the nearest equivalent).
         """
         self.last_request = payload
+        sink = _effective_sink(self)
+        if sink is None:
+            return
+        # Observation must not change what it observes: a payload json_safe cannot walk, or a
+        # malformed endpoint, degrades the record rather than failing the request.
+        try:
+            endpoint = self._request_endpoint()
+            recorded = json_safe(payload)
+        except Exception as exc:
+            logger.warning("Could not record the request for %s: %r", type(self).__name__, exc)
+            endpoint = None
+            recorded = f"<unserializable: {type(exc).__name__}>"
         emit(
-            _effective_sink(self),
+            sink,
             RequestPrepared(
                 provider=type(self).__name__,
                 model=str(getattr(self.model, "value", self.model)),
-                endpoint=self._request_endpoint(),
-                payload=json_safe(payload),
+                endpoint=endpoint,
+                payload=recorded,
             ),
         )
 
@@ -194,6 +206,7 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                 swappable; an unrecognised value raises ``ValueError``.
         """
         self.last_request = None
+        self.last_tool_calls = []
         generate_kwargs = self._apply_thinking(generate_kwargs, thinking)
         if images and audio:
             raise ValueError("Pass either images= or audio= per call, not both.")

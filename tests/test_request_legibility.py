@@ -916,5 +916,7 @@ async def test_every_clients_recorded_payload_serializes(client_cls, method, str
     seen = []
     await _drive_any(client_cls, monkeypatch, method, stream, prepare=lambda c: setattr(c, "events", seen.append))
 
-    for event in (e for e in seen if isinstance(e, RequestPrepared)):
+    prepared = [e for e in seen if isinstance(e, RequestPrepared)]
+    assert prepared, "no RequestPrepared seen; the loop below would pass vacuously"
+    for event in prepared:
         json.dumps(event.payload)

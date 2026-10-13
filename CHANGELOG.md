@@ -15,6 +15,17 @@
   `<agent_type>-<8 hex>` (`subagent-<8 hex>` on the generic shape) and is now
   `subagent-<agent_type>-<8 hex>` (`subagent-<8 hex>`), the agent's name plus a suffix. A host that
   parsed the old prefix must read the new one; one that treated the id as opaque is unaffected.
+- **Fix: recording a request can no longer fail it.** A payload `json_safe` could not walk (a
+  self-referential dict) or a malformed endpoint port used to raise out of the request. The event
+  now carries `endpoint=None` and a `"<unserializable: ...>"` payload marker and logs a warning; with
+  no sink attached, neither the endpoint nor the payload is computed at all.
+- **Fix: async HuggingFace and LlamaCpp clients forward `last_tool_calls`, `last_stop_reason`,
+  `last_usage`, and `last_output_truncated`,** so `ModelTurnFinished` reports them rather than
+  `[]` and `None`.
+- **Fix: `generate()` clears `last_tool_calls`,** so its `ModelTurnFinished` no longer reports the
+  previous `chat()`'s tool calls.
+- **Fix: IPv6 endpoints keep their brackets** (`http://[::1]:11434/v1`), so a recorded `endpoint`
+  is a valid URL.
 - **Change: `RequestPrepared.payload` is plain JSON data.** Payloads held values with no JSON form
   (Anthropic's `NOT_GIVEN` sentinel, Pydantic classes and instances, in-process rendered inputs), so
   every host persisting a request hit the same error. `NOT_GIVEN` keys are dropped (the SDK omits

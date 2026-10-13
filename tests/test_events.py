@@ -1573,3 +1573,114 @@ def test_a_structured_run_carries_a_run_id():
 
     assert len({e.run_id for e in seen}) == 1
     assert {e.parent_run_id for e in seen} == {"boss-1"}
+
+
+def test_a_generate_after_a_tool_requesting_chat_reports_no_tool_calls():
+    from aimu.events import ModelTurnFinished
+
+    class ToolsOnChatOnly(_ToolCallingClient):
+        def _generate(self, prompt, generate_kwargs=None, stream=False, images=None, audio=None):
+            return "plain"
+
+    seen = []
+    client = ToolsOnChatOnly([])
+    client.events = seen.append
+    client.chat("find it")
+    seen.clear()
+    client.generate("again")
+
+    (finished,) = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert finished.tool_calls == []
+
+
+class _Unserializable(dict):
+    """A payload json_safe cannot walk: it contains itself."""
+
+    def __init__(self):
+        super().__init__()
+        self["me"] = self
+
+
+def test_a_payload_that_cannot_be_serialized_does_not_fail_the_request():
+    from aimu.events import RequestPrepared
+
+    seen = []
+    client = MockModelClient(["ok"])
+    client.events = seen.append
+
+    client._record_request(_Unserializable())
+
+    (prepared,) = [e for e in seen if isinstance(e, RequestPrepared)]
+    assert prepared.endpoint is None
+    assert prepared.payload == "<unserializable: RecursionError>"
+
+
+def test_a_bad_endpoint_does_not_fail_the_request():
+    from aimu.events import RequestPrepared
+
+    class Broken(MockModelClient):
+        def _request_endpoint(self):
+            raise ValueError("Port could not be cast to integer value")
+
+    seen = []
+    client = Broken(["ok"])
+    client.events = seen.append
+    client._record_request({"a": 1})
+
+    (prepared,) = [e for e in seen if isinstance(e, RequestPrepared)]
+    assert prepared.endpoint is None
+    assert prepared.payload.startswith("<unserializable: ValueError")
+
+
+def test_no_sink_means_no_payload_walk(monkeypatch):
+    import aimu.models._base.text as text
+
+    def boom(_):
+        raise AssertionError("json_safe must not run with no sink attached")
+
+    monkeypatch.setattr(text, "json_safe", boom)
+    client = MockModelClient(["ok"])
+    client._record_request({"a": 1})
+
+    assert client.last_request == {"a": 1}
+
+
+def _wrapper_cases():
+    from aimu.agents._agentic_view import _AgenticViewMixin  # noqa: F401
+    from aimu.aio._model_client import AsyncModelClient
+    from aimu.aio.agentic_client import _AsyncAgenticView
+    from aimu.aio.providers._inprocess import _AsyncInProcessClient
+    from aimu.agents.agentic_client import _AgenticView
+    from aimu.models.model_client import ModelClient
+
+    return [
+        (ModelClient, "_client"),
+        (AsyncModelClient, "_client"),
+        (_AgenticView, "_inner_client"),
+        (_AsyncAgenticView, "_inner_client"),
+        (_AsyncInProcessClient, "_sync"),
+    ]
+
+
+@pytest.mark.parametrize("cls,attribute", _wrapper_cases(), ids=lambda v: v if isinstance(v, str) else v.__name__)
+@pytest.mark.parametrize(
+    "name,value",
+    [
+        ("last_stop_reason", "end_turn"),
+        ("last_tool_calls", [{"name": "x", "arguments": {}, "id": "1"}]),
+        ("last_thinking", "hm"),
+        ("last_usage", {"input_tokens": 1}),
+    ],
+)
+def test_every_wrapper_forwards_per_turn_state_to_the_inner_client(cls, attribute, name, value):
+    if name == "last_usage" and attribute == "_inner_client":
+        pytest.skip("agentic views deliberately report no usage; see ModelClient._emit_turn_finished")
+    inner = MockModelClient([])
+    wrapper = cls.__new__(cls)
+    setattr(wrapper, attribute, inner)
+
+    setattr(inner, name, value)
+    assert getattr(wrapper, name) == value
+
+    setattr(wrapper, name, "written" if name != "last_tool_calls" else [])
+    assert getattr(inner, name) == ("written" if name != "last_tool_calls" else [])
