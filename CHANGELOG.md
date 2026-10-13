@@ -9,6 +9,12 @@
   `Agent.run(run_id=, parent_run_id=)` on `aimu.agents.Agent`, `aimu.aio.Agent`, and
   `aimu.aio.SkillAgent` set them (an id is generated when omitted), and `ToolContext.run_id` tells a
   tool which run called it, so it can pass that on as a child's `parent_run_id`.
+- **Change: a spawn observer's `spawn_id` is the child run's `run_id`.** `make_subagent_tool` and
+  `make_async_subagent_tool` name the child's run and pass the caller's `ToolContext.run_id` as its
+  `parent_run_id`, so every event of the child carries the link. The observed id was
+  `<agent_type>-<8 hex>` (`subagent-<8 hex>` on the generic shape) and is now
+  `subagent-<agent_type>-<8 hex>` (`subagent-<8 hex>`), the agent's name plus a suffix. A host that
+  parsed the old prefix must read the new one; one that treated the id as opaque is unaffected.
 - **Change: `RequestPrepared.payload` is plain JSON data.** Payloads held values with no JSON form
   (Anthropic's `NOT_GIVEN` sentinel, Pydantic classes and instances, in-process rendered inputs), so
   every host persisting a request hit the same error. `NOT_GIVEN` keys are dropped (the SDK omits

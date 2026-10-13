@@ -15,6 +15,7 @@ from aimu.aio.agent import Agent as _RealAsyncAgent
 from aimu.aio.tools import builtin as _aio_builtin
 from aimu.aio.tools.builtin import make_async_subagent_tool
 from aimu.models import ContextOverflowError, OllamaModel, StreamChunk, StreamingContentType
+from aimu.tools.context import ToolContext
 
 # Capture the real fresh-client builder and Agent before the autouse fixture patches the module
 # attributes, so a test can restore either one and exercise the genuine, unfaked behavior.
@@ -71,6 +72,7 @@ class _RecordingAsyncAgent:
     chunks: list = []
 
     async def run(self, task, *args, **kwargs):
+        self.run_kwargs = kwargs
         self.enter = time.perf_counter()
         if kwargs.get("stream"):
             return self._streamed(task)
@@ -364,7 +366,7 @@ async def test_observer_sees_spawn_chunks_and_completion():
     kinds = [event[0] for event in observer.events]
     assert kinds == ["spawned", "chunk", "chunk", "chunk", "finished"]
     spawn_id = observer.events[0][1]
-    assert spawn_id.startswith("researcher-")
+    assert spawn_id.startswith("subagent-researcher-")
     assert observer.events[0][2:] == ("researcher", "find X")
     assert all(event[1] == spawn_id for event in observer.events)
     assert observer.events[-1][2:] == ("the answer", None)
@@ -913,8 +915,9 @@ def test_a_spec_level_source_reaches_the_agent_the_spawn_builds(monkeypatch):
     class RecordingAgent:
         def __init__(self, client, **kwargs):
             built.update(kwargs)
+            self.name = kwargs.get("name")
 
-        def run(self, task):
+        def run(self, task, **kwargs):
             return "done"
 
     monkeypatch.setattr("aimu.agents.agent.Agent", RecordingAgent)
@@ -940,3 +943,44 @@ def test_a_non_inbox_spec_value_raises_at_factory_call_time():
     types = {"bad": {"system_message": "x", "inbox": 5}}
     with pytest.raises(ValueError, match=r"agent_types\['bad'\]\['inbox'\]"):
         make_async_subagent_tool(MODEL, agent_types=types)
+
+
+async def test_a_spawn_names_the_childs_run_and_parents_it_to_the_caller():
+    spawn = make_async_subagent_tool(MODEL, agent_types=TYPES)
+    await spawn("researcher", "find X", ctx=ToolContext(run_id="lead-1"))
+
+    kwargs = _RecordingAsyncAgent.instances[-1].run_kwargs
+    assert kwargs["parent_run_id"] == "lead-1"
+    assert kwargs["run_id"].startswith("subagent-researcher-")
+
+
+async def test_concurrent_spawns_of_one_type_get_distinct_ids_and_the_same_parent():
+    spawn = make_async_subagent_tool(MODEL, agent_types=TYPES)
+    ctx = ToolContext(run_id="lead-1")
+    await asyncio.gather(spawn("researcher", "a", ctx=ctx), spawn("researcher", "b", ctx=ctx))
+
+    children = [agent.run_kwargs for agent in _RecordingAsyncAgent.instances]
+    assert {kwargs["parent_run_id"] for kwargs in children} == {"lead-1"}
+    assert len({kwargs["run_id"] for kwargs in children}) == 2
+
+
+async def test_an_observers_spawn_id_is_the_childs_run_id():
+    observer = _RecordingObserver()
+    spawn = make_async_subagent_tool(MODEL, agent_types=TYPES, observer=observer)
+    await spawn("researcher", "find X", ctx=ToolContext(run_id="lead-1"))
+
+    spawn_id = observer.events[0][1]
+    assert spawn_id == _RecordingAsyncAgent.instances[-1].run_kwargs["run_id"]
+
+
+async def test_a_spawn_called_without_a_context_is_unparented_not_broken():
+    """Direct callers (tests, a host invoking the tool itself) pass no ctx; that must still work."""
+    spawn = make_async_subagent_tool(MODEL, system_message="Do the thing.")
+    await spawn("summarize X")
+
+    assert _RecordingAsyncAgent.instances[-1].run_kwargs["parent_run_id"] is None
+
+
+def test_the_spawn_tool_schema_does_not_expose_the_context():
+    spec = make_async_subagent_tool(MODEL, agent_types=TYPES).__tool_spec__
+    assert "ctx" not in spec["function"]["parameters"]["properties"]

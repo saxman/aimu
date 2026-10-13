@@ -40,6 +40,8 @@ from aimu.models._base.shared import ContextOverflowError
 # runtime, and a guarded name is unresolvable there (and, contrary to what this comment used to
 # claim, `get_type_hints` cannot resolve it either, since the import never runs).
 from aimu.agents.inbox import Inbox
+from aimu.agents._tool_loop import new_run_id
+from aimu.tools.context import ToolContext
 
 from . import _execute_python_worker
 from ._documents import DocumentConversionError, html_to_markdown, pdf_to_markdown
@@ -2736,16 +2738,17 @@ def make_subagent_tool(
 
     if agent_types is None:
 
-        def spawn_subagent(task: str) -> str:
+        def spawn_subagent(task: str, ctx: Optional[ToolContext] = None) -> str:
             agent = _build_agent(system_message, tools, name="subagent", compact=compaction, agent_inbox=inbox)
             try:
-                return agent.run(task)
+                parent_run_id = ctx.run_id if ctx is not None else None
+                return agent.run(task, run_id=new_run_id(agent.name), parent_run_id=parent_run_id)
             except ContextOverflowError as exc:
                 return _subagent_overflow_result(None, exc)
 
     else:
 
-        def spawn_subagent(agent_type: str, task: str) -> str:
+        def spawn_subagent(agent_type: str, task: str, ctx: Optional[ToolContext] = None) -> str:
             spec = agent_types.get(agent_type)
             if spec is None:
                 return (
@@ -2768,7 +2771,8 @@ def make_subagent_tool(
                 agent_inbox=spec["inbox"] if "inbox" in spec else inbox,
             )
             try:
-                return agent.run(task)
+                parent_run_id = ctx.run_id if ctx is not None else None
+                return agent.run(task, run_id=new_run_id(agent.name), parent_run_id=parent_run_id)
             except ContextOverflowError as exc:
                 return _subagent_overflow_result(agent_type, exc)
 

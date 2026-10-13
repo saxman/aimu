@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import logging
 from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
-from uuid import uuid4
 
+from aimu.agents._tool_loop import new_run_id
 from aimu.events import EventSink
 from aimu.models import ContextOverflowError, StreamChunk, StreamingContentType
 from aimu.tools.builtin import (  # noqa: F401 (re-exports)
@@ -40,6 +40,7 @@ from aimu.tools.builtin import (  # noqa: F401 (re-exports)
 )
 from aimu.tools.builtin import _reference_image_path, _require_reference_support
 from aimu.tools.builtin import _subagent_docstring, _subagent_overflow_result, _validate_subagent_config
+from aimu.tools.context import ToolContext
 from aimu.tools.decorator import tool
 
 if TYPE_CHECKING:
@@ -97,20 +98,31 @@ async def _notify_observer(observer: SubagentObserver, name: str, *args) -> None
         logger.warning("A sub-agent observer callback failed; continuing the spawn.", exc_info=True)
 
 
-async def _run_observed(agent, agent_type: Optional[str], task: str, observer: SubagentObserver) -> str:
+async def _run_observed(
+    agent,
+    agent_type: Optional[str],
+    task: str,
+    observer: SubagentObserver,
+    *,
+    run_id: str,
+    parent_run_id: Optional[str],
+) -> str:
     """Run one spawn streamed, reporting it to ``observer``, and return the child's final answer.
 
     ``parts`` is cleared whenever the child's loop advances an iteration, so the return value is the
     final answer rather than every intermediate tools-only response concatenated -- which is what
     keeps this path's result identical to the non-streamed one.
+
+    ``run_id`` is reported as the ``spawn_id``, so a host keyed on the spawn reads the same value off
+    every event of the child's run.
     """
-    spawn_id = f"{agent_type or 'subagent'}-{uuid4().hex[:8]}"
+    spawn_id = run_id
     await _notify_observer(observer, "spawned", spawn_id, agent_type, task)
     parts: list[str] = []
     iteration = 0
     error: Optional[BaseException] = None
     try:
-        async for chunk in await agent.run(task, stream=True):
+        async for chunk in await agent.run(task, stream=True, run_id=run_id, parent_run_id=parent_run_id):
             if chunk.iteration > iteration:
                 iteration = chunk.iteration
                 parts.clear()
@@ -405,7 +417,7 @@ def make_async_subagent_tool(
             inbox=agent_inbox,
         )
 
-    async def _dispatch(agent, agent_type: Optional[str], task: str) -> str:
+    async def _dispatch(agent, agent_type: Optional[str], task: str, parent_run_id: Optional[str]) -> str:
         """Run one spawn, turning a full child window into a tool result rather than an exception.
 
         The catch sits *outside* ``_run_observed`` on purpose: the observer still hears ``finished``
@@ -413,22 +425,23 @@ def make_async_subagent_tool(
         gets the message that names whose context filled. Display keeps the error; the model gets the
         explanation. See :func:`aimu.tools.builtin._subagent_overflow_result`.
         """
+        run_id = new_run_id(agent.name)
         try:
             if observer is None:
-                return await agent.run(task)
-            return await _run_observed(agent, agent_type, task, observer)
+                return await agent.run(task, run_id=run_id, parent_run_id=parent_run_id)
+            return await _run_observed(agent, agent_type, task, observer, run_id=run_id, parent_run_id=parent_run_id)
         except ContextOverflowError as exc:
             return _subagent_overflow_result(agent_type, exc)
 
     if agent_types is None:
 
-        async def spawn_subagent(task: str) -> str:
+        async def spawn_subagent(task: str, ctx: Optional[ToolContext] = None) -> str:
             agent = _build_agent(system_message, tools, name="subagent", compact=compaction, agent_inbox=inbox)
-            return await _dispatch(agent, None, task)
+            return await _dispatch(agent, None, task, ctx.run_id if ctx is not None else None)
 
     else:
 
-        async def spawn_subagent(agent_type: str, task: str) -> str:
+        async def spawn_subagent(agent_type: str, task: str, ctx: Optional[ToolContext] = None) -> str:
             spec = agent_types.get(agent_type)
             if spec is None:
                 return (
@@ -449,7 +462,7 @@ def make_async_subagent_tool(
                 # turning the factory's source off, not omitting the key.
                 agent_inbox=spec["inbox"] if "inbox" in spec else inbox,
             )
-            return await _dispatch(agent, agent_type, task)
+            return await _dispatch(agent, agent_type, task, ctx.run_id if ctx is not None else None)
 
     spawn_subagent.__name__ = tool_name
     spawn_subagent.__qualname__ = tool_name

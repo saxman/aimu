@@ -1435,3 +1435,24 @@ async def test_async_a_tool_is_told_which_run_called_it():
     await agent.run("go", run_id="worker-abcd")
 
     assert received == ["worker-abcd"]
+
+
+async def test_a_real_spawn_reports_a_child_run_parented_to_the_parent(monkeypatch):
+    from aimu.aio import Agent
+    from aimu.aio.tools import builtin as aio_builtin
+    from aimu.aio.tools.builtin import make_async_subagent_tool
+    from aimu.events import RunStarted
+
+    monkeypatch.setattr(aio_builtin, "_fresh_async_subagent_client", lambda model: MockAsyncModelClient(["child done"]))
+    seen = []
+    spawn = make_async_subagent_tool("anthropic:claude-sonnet-4-6", system_message="Help.", events=seen.append)
+    parent = Agent(
+        MockAsyncModelClient([{"tool": "spawn_subagent", "arguments": {"task": "x"}}, "parent done"]),
+        name="lead",
+        tools=[spawn],
+        events=seen.append,
+    )
+    await parent.run("delegate it", run_id="lead-1")
+
+    children = [e for e in seen if isinstance(e, RunStarted) and e.run_id != "lead-1"]
+    assert len(children) == 1 and children[0].parent_run_id == "lead-1"
