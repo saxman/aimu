@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+from aimu.agents._tool_loop import _identifying, new_run_id
 from aimu.models.base import StreamChunk
 from aimu.skills.manager import SkillManager
 
@@ -132,23 +133,27 @@ class SkillAgent(Agent):
         events=None,
         compaction=None,
         inbox=None,
+        run_id=None,
+        parent_run_id=None,
     ):
         # Prepare + async skill setup must complete before the loop, and _prepare_run
         # (which resets model_client.tools) must run exactly once, before skills are added.
         # That ordering is why this can't just call super().run() (which re-prepares); instead
         # it prepares, sets up skills, then delegates to Agent's post-prepare loop helpers.
-        # ``deps``, ``tool_approval``, ``schema``, ``thinking``, ``events``, ``compaction``, and
-        # ``inbox`` mirror aio.Agent.run(); see that method. Every parameter there has to be
+        # ``deps``, ``tool_approval``, ``schema``, ``thinking``, ``events``, ``compaction``,
+        # ``inbox``, ``run_id``, and ``parent_run_id`` mirror aio.Agent.run(); see that method. Every parameter there has to be
         # repeated here, because the ordering above is why this cannot delegate to super().run().
         # test_skill_agent_run_accepts_everything_agent_run_does is what catches the next omission.
         thinking = thinking if thinking is not None else self.thinking
         events = events if events is not None else self.events
         compaction = compaction if compaction is not None else self.compaction
         inbox = inbox if inbox is not None else self.inbox
+        run_id = run_id or new_run_id(self.name)
         self._prepare_run(deps, tool_approval)
         await self._setup_skills_async()
 
         if schema is not None:
+            events = _identifying(events, run_id, parent_run_id)
             if stream:
                 # Skill setup is already done above; forward the client's structured stream.
                 return self._structured_stream_after_setup(task, generate_kwargs, images, schema, thinking, events)
@@ -161,7 +166,9 @@ class SkillAgent(Agent):
             finally:
                 self._last_messages = list(self.model_client.messages)
 
-        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events, compaction, inbox)
+        loop = self._make_tool_loop(
+            tools, deps, tool_approval, thinking, events, compaction, inbox, run_id, parent_run_id
+        )
         if stream:
             return self._run_loop_streamed(loop, task, generate_kwargs, images)
 

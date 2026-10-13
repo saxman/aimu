@@ -1330,3 +1330,89 @@ async def test_async_turn_finished_carries_the_requested_tool_calls_and_reasonin
     assert [(c["name"], c["arguments"]) for c in finished.tool_calls] == [("lookup", {"q": "aimu"})]
     assert all(c["id"] for c in finished.tool_calls)
     assert finished.thinking == "I should look it up."
+
+
+async def test_async_every_event_of_a_run_carries_one_run_id():
+    from aimu.aio import Agent
+
+    seen = []
+    agent = Agent(MockAsyncModelClient(["tool", "done"]), name="worker", tools=[_a_tool], events=seen.append)
+    await agent.run("go")
+
+    assert {e.run_id for e in seen} == {seen[0].run_id}
+    assert seen[0].run_id.startswith("worker-")
+    assert all(e.parent_run_id is None for e in seen)
+
+
+async def test_async_a_caller_can_name_the_run_and_its_parent():
+    from aimu.aio import Agent
+
+    seen = []
+    agent = Agent(MockAsyncModelClient(["done"]), name="worker", events=seen.append)
+    await agent.run("go", run_id="worker-1234", parent_run_id="boss-9")
+
+    assert {(e.run_id, e.parent_run_id) for e in seen} == {("worker-1234", "boss-9")}
+
+
+async def test_async_two_runs_of_one_agent_get_different_ids():
+    from aimu.aio import Agent
+    from aimu.events import RunStarted
+
+    seen = []
+    agent = Agent(MockAsyncModelClient(["a", "b"]), name="worker", events=seen.append)
+    await agent.run("one")
+    await agent.run("two")
+
+    ids = [e.run_id for e in seen if isinstance(e, RunStarted)]
+    assert len(set(ids)) == 2
+
+
+async def test_async_an_abandoned_streamed_run_still_finishes_with_its_run_id():
+    from aimu.aio import Agent
+    from aimu.events import RunFinished, RunStarted
+
+    seen = []
+    agent = Agent(MockAsyncModelClient(["tool", "tool", "done"]), name="worker", tools=[_a_tool], events=seen.append)
+    stream = await agent.run("go", stream=True)
+    await stream.__anext__()
+    await stream.aclose()
+
+    started = next(e for e in seen if isinstance(e, RunStarted))
+    finished = [e for e in seen if isinstance(e, RunFinished)]
+    assert len(finished) == 1 and finished[0].run_id == started.run_id
+
+
+async def test_async_a_structured_run_carries_a_run_id():
+    from dataclasses import dataclass
+
+    from aimu.aio import Agent
+
+    @dataclass
+    class Out:
+        x: int
+
+    client = MockAsyncModelClient(['{"x": 5}'])
+    client.model.supports_structured_output = False
+    seen = []
+    await Agent(client, name="critic", events=seen.append).run("verdict?", schema=Out, parent_run_id="boss-1")
+
+    assert len({e.run_id for e in seen}) == 1
+    assert {e.parent_run_id for e in seen} == {"boss-1"}
+
+
+async def test_async_skill_agent_accepts_run_identity(tmp_path):
+    from aimu.aio import SkillAgent
+    from aimu.skills import SkillManager
+
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    seen = []
+    agent = SkillAgent(
+        MockAsyncModelClient(["done"]),
+        name="lead",
+        events=seen.append,
+        skill_manager=SkillManager(skill_dirs=[str(skills_dir)]),
+    )
+    await agent.run("go", run_id="lead-1", parent_run_id="host-1")
+
+    assert {(e.run_id, e.parent_run_id) for e in seen} == {("lead-1", "host-1")}

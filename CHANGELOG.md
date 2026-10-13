@@ -4,6 +4,11 @@
 
 ### Events
 
+- **New: run identity on every event.** `RunEvent.run_id` names one run of an agent and
+  `RunEvent.parent_run_id` the run that started it, so two concurrent runs of one agent stay apart.
+  `Agent.run(run_id=, parent_run_id=)` on `aimu.agents.Agent`, `aimu.aio.Agent`, and
+  `aimu.aio.SkillAgent` set them (an id is generated when omitted), and `ToolContext.run_id` tells a
+  tool which run called it, so it can pass that on as a child's `parent_run_id`.
 - **Change: `RequestPrepared.payload` is plain JSON data.** Payloads held values with no JSON form
   (Anthropic's `NOT_GIVEN` sentinel, Pydantic classes and instances, in-process rendered inputs), so
   every host persisting a request hit the same error. `NOT_GIVEN` keys are dropped (the SDK omits

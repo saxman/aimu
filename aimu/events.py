@@ -49,10 +49,16 @@ class RunEvent:
 
     ``agent`` and ``iteration`` mirror :class:`~aimu.models.StreamChunk`'s fields of the same
     name, so one sink can attribute events correctly inside a nested workflow.
+
+    ``run_id`` identifies one run of an agent, so two concurrent runs of the same agent stay
+    apart; ``parent_run_id`` is the run that started it, when the caller said so (AIMU's spawn
+    tools always do). Both are ``None`` outside a run, e.g. a bare ``client.chat()``.
     """
 
     agent: Optional[str] = None
     iteration: int = 0
+    run_id: Optional[str] = None
+    parent_run_id: Optional[str] = None
 
 
 @dataclass(frozen=True)

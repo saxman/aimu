@@ -1486,3 +1486,90 @@ def test_a_model_client_wrapper_reports_the_inner_clients_tool_calls():
     (finished,) = [e for e in seen if isinstance(e, ModelTurnFinished)]
     assert [c["name"] for c in finished.tool_calls] == ["lookup"]
     assert wrapper.last_tool_calls == inner.last_tool_calls
+
+
+def test_every_event_of_a_run_carries_one_run_id():
+    from aimu.agents import Agent
+
+    seen = []
+    agent = Agent(MockModelClient(["tool", "done"]), name="worker", tools=[_a_tool], events=seen.append)
+    agent.run("go")
+
+    assert {e.run_id for e in seen} == {seen[0].run_id}
+    assert seen[0].run_id.startswith("worker-")
+    assert all(e.parent_run_id is None for e in seen)
+
+
+def test_a_caller_can_name_the_run_and_its_parent():
+    from aimu.agents import Agent
+
+    seen = []
+    agent = Agent(MockModelClient(["done"]), name="worker", events=seen.append)
+    agent.run("go", run_id="worker-1234", parent_run_id="boss-9")
+
+    assert {(e.run_id, e.parent_run_id) for e in seen} == {("worker-1234", "boss-9")}
+
+
+def test_two_runs_of_one_agent_get_different_ids():
+    from aimu.agents import Agent
+    from aimu.events import RunStarted
+
+    seen = []
+    agent = Agent(MockModelClient(["a", "b"]), name="worker", events=seen.append)
+    agent.run("one")
+    agent.run("two")
+
+    ids = [e.run_id for e in seen if isinstance(e, RunStarted)]
+    assert len(set(ids)) == 2
+
+
+def test_an_abandoned_streamed_run_still_finishes_with_its_run_id():
+    from aimu.agents import Agent
+    from aimu.events import RunFinished, RunStarted
+
+    seen = []
+    agent = Agent(MockModelClient(["tool", "tool", "done"]), name="worker", tools=[_a_tool], events=seen.append)
+    stream = agent.run("go", stream=True)
+    next(iter(stream))
+    stream.close()
+
+    started = next(e for e in seen if isinstance(e, RunStarted))
+    finished = [e for e in seen if isinstance(e, RunFinished)]
+    assert len(finished) == 1 and finished[0].run_id == started.run_id
+
+
+def test_a_tool_is_told_which_run_called_it():
+    from aimu import ToolContext
+    from aimu.agents import Agent
+    from aimu.tools import tool
+
+    received = []
+
+    @tool
+    def report(ctx: ToolContext) -> str:
+        """Report the calling run."""
+        received.append(ctx.run_id)
+        return "ok"
+
+    agent = Agent(MockModelClient(["tool", "done"]), name="worker", tools=[report])
+    agent.run("go", run_id="worker-abcd")
+
+    assert received == ["worker-abcd"]
+
+
+def test_a_structured_run_carries_a_run_id():
+    from dataclasses import dataclass
+
+    from aimu.agents import Agent
+
+    @dataclass
+    class Out:
+        x: int
+
+    client = MockModelClient(['{"x": 5}'])
+    client.model.supports_structured_output = False
+    seen = []
+    Agent(client, name="critic", events=seen.append).run("verdict?", schema=Out, parent_run_id="boss-1")
+
+    assert len({e.run_id for e in seen}) == 1
+    assert {e.parent_run_id for e in seen} == {"boss-1"}

@@ -83,6 +83,14 @@ is generated and, while it reliably said `'The result of 12 + 30 is **42**.'` in
 runs here, it varied in the rest — `input_tokens`, the tool `arguments`, and `result='42'` are the
 parts of this block that are actually fixed.)
 
+Every event of an agent's run also carries `run_id`, so two concurrent runs of the same agent
+(two spawns of one specialist) stay apart, and `parent_run_id`, the run that started it. AIMU's
+spawn tools set the parent themselves. Anything else that starts an agent from inside a tool
+should pass `parent_run_id=ctx.run_id` (from an injected `ToolContext`) to that agent's `run`, or
+the child arrives unparented. That is deliberate: a context variable would link children
+automatically, but it does not reach tools dispatched on a thread pool, so it would leave some
+children silently unparented, which is worse than visibly so.
+
 Every event carries `agent` and `iteration` (the same two fields `StreamChunk` carries), so one
 sink attached to a nested workflow — a `Chain` step, a `Router` handler, every worker in a
 `Parallel` — can still tell events apart by who emitted them. `Chain.from_client(...)`,

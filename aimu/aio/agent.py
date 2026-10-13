@@ -15,6 +15,7 @@ from typing import Any, AsyncIterator, Callable, Optional, Union
 from aimu.agents._loop import _AgentLoopMixin
 from aimu.agents.base import MessageHistory
 from aimu.agents.inbox import Inbox
+from aimu.agents._tool_loop import _identifying, new_run_id
 from aimu.events import EventSink
 from aimu.models.base import StreamChunk
 
@@ -172,6 +173,8 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         events: Optional[EventSink] = None,
         compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
         inbox: Optional[Inbox] = None,
+        run_id: Optional[str] = None,
+        parent_run_id: Optional[str] = None,
     ) -> Union[str, Any, AsyncIterator[StreamChunk]]:
         """Run the async agentic loop. ``images`` attach only to the initial turn.
 
@@ -217,13 +220,19 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         from it at the run's start and drains that reader once per round; whatever it gets is sent as
         that round's user message. A delivered message resets the round budget. Not used by the
         ``schema=`` structured-output path, which opens no reader at all.
+        ``run_id`` names this run on every event it emits; one is generated (``<name>-<8 hex>``)
+        when omitted. ``parent_run_id`` names the run that started this one, stamped on every
+        event too; AIMU's spawn tools pass it (from ``ToolContext.run_id``), and anything else
+        that starts an agent from inside a tool should do the same, or the child is unparented.
         See the sync :meth:`aimu.agents.Agent.run` for full semantics.
         """
         thinking = thinking if thinking is not None else self.thinking
         events = events if events is not None else self.events
         compaction = compaction if compaction is not None else self.compaction
         inbox = inbox if inbox is not None else self.inbox
+        run_id = run_id or new_run_id(self.name)
         if schema is not None:
+            events = _identifying(events, run_id, parent_run_id)
             if stream:
                 return self._run_structured_streamed(
                     task, generate_kwargs, images, deps, tool_approval, schema, thinking, events
@@ -238,7 +247,9 @@ class Agent(_AgentLoopMixin, AsyncRunner):
             finally:
                 self._last_messages = list(self.model_client.messages)
         self._prepare_run(deps, tool_approval)
-        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events, compaction, inbox)
+        loop = self._make_tool_loop(
+            tools, deps, tool_approval, thinking, events, compaction, inbox, run_id, parent_run_id
+        )
         if stream:
             return self._run_loop_streamed(loop, task, generate_kwargs, images)
         return await self._run_loop(loop, task, generate_kwargs, images)
@@ -257,6 +268,8 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         events: Optional[EventSink] = None,
         compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
         inbox: Optional[Inbox] = None,
+        run_id: Optional[str] = None,
+        parent_run_id: Optional[str] = None,
     ) -> _AsyncToolLoop:
         """Build the async iterative tool-calling engine with this run's effective tools + policy."""
         from aimu.tools.approval import approve_all
@@ -275,6 +288,8 @@ class Agent(_AgentLoopMixin, AsyncRunner):
             agent_name=self.name,
             compaction=compaction if compaction is not None else self.compaction,
             inbox=inbox if inbox is not None else self.inbox,
+            run_id=run_id,
+            parent_run_id=parent_run_id,
         )
 
     async def _run_loop(
