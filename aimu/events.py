@@ -164,6 +164,12 @@ class ModelTurnFinished(RunEvent):
     ``client.last_stop_reason``. It is here because a sink often never holds the client: one
     handed a spawned sub-agent's events cannot read that sub-agent's client at all. ``None``
     means the provider said nothing.
+
+    ``tool_calls`` are the tool calls the model requested on this turn, parsed and before any
+    dispatch, each ``{"name", "arguments", "id"}``: a tools-only round's ``text`` is empty, so
+    without them a recorded turn would show no response at all. ``thinking`` is the turn's
+    reasoning (``client.last_thinking``), ``None`` when there was none. Both are read when the
+    event fires, so on a streamed turn they are complete.
     """
 
     model: str = ""
@@ -172,6 +178,8 @@ class ModelTurnFinished(RunEvent):
     duration_s: float = 0.0
     error: Optional[BaseException] = None
     stop_reason: Optional[str] = None
+    tool_calls: list = field(default_factory=list)
+    thinking: Optional[str] = None
 
 
 @dataclass(frozen=True)

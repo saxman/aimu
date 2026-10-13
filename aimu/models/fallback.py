@@ -121,6 +121,7 @@ class _FallbackStateMixin:
         self.last_stop_reason: Optional[str] = None
         self.last_structured = None
         self.last_request: Optional[Any] = None
+        self.last_tool_calls: list = []
         self.events: Optional["EventSink"] = None
 
     def _load_state(self, client) -> None:
@@ -133,6 +134,7 @@ class _FallbackStateMixin:
         client.last_stop_reason = None
         client.last_structured = None
         client.last_request = None
+        client.last_tool_calls = []
         # ``events`` is configuration, not an output slot: an inner client may have been
         # constructed with its own sink. The sink this FallbackClient reports to is scoped
         # per delegated call via ``_scoped_events`` (a no-op when there is none), never
@@ -156,6 +158,7 @@ class _FallbackStateMixin:
         self.last_stop_reason = getattr(client, "last_stop_reason", None)
         self.last_structured = getattr(client, "last_structured", None)
         self.last_request = getattr(client, "last_request", None)
+        self.last_tool_calls = list(getattr(client, "last_tool_calls", None) or [])
 
     def _exhausted(self, errors: list[tuple[Any, BaseException]]) -> "FallbackExhaustedError":
         last = errors[-1][1] if errors else None
@@ -210,6 +213,7 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
         # prior call's payload looking current, and so this stays consistent with every
         # BaseModelClient.chat()'s own clear-at-the-top rule.
         self.last_request = None
+        self.last_tool_calls = []
         if stream:
             return self._chat_streamed(
                 user_message, generate_kwargs, use_tools, images, include, tools, audio, thinking
@@ -300,6 +304,7 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
         thinking: Optional[Union[bool, str]] = None,
     ) -> Union[str, Any, Iterator[StreamChunk]]:
         self.last_request = None
+        self.last_tool_calls = []
         if stream:
             return self._generate_streamed(prompt, generate_kwargs, images, include, audio, thinking)
         errors: list[tuple[BaseModelClient, BaseException]] = []
@@ -309,6 +314,7 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
             client.last_stop_reason = None
             client.last_structured = None
             client.last_request = None
+            client.last_tool_calls = []
             try:
                 with _scoped_events(client, _effective_sink(self)):
                     result = client.generate(
@@ -345,6 +351,7 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
             client.last_stop_reason = None
             client.last_structured = None
             client.last_request = None
+            client.last_tool_calls = []
             with _scoped_events(client, _effective_sink(self)):
                 stream = client.generate(
                     prompt,

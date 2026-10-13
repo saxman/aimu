@@ -1424,3 +1424,65 @@ def test_a_durable_events_attribute_on_a_fallback_client_still_reaches_the_inner
 
     _assert_both_halves(durable_seen)
     assert inner.events is None  # propagated by scope, never by mutating the inner client
+
+
+class _ToolCallingClient(MockModelClient):
+    """Requests one tool through the seam real providers use, with reasoning attached."""
+
+    def _chat(self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
+        if user_message is not None:
+            self.messages.append({"role": "user", "content": user_message})
+        self.last_thinking = "I should look it up."
+        self._record_tool_calls([{"name": "lookup", "arguments": {"q": "aimu"}}])
+        if stream:
+            return iter([])
+        return ""
+
+
+def test_turn_finished_carries_the_requested_tool_calls_and_reasoning():
+    """A tools-only round has empty text; without these fields a recorded call shows nothing."""
+    from aimu.events import ModelTurnFinished
+
+    seen = []
+    client = _ToolCallingClient([])
+    client.events = seen.append
+    client.chat("find it")
+
+    (finished,) = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert [(c["name"], c["arguments"]) for c in finished.tool_calls] == [("lookup", {"q": "aimu"})]
+    assert all(c["id"] for c in finished.tool_calls)
+    assert finished.thinking == "I should look it up."
+
+
+def test_a_turn_with_no_tool_calls_reports_none_and_clears_the_last_ones():
+    from aimu.events import ModelTurnFinished
+
+    seen = []
+    client = MockModelClient(["plain answer"])
+    client.last_tool_calls = [{"name": "stale", "arguments": {}, "id": "x"}]
+    client.events = seen.append
+    client.chat("hi")
+
+    (finished,) = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert finished.tool_calls == []
+    assert finished.thinking is None
+    assert client.last_tool_calls == []
+
+
+def test_a_model_client_wrapper_reports_the_inner_clients_tool_calls():
+    from aimu.events import ModelTurnFinished
+    from aimu.models.model_client import ModelClient
+
+    inner = _ToolCallingClient([])
+    wrapper = ModelClient.__new__(ModelClient)
+    wrapper._client = inner
+    wrapper.model = inner.model
+    wrapper.model_kwargs = None
+    seen = []
+    inner.events = seen.append
+
+    wrapper.chat("find it")
+
+    (finished,) = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert [c["name"] for c in finished.tool_calls] == ["lookup"]
+    assert wrapper.last_tool_calls == inner.last_tool_calls

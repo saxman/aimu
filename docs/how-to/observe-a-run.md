@@ -125,6 +125,9 @@ separate, because one is the model's answer and the other is the loop's:
   same value as `client.last_stop_reason`. It is on the event because a sink often never holds
   the client: one receiving a spawned sub-agent's events cannot reach that sub-agent's client at
   all. `None` means the provider said nothing.
+- **`ModelTurnFinished.tool_calls` and `.thinking`** are what the model asked for on that turn
+  (each `{"name", "arguments", "id"}`, before dispatch) and its reasoning. A round that only called
+  tools has empty `text`, so these are the response on most rounds of a tool loop.
 - **`RunFinished.ended_by`** is the decision the agent loop made: `"answered"` (the model's last
   turn was a real answer and no inbox message was waiting), `"wrap_up"` (the round budget ran out
   while the model still wanted tools, so the loop made one tools-disabled call asking for a final

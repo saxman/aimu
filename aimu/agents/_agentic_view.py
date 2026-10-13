@@ -112,6 +112,14 @@ class _AgenticViewMixin:
         self._inner_client.last_stop_reason = value
 
     @property
+    def last_tool_calls(self) -> list:
+        return self._inner_client.last_tool_calls
+
+    @last_tool_calls.setter
+    def last_tool_calls(self, value: list) -> None:
+        self._inner_client.last_tool_calls = value
+
+    @property
     def last_structured(self):
         return self._inner_client.last_structured
 

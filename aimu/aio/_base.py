@@ -44,6 +44,7 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
     last_output_truncated: bool
     last_structured: Any | None
     last_request: Optional[Any]
+    last_tool_calls: list[dict]
     events: Optional[EventSink]
 
     @abstractmethod
@@ -69,6 +70,7 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         self.last_output_truncated = False
         self.last_structured = None
         self.last_request = None
+        self.last_tool_calls: list = []
         # This is the durable, always-shared setting: an assignment here (or `client.events =
         # ...` directly) has no execution-context boundary to isolate by, so it genuinely is
         # visible to every caller of this client, concurrent or not -- unlike `tools`, which is
@@ -249,6 +251,7 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                 swappable; an unrecognised value raises ``ValueError``.
         """
         self.last_request = None
+        self.last_tool_calls = []
         generate_kwargs = self._apply_thinking(generate_kwargs, thinking)
         if schema is not None:
             if stream:
@@ -455,6 +458,8 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                 duration_s=time.monotonic() - started,
                 error=error,
                 stop_reason=getattr(self, "last_stop_reason", None),
+                tool_calls=list(getattr(self, "last_tool_calls", None) or []),
+                thinking=getattr(self, "last_thinking", None) or None,
             ),
         )
 
@@ -498,6 +503,8 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                     duration_s=time.monotonic() - started,
                     error=error,
                     stop_reason=getattr(self, "last_stop_reason", None),
+                    tool_calls=list(getattr(self, "last_tool_calls", None) or []),
+                    thinking=getattr(self, "last_thinking", None) or None,
                 ),
             )
 

@@ -15,6 +15,12 @@
 - **New: `ModelTurnFinished.stop_reason` carries the provider's own word for how the turn ended**,
   the value of `client.last_stop_reason`. A sink receiving a spawned sub-agent's events never holds
   that sub-agent's client, so before this it had no way to read it.
+- **New: `ModelTurnFinished.tool_calls` and `ModelTurnFinished.thinking`**, plus `client.last_tool_calls`,
+  forwarded through `ModelClient`, `AsyncModelClient`, the agentic view, and `FallbackClient`. A
+  tools-only round's `text` is empty, so these are what a host records as that round's response.
+- **Fix: `last_stop_reason` (and so `ModelTurnFinished.stop_reason`) is now forwarded through
+  `ModelClient`, `AsyncModelClient`, and the agentic view, and adopted by `FallbackClient`**; through
+  `aimu.client()` it read `None`.
 
 ### Tools
 

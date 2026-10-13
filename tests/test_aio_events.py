@@ -1303,3 +1303,30 @@ async def test_a_durable_events_attribute_on_a_fallback_client_still_reaches_the
 
     _assert_both_halves(durable_seen)
     assert inner.events is None  # propagated by scope, never by mutating the inner client
+
+
+class _AsyncToolCallingClient(MockAsyncModelClient):
+    """Requests one tool through the seam real providers use, with reasoning attached."""
+
+    async def _chat(
+        self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None
+    ):
+        if user_message is not None:
+            self.messages.append({"role": "user", "content": user_message})
+        self.last_thinking = "I should look it up."
+        self._record_tool_calls([{"name": "lookup", "arguments": {"q": "aimu"}}])
+        return ""
+
+
+async def test_async_turn_finished_carries_the_requested_tool_calls_and_reasoning():
+    from aimu.events import ModelTurnFinished
+
+    seen = []
+    client = _AsyncToolCallingClient([])
+    client.events = seen.append
+    await client.chat("find it")
+
+    (finished,) = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert [(c["name"], c["arguments"]) for c in finished.tool_calls] == [("lookup", {"q": "aimu"})]
+    assert all(c["id"] for c in finished.tool_calls)
+    assert finished.thinking == "I should look it up."
