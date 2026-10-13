@@ -133,6 +133,10 @@ class RequestPrepared(RunEvent):
     conversation. Redacting here would reintroduce the hiding this exists to remove; a sink
     that ships events off the machine is the right place to filter.
 
+    It is plain JSON data (see ``aimu.models._internal.json_safe``): ``NOT_GIVEN`` keys are dropped,
+    since the SDK omits them from the wire, and anything with no JSON form becomes a visible marker.
+    ``client.last_request`` keeps the raw payload.
+
     ``endpoint`` is the server the request went to (base URL, credentials and query stripped), so
     two OpenAI-compatible servers are distinguishable and a recorded request can be re-sent. ``None``
     means there was no wire request: HuggingFace and LlamaCpp run in-process and record the nearest

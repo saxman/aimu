@@ -76,13 +76,14 @@ def test_last_request_reflects_strip_inert_keys(monkeypatch):
 
 def test_request_prepared_event_carries_the_same_payload(monkeypatch):
     from aimu.events import RequestPrepared
+    from aimu.models._internal.json_safe import json_safe
 
     seen = []
     client = _fake_openai_compat_client(monkeypatch)
     client.events = seen.append
     client.chat("q")
     prepared = next(e for e in seen if isinstance(e, RequestPrepared))
-    assert prepared.payload == client.last_request
+    assert prepared.payload == json_safe(client.last_request)
     assert prepared.provider
 
 
@@ -902,3 +903,18 @@ async def test_every_wire_client_names_its_endpoint(client_cls, method, stream, 
 
     endpoints = {e.endpoint for e in seen if isinstance(e, RequestPrepared)}
     assert endpoints and endpoints <= set(_STUB_ENDPOINTS), endpoints
+
+
+@pytest.mark.parametrize("method,stream", _PATHS, ids=[f"{m}-{'stream' if s else 'sync'}" for m, s in _PATHS])
+@pytest.mark.parametrize("client_cls", _clients_to_check(), ids=lambda c: c.__name__)
+async def test_every_clients_recorded_payload_serializes(client_cls, method, stream, monkeypatch):
+    """A recorded request a host cannot store is a legibility gap in AIMU itself."""
+    import json
+
+    from aimu.events import RequestPrepared
+
+    seen = []
+    await _drive_any(client_cls, monkeypatch, method, stream, prepare=lambda c: setattr(c, "events", seen.append))
+
+    for event in (e for e in seen if isinstance(e, RequestPrepared)):
+        json.dumps(event.payload)

@@ -16,6 +16,7 @@ from typing import Any, AsyncIterator, Iterable, Optional, Union
 from aimu.events import EventSink, ModelTurnFinished, ModelTurnStarted, RequestPrepared, emit
 from aimu.models._internal.chat_state import _ChatStateMixin, _effective_sink
 from aimu.models._internal.generate_kwargs import _GenerateKwargsMixin
+from aimu.models._internal.json_safe import json_safe
 from aimu.models._internal.streaming import afilter_chunks, resolve_include
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
 
@@ -107,7 +108,7 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                 provider=type(self).__name__,
                 model=str(getattr(self.model, "value", self.model)),
                 endpoint=self._request_endpoint(),
-                payload=payload,
+                payload=json_safe(payload),
             ),
         )
 

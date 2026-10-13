@@ -4,6 +4,12 @@
 
 ### Events
 
+- **Change: `RequestPrepared.payload` is plain JSON data.** Payloads held values with no JSON form
+  (Anthropic's `NOT_GIVEN` sentinel, Pydantic classes and instances, in-process rendered inputs), so
+  every host persisting a request hit the same error. `NOT_GIVEN` keys are dropped (the SDK omits
+  them from the wire), a Pydantic instance becomes its JSON form, and anything else with no JSON form
+  becomes a visible marker such as `"<bytes 3>"`. `client.last_request` keeps the raw object, so a
+  consumer comparing the event's payload by identity to it will now see a copy.
 - **New: `RequestPrepared.endpoint` names the server the request went to.** `provider` is a class
   name, so two OpenAI-compatible servers were the same record. Each wire provider reports the base
   URL its SDK client resolved (environment overrides such as `OLLAMA_HOST` included), with userinfo,

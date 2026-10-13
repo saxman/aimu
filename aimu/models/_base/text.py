@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Iterable, Iterator, Optional, Union
 from ...events import EventSink, ModelTurnFinished, ModelTurnStarted, RequestPrepared, emit
 from .._internal.chat_state import _ChatStateMixin, _effective_sink
 from .._internal.generate_kwargs import _GenerateKwargsMixin
+from .._internal.json_safe import json_safe
 from .._internal.streaming import filter_chunks as _filter_chunks_fn
 from .._internal.streaming import resolve_include as _resolve_include_fn
 from .shared import StreamChunk, StreamingContentType, classproperty
@@ -235,7 +236,7 @@ class BaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                 provider=type(self).__name__,
                 model=str(getattr(self.model, "value", self.model)),
                 endpoint=self._request_endpoint(),
-                payload=payload,
+                payload=json_safe(payload),
             ),
         )
 
