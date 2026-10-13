@@ -331,6 +331,35 @@ def test_turn_finished_carries_the_providers_stop_reason(stream):
     assert [e.stop_reason for e in finished] == ["end_turn"]
 
 
+def test_a_model_client_wrapper_reports_the_inner_clients_stop_reason():
+    """ModelClient is what aimu.client() returns, and it inherits chat(), so ModelTurnFinished is
+    emitted with self = the wrapper. Without forwarding, stop_reason read the wrapper's own None."""
+    from aimu.events import ModelTurnFinished
+    from aimu.models.model_client import ModelClient
+
+    inner = _EndTurnClient(["hello"])
+    wrapper = ModelClient.__new__(ModelClient)  # bypass provider dispatch; see test_tool_decorator.py
+    wrapper._client = inner
+    wrapper.model = inner.model
+    wrapper.model_kwargs = None
+    seen = []
+    wrapper.events = seen.append
+
+    wrapper.chat("hi")
+
+    assert wrapper.last_stop_reason == "end_turn"
+    assert [e.stop_reason for e in seen if isinstance(e, ModelTurnFinished)] == ["end_turn"]
+
+
+def test_a_fallback_client_adopts_the_winners_stop_reason():
+    from aimu.models.fallback import FallbackClient
+
+    fallback = FallbackClient([_EndTurnClient(["hello"])])
+    fallback.chat("hi")
+
+    assert fallback.last_stop_reason == "end_turn"
+
+
 def test_streamed_chat_emits_turn_finished_once_on_drain():
     """ModelTurnFinished must not fire until the iterator is fully drained: usage only
     populates then, and emitting eagerly would report a turn that hasn't run yet."""

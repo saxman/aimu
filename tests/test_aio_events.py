@@ -329,6 +329,24 @@ async def test_async_turn_finished_carries_the_providers_stop_reason(stream):
     assert [e.stop_reason for e in finished] == ["end_turn"]
 
 
+async def test_an_async_model_client_wrapper_reports_the_inner_clients_stop_reason():
+    from aimu.aio._model_client import AsyncModelClient
+    from aimu.events import ModelTurnFinished
+
+    inner = _AsyncEndTurnClient(["hello"])
+    wrapper = AsyncModelClient.__new__(AsyncModelClient)  # bypass provider dispatch
+    wrapper._client = inner
+    wrapper.model = inner.model
+    wrapper.model_kwargs = None
+    seen = []
+    wrapper.events = seen.append
+
+    await wrapper.chat("hi")
+
+    assert wrapper.last_stop_reason == "end_turn"
+    assert [e.stop_reason for e in seen if isinstance(e, ModelTurnFinished)] == ["end_turn"]
+
+
 async def test_async_streamed_chat_emits_turn_finished_once_on_drain():
     """ModelTurnFinished must not fire until the async iterator is fully drained: usage
     only populates then, and emitting eagerly would report a turn that hasn't run yet."""

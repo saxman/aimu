@@ -139,6 +139,7 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
         for client in self.clients:
             client.last_thinking = ""
             client.last_usage = None
+            client.last_stop_reason = None
             client.last_structured = None
             client.last_request = None
             try:
@@ -174,6 +175,7 @@ class AsyncFallbackClient(_FallbackStateMixin, AsyncBaseModelClient):
         for client in self.clients:
             client.last_thinking = ""
             client.last_usage = None
+            client.last_stop_reason = None
             client.last_structured = None
             client.last_request = None
             with _scoped_events(client, _effective_sink(self)):

@@ -118,6 +118,7 @@ class _FallbackStateMixin:
         self.tools: list = []
         self.last_thinking = ""
         self.last_usage: Optional[dict] = None
+        self.last_stop_reason: Optional[str] = None
         self.last_structured = None
         self.last_request: Optional[Any] = None
         self.events: Optional["EventSink"] = None
@@ -129,6 +130,7 @@ class _FallbackStateMixin:
         client.default_generate_kwargs = dict(self.default_generate_kwargs)
         client.last_thinking = ""
         client.last_usage = None
+        client.last_stop_reason = None
         client.last_structured = None
         client.last_request = None
         # ``events`` is configuration, not an output slot: an inner client may have been
@@ -151,6 +153,7 @@ class _FallbackStateMixin:
         """
         self.last_thinking = getattr(client, "last_thinking", "")
         self.last_usage = getattr(client, "last_usage", None)
+        self.last_stop_reason = getattr(client, "last_stop_reason", None)
         self.last_structured = getattr(client, "last_structured", None)
         self.last_request = getattr(client, "last_request", None)
 
@@ -303,6 +306,7 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
         for client in self.clients:
             client.last_thinking = ""
             client.last_usage = None
+            client.last_stop_reason = None
             client.last_structured = None
             client.last_request = None
             try:
@@ -338,6 +342,7 @@ class FallbackClient(_FallbackStateMixin, BaseModelClient):
         for client in self.clients:
             client.last_thinking = ""
             client.last_usage = None
+            client.last_stop_reason = None
             client.last_structured = None
             client.last_request = None
             with _scoped_events(client, _effective_sink(self)):
