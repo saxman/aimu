@@ -17,6 +17,7 @@ def recordable_endpoint(url: Any) -> Optional[str]:
     if url is None:
         return None
     parts = urlsplit(str(url))
-    host = parts.hostname or ""
-    netloc = f"{host}:{parts.port}" if parts.port else host
+    # Userinfo sits before the last "@"; dropping it textually keeps IPv6 brackets and the port
+    # verbatim, and never reads `.port`, which raises on a malformed one.
+    netloc = parts.netloc.rpartition("@")[2]
     return urlunsplit((parts.scheme, netloc, parts.path.rstrip("/"), "", ""))
