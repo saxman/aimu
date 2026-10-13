@@ -144,6 +144,10 @@ spawn = make_async_subagent_tool("anthropic:claude-sonnet-4-6", observer=Printin
 
 Attaching an observer is not purely additive, though: an observed spawn runs the child through the provider's **streaming** request path, where an unobserved spawn uses the non-streaming one. The returned answer is the same either way (the accumulator resets on each loop iteration, so it is the final answer rather than every intermediate response concatenated), but any provider behavior that differs between its two request paths applies to observed spawns.
 
+## Tracing a spawn
+
+Every event of a child run carries its own `run_id` and a `parent_run_id` naming the run that spawned it, so a host reading an event sink can rebuild the delegation tree even when several children of one type run at once. A spawn tool learns its caller's run from `ToolContext.run_id`; a spawn called directly, with no context, simply has no parent. On the async surface the observer's `spawn_id` is that same `run_id` (`subagent-<type>-<8 hex>` on the typed shape, `subagent-<8 hex>` on the generic one), so a host keyed on `spawn_id` reads the same value off every event of the child's run.
+
 ## When to use this vs `OrchestratorAgent`
 
 - **`OrchestratorAgent`** — you know the specialist roster up front and want named, hand-wired workers (possibly workflows or remote agents). See [Build an orchestrator](build-orchestrator.md).

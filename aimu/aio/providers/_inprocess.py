@@ -107,6 +107,38 @@ class _AsyncInProcessClient(AsyncBaseModelClient):
         self._sync.last_thinking = value
 
     @property
+    def last_tool_calls(self) -> list:
+        return self._sync.last_tool_calls
+
+    @last_tool_calls.setter
+    def last_tool_calls(self, value: list) -> None:
+        self._sync.last_tool_calls = value
+
+    @property
+    def last_stop_reason(self) -> Optional[str]:
+        return self._sync.last_stop_reason
+
+    @last_stop_reason.setter
+    def last_stop_reason(self, value: Optional[str]) -> None:
+        self._sync.last_stop_reason = value
+
+    @property
+    def last_usage(self) -> Optional[dict]:
+        return self._sync.last_usage
+
+    @last_usage.setter
+    def last_usage(self, value: Optional[dict]) -> None:
+        self._sync.last_usage = value
+
+    @property
+    def last_output_truncated(self) -> bool:
+        return self._sync.last_output_truncated
+
+    @last_output_truncated.setter
+    def last_output_truncated(self, value: bool) -> None:
+        self._sync.last_output_truncated = value
+
+    @property
     def last_request(self) -> Optional[Any]:
         return self._sync.last_request
 

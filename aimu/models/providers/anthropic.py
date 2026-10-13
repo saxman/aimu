@@ -10,6 +10,7 @@ import anthropic
 from dotenv import load_dotenv
 
 from .._internal.generate_kwargs import CLOUD_MAX_TOKENS, Unsupported
+from .._internal.endpoint import recordable_endpoint
 from .._internal.sdk_config import sdk_client_kwargs
 from ..base import (
     BaseModelClient,
@@ -298,6 +299,9 @@ class AnthropicClient(BaseModelClient):
     # ------------------------------------------------------------------ #
     # Capability class properties                                          #
     # ------------------------------------------------------------------ #
+
+    def _request_endpoint(self) -> Optional[str]:
+        return recordable_endpoint(getattr(self._client, "base_url", None))
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805

@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Iterator, Optional, Union
 
 from aimu.agents._loop import _AgentLoopMixin
-from aimu.agents._tool_loop import _ToolLoop
+from aimu.agents._tool_loop import _identifying, _ToolLoop, new_run_id
 from aimu.agents.base import MessageHistory, Runner
 from aimu.agents.inbox import Inbox
 from aimu.events import EventSink
@@ -158,6 +158,8 @@ class Agent(_AgentLoopMixin, Runner):
         events: Optional[EventSink] = None,
         compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
         inbox: Optional[Inbox] = None,
+        run_id: Optional[str] = None,
+        parent_run_id: Optional[str] = None,
     ) -> Union[str, Any, Iterator[StreamChunk]]:
         """Run the agentic loop. ``images`` attach only to the initial turn.
 
@@ -232,12 +234,19 @@ class Agent(_AgentLoopMixin, Runner):
         the round budget. Not used by the ``schema=`` structured-output path, which makes a single
         model turn rather than running the tool loop, so there is no round boundary to drain at and
         no reader is ever opened.
+
+        ``run_id`` names this run on every event it emits; one is generated (``<name>-<8 hex>``)
+        when omitted (an empty string counts as omitted). ``parent_run_id`` names the run that started this one, stamped on every
+        event too; AIMU's spawn tools pass it (from ``ToolContext.run_id``), and anything else
+        that starts an agent from inside a tool should do the same, or the child is unparented.
         """
         thinking = thinking if thinking is not None else self.thinking
         events = events if events is not None else self.events
         compaction = compaction if compaction is not None else self.compaction
         inbox = inbox if inbox is not None else self.inbox
+        run_id = run_id or new_run_id(self.name)
         if schema is not None:
+            events = _identifying(events, run_id, parent_run_id)
             if stream:
                 return self._run_structured_streamed(
                     task, generate_kwargs, images, deps, tool_approval, schema, thinking, events
@@ -263,9 +272,13 @@ class Agent(_AgentLoopMixin, Runner):
                 events=events,
                 compaction=compaction,
                 inbox=inbox,
+                run_id=run_id,
+                parent_run_id=parent_run_id,
             )
         self._prepare_run(deps, tool_approval)
-        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events, compaction, inbox)
+        loop = self._make_tool_loop(
+            tools, deps, tool_approval, thinking, events, compaction, inbox, run_id, parent_run_id
+        )
         try:
             return loop.run(task, generate_kwargs=generate_kwargs, images=images)
         finally:
@@ -285,6 +298,8 @@ class Agent(_AgentLoopMixin, Runner):
         events: Optional[EventSink] = None,
         compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
         inbox: Optional[Inbox] = None,
+        run_id: Optional[str] = None,
+        parent_run_id: Optional[str] = None,
     ) -> _ToolLoop:
         """Build the iterative tool-calling engine with this run's effective tools + policy."""
         from aimu.tools.approval import approve_all
@@ -303,6 +318,8 @@ class Agent(_AgentLoopMixin, Runner):
             agent_name=self.name,
             compaction=compaction if compaction is not None else self.compaction,
             inbox=inbox if inbox is not None else self.inbox,
+            run_id=run_id,
+            parent_run_id=parent_run_id,
         )
 
     def _run_streamed(
@@ -317,9 +334,13 @@ class Agent(_AgentLoopMixin, Runner):
         events: Optional[EventSink] = None,
         compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
         inbox: Optional[Inbox] = None,
+        run_id: Optional[str] = None,
+        parent_run_id: Optional[str] = None,
     ) -> Iterator[StreamChunk]:
         self._prepare_run(deps, tool_approval)
-        loop = self._make_tool_loop(tools, deps, tool_approval, thinking, events, compaction, inbox)
+        loop = self._make_tool_loop(
+            tools, deps, tool_approval, thinking, events, compaction, inbox, run_id, parent_run_id
+        )
         # ``closing`` mirrors the ``aclosing`` in aio.Agent._run_loop_streamed, which is load-bearing
         # there: the engine's generator holds the run's scoped event-sink override open across its
         # yields, and on the async surface merely dropping it defers teardown to the event loop's

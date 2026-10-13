@@ -16,6 +16,7 @@ import pytest
 from aimu.agents.agent import Agent as _RealAgent
 from aimu.models import ContextOverflowError
 from aimu.tools.builtin import make_subagent_tool
+from aimu.tools.context import ToolContext
 
 
 class _RecordingModelClient:
@@ -73,6 +74,7 @@ class _RecordingAgent:
     raises: BaseException | None = None
 
     def run(self, task, *args, **kwargs):
+        self.run_kwargs = kwargs
         self.enter = time.perf_counter()
         if type(self).raises is not None:
             raise type(self).raises
@@ -707,3 +709,25 @@ def test_a_non_inbox_spec_value_raises_at_factory_call_time():
     types = {"bad": {"system_message": "x", "inbox": 5}}
     with pytest.raises(ValueError, match=r"agent_types\['bad'\]\['inbox'\]"):
         make_subagent_tool(MODEL, agent_types=types)
+
+
+def test_a_spawn_names_the_childs_run_and_parents_it_to_the_caller():
+    spawn = make_subagent_tool(MODEL, agent_types=TYPES)
+    spawn("researcher", "find X", ctx=ToolContext(run_id="lead-1"))
+
+    kwargs = _RecordingAgent.instances[-1].run_kwargs
+    assert kwargs["parent_run_id"] == "lead-1"
+    assert kwargs["run_id"].startswith("subagent-researcher-")
+
+
+def test_a_spawn_called_without_a_context_is_unparented_not_broken():
+    """Direct callers (tests, a host invoking the tool itself) pass no ctx; that must still work."""
+    spawn = make_subagent_tool(MODEL, system_message="Do the thing.")
+    spawn("summarize X")
+
+    assert _RecordingAgent.instances[-1].run_kwargs["parent_run_id"] is None
+
+
+def test_the_spawn_tool_schema_does_not_expose_the_context():
+    spec = make_subagent_tool(MODEL, agent_types=TYPES).__tool_spec__
+    assert "ctx" not in spec["function"]["parameters"]["properties"]

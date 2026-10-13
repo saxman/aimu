@@ -4,6 +4,39 @@
 
 ### Events
 
+- **New: run identity on every event.** `RunEvent.run_id` names one run of an agent and
+  `RunEvent.parent_run_id` the run that started it, so two concurrent runs of one agent stay apart.
+  `Agent.run(run_id=, parent_run_id=)` on `aimu.agents.Agent`, `aimu.aio.Agent`, and
+  `aimu.aio.SkillAgent` set them (an id is generated when omitted), and `ToolContext.run_id` tells a
+  tool which run called it, so it can pass that on as a child's `parent_run_id`.
+- **Change: a spawn observer's `spawn_id` is the child run's `run_id`.** `make_subagent_tool` and
+  `make_async_subagent_tool` name the child's run and pass the caller's `ToolContext.run_id` as its
+  `parent_run_id`, so every event of the child carries the link. The observed id was
+  `<agent_type>-<8 hex>` (`subagent-<8 hex>` on the generic shape) and is now
+  `subagent-<agent_type>-<8 hex>` (`subagent-<8 hex>`), the agent's name plus a suffix. A host that
+  parsed the old prefix must read the new one; one that treated the id as opaque is unaffected.
+- **Fix: recording a request can no longer fail it.** A payload `json_safe` could not walk (a
+  self-referential dict) or a malformed endpoint port used to raise out of the request. The event
+  now carries `endpoint=None` and a `"<unserializable: ...>"` payload marker and logs a warning; with
+  no sink attached, neither the endpoint nor the payload is computed at all.
+- **Fix: async HuggingFace and LlamaCpp clients forward `last_tool_calls`, `last_stop_reason`,
+  `last_usage`, and `last_output_truncated`,** so `ModelTurnFinished` reports them rather than
+  `[]` and `None`.
+- **Fix: `generate()` clears `last_tool_calls`,** so its `ModelTurnFinished` no longer reports the
+  previous `chat()`'s tool calls.
+- **Fix: IPv6 endpoints keep their brackets** (`http://[::1]:11434/v1`), so a recorded `endpoint`
+  is a valid URL.
+- **Change: `RequestPrepared.payload` is plain JSON data.** Payloads held values with no JSON form
+  (Anthropic's `NOT_GIVEN` sentinel, Pydantic classes and instances, in-process rendered inputs), so
+  every host persisting a request hit the same error. `NOT_GIVEN` keys are dropped (the SDK omits
+  them from the wire), a Pydantic instance becomes its JSON form, and anything else with no JSON form
+  becomes a visible marker such as `"<bytes 3>"`. `client.last_request` keeps the raw object, so a
+  consumer comparing the event's payload by identity to it will now see a copy.
+- **New: `RequestPrepared.endpoint` names the server the request went to.** `provider` is a class
+  name, so two OpenAI-compatible servers were the same record. Each wire provider reports the base
+  URL its SDK client resolved (environment overrides such as `OLLAMA_HOST` included), with userinfo,
+  query, and fragment stripped; `None` means an in-process provider (HuggingFace, LlamaCpp) with no
+  wire request. Providers supply it through `_request_endpoint()`.
 - **New: `RunFinished.ended_by` says which rule ended a run, and `RunFinished.max_iterations` the
   budget it ran under.** `"answered"` (the model's last turn was a real answer), `"wrap_up"` (the
   round budget ran out while the model still wanted tools, and the forced tools-disabled call
@@ -15,6 +48,12 @@
 - **New: `ModelTurnFinished.stop_reason` carries the provider's own word for how the turn ended**,
   the value of `client.last_stop_reason`. A sink receiving a spawned sub-agent's events never holds
   that sub-agent's client, so before this it had no way to read it.
+- **New: `ModelTurnFinished.tool_calls` and `ModelTurnFinished.thinking`**, plus `client.last_tool_calls`,
+  forwarded through `ModelClient`, `AsyncModelClient`, the agentic view, and `FallbackClient`. A
+  tools-only round's `text` is empty, so these are what a host records as that round's response.
+- **Fix: `last_stop_reason` (and so `ModelTurnFinished.stop_reason`) is now forwarded through
+  `ModelClient`, `AsyncModelClient`, and the agentic view, and adopted by `FallbackClient`**; through
+  `aimu.client()` it read `None`.
 
 ### Tools
 

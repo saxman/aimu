@@ -83,6 +83,14 @@ is generated and, while it reliably said `'The result of 12 + 30 is **42**.'` in
 runs here, it varied in the rest — `input_tokens`, the tool `arguments`, and `result='42'` are the
 parts of this block that are actually fixed.)
 
+Every event of an agent's run also carries `run_id`, so two concurrent runs of the same agent
+(two spawns of one specialist) stay apart, and `parent_run_id`, the run that started it. AIMU's
+spawn tools set the parent themselves. Anything else that starts an agent from inside a tool
+should pass `parent_run_id=ctx.run_id` (from an injected `ToolContext`) to that agent's `run`, or
+the child arrives unparented. That is deliberate: a context variable would link children
+automatically, but it does not reach tools dispatched on a thread pool, so it would leave some
+children silently unparented, which is worse than visibly so.
+
 Every event carries `agent` and `iteration` (the same two fields `StreamChunk` carries), so one
 sink attached to a nested workflow — a `Chain` step, a `Router` handler, every worker in a
 `Parallel` — can still tell events apart by who emitted them. `Chain.from_client(...)`,
@@ -125,6 +133,9 @@ separate, because one is the model's answer and the other is the loop's:
   same value as `client.last_stop_reason`. It is on the event because a sink often never holds
   the client: one receiving a spawned sub-agent's events cannot reach that sub-agent's client at
   all. `None` means the provider said nothing.
+- **`ModelTurnFinished.tool_calls` and `.thinking`** are what the model asked for on that turn
+  (each `{"name", "arguments", "id"}`, before dispatch) and its reasoning. A round that only called
+  tools has empty `text`, so these are the response on most rounds of a tool loop.
 - **`RunFinished.ended_by`** is the decision the agent loop made: `"answered"` (the model's last
   turn was a real answer and no inbox message was waiting), `"wrap_up"` (the round budget ran out
   while the model still wanted tools, so the loop made one tools-disabled call asking for a final
@@ -141,7 +152,7 @@ the stop: what the model did on its final turn, and which rule in the loop acted
 
 ## `last_request`: did the library do this, or the model?
 
-`RequestPrepared` carries the same payload the client stores on `client.last_request` — the
+`RequestPrepared` carries the payload the client stores on `client.last_request` (as JSON data, see below): the
 request exactly as sent, after AIMU's own generate_kwargs merge (four tiers), the
 `GENERATE_KWARG_SUPPORT` renames and drops, thinking-effort resolution, `strip_inert_keys`
 (AIMU's own `timestamp`/`thinking`/`provenance` bookkeeping never reaches a provider),
@@ -163,6 +174,16 @@ No sink required — `last_request` is set on every request regardless of whethe
 attached. The payload is unredacted: it contains whatever you put in the conversation, including
 tool arguments and any images/audio. A sink that ships events off the machine is the right place
 to filter, not this attribute.
+
+The event's payload is plain JSON data (see `aimu.models._internal.json_safe`): `NOT_GIVEN` keys are
+dropped, since the SDK omits them from the wire, and anything with no JSON form becomes a visible
+marker. `client.last_request` keeps the raw payload.
+
+`RequestPrepared.endpoint` names the server the request went to, read from the SDK client (so an
+environment override such as `OLLAMA_HOST` is reflected), which is what tells two OpenAI-compatible
+servers apart when `provider` is the same class name. Credentials, query, and fragment are stripped
+before it is recorded. `None` means an in-process provider (HuggingFace, LlamaCpp): no wire request
+was made, and the payload is the nearest equivalent, inspectable but not replayable.
 
 ## A worked example: an OpenTelemetry-shaped sink
 

@@ -76,13 +76,14 @@ def test_last_request_reflects_strip_inert_keys(monkeypatch):
 
 def test_request_prepared_event_carries_the_same_payload(monkeypatch):
     from aimu.events import RequestPrepared
+    from aimu.models._internal.json_safe import json_safe
 
     seen = []
     client = _fake_openai_compat_client(monkeypatch)
     client.events = seen.append
     client.chat("q")
     prepared = next(e for e in seen if isinstance(e, RequestPrepared))
-    assert prepared.payload == client.last_request
+    assert prepared.payload == json_safe(client.last_request)
     assert prepared.provider
 
 
@@ -133,6 +134,7 @@ def test_hf_generate_sync_records_the_rendered_prompt_and_kwargs():
     )
     client._apply_chat_template = HuggingFaceClient._apply_chat_template.__get__(client, type(client))
     client._record_request = BaseModelClient._record_request.__get__(client)
+    client._request_endpoint = BaseModelClient._request_endpoint.__get__(client)
 
     HuggingFaceClient._generate_sync(client, [{"role": "user", "content": "hi"}], {"max_new_tokens": 8}, None)
 
@@ -177,6 +179,7 @@ def test_hf_generate_streaming_records_the_rendered_prompt_and_kwargs():
     )
     client._apply_chat_template = HuggingFaceClient._apply_chat_template.__get__(client, type(client))
     client._record_request = BaseModelClient._record_request.__get__(client)
+    client._request_endpoint = BaseModelClient._request_endpoint.__get__(client)
 
     # Transformers' real TextIteratorStreamer yields an empty first part, then tokens; a plain
     # iterator with that shape is enough since generate() is stubbed to not populate it itself.
@@ -243,6 +246,7 @@ def test_llamacpp_chat_records_a_copy_of_messages_not_a_live_alias():
     )
     fake._append_message = _ChatStateMixin._append_message.__get__(fake)
     fake._record_request = BaseModelClient._record_request.__get__(fake)
+    fake._request_endpoint = BaseModelClient._request_endpoint.__get__(fake)
     fake._record_response = lambda *a, **k: None
     fake._record_generated_length = lambda *a, **k: None
     fake._record_stop_reason = lambda *a, **k: None
@@ -270,6 +274,7 @@ def test_llamacpp_generate_records_kwargs_and_messages():
         events=None,
     )
     fake._record_request = BaseModelClient._record_request.__get__(fake)
+    fake._request_endpoint = BaseModelClient._request_endpoint.__get__(fake)
     fake._record_response = lambda *a, **k: None
     fake._record_generated_length = lambda *a, **k: None
     fake._record_stop_reason = lambda *a, **k: None
@@ -292,6 +297,7 @@ def test_llamacpp_generate_streamed_records_kwargs_and_messages():
         events=None,
     )
     fake._record_request = BaseModelClient._record_request.__get__(fake)
+    fake._request_endpoint = BaseModelClient._request_endpoint.__get__(fake)
     fake._record_response = lambda *a, **k: None
     fake._record_generated_length = lambda *a, **k: None
     fake._record_stop_reason = lambda *a, **k: None
@@ -323,6 +329,7 @@ def test_llamacpp_chat_streamed_records_a_copy_of_messages_not_a_live_alias():
     )
     fake._append_message = _ChatStateMixin._append_message.__get__(fake)
     fake._record_request = BaseModelClient._record_request.__get__(fake)
+    fake._request_endpoint = BaseModelClient._request_endpoint.__get__(fake)
     fake._record_response = lambda *a, **k: None
     fake._record_generated_length = lambda *a, **k: None
     fake._record_stop_reason = lambda *a, **k: None
@@ -454,7 +461,12 @@ def _drive_ollama(client_cls, monkeypatch, method, stream, prepare=None):
     monkeypatch.setattr(
         ollama_sdk,
         "Client",
-        lambda **kw: types.SimpleNamespace(pull=lambda *a, **k: None, chat=_call, generate=_call),
+        lambda **kw: types.SimpleNamespace(
+            _client=types.SimpleNamespace(base_url="http://stub-ollama:11434"),
+            pull=lambda *a, **k: None,
+            chat=_call,
+            generate=_call,
+        ),
     )
     monkeypatch.setattr(ollama_mod, "usage_from_ollama", lambda *a, **k: None)
     # stop_reason_from_ollama is deliberately NOT stubbed: the fake part carries done_reason, and
@@ -481,7 +493,12 @@ async def _drive_async_ollama(client_cls, monkeypatch, method, stream, prepare=N
     monkeypatch.setattr(
         ollama_sdk,
         "AsyncClient",
-        lambda **kw: types.SimpleNamespace(pull=lambda *a, **k: None, chat=_call, generate=_call),
+        lambda **kw: types.SimpleNamespace(
+            _client=types.SimpleNamespace(base_url="http://stub-ollama:11434"),
+            pull=lambda *a, **k: None,
+            chat=_call,
+            generate=_call,
+        ),
     )
     monkeypatch.setattr(ollama_mod, "usage_from_ollama", lambda *a, **k: None)
     # stop_reason_from_ollama is deliberately NOT stubbed: the fake part carries done_reason, and
@@ -511,7 +528,8 @@ def _drive_anthropic(client_cls, monkeypatch, method, stream, prepare=None):
         anthropic_sdk,
         "Anthropic",
         lambda **kw: types.SimpleNamespace(
-            messages=types.SimpleNamespace(create=fake_create, stream=lambda **kw: _FakeAnthropicStream())
+            base_url="https://stub-anthropic.example",
+            messages=types.SimpleNamespace(create=fake_create, stream=lambda **kw: _FakeAnthropicStream()),
         ),
     )
     model = next(iter(client_cls.MODELS))
@@ -538,7 +556,8 @@ async def _drive_async_anthropic(client_cls, monkeypatch, method, stream, prepar
         anthropic_sdk,
         "AsyncAnthropic",
         lambda **kw: types.SimpleNamespace(
-            messages=types.SimpleNamespace(create=fake_create, stream=lambda **kw: _FakeAsyncAnthropicStream())
+            base_url="https://stub-anthropic.example",
+            messages=types.SimpleNamespace(create=fake_create, stream=lambda **kw: _FakeAsyncAnthropicStream()),
         ),
     )
     model = next(iter(client_cls.MODELS))
@@ -559,7 +578,8 @@ def _drive_openai_compat(client_cls, monkeypatch, method, stream, prepare=None):
         openai_sdk,
         "OpenAI",
         lambda **kw: types.SimpleNamespace(
-            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_openai_compat_create))
+            base_url="http://stub-openai:8000/v1/",
+            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_openai_compat_create)),
         ),
     )
     model = next(iter(client_cls.MODELS))
@@ -579,7 +599,8 @@ async def _drive_async_openai_compat(client_cls, monkeypatch, method, stream, pr
         openai_sdk,
         "AsyncOpenAI",
         lambda **kw: types.SimpleNamespace(
-            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_async_openai_compat_create))
+            base_url="http://stub-openai:8000/v1/",
+            chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_async_openai_compat_create)),
         ),
     )
     model = next(iter(client_cls.MODELS))
@@ -864,3 +885,38 @@ async def test_prose_beside_a_tool_call_reaches_the_wire(client_cls, method, str
         f"{client_cls.__name__}.{method}(stream={stream}) dropped the prose the model emitted "
         f"alongside its tool call. Sent: {payload[:400]}"
     )
+
+
+_STUB_ENDPOINTS = ("http://stub-openai:8000/v1", "https://stub-anthropic.example", "http://stub-ollama:11434")
+
+
+@pytest.mark.parametrize("method,stream", _PATHS, ids=[f"{m}-{'stream' if s else 'sync'}" for m, s in _PATHS])
+@pytest.mark.parametrize("client_cls", _clients_to_check(), ids=lambda c: c.__name__)
+async def test_every_wire_client_names_its_endpoint(client_cls, method, stream, monkeypatch):
+    """provider is a class name, so without endpoint two OpenAI-compatible servers are the same
+    record, and a recorded request has nowhere to be re-sent. Read from the SDK client, so an
+    environment override (OLLAMA_HOST) is reflected, which the constructor argument would miss."""
+    from aimu.events import RequestPrepared
+
+    seen = []
+    await _drive_any(client_cls, monkeypatch, method, stream, prepare=lambda c: setattr(c, "events", seen.append))
+
+    endpoints = {e.endpoint for e in seen if isinstance(e, RequestPrepared)}
+    assert endpoints and endpoints <= set(_STUB_ENDPOINTS), endpoints
+
+
+@pytest.mark.parametrize("method,stream", _PATHS, ids=[f"{m}-{'stream' if s else 'sync'}" for m, s in _PATHS])
+@pytest.mark.parametrize("client_cls", _clients_to_check(), ids=lambda c: c.__name__)
+async def test_every_clients_recorded_payload_serializes(client_cls, method, stream, monkeypatch):
+    """A recorded request a host cannot store is a legibility gap in AIMU itself."""
+    import json
+
+    from aimu.events import RequestPrepared
+
+    seen = []
+    await _drive_any(client_cls, monkeypatch, method, stream, prepare=lambda c: setattr(c, "events", seen.append))
+
+    prepared = [e for e in seen if isinstance(e, RequestPrepared)]
+    assert prepared, "no RequestPrepared seen; the loop below would pass vacuously"
+    for event in prepared:
+        json.dumps(event.payload)

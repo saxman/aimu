@@ -331,6 +331,35 @@ def test_turn_finished_carries_the_providers_stop_reason(stream):
     assert [e.stop_reason for e in finished] == ["end_turn"]
 
 
+def test_a_model_client_wrapper_reports_the_inner_clients_stop_reason():
+    """ModelClient is what aimu.client() returns, and it inherits chat(), so ModelTurnFinished is
+    emitted with self = the wrapper. Without forwarding, stop_reason read the wrapper's own None."""
+    from aimu.events import ModelTurnFinished
+    from aimu.models.model_client import ModelClient
+
+    inner = _EndTurnClient(["hello"])
+    wrapper = ModelClient.__new__(ModelClient)  # bypass provider dispatch; see test_tool_decorator.py
+    wrapper._client = inner
+    wrapper.model = inner.model
+    wrapper.model_kwargs = None
+    seen = []
+    wrapper.events = seen.append
+
+    wrapper.chat("hi")
+
+    assert wrapper.last_stop_reason == "end_turn"
+    assert [e.stop_reason for e in seen if isinstance(e, ModelTurnFinished)] == ["end_turn"]
+
+
+def test_a_fallback_client_adopts_the_winners_stop_reason():
+    from aimu.models.fallback import FallbackClient
+
+    fallback = FallbackClient([_EndTurnClient(["hello"])])
+    fallback.chat("hi")
+
+    assert fallback.last_stop_reason == "end_turn"
+
+
 def test_streamed_chat_emits_turn_finished_once_on_drain():
     """ModelTurnFinished must not fire until the iterator is fully drained: usage only
     populates then, and emitting eagerly would report a turn that hasn't run yet."""
@@ -1395,3 +1424,263 @@ def test_a_durable_events_attribute_on_a_fallback_client_still_reaches_the_inner
 
     _assert_both_halves(durable_seen)
     assert inner.events is None  # propagated by scope, never by mutating the inner client
+
+
+class _ToolCallingClient(MockModelClient):
+    """Requests one tool through the seam real providers use, with reasoning attached."""
+
+    def _chat(self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None):
+        if user_message is not None:
+            self.messages.append({"role": "user", "content": user_message})
+        self.last_thinking = "I should look it up."
+        self._record_tool_calls([{"name": "lookup", "arguments": {"q": "aimu"}}])
+        if stream:
+            return iter([])
+        return ""
+
+
+def test_turn_finished_carries_the_requested_tool_calls_and_reasoning():
+    """A tools-only round has empty text; without these fields a recorded call shows nothing."""
+    from aimu.events import ModelTurnFinished
+
+    seen = []
+    client = _ToolCallingClient([])
+    client.events = seen.append
+    client.chat("find it")
+
+    (finished,) = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert [(c["name"], c["arguments"]) for c in finished.tool_calls] == [("lookup", {"q": "aimu"})]
+    assert all(c["id"] for c in finished.tool_calls)
+    assert finished.thinking == "I should look it up."
+
+
+def test_a_turn_with_no_tool_calls_reports_none_and_clears_the_last_ones():
+    from aimu.events import ModelTurnFinished
+
+    seen = []
+    client = MockModelClient(["plain answer"])
+    client.last_tool_calls = [{"name": "stale", "arguments": {}, "id": "x"}]
+    client.events = seen.append
+    client.chat("hi")
+
+    (finished,) = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert finished.tool_calls == []
+    assert finished.thinking is None
+    assert client.last_tool_calls == []
+
+
+def test_a_model_client_wrapper_reports_the_inner_clients_tool_calls():
+    from aimu.events import ModelTurnFinished
+    from aimu.models.model_client import ModelClient
+
+    inner = _ToolCallingClient([])
+    wrapper = ModelClient.__new__(ModelClient)
+    wrapper._client = inner
+    wrapper.model = inner.model
+    wrapper.model_kwargs = None
+    seen = []
+    inner.events = seen.append
+
+    wrapper.chat("find it")
+
+    (finished,) = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert [c["name"] for c in finished.tool_calls] == ["lookup"]
+    assert wrapper.last_tool_calls == inner.last_tool_calls
+
+
+def test_every_event_of_a_run_carries_one_run_id():
+    from aimu.agents import Agent
+
+    seen = []
+    agent = Agent(MockModelClient(["tool", "done"]), name="worker", tools=[_a_tool], events=seen.append)
+    agent.run("go")
+
+    assert {e.run_id for e in seen} == {seen[0].run_id}
+    assert seen[0].run_id.startswith("worker-")
+    assert all(e.parent_run_id is None for e in seen)
+
+
+def test_a_caller_can_name_the_run_and_its_parent():
+    from aimu.agents import Agent
+
+    seen = []
+    agent = Agent(MockModelClient(["done"]), name="worker", events=seen.append)
+    agent.run("go", run_id="worker-1234", parent_run_id="boss-9")
+
+    assert {(e.run_id, e.parent_run_id) for e in seen} == {("worker-1234", "boss-9")}
+
+
+def test_two_runs_of_one_agent_get_different_ids():
+    from aimu.agents import Agent
+    from aimu.events import RunStarted
+
+    seen = []
+    agent = Agent(MockModelClient(["a", "b"]), name="worker", events=seen.append)
+    agent.run("one")
+    agent.run("two")
+
+    ids = [e.run_id for e in seen if isinstance(e, RunStarted)]
+    assert len(set(ids)) == 2
+
+
+def test_an_abandoned_streamed_run_still_finishes_with_its_run_id():
+    from aimu.agents import Agent
+    from aimu.events import RunFinished, RunStarted
+
+    seen = []
+    agent = Agent(MockModelClient(["tool", "tool", "done"]), name="worker", tools=[_a_tool], events=seen.append)
+    stream = agent.run("go", stream=True)
+    next(iter(stream))
+    stream.close()
+
+    started = next(e for e in seen if isinstance(e, RunStarted))
+    finished = [e for e in seen if isinstance(e, RunFinished)]
+    assert len(finished) == 1 and finished[0].run_id == started.run_id
+
+
+def test_a_tool_is_told_which_run_called_it():
+    from aimu import ToolContext
+    from aimu.agents import Agent
+    from aimu.tools import tool
+
+    received = []
+
+    @tool
+    def report(ctx: ToolContext) -> str:
+        """Report the calling run."""
+        received.append(ctx.run_id)
+        return "ok"
+
+    agent = Agent(MockModelClient(["tool", "done"]), name="worker", tools=[report])
+    agent.run("go", run_id="worker-abcd")
+
+    assert received == ["worker-abcd"]
+
+
+def test_a_structured_run_carries_a_run_id():
+    from dataclasses import dataclass
+
+    from aimu.agents import Agent
+
+    @dataclass
+    class Out:
+        x: int
+
+    client = MockModelClient(['{"x": 5}'])
+    client.model.supports_structured_output = False
+    seen = []
+    Agent(client, name="critic", events=seen.append).run("verdict?", schema=Out, parent_run_id="boss-1")
+
+    assert len({e.run_id for e in seen}) == 1
+    assert {e.parent_run_id for e in seen} == {"boss-1"}
+
+
+def test_a_generate_after_a_tool_requesting_chat_reports_no_tool_calls():
+    from aimu.events import ModelTurnFinished
+
+    class ToolsOnChatOnly(_ToolCallingClient):
+        def _generate(self, prompt, generate_kwargs=None, stream=False, images=None, audio=None):
+            return "plain"
+
+    seen = []
+    client = ToolsOnChatOnly([])
+    client.events = seen.append
+    client.chat("find it")
+    seen.clear()
+    client.generate("again")
+
+    (finished,) = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert finished.tool_calls == []
+
+
+class _Unserializable(dict):
+    """A payload json_safe cannot walk: it contains itself."""
+
+    def __init__(self):
+        super().__init__()
+        self["me"] = self
+
+
+def test_a_payload_that_cannot_be_serialized_does_not_fail_the_request():
+    from aimu.events import RequestPrepared
+
+    seen = []
+    client = MockModelClient(["ok"])
+    client.events = seen.append
+
+    client._record_request(_Unserializable())
+
+    (prepared,) = [e for e in seen if isinstance(e, RequestPrepared)]
+    assert prepared.endpoint is None
+    assert prepared.payload == "<unserializable: RecursionError>"
+
+
+def test_a_bad_endpoint_does_not_fail_the_request():
+    from aimu.events import RequestPrepared
+
+    class Broken(MockModelClient):
+        def _request_endpoint(self):
+            raise ValueError("Port could not be cast to integer value")
+
+    seen = []
+    client = Broken(["ok"])
+    client.events = seen.append
+    client._record_request({"a": 1})
+
+    (prepared,) = [e for e in seen if isinstance(e, RequestPrepared)]
+    assert prepared.endpoint is None
+    assert prepared.payload.startswith("<unserializable: ValueError")
+
+
+def test_no_sink_means_no_payload_walk(monkeypatch):
+    import aimu.models._base.text as text
+
+    def boom(_):
+        raise AssertionError("json_safe must not run with no sink attached")
+
+    monkeypatch.setattr(text, "json_safe", boom)
+    client = MockModelClient(["ok"])
+    client._record_request({"a": 1})
+
+    assert client.last_request == {"a": 1}
+
+
+def _wrapper_cases():
+    from aimu.agents._agentic_view import _AgenticViewMixin  # noqa: F401
+    from aimu.aio._model_client import AsyncModelClient
+    from aimu.aio.agentic_client import _AsyncAgenticView
+    from aimu.aio.providers._inprocess import _AsyncInProcessClient
+    from aimu.agents.agentic_client import _AgenticView
+    from aimu.models.model_client import ModelClient
+
+    return [
+        (ModelClient, "_client"),
+        (AsyncModelClient, "_client"),
+        (_AgenticView, "_inner_client"),
+        (_AsyncAgenticView, "_inner_client"),
+        (_AsyncInProcessClient, "_sync"),
+    ]
+
+
+@pytest.mark.parametrize("cls,attribute", _wrapper_cases(), ids=lambda v: v if isinstance(v, str) else v.__name__)
+@pytest.mark.parametrize(
+    "name,value",
+    [
+        ("last_stop_reason", "end_turn"),
+        ("last_tool_calls", [{"name": "x", "arguments": {}, "id": "1"}]),
+        ("last_thinking", "hm"),
+        ("last_usage", {"input_tokens": 1}),
+    ],
+)
+def test_every_wrapper_forwards_per_turn_state_to_the_inner_client(cls, attribute, name, value):
+    if name == "last_usage" and attribute == "_inner_client":
+        pytest.skip("agentic views deliberately report no usage; see ModelClient._emit_turn_finished")
+    inner = MockModelClient([])
+    wrapper = cls.__new__(cls)
+    setattr(wrapper, attribute, inner)
+
+    setattr(inner, name, value)
+    assert getattr(wrapper, name) == value
+
+    setattr(wrapper, name, "written" if name != "last_tool_calls" else [])
+    assert getattr(inner, name) == ("written" if name != "last_tool_calls" else [])

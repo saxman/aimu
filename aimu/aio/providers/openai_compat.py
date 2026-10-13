@@ -16,6 +16,7 @@ from typing import Any, AsyncIterator, Optional, Union
 import openai
 
 from aimu.models._internal.audio_input import _build_audio_content_blocks
+from aimu.models._internal.endpoint import recordable_endpoint
 from aimu.models._internal.image_input import _build_user_content_blocks
 from aimu.models._internal.message_meta import encode_tool_call_arguments, strip_inert_keys
 from aimu.models._internal.sdk_config import sdk_client_kwargs
@@ -104,6 +105,9 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
     ):
         super().__init__(model, model_kwargs, system_message)
         self._client = openai.AsyncOpenAI(base_url=base_url, api_key=api_key, **sdk_client_kwargs(timeout, max_retries))
+
+    def _request_endpoint(self) -> Optional[str]:
+        return recordable_endpoint(getattr(self._client, "base_url", None))
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805

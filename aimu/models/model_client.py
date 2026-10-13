@@ -441,6 +441,22 @@ class ModelClient(BaseModelClient):
         self._client.last_output_truncated = value
 
     @property
+    def last_stop_reason(self) -> Optional[str]:
+        return self._client.last_stop_reason
+
+    @last_stop_reason.setter
+    def last_stop_reason(self, value: Optional[str]) -> None:
+        self._client.last_stop_reason = value
+
+    @property
+    def last_tool_calls(self) -> list:
+        return self._client.last_tool_calls
+
+    @last_tool_calls.setter
+    def last_tool_calls(self, value: list) -> None:
+        self._client.last_tool_calls = value
+
+    @property
     def last_structured(self):
         """Validated object from the most recent ``schema=`` call, or ``None``.
 

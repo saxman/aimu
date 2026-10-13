@@ -44,6 +44,9 @@ class ToolContext(Generic[T]):
 
     ``deps`` is whatever the ``Agent`` was given (its ``deps=`` field, or a ``run(deps=)``
     override); it is ``None`` when no deps were provided (e.g. a bare ``client.chat()`` call).
+    ``run_id`` is the run dispatching this call, so a tool that starts another agent can pass it
+    on as that run's ``parent_run_id``.
     """
 
     deps: Optional[T] = None
+    run_id: Optional[str] = None

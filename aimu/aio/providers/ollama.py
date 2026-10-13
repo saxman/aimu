@@ -8,6 +8,7 @@ from typing import AsyncIterator, Optional, Union
 import ollama
 
 from aimu.models._internal.image_input import _adapt_messages_for_ollama
+from aimu.models._internal.endpoint import recordable_endpoint
 from aimu.models._internal.thinking import pop_thinking
 from aimu.models._internal.usage import stop_reason_from_ollama, usage_from_ollama
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
@@ -59,6 +60,12 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         # `ollama.Client(host=host).pull(model.value)` themselves -- module-level
         # `ollama.pull` would target OLLAMA_HOST rather than this client's `host`.
         self._client = ollama.AsyncClient(**_ollama_client_kwargs(host, timeout))
+
+    def _request_endpoint(self) -> Optional[str]:
+        # ollama.Client exposes no public base URL; its wrapped httpx client holds the resolved
+        # host (OLLAMA_HOST included). Private, so read defensively: a missing attribute records
+        # no endpoint rather than failing the request.
+        return recordable_endpoint(getattr(getattr(self._client, "_client", None), "base_url", None))
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805

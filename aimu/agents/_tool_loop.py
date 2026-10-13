@@ -23,6 +23,7 @@ import time
 from collections import Counter
 from dataclasses import replace
 from typing import Any, Callable, Iterator, Optional, Union
+from uuid import uuid4
 
 from aimu.agents.inbox import Inbox
 from aimu.context import count_tokens
@@ -88,6 +89,33 @@ def _check_reader_arity(inbox: "Inbox", agent_name: Optional[str]) -> None:
             "parameter may be called anything, and an unused label may be ignored: only its "
             "presence matters."
         ) from exc
+
+
+def new_run_id(agent_name: Optional[str]) -> str:
+    """A fresh run id, prefixed with the agent's name so a log line is readable on its own."""
+    return f"{agent_name or 'run'}-{uuid4().hex[:8]}"
+
+
+def _identifying(sink, run_id: str, parent_run_id: Optional[str]):
+    """Wrap ``sink`` so every event that reaches it carries this run's identity.
+
+    Installed once, where a run builds its sink, rather than at each of the places the loop and
+    the client construct an event: the loop's own events and the client's turn events (via
+    ``_attributing``, which wraps this) all pass through it. Fills only what is missing, so an
+    event already identified (none today) is left alone.
+    """
+    if sink is None:
+        return None
+
+    def wrapped(event: RunEvent) -> None:
+        updates = {}
+        if event.run_id is None:
+            updates["run_id"] = run_id
+        if event.parent_run_id is None and parent_run_id is not None:
+            updates["parent_run_id"] = parent_run_id
+        sink(replace(event, **updates) if updates else event)
+
+    return wrapped
 
 
 def _attributing(sink, agent_name, iteration_getter):
@@ -242,6 +270,8 @@ class _BaseToolLoop:
         agent_name: Optional[str] = None,
         compaction: Optional[Callable[[list[dict]], list[dict]]] = None,
         inbox: Optional["Inbox"] = None,
+        run_id: Optional[str] = None,
+        parent_run_id: Optional[str] = None,
     ):
         # ``tools`` is either the tool-callable list, or a zero-arg callable returning it
         # (re-read each round so tools added mid-run — e.g. SkillAgent.reload_skills authoring a
@@ -260,7 +290,8 @@ class _BaseToolLoop:
         # The event sink and the agent's name -- the loop is the one caller that knows both a
         # run started and which tool a policy refused, so it emits RunStarted/RunFinished and
         # ToolCalled/ToolDenied directly, stamped with the agent's name and the current round.
-        self._events = events
+        self._run_id = run_id or new_run_id(agent_name)
+        self._events = _identifying(events, self._run_id, parent_run_id)
         self._agent_name = agent_name
         # None (default): the loop never touches model_client.messages on its own, so an
         # existing run is byte-identical to before this field existed. Set, it is applied
@@ -605,7 +636,7 @@ class _BaseToolLoop:
         if injected:
             from aimu.tools.context import ToolContext
 
-            ctx = ToolContext(deps=self._deps)
+            ctx = ToolContext(deps=self._deps, run_id=self._run_id)
             for name in injected:
                 kwargs[name] = ctx
         return kwargs

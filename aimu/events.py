@@ -49,10 +49,18 @@ class RunEvent:
 
     ``agent`` and ``iteration`` mirror :class:`~aimu.models.StreamChunk`'s fields of the same
     name, so one sink can attribute events correctly inside a nested workflow.
+
+    ``run_id`` identifies one run of an agent, so two concurrent runs of the same agent stay
+    apart; ``parent_run_id`` is the run that started it, when the caller said so (AIMU's spawn
+    tools always do). Both are ``None`` outside a run, e.g. a bare ``client.chat()``, and on turn
+    events that reach a durable ``client.events`` sink with no agent run behind them (the same
+    limit as ``agent`` and ``iteration`` attribution).
     """
 
     agent: Optional[str] = None
     iteration: int = 0
+    run_id: Optional[str] = None
+    parent_run_id: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -132,10 +140,20 @@ class RequestPrepared(RunEvent):
     The payload is the request, unredacted -- it contains whatever the caller put in the
     conversation. Redacting here would reintroduce the hiding this exists to remove; a sink
     that ships events off the machine is the right place to filter.
+
+    It is plain JSON data (see ``aimu.models._internal.json_safe``): ``NOT_GIVEN`` keys are dropped,
+    since the SDK omits them from the wire, and anything with no JSON form becomes a visible marker.
+    ``client.last_request`` keeps the raw payload.
+
+    ``endpoint`` is the server the request went to (base URL, credentials and query stripped), so
+    two OpenAI-compatible servers are distinguishable and a recorded request can be re-sent. ``None``
+    means there was no wire request: HuggingFace and LlamaCpp run in-process and record the nearest
+    equivalent, which is inspectable but not replayable.
     """
 
     provider: str = ""
     model: str = ""
+    endpoint: Optional[str] = None
     payload: Any = None
 
 
@@ -164,6 +182,12 @@ class ModelTurnFinished(RunEvent):
     ``client.last_stop_reason``. It is here because a sink often never holds the client: one
     handed a spawned sub-agent's events cannot read that sub-agent's client at all. ``None``
     means the provider said nothing.
+
+    ``tool_calls`` are the tool calls the model requested on this turn, parsed and before any
+    dispatch, each ``{"name", "arguments", "id"}``: a tools-only round's ``text`` is empty, so
+    without them a recorded turn would show no response at all. ``thinking`` is the turn's
+    reasoning (``client.last_thinking``), ``None`` when there was none. Both are read when the
+    event fires, so on a streamed turn they are complete.
     """
 
     model: str = ""
@@ -172,6 +196,8 @@ class ModelTurnFinished(RunEvent):
     duration_s: float = 0.0
     error: Optional[BaseException] = None
     stop_reason: Optional[str] = None
+    tool_calls: list = field(default_factory=list)
+    thinking: Optional[str] = None
 
 
 @dataclass(frozen=True)

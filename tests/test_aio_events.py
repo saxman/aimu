@@ -329,6 +329,24 @@ async def test_async_turn_finished_carries_the_providers_stop_reason(stream):
     assert [e.stop_reason for e in finished] == ["end_turn"]
 
 
+async def test_an_async_model_client_wrapper_reports_the_inner_clients_stop_reason():
+    from aimu.aio._model_client import AsyncModelClient
+    from aimu.events import ModelTurnFinished
+
+    inner = _AsyncEndTurnClient(["hello"])
+    wrapper = AsyncModelClient.__new__(AsyncModelClient)  # bypass provider dispatch
+    wrapper._client = inner
+    wrapper.model = inner.model
+    wrapper.model_kwargs = None
+    seen = []
+    wrapper.events = seen.append
+
+    await wrapper.chat("hi")
+
+    assert wrapper.last_stop_reason == "end_turn"
+    assert [e.stop_reason for e in seen if isinstance(e, ModelTurnFinished)] == ["end_turn"]
+
+
 async def test_async_streamed_chat_emits_turn_finished_once_on_drain():
     """ModelTurnFinished must not fire until the async iterator is fully drained: usage
     only populates then, and emitting eagerly would report a turn that hasn't run yet."""
@@ -1285,3 +1303,217 @@ async def test_a_durable_events_attribute_on_a_fallback_client_still_reaches_the
 
     _assert_both_halves(durable_seen)
     assert inner.events is None  # propagated by scope, never by mutating the inner client
+
+
+class _AsyncToolCallingClient(MockAsyncModelClient):
+    """Requests one tool through the seam real providers use, with reasoning attached."""
+
+    async def _chat(
+        self, user_message=None, generate_kwargs=None, use_tools=True, stream=False, images=None, audio=None
+    ):
+        if user_message is not None:
+            self.messages.append({"role": "user", "content": user_message})
+        self.last_thinking = "I should look it up."
+        self._record_tool_calls([{"name": "lookup", "arguments": {"q": "aimu"}}])
+        return ""
+
+
+async def test_async_turn_finished_carries_the_requested_tool_calls_and_reasoning():
+    from aimu.events import ModelTurnFinished
+
+    seen = []
+    client = _AsyncToolCallingClient([])
+    client.events = seen.append
+    await client.chat("find it")
+
+    (finished,) = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert [(c["name"], c["arguments"]) for c in finished.tool_calls] == [("lookup", {"q": "aimu"})]
+    assert all(c["id"] for c in finished.tool_calls)
+    assert finished.thinking == "I should look it up."
+
+
+async def test_async_every_event_of_a_run_carries_one_run_id():
+    from aimu.aio import Agent
+
+    seen = []
+    agent = Agent(MockAsyncModelClient(["tool", "done"]), name="worker", tools=[_a_tool], events=seen.append)
+    await agent.run("go")
+
+    assert {e.run_id for e in seen} == {seen[0].run_id}
+    assert seen[0].run_id.startswith("worker-")
+    assert all(e.parent_run_id is None for e in seen)
+
+
+async def test_async_a_caller_can_name_the_run_and_its_parent():
+    from aimu.aio import Agent
+
+    seen = []
+    agent = Agent(MockAsyncModelClient(["done"]), name="worker", events=seen.append)
+    await agent.run("go", run_id="worker-1234", parent_run_id="boss-9")
+
+    assert {(e.run_id, e.parent_run_id) for e in seen} == {("worker-1234", "boss-9")}
+
+
+async def test_async_two_runs_of_one_agent_get_different_ids():
+    from aimu.aio import Agent
+    from aimu.events import RunStarted
+
+    seen = []
+    agent = Agent(MockAsyncModelClient(["a", "b"]), name="worker", events=seen.append)
+    await agent.run("one")
+    await agent.run("two")
+
+    ids = [e.run_id for e in seen if isinstance(e, RunStarted)]
+    assert len(set(ids)) == 2
+
+
+async def test_async_an_abandoned_streamed_run_still_finishes_with_its_run_id():
+    from aimu.aio import Agent
+    from aimu.events import RunFinished, RunStarted
+
+    seen = []
+    agent = Agent(MockAsyncModelClient(["tool", "tool", "done"]), name="worker", tools=[_a_tool], events=seen.append)
+    stream = await agent.run("go", stream=True)
+    await stream.__anext__()
+    await stream.aclose()
+
+    started = next(e for e in seen if isinstance(e, RunStarted))
+    finished = [e for e in seen if isinstance(e, RunFinished)]
+    assert len(finished) == 1 and finished[0].run_id == started.run_id
+
+
+async def test_async_a_structured_run_carries_a_run_id():
+    from dataclasses import dataclass
+
+    from aimu.aio import Agent
+
+    @dataclass
+    class Out:
+        x: int
+
+    client = MockAsyncModelClient(['{"x": 5}'])
+    client.model.supports_structured_output = False
+    seen = []
+    await Agent(client, name="critic", events=seen.append).run("verdict?", schema=Out, parent_run_id="boss-1")
+
+    assert len({e.run_id for e in seen}) == 1
+    assert {e.parent_run_id for e in seen} == {"boss-1"}
+
+
+async def test_async_skill_agent_accepts_run_identity(tmp_path):
+    from aimu.aio import SkillAgent
+    from aimu.skills import SkillManager
+
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    seen = []
+    agent = SkillAgent(
+        MockAsyncModelClient(["done"]),
+        name="lead",
+        events=seen.append,
+        skill_manager=SkillManager(skill_dirs=[str(skills_dir)]),
+    )
+    await agent.run("go", run_id="lead-1", parent_run_id="host-1")
+
+    assert {(e.run_id, e.parent_run_id) for e in seen} == {("lead-1", "host-1")}
+
+
+async def test_async_a_tool_is_told_which_run_called_it():
+    from aimu import ToolContext
+    from aimu.aio import Agent
+    from aimu.tools import tool
+
+    received = []
+
+    @tool
+    def report(ctx: ToolContext) -> str:
+        """Report the calling run."""
+        received.append(ctx.run_id)
+        return "ok"
+
+    agent = Agent(MockAsyncModelClient(["tool", "done"]), name="worker", tools=[report])
+    await agent.run("go", run_id="worker-abcd")
+
+    assert received == ["worker-abcd"]
+
+
+async def test_a_real_spawn_reports_a_child_run_parented_to_the_parent(monkeypatch):
+    from aimu.aio import Agent
+    from aimu.aio.tools import builtin as aio_builtin
+    from aimu.aio.tools.builtin import make_async_subagent_tool
+    from aimu.events import RunStarted
+
+    monkeypatch.setattr(aio_builtin, "_fresh_async_subagent_client", lambda model: MockAsyncModelClient(["child done"]))
+    seen = []
+    spawn = make_async_subagent_tool("anthropic:claude-sonnet-4-6", system_message="Help.", events=seen.append)
+    parent = Agent(
+        MockAsyncModelClient([{"tool": "spawn_subagent", "arguments": {"task": "x"}}, "parent done"]),
+        name="lead",
+        tools=[spawn],
+        events=seen.append,
+    )
+    await parent.run("delegate it", run_id="lead-1")
+
+    children = [e for e in seen if isinstance(e, RunStarted) and e.run_id != "lead-1"]
+    assert len(children) == 1 and children[0].parent_run_id == "lead-1"
+
+
+async def test_async_generate_after_a_tool_requesting_chat_reports_no_tool_calls():
+    from aimu.events import ModelTurnFinished
+
+    class ToolsOnChatOnly(_AsyncToolCallingClient):
+        async def _generate(self, prompt, generate_kwargs=None, stream=False, images=None, audio=None):
+            return "plain"
+
+    seen = []
+    client = ToolsOnChatOnly([])
+    client.events = seen.append
+    await client.chat("find it")
+    seen.clear()
+    await client.generate("again")
+
+    (finished,) = [e for e in seen if isinstance(e, ModelTurnFinished)]
+    assert finished.tool_calls == []
+
+
+async def test_async_unserializable_payload_does_not_fail_the_request():
+    from aimu.events import RequestPrepared
+    from tests.test_events import _Unserializable
+
+    seen = []
+    client = MockAsyncModelClient(["ok"])
+    client.events = seen.append
+    client._record_request(_Unserializable())
+
+    (prepared,) = [e for e in seen if isinstance(e, RequestPrepared)]
+    assert prepared.endpoint is None
+    assert prepared.payload == "<unserializable: RecursionError>"
+
+
+async def test_async_bad_endpoint_does_not_fail_the_request():
+    from aimu.events import RequestPrepared
+
+    class Broken(MockAsyncModelClient):
+        def _request_endpoint(self):
+            raise ValueError("bad port")
+
+    seen = []
+    client = Broken(["ok"])
+    client.events = seen.append
+    client._record_request({"a": 1})
+
+    (prepared,) = [e for e in seen if isinstance(e, RequestPrepared)]
+    assert prepared.endpoint is None
+
+
+async def test_async_no_sink_means_no_payload_walk(monkeypatch):
+    import aimu.aio._base as base
+
+    def boom(_):
+        raise AssertionError("json_safe must not run with no sink attached")
+
+    monkeypatch.setattr(base, "json_safe", boom)
+    client = MockAsyncModelClient(["ok"])
+    client._record_request({"a": 1})
+
+    assert client.last_request == {"a": 1}

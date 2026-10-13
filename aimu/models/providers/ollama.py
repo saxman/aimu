@@ -11,6 +11,7 @@ from ..base import (
 )
 from .._catalog import Wire
 from .._internal.generate_kwargs import Unsupported
+from .._internal.endpoint import recordable_endpoint
 from .._internal.image_input import _adapt_messages_for_ollama, _build_user_content_blocks, _ollama_split_message
 from .._internal.thinking import pop_thinking
 from .._internal.usage import stop_reason_from_ollama, usage_from_ollama
@@ -176,6 +177,12 @@ class OllamaClient(BaseModelClient):
         self._client = ollama.Client(**_ollama_client_kwargs(host, timeout))
         # Runs against `host` when set, so the pull lands on the remote server.
         self._client.pull(model.value)
+
+    def _request_endpoint(self) -> Optional[str]:
+        # ollama.Client exposes no public base URL; its wrapped httpx client holds the resolved
+        # host (OLLAMA_HOST included). Private, so read defensively: a missing attribute records
+        # no endpoint rather than failing the request.
+        return recordable_endpoint(getattr(getattr(self._client, "_client", None), "base_url", None))
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805

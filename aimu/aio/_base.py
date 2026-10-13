@@ -16,6 +16,7 @@ from typing import Any, AsyncIterator, Iterable, Optional, Union
 from aimu.events import EventSink, ModelTurnFinished, ModelTurnStarted, RequestPrepared, emit
 from aimu.models._internal.chat_state import _ChatStateMixin, _effective_sink
 from aimu.models._internal.generate_kwargs import _GenerateKwargsMixin
+from aimu.models._internal.json_safe import json_safe
 from aimu.models._internal.streaming import afilter_chunks, resolve_include
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
 
@@ -44,6 +45,7 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
     last_output_truncated: bool
     last_structured: Any | None
     last_request: Optional[Any]
+    last_tool_calls: list[dict]
     events: Optional[EventSink]
 
     @abstractmethod
@@ -69,6 +71,7 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         self.last_output_truncated = False
         self.last_structured = None
         self.last_request = None
+        self.last_tool_calls: list = []
         # This is the durable, always-shared setting: an assignment here (or `client.events =
         # ...` directly) has no execution-context boundary to isolate by, so it genuinely is
         # visible to every caller of this client, concurrent or not -- unlike `tools`, which is
@@ -86,6 +89,11 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         # family.
         self.events = events
 
+    def _request_endpoint(self) -> Optional[str]:
+        """The base URL this client sends to, or ``None`` for an in-process provider. Wire
+        providers override it, reading the SDK client so environment overrides are reflected."""
+        return None
+
     def _record_request(self, payload: Any) -> None:
         """Record the payload as sent, and emit :class:`~aimu.events.RequestPrepared`.
 
@@ -94,12 +102,25 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         for the in-process providers, the nearest equivalent).
         """
         self.last_request = payload
+        sink = _effective_sink(self)
+        if sink is None:
+            return
+        # Observation must not change what it observes: a payload json_safe cannot walk, or a
+        # malformed endpoint, degrades the record rather than failing the request.
+        try:
+            endpoint = self._request_endpoint()
+            recorded = json_safe(payload)
+        except Exception as exc:
+            logger.warning("Could not record the request for %s: %r", type(self).__name__, exc)
+            endpoint = None
+            recorded = f"<unserializable: {type(exc).__name__}>"
         emit(
-            _effective_sink(self),
+            sink,
             RequestPrepared(
                 provider=type(self).__name__,
                 model=str(getattr(self.model, "value", self.model)),
-                payload=payload,
+                endpoint=endpoint,
+                payload=recorded,
             ),
         )
 
@@ -185,6 +206,7 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                 swappable; an unrecognised value raises ``ValueError``.
         """
         self.last_request = None
+        self.last_tool_calls = []
         generate_kwargs = self._apply_thinking(generate_kwargs, thinking)
         if images and audio:
             raise ValueError("Pass either images= or audio= per call, not both.")
@@ -249,6 +271,7 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                 swappable; an unrecognised value raises ``ValueError``.
         """
         self.last_request = None
+        self.last_tool_calls = []
         generate_kwargs = self._apply_thinking(generate_kwargs, thinking)
         if schema is not None:
             if stream:
@@ -455,6 +478,8 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                 duration_s=time.monotonic() - started,
                 error=error,
                 stop_reason=getattr(self, "last_stop_reason", None),
+                tool_calls=list(getattr(self, "last_tool_calls", None) or []),
+                thinking=getattr(self, "last_thinking", None) or None,
             ),
         )
 
@@ -498,6 +523,8 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
                     duration_s=time.monotonic() - started,
                     error=error,
                     stop_reason=getattr(self, "last_stop_reason", None),
+                    tool_calls=list(getattr(self, "last_tool_calls", None) or []),
+                    thinking=getattr(self, "last_thinking", None) or None,
                 ),
             )
 

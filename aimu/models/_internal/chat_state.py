@@ -206,6 +206,7 @@ class _ChatStateMixin:
       - ``last_output_truncated``: ``bool``
       - ``last_structured``: ``Any | None`` (validated object from the most recent ``schema=`` call)
       - ``last_request``: ``Any | None`` (the payload of the most recent request, post-adaptation)
+      - ``last_tool_calls``: ``list[dict]`` (the tool calls the model requested this turn, before dispatch)
       - ``tools``: list of ``@tool``-decorated callables
 
     Generation-kwarg resolution is a separate concern (it serves ``generate()`` as much as
@@ -253,6 +254,7 @@ class _ChatStateMixin:
         self.last_output_truncated = False
         self.last_structured = None
         self.last_request = None
+        self.last_tool_calls = []
 
     def __deepcopy__(self, memo):
         # Stateful conversation history and non-copyable backend resources.
@@ -517,6 +519,9 @@ class _ChatStateMixin:
         if content:
             message["content"] = content
         self._append_message(message)
+        self.last_tool_calls = [
+            {"name": tc["name"], "arguments": tc["arguments"], "id": tc_id} for tc, tc_id in prepared
+        ]
 
     def _record_stop_reason(self, stop_reason: Optional[str]) -> None:
         """Record how the provider says this turn ended, and derive ``last_output_truncated``.
