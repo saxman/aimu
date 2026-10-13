@@ -52,7 +52,9 @@ class RunEvent:
 
     ``run_id`` identifies one run of an agent, so two concurrent runs of the same agent stay
     apart; ``parent_run_id`` is the run that started it, when the caller said so (AIMU's spawn
-    tools always do). Both are ``None`` outside a run, e.g. a bare ``client.chat()``.
+    tools always do). Both are ``None`` outside a run, e.g. a bare ``client.chat()``, and on turn
+    events that reach a durable ``client.events`` sink with no agent run behind them (the same
+    limit as ``agent`` and ``iteration`` attribution).
     """
 
     agent: Optional[str] = None

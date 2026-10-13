@@ -141,7 +141,7 @@ class SkillAgent(Agent):
         # That ordering is why this can't just call super().run() (which re-prepares); instead
         # it prepares, sets up skills, then delegates to Agent's post-prepare loop helpers.
         # ``deps``, ``tool_approval``, ``schema``, ``thinking``, ``events``, ``compaction``,
-        # ``inbox``, ``run_id``, and ``parent_run_id`` mirror aio.Agent.run(); see that method. Every parameter there has to be
+        # ``inbox``, ``run_id``, and ``parent_run_id`` mirror aio.Agent.run(); see that method (an empty ``run_id`` counts as omitted). Every parameter there has to be
         # repeated here, because the ordering above is why this cannot delegate to super().run().
         # test_skill_agent_run_accepts_everything_agent_run_does is what catches the next omission.
         thinking = thinking if thinking is not None else self.thinking

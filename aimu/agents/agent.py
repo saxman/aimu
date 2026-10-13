@@ -236,7 +236,7 @@ class Agent(_AgentLoopMixin, Runner):
         no reader is ever opened.
 
         ``run_id`` names this run on every event it emits; one is generated (``<name>-<8 hex>``)
-        when omitted. ``parent_run_id`` names the run that started this one, stamped on every
+        when omitted (an empty string counts as omitted). ``parent_run_id`` names the run that started this one, stamped on every
         event too; AIMU's spawn tools pass it (from ``ToolContext.run_id``), and anything else
         that starts an agent from inside a tool should do the same, or the child is unparented.
         """

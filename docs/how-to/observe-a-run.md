@@ -152,7 +152,7 @@ the stop: what the model did on its final turn, and which rule in the loop acted
 
 ## `last_request`: did the library do this, or the model?
 
-`RequestPrepared` carries the payload the client stores on `client.last_request` (as JSON data, see below) — the
+`RequestPrepared` carries the payload the client stores on `client.last_request` (as JSON data, see below): the
 request exactly as sent, after AIMU's own generate_kwargs merge (four tiers), the
 `GENERATE_KWARG_SUPPORT` renames and drops, thinking-effort resolution, `strip_inert_keys`
 (AIMU's own `timestamp`/`thinking`/`provenance` bookkeeping never reaches a provider),

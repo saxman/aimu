@@ -221,7 +221,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         that round's user message. A delivered message resets the round budget. Not used by the
         ``schema=`` structured-output path, which opens no reader at all.
         ``run_id`` names this run on every event it emits; one is generated (``<name>-<8 hex>``)
-        when omitted. ``parent_run_id`` names the run that started this one, stamped on every
+        when omitted (an empty string counts as omitted). ``parent_run_id`` names the run that started this one, stamped on every
         event too; AIMU's spawn tools pass it (from ``ToolContext.run_id``), and anything else
         that starts an agent from inside a tool should do the same, or the child is unparented.
         See the sync :meth:`aimu.agents.Agent.run` for full semantics.
