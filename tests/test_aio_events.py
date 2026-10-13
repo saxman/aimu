@@ -1416,3 +1416,22 @@ async def test_async_skill_agent_accepts_run_identity(tmp_path):
     await agent.run("go", run_id="lead-1", parent_run_id="host-1")
 
     assert {(e.run_id, e.parent_run_id) for e in seen} == {("lead-1", "host-1")}
+
+
+async def test_async_a_tool_is_told_which_run_called_it():
+    from aimu import ToolContext
+    from aimu.aio import Agent
+    from aimu.tools import tool
+
+    received = []
+
+    @tool
+    def report(ctx: ToolContext) -> str:
+        """Report the calling run."""
+        received.append(ctx.run_id)
+        return "ok"
+
+    agent = Agent(MockAsyncModelClient(["tool", "done"]), name="worker", tools=[report])
+    await agent.run("go", run_id="worker-abcd")
+
+    assert received == ["worker-abcd"]
