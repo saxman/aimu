@@ -88,6 +88,11 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
         # family.
         self.events = events
 
+    def _request_endpoint(self) -> Optional[str]:
+        """The base URL this client sends to, or ``None`` for an in-process provider. Wire
+        providers override it, reading the SDK client so environment overrides are reflected."""
+        return None
+
     def _record_request(self, payload: Any) -> None:
         """Record the payload as sent, and emit :class:`~aimu.events.RequestPrepared`.
 
@@ -101,6 +106,7 @@ class AsyncBaseModelClient(_GenerateKwargsMixin, _ChatStateMixin, ABC):
             RequestPrepared(
                 provider=type(self).__name__,
                 model=str(getattr(self.model, "value", self.model)),
+                endpoint=self._request_endpoint(),
                 payload=payload,
             ),
         )

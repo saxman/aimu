@@ -25,6 +25,7 @@ from aimu.models.providers.anthropic import (
     _raise_if_context_overflowed,
 )
 from aimu.models._internal.sdk_config import sdk_client_kwargs
+from aimu.models._internal.endpoint import recordable_endpoint
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
 
 from .._base import AsyncBaseModelClient
@@ -66,6 +67,9 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         self._client = anthropic.AsyncAnthropic(
             api_key=os.environ.get("ANTHROPIC_API_KEY"), **sdk_client_kwargs(timeout, max_retries)
         )
+
+    def _request_endpoint(self) -> Optional[str]:
+        return recordable_endpoint(getattr(self._client, "base_url", None))
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805

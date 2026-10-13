@@ -4,6 +4,11 @@
 
 ### Events
 
+- **New: `RequestPrepared.endpoint` names the server the request went to.** `provider` is a class
+  name, so two OpenAI-compatible servers were the same record. Each wire provider reports the base
+  URL its SDK client resolved (environment overrides such as `OLLAMA_HOST` included), with userinfo,
+  query, and fragment stripped; `None` means an in-process provider (HuggingFace, LlamaCpp) with no
+  wire request. Providers supply it through `_request_endpoint()`.
 - **New: `RunFinished.ended_by` says which rule ended a run, and `RunFinished.max_iterations` the
   budget it ran under.** `"answered"` (the model's last turn was a real answer), `"wrap_up"` (the
   round budget ran out while the model still wanted tools, and the forced tools-disabled call

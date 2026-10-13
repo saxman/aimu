@@ -167,6 +167,12 @@ attached. The payload is unredacted: it contains whatever you put in the convers
 tool arguments and any images/audio. A sink that ships events off the machine is the right place
 to filter, not this attribute.
 
+`RequestPrepared.endpoint` names the server the request went to, read from the SDK client (so an
+environment override such as `OLLAMA_HOST` is reflected), which is what tells two OpenAI-compatible
+servers apart when `provider` is the same class name. Credentials, query, and fragment are stripped
+before it is recorded. `None` means an in-process provider (HuggingFace, LlamaCpp): no wire request
+was made, and the payload is the nearest equivalent, inspectable but not replayable.
+
 ## A worked example: an OpenTelemetry-shaped sink
 
 Events are plain data, so mapping them onto spans in an observability system is a matter of a

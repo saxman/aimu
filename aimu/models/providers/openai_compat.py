@@ -29,6 +29,7 @@ from ..base import (
 )
 from .._catalog import Wire
 from .._internal.audio_input import _build_audio_content_blocks
+from .._internal.endpoint import recordable_endpoint
 from .._internal.generate_kwargs import CLOUD_MAX_TOKENS, LOCAL_MAX_TOKENS, Unsupported
 from .._internal.image_input import _build_user_content_blocks
 from .._internal.message_meta import encode_tool_call_arguments, strip_inert_keys
@@ -185,6 +186,9 @@ class OpenAICompatClient(BaseModelClient):
     ):
         super().__init__(model, model_kwargs, system_message)
         self._client = openai.OpenAI(base_url=base_url, api_key=api_key, **sdk_client_kwargs(timeout, max_retries))
+
+    def _request_endpoint(self) -> Optional[str]:
+        return recordable_endpoint(getattr(self._client, "base_url", None))
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805

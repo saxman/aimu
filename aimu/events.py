@@ -132,10 +132,16 @@ class RequestPrepared(RunEvent):
     The payload is the request, unredacted -- it contains whatever the caller put in the
     conversation. Redacting here would reintroduce the hiding this exists to remove; a sink
     that ships events off the machine is the right place to filter.
+
+    ``endpoint`` is the server the request went to (base URL, credentials and query stripped), so
+    two OpenAI-compatible servers are distinguishable and a recorded request can be re-sent. ``None``
+    means there was no wire request: HuggingFace and LlamaCpp run in-process and record the nearest
+    equivalent, which is inspectable but not replayable.
     """
 
     provider: str = ""
     model: str = ""
+    endpoint: Optional[str] = None
     payload: Any = None
 
 
