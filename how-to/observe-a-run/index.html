@@ -972,6 +972,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#why-a-turn-ended-and-why-a-run-did" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why a turn ended, and why a run did
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#last_request-did-the-library-do-this-or-the-model" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3278,6 +3289,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#why-a-turn-ended-and-why-a-run-did" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why a turn ended, and why a run did
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#last_request-did-the-library-do-this-or-the-model" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3408,12 +3430,12 @@ any point afterward.</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>RunStarted RunStarted(agent='agent-679be0', iteration=0, task='What is 12 + 30? Use the add tool.')
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>ModelTurnStarted ModelTurnStarted(agent='agent-679be0', iteration=0, model='qwen3:8b', message_count=2, tool_names=('add',))
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>RequestPrepared RequestPrepared(agent='agent-679be0', iteration=0, ...)
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>ModelTurnFinished ModelTurnFinished(agent='agent-679be0', iteration=0, model='qwen3:8b', text='', usage={'input_tokens': 160, ...}, duration_s=...)
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>ModelTurnFinished ModelTurnFinished(agent='agent-679be0', iteration=0, model='qwen3:8b', text='', usage={'input_tokens': 160, ...}, duration_s=..., stop_reason=...)
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>ToolCalled ToolCalled(agent='agent-679be0', iteration=0, name='add', arguments={'a': 12, 'b': 30}, result='42', error=None, duration_s=...)
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>ModelTurnStarted ModelTurnStarted(agent='agent-679be0', iteration=1, model='qwen3:8b', message_count=4, tool_names=('add',))
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>RequestPrepared RequestPrepared(agent='agent-679be0', iteration=1, ...)
 </span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>ModelTurnFinished ModelTurnFinished(agent='agent-679be0', iteration=1, model='qwen3:8b', text=..., ...)
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>RunFinished RunFinished(agent='agent-679be0', iteration=1, result=..., error=None)
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>RunFinished RunFinished(agent='agent-679be0', iteration=1, result=..., error=None, ended_by='answered', max_iterations=10)
 </span></code></pre></div>
 <p>(<code>duration_s</code> is a wall-clock timing and will differ on any other machine; the final answer text
 is generated and, while it reliably said <code>'The result of 12 + 30 is **42**.'</code> in most of ten fresh
@@ -3449,6 +3471,28 @@ observing (the same contract <code>emit()</code> documents).</p>
   so the runner never assembled a final string) and on a <code>schema=</code> run (the result is a typed
   object, not a string; it is the return value, and is also on <code>client.last_structured</code>).</li>
 </ul>
+<h2 id="why-a-turn-ended-and-why-a-run-did">Why a turn ended, and why a run did<a class="headerlink" href="#why-a-turn-ended-and-why-a-run-did" title="Permanent link">&para;</a></h2>
+<p>Two fields answer "why did it stop?" at the two levels a run has, and they are deliberately
+separate, because one is the model's answer and the other is the loop's:</p>
+<ul>
+<li><strong><code>ModelTurnFinished.stop_reason</code></strong> is the provider's own word for how one model turn ended
+  (<code>"end_turn"</code>, <code>"tool_use"</code>, <code>"length"</code>, <code>"refusal"</code>, ...; spellings differ by backend), the
+  same value as <code>client.last_stop_reason</code>. It is on the event because a sink often never holds
+  the client: one receiving a spawned sub-agent's events cannot reach that sub-agent's client at
+  all. <code>None</code> means the provider said nothing.</li>
+<li><strong><code>RunFinished.ended_by</code></strong> is the decision the agent loop made: <code>"answered"</code> (the model's last
+  turn was a real answer and no inbox message was waiting), <code>"wrap_up"</code> (the round budget ran out
+  while the model still wanted tools, so the loop made one tools-disabled call asking for a final
+  answer, and got one), or <code>"error"</code> (the run raised; <code>error</code> says what, e.g. a
+  <code>DegenerateTurnError</code> when even the wrap-up produced nothing). <code>RunFinished.max_iterations</code> is
+  the budget it ran under, so a <code>"wrap_up"</code> reads as "round <code>iteration</code>, after a cap of
+  <code>max_iterations</code>". A delivered inbox message restarts that count (see
+  <a href="../use-an-inbox/">use an inbox</a>), so a messaged run can pass it legitimately. On a <code>schema=</code>
+  run, which makes one call rather than looping, <code>ended_by</code> is <code>"answered"</code> or <code>"error"</code> and
+  <code>max_iterations</code> is <code>None</code>; a workflow reports neither.</li>
+</ul>
+<p>Read together, the last <code>ModelTurnFinished</code> of a run and its <code>RunFinished</code> show both halves of
+the stop: what the model did on its final turn, and which rule in the loop acted on it.</p>
 <h2 id="last_request-did-the-library-do-this-or-the-model"><code>last_request</code>: did the library do this, or the model?<a class="headerlink" href="#last_request-did-the-library-do-this-or-the-model" title="Permanent link">&para;</a></h2>
 <p><code>RequestPrepared</code> carries the same payload the client stores on <code>client.last_request</code> — the
 request exactly as sent, after AIMU's own generate_kwargs merge (four tiers), the

@@ -3875,7 +3875,7 @@ that ships events off the machine is the right place to filter.</p>
   </span>
 
 <a href="#aimu.events.ModelTurnFinished" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ModelTurnFinished</span><span class="p">(</span><span class="n">agent</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">iteration</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">''</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">usage</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">duration_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">error</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ModelTurnFinished</span><span class="p">(</span><span class="n">agent</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">iteration</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">model</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">''</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">usage</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">duration_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">error</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">stop_reason</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -3903,6 +3903,11 @@ return before :class:<code>ModelTurnStarted</code> is emitted when <code>schema<
 makes exactly one call and reports itself a different way (see
 <code>Agent._structured_run_events</code> / :class:<code>RunFinished</code>). There is therefore no started
 turn to leave unpaired there either.</p>
+<p><code>stop_reason</code> is the provider's own word for how the turn ended (<code>"end_turn"</code>,
+<code>"tool_use"</code>, <code>"length"</code>, <code>"refusal"</code>, ...), the same value as
+<code>client.last_stop_reason</code>. It is here because a sink often never holds the client: one
+handed a spawned sub-agent's events cannot read that sub-agent's client at all. <code>None</code>
+means the provider said nothing.</p>
 
 
 
@@ -4143,7 +4148,7 @@ drove the decision.</p>
   </span>
 
 <a href="#aimu.events.RunFinished" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">RunFinished</span><span class="p">(</span><span class="n">agent</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">iteration</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">error</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">RunFinished</span><span class="p">(</span><span class="n">agent</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">iteration</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">result</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">error</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="ne">BaseException</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">ended_by</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">RunEnding</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_iterations</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -4163,6 +4168,21 @@ exception in that case and <code>result</code> is <code>None</code>.</p>
 <p><code>result</code> is also <code>None</code> on a <strong>streamed</strong> run (<code>run(stream=True)</code>): the chunks go
 to the caller as they arrive and the runner never assembles a final string, so there is
 no result to report. Read the text off the <code>GENERATING</code> chunks instead.</p>
+<p><code>ended_by</code> names the decision that ended the run, so a host can say <em>why</em> without
+re-deriving the loop's control flow from the events before it:</p>
+<ul>
+<li><code>"answered"</code>: the model's last turn was a real answer and no inbox message was waiting.</li>
+<li><code>"wrap_up"</code>: the round budget ran out while the model still wanted tools (or had produced
+  nothing), so the loop made one tools-disabled call asking for a final answer, and got one.</li>
+<li><code>"error"</code>: the run raised; <code>error</code> is the exception (<code>DegenerateTurnError</code> when even
+  the wrap-up produced nothing, <code>TruncatedTurnError</code>, <code>ModelRefusalError</code>,
+  <code>CancelledError</code>, ...).</li>
+</ul>
+<p>It is <code>None</code> from a <code>Runner</code> that has no such decision to report (a workflow).</p>
+<p><code>max_iterations</code> is the round budget the loop ran under, for reading <code>iteration</code> against:
+a wrap-up at <code>iteration == max_iterations</code> is the uncounted call after the cap. A delivered
+inbox message restarts the count, so a messaged run can legitimately pass it. <code>None</code> where
+there was no loop (a <code>schema=</code> run makes one call).</p>
 
 
 
