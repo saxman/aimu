@@ -23,9 +23,12 @@ code. The distinction lives in the docs, not in the type hierarchy.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Iterator, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional, Union
 
 from aimu.models.base import StreamChunk
+
+if TYPE_CHECKING:
+    from aimu.tools.context import ToolContext
 
 # Type alias used by the messages property across the runner hierarchy.
 MessageHistory = dict[str, list[dict]]
@@ -85,9 +88,11 @@ class Runner(ABC):
         (``Agent`` / ``SkillAgent``), else a generic delegation string (workflows have no
         ``system_message``).
         """
-        from aimu.agents._as_tool import build_as_tool
+        from aimu.agents._as_tool import accepts_run_identity, build_as_tool, run_identity
 
-        def _dispatch(task: str) -> str:
-            return self.run(task)
+        identifies = accepts_run_identity(self)
+
+        def _dispatch(task: str, ctx: Optional[ToolContext] = None) -> str:
+            return self.run(task, **run_identity(self, ctx)) if identifies else self.run(task)
 
         return build_as_tool(self, _dispatch, name=name, description=description)

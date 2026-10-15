@@ -15,6 +15,13 @@
   `<agent_type>-<8 hex>` (`subagent-<8 hex>` on the generic shape) and is now
   `subagent-<agent_type>-<8 hex>` (`subagent-<8 hex>`), the agent's name plus a suffix. A host that
   parsed the old prefix must read the new one; one that treated the id as opaque is unaffected.
+- **New: `Runner.as_tool()` parents the runs it starts.** The tool `as_tool()` builds (sync and
+  async) takes an injected `ctx: Optional[ToolContext] = None`, absent from the schema the model
+  sees, and when the wrapped runner's `run` accepts `run_id` and `parent_run_id` it passes a fresh
+  id and the caller's `ctx.run_id`. A runner without those parameters (`Chain`, `Router`,
+  `Parallel`, `RemoteAgent`) is called with the task alone, as before. `OrchestratorAgent.run`
+  (sync and async) now accepts `run_id=` / `parent_run_id=` and forwards them, so an
+  orchestrator's workers are parented to its run.
 - **Fix: recording a request can no longer fail it.** A payload `json_safe` could not walk (a
   self-referential dict) or a malformed endpoint port used to raise out of the request. The event
   now carries `endpoint=None` and a `"<unserializable: ...>"` payload marker and logs a warning; with

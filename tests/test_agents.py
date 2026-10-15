@@ -931,3 +931,91 @@ def test_orchestrator_assemble_threads_final_answer_prompt():
         final_answer_prompt="Summarize now.",
     )
     assert orch._orchestrator.final_answer_prompt == "Summarize now."
+
+
+# ---------------------------------------------------------------------------
+# Runner.as_tool() parents the runs it starts
+# ---------------------------------------------------------------------------
+
+
+def test_as_tool_child_run_is_parented_to_the_calling_run():
+    from aimu.events import RunStarted
+
+    seen = []
+    child = Agent(MockModelClient(["child done"]), name="child", events=seen.append)
+    parent = Agent(
+        MockModelClient([{"tool": "child", "arguments": {"task": "x"}}, "parent done"]),
+        name="lead",
+        tools=[child.as_tool()],
+        events=seen.append,
+    )
+    parent.run("go", run_id="lead-1")
+
+    started = [e for e in seen if isinstance(e, RunStarted)]
+    child_started = next(e for e in started if e.run_id != "lead-1")
+    assert child_started.parent_run_id == "lead-1"
+    assert child_started.run_id.startswith("child")
+
+
+def test_as_tool_called_directly_runs_unparented():
+    from aimu.events import RunStarted
+
+    seen = []
+    child = Agent(MockModelClient(["child done"]), name="child", events=seen.append)
+
+    assert child.as_tool()("x") == "child done"
+    assert {e.parent_run_id for e in seen if isinstance(e, RunStarted)} == {None}
+
+
+def test_as_tool_schema_does_not_expose_the_context():
+    fn = Agent(MockModelClient(["x"]), name="child").as_tool()
+    assert set(fn.__tool_spec__["function"]["parameters"]["properties"]) == {"task"}
+
+
+def test_as_tool_leaves_a_runner_without_run_identity_alone():
+    class _Plain(Runner):
+        def __init__(self):
+            self.calls = []
+
+        def run(self, task, generate_kwargs=None, stream=False):
+            self.calls.append((task, generate_kwargs, stream))
+            return "plain"
+
+        @property
+        def messages(self):
+            return []
+
+    plain = _Plain()
+    parent = Agent(
+        MockModelClient([{"tool": "runner", "arguments": {"task": "x"}}, "done"]),
+        name="lead",
+        tools=[plain.as_tool()],
+    )
+    parent.run("go", run_id="lead-1")
+
+    assert plain.calls == [("x", None, False)]
+
+
+def test_as_tool_leaves_a_chain_alone():
+    chain = Chain([Agent(MockModelClient(["a"]), name="a")])
+    parent = Agent(MockModelClient([{"tool": "runner", "arguments": {"task": "x"}}, "done"]), tools=[chain.as_tool()])
+    assert parent.run("go", run_id="lead-1") == "done"
+
+
+def test_orchestrator_worker_is_parented_to_the_orchestrator_run():
+    from aimu.events import RunStarted
+
+    seen = []
+    worker = Agent(MockModelClient(["worked"]), name="alpha", system_message="Work.", events=seen.append)
+    orch = OrchestratorAgent.assemble(
+        MockModelClient([{"tool": "alpha", "arguments": {"task": "x"}}, "done"]),
+        "Use alpha.",
+        workers=[worker],
+        name="boss",
+        events=seen.append,
+    )
+    orch.run("go", run_id="boss-1", parent_run_id="host-1")
+
+    started = {e.agent: e for e in seen if isinstance(e, RunStarted)}
+    assert (started["boss"].run_id, started["boss"].parent_run_id) == ("boss-1", "host-1")
+    assert started["alpha"].parent_run_id == "boss-1"

@@ -598,3 +598,87 @@ def test_skill_agent_run_accepts_everything_agent_run_does():
     missing = set(inspect.signature(Agent.run).parameters) - set(inspect.signature(SkillAgent.run).parameters)
 
     assert not missing, f"aio.SkillAgent.run is missing {sorted(missing)} from aio.Agent.run"
+
+
+# ---------------------------------------------------------------------------
+# AsyncRunner.as_tool() parents the runs it starts
+# ---------------------------------------------------------------------------
+
+
+async def test_as_tool_child_run_is_parented_to_the_calling_run():
+    from aimu.events import RunStarted
+
+    seen = []
+    child = Agent(MockAsyncModelClient(["child done"]), name="child", events=seen.append)
+    parent = Agent(
+        MockAsyncModelClient([{"tool": "child", "arguments": {"task": "x"}}, "parent done"]),
+        name="lead",
+        tools=[child.as_tool()],
+        events=seen.append,
+    )
+    await parent.run("go", run_id="lead-1")
+
+    child_started = next(e for e in seen if isinstance(e, RunStarted) and e.run_id != "lead-1")
+    assert child_started.parent_run_id == "lead-1"
+    assert child_started.run_id.startswith("child")
+
+
+async def test_as_tool_called_directly_runs_unparented():
+    from aimu.events import RunStarted
+
+    seen = []
+    child = Agent(MockAsyncModelClient(["child done"]), name="child", events=seen.append)
+
+    assert await child.as_tool()("x") == "child done"
+    assert {e.parent_run_id for e in seen if isinstance(e, RunStarted)} == {None}
+
+
+def test_as_tool_schema_does_not_expose_the_context():
+    fn = Agent(MockAsyncModelClient(["x"]), name="child").as_tool()
+    assert set(fn.__tool_spec__["function"]["parameters"]["properties"]) == {"task"}
+
+
+async def test_as_tool_leaves_a_runner_without_run_identity_alone():
+    from aimu.aio.agent import AsyncRunner
+
+    class _Plain(AsyncRunner):
+        def __init__(self):
+            self.calls = []
+
+        async def run(self, task, generate_kwargs=None, stream=False):
+            self.calls.append((task, generate_kwargs, stream))
+            return "plain"
+
+        @property
+        def messages(self):
+            return []
+
+    plain = _Plain()
+    parent = Agent(
+        MockAsyncModelClient([{"tool": "runner", "arguments": {"task": "x"}}, "done"]),
+        name="lead",
+        tools=[plain.as_tool()],
+    )
+    await parent.run("go", run_id="lead-1")
+
+    assert plain.calls == [("x", None, False)]
+
+
+async def test_orchestrator_worker_is_parented_to_the_orchestrator_run():
+    from aimu.aio import OrchestratorAgent
+    from aimu.events import RunStarted
+
+    seen = []
+    worker = Agent(MockAsyncModelClient(["worked"]), name="alpha", system_message="Work.", events=seen.append)
+    orch = OrchestratorAgent.assemble(
+        MockAsyncModelClient([{"tool": "alpha", "arguments": {"task": "x"}}, "done"]),
+        "Use alpha.",
+        workers=[worker],
+        name="boss",
+        events=seen.append,
+    )
+    await orch.run("go", run_id="boss-1", parent_run_id="host-1")
+
+    started = {e.agent: e for e in seen if isinstance(e, RunStarted)}
+    assert (started["boss"].run_id, started["boss"].parent_run_id) == ("boss-1", "host-1")
+    assert started["alpha"].parent_run_id == "boss-1"

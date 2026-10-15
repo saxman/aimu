@@ -90,8 +90,12 @@ class OrchestratorAgent(AsyncRunner, ABC):
         generate_kwargs: Optional[dict[str, Any]] = None,
         stream: bool = False,
         images: Optional[list] = None,
+        run_id: Optional[str] = None,
+        parent_run_id: Optional[str] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
-        return await self._orchestrator.run(task, generate_kwargs, stream=stream, images=images)
+        return await self._orchestrator.run(
+            task, generate_kwargs, stream=stream, images=images, run_id=run_id, parent_run_id=parent_run_id
+        )
 
     @property
     def messages(self) -> MessageHistory:
