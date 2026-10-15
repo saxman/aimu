@@ -87,8 +87,9 @@ Every event of an agent's run also carries `run_id`, so two concurrent runs of t
 (two spawns of one specialist) stay apart, and `parent_run_id`, the run that started it. AIMU's
 spawn tools set the parent themselves, and so does `Runner.as_tool()` for a runner whose `run`
 accepts the ids (an `Agent`, an `OrchestratorAgent`), which is what parents an orchestrator's
-workers. A workflow wrapped by `as_tool()` is called with the task alone. Anything else that starts an agent from inside a tool
-should pass `parent_run_id=ctx.run_id` (from an injected `ToolContext`) to that agent's `run`, or
+workers. A workflow wrapped by `as_tool()` is called with the task alone. Anything else that
+starts an agent from inside a tool should pass `parent_run_id=ctx.run_id` (from an injected
+`ToolContext`) to that agent's `run`, or
 the child arrives unparented. That is deliberate: a context variable would link children
 automatically, but it does not reach tools dispatched on a thread pool, so it would leave some
 children silently unparented, which is worse than visibly so.

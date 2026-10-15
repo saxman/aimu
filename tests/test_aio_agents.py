@@ -682,3 +682,20 @@ async def test_orchestrator_worker_is_parented_to_the_orchestrator_run():
     started = {e.agent: e for e in seen if isinstance(e, RunStarted)}
     assert (started["boss"].run_id, started["boss"].parent_run_id) == ("boss-1", "host-1")
     assert started["alpha"].parent_run_id == "boss-1"
+
+
+async def test_orchestrator_wrapped_by_as_tool_is_named_after_itself():
+    from aimu.aio import OrchestratorAgent
+    from aimu.events import RunStarted
+
+    seen = []
+    inner = OrchestratorAgent.assemble(
+        MockAsyncModelClient(["inner done"]), "Lead.", workers=[], name="boss", events=seen.append
+    )
+    tool_fn = inner.as_tool()
+    assert tool_fn.__name__ == "boss"
+
+    parent = Agent(MockAsyncModelClient([{"tool": "boss", "arguments": {"task": "x"}}, "done"]), tools=[tool_fn])
+    await parent.run("go", run_id="lead-1")
+    started = next(e for e in seen if isinstance(e, RunStarted))
+    assert started.run_id.startswith("boss-") and started.parent_run_id == "lead-1"

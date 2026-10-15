@@ -98,6 +98,10 @@ class OrchestratorAgent(AsyncRunner, ABC):
         )
 
     @property
+    def name(self) -> str:
+        return self._orchestrator.name
+
+    @property
     def messages(self) -> MessageHistory:
         return self._orchestrator.messages
 

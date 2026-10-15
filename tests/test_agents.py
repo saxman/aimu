@@ -997,9 +997,29 @@ def test_as_tool_leaves_a_runner_without_run_identity_alone():
 
 
 def test_as_tool_leaves_a_chain_alone():
-    chain = Chain([Agent(MockModelClient(["a"]), name="a")])
-    parent = Agent(MockModelClient([{"tool": "runner", "arguments": {"task": "x"}}, "done"]), tools=[chain.as_tool()])
-    assert parent.run("go", run_id="lead-1") == "done"
+    inner_client = MockModelClient(["a"])
+    chain = Chain([Agent(inner_client, name="a")])
+    parent = Agent(MockModelClient([{"tool": "chain", "arguments": {"task": "x"}}, "done"]), tools=[chain.as_tool()])
+    parent.run("go", run_id="lead-1")
+
+    # A TypeError from passing run_id to Chain.run would be swallowed as a tool-error result.
+    assert inner_client._call_count == 1
+
+
+def test_orchestrator_wrapped_by_as_tool_is_named_after_itself():
+    from aimu.events import RunStarted
+
+    seen = []
+    inner = OrchestratorAgent.assemble(
+        MockModelClient(["inner done"]), "Lead.", workers=[], name="boss", events=seen.append
+    )
+    tool_fn = inner.as_tool()
+    assert tool_fn.__name__ == "boss"
+
+    parent = Agent(MockModelClient([{"tool": "boss", "arguments": {"task": "x"}}, "done"]), tools=[tool_fn])
+    parent.run("go", run_id="lead-1")
+    started = next(e for e in seen if isinstance(e, RunStarted))
+    assert started.run_id.startswith("boss-") and started.parent_run_id == "lead-1"
 
 
 def test_orchestrator_worker_is_parented_to_the_orchestrator_run():
