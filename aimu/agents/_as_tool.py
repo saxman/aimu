@@ -9,7 +9,31 @@ rest and applies the ``@tool`` decorator.
 from __future__ import annotations
 
 import re
+import inspect
 from typing import Callable, Optional
+
+from aimu.tools.context import ToolContext
+
+
+def accepts_run_identity(runner) -> bool:
+    """Whether ``runner.run`` takes ``run_id`` and ``parent_run_id``.
+
+    Inspected once, when the tool is built. ``Agent`` and ``OrchestratorAgent`` do; workflows
+    (``Chain``, ``Router``, ``Parallel``) and ``RemoteAgent`` do not, and are called with the
+    task alone.
+    """
+    parameters = inspect.signature(runner.run).parameters
+    return "run_id" in parameters and "parent_run_id" in parameters
+
+
+def run_identity(runner, ctx: Optional[ToolContext]) -> dict:
+    """The ``run_id`` / ``parent_run_id`` keywords for one delegated run: a fresh id, parented to the caller."""
+    from aimu.agents._tool_loop import new_run_id
+
+    return {
+        "run_id": new_run_id(getattr(runner, "name", None)),
+        "parent_run_id": ctx.run_id if ctx is not None else None,
+    }
 
 
 def build_as_tool(runner, dispatch: Callable, *, name: Optional[str], description: Optional[str]) -> Callable:
@@ -33,5 +57,5 @@ def build_as_tool(runner, dispatch: Callable, *, name: Optional[str], descriptio
     dispatch.__name__ = safe_name
     dispatch.__qualname__ = safe_name
     dispatch.__doc__ = description
-    dispatch.__annotations__ = {"task": str, "return": str}
+    dispatch.__annotations__ = {"task": str, "ctx": Optional[ToolContext], "return": str}
     return tool(dispatch)

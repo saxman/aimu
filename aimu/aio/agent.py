@@ -10,7 +10,7 @@ import logging
 from abc import ABC, abstractmethod
 from contextlib import aclosing
 from dataclasses import dataclass, field
-from typing import Any, AsyncIterator, Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional, Union
 
 from aimu.agents._loop import _AgentLoopMixin
 from aimu.agents.base import MessageHistory
@@ -21,6 +21,9 @@ from aimu.models.base import StreamChunk
 
 from ._base import AsyncBaseModelClient
 from ._tool_loop import _AsyncToolLoop
+
+if TYPE_CHECKING:
+    from aimu.tools.context import ToolContext
 
 logger = logging.getLogger(__name__)
 
@@ -57,10 +60,12 @@ class AsyncRunner(ABC):
         ``async def`` delegating to ``await self.run(task)``, so the ``@tool`` decorator marks
         it ``__tool_is_async__ = True`` and the async agent loop awaits it directly.
         """
-        from aimu.agents._as_tool import build_as_tool
+        from aimu.agents._as_tool import accepts_run_identity, build_as_tool, run_identity
 
-        async def _dispatch(task: str) -> str:
-            return await self.run(task)
+        identifies = accepts_run_identity(self)
+
+        async def _dispatch(task: str, ctx: Optional[ToolContext] = None) -> str:
+            return await self.run(task, **run_identity(self, ctx)) if identifies else await self.run(task)
 
         return build_as_tool(self, _dispatch, name=name, description=description)
 
