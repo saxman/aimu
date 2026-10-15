@@ -1945,6 +1945,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tracing-a-spawn" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tracing a spawn
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#when-to-use-this-vs-orchestratoragent" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3399,6 +3410,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tracing-a-spawn" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tracing a spawn
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#when-to-use-this-vs-orchestratoragent" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3541,6 +3563,8 @@
 </span></code></pre></div>
 <p><code>spawn_id</code> is stable across all three callbacks for one spawn and unique per spawn, so a front end can key a display panel per sub-agent even when several run concurrently. <code>finished</code> always fires, including on cancellation, with whatever text had accumulated and the exception (if any) that ended the run. An observer is display-only: if a callback raises, the failure is logged and swallowed rather than aborting the spawn it was reporting on, and that holds for a callback whose signature no longer matches as much as for one that raises in its body. Nested spawns (<code>max_depth &gt; 1</code>) inherit the same observer automatically.</p>
 <p>Attaching an observer is not purely additive, though: an observed spawn runs the child through the provider's <strong>streaming</strong> request path, where an unobserved spawn uses the non-streaming one. The returned answer is the same either way (the accumulator resets on each loop iteration, so it is the final answer rather than every intermediate response concatenated), but any provider behavior that differs between its two request paths applies to observed spawns.</p>
+<h2 id="tracing-a-spawn">Tracing a spawn<a class="headerlink" href="#tracing-a-spawn" title="Permanent link">&para;</a></h2>
+<p>Every event of a child run carries its own <code>run_id</code> and a <code>parent_run_id</code> naming the run that spawned it, so a host reading an event sink can rebuild the delegation tree even when several children of one type run at once. A spawn tool learns its caller's run from <code>ToolContext.run_id</code>; a spawn called directly, with no context, simply has no parent. On the async surface the observer's <code>spawn_id</code> is that same <code>run_id</code> (<code>subagent-&lt;type&gt;-&lt;8 hex&gt;</code> on the typed shape, <code>subagent-&lt;8 hex&gt;</code> on the generic one), so a host keyed on <code>spawn_id</code> reads the same value off every event of the child's run.</p>
 <h2 id="when-to-use-this-vs-orchestratoragent">When to use this vs <code>OrchestratorAgent</code><a class="headerlink" href="#when-to-use-this-vs-orchestratoragent" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong><code>OrchestratorAgent</code></strong> — you know the specialist roster up front and want named, hand-wired workers (possibly workflows or remote agents). See <a href="../build-orchestrator/">Build an orchestrator</a>.</li>

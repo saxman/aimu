@@ -3441,6 +3441,16 @@ any point afterward.</p>
 is generated and, while it reliably said <code>'The result of 12 + 30 is **42**.'</code> in most of ten fresh
 runs here, it varied in the rest — <code>input_tokens</code>, the tool <code>arguments</code>, and <code>result='42'</code> are the
 parts of this block that are actually fixed.)</p>
+<p>Every event of an agent's run also carries <code>run_id</code>, so two concurrent runs of the same agent
+(two spawns of one specialist) stay apart, and <code>parent_run_id</code>, the run that started it. AIMU's
+spawn tools set the parent themselves, and so does <code>Runner.as_tool()</code> for a runner whose <code>run</code>
+accepts the ids (an <code>Agent</code>, an <code>OrchestratorAgent</code>), which is what parents an orchestrator's
+workers. A workflow wrapped by <code>as_tool()</code> is called with the task alone. Anything else that
+starts an agent from inside a tool should pass <code>parent_run_id=ctx.run_id</code> (from an injected
+<code>ToolContext</code>) to that agent's <code>run</code>, or
+the child arrives unparented. That is deliberate: a context variable would link children
+automatically, but it does not reach tools dispatched on a thread pool, so it would leave some
+children silently unparented, which is worse than visibly so.</p>
 <p>Every event carries <code>agent</code> and <code>iteration</code> (the same two fields <code>StreamChunk</code> carries), so one
 sink attached to a nested workflow — a <code>Chain</code> step, a <code>Router</code> handler, every worker in a
 <code>Parallel</code> — can still tell events apart by who emitted them. <code>Chain.from_client(...)</code>,
@@ -3480,6 +3490,9 @@ separate, because one is the model's answer and the other is the loop's:</p>
   same value as <code>client.last_stop_reason</code>. It is on the event because a sink often never holds
   the client: one receiving a spawned sub-agent's events cannot reach that sub-agent's client at
   all. <code>None</code> means the provider said nothing.</li>
+<li><strong><code>ModelTurnFinished.tool_calls</code> and <code>.thinking</code></strong> are what the model asked for on that turn
+  (each <code>{"name", "arguments", "id"}</code>, before dispatch) and its reasoning. A round that only called
+  tools has empty <code>text</code>, so these are the response on most rounds of a tool loop.</li>
 <li><strong><code>RunFinished.ended_by</code></strong> is the decision the agent loop made: <code>"answered"</code> (the model's last
   turn was a real answer and no inbox message was waiting), <code>"wrap_up"</code> (the round budget ran out
   while the model still wanted tools, so the loop made one tools-disabled call asking for a final
@@ -3494,7 +3507,7 @@ separate, because one is the model's answer and the other is the loop's:</p>
 <p>Read together, the last <code>ModelTurnFinished</code> of a run and its <code>RunFinished</code> show both halves of
 the stop: what the model did on its final turn, and which rule in the loop acted on it.</p>
 <h2 id="last_request-did-the-library-do-this-or-the-model"><code>last_request</code>: did the library do this, or the model?<a class="headerlink" href="#last_request-did-the-library-do-this-or-the-model" title="Permanent link">&para;</a></h2>
-<p><code>RequestPrepared</code> carries the same payload the client stores on <code>client.last_request</code> — the
+<p><code>RequestPrepared</code> carries the payload the client stores on <code>client.last_request</code> (as JSON data, see below): the
 request exactly as sent, after AIMU's own generate_kwargs merge (four tiers), the
 <code>GENERATE_KWARG_SUPPORT</code> renames and drops, thinking-effort resolution, <code>strip_inert_keys</code>
 (AIMU's own <code>timestamp</code>/<code>thinking</code>/<code>provenance</code> bookkeeping never reaches a provider),
@@ -3513,6 +3526,14 @@ out?</p>
 attached. The payload is unredacted: it contains whatever you put in the conversation, including
 tool arguments and any images/audio. A sink that ships events off the machine is the right place
 to filter, not this attribute.</p>
+<p>The event's payload is plain JSON data (see <code>aimu.models._internal.json_safe</code>): <code>NOT_GIVEN</code> keys are
+dropped, since the SDK omits them from the wire, and anything with no JSON form becomes a visible
+marker. <code>client.last_request</code> keeps the raw payload.</p>
+<p><code>RequestPrepared.endpoint</code> names the server the request went to, read from the SDK client (so an
+environment override such as <code>OLLAMA_HOST</code> is reflected), which is what tells two OpenAI-compatible
+servers apart when <code>provider</code> is the same class name. Credentials, query, and fragment are stripped
+before it is recorded. <code>None</code> means an in-process provider (HuggingFace, LlamaCpp): no wire request
+was made, and the payload is the nearest equivalent, inspectable but not replayable.</p>
 <h2 id="a-worked-example-an-opentelemetry-shaped-sink">A worked example: an OpenTelemetry-shaped sink<a class="headerlink" href="#a-worked-example-an-opentelemetry-shaped-sink" title="Permanent link">&para;</a></h2>
 <p>Events are plain data, so mapping them onto spans in an observability system is a matter of a
 dispatch function. This is a worked example, not a dependency — AIMU does not import

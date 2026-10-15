@@ -3135,15 +3135,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#unreleased" class="md-nav__link">
+  <a href="#v0360-2026-10-15-every-event-names-its-run-and-parent-and-a-recorded-request-says-where-it-went-and-what-came-back" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Unreleased
+        v0.36.0 (2026-10-15): every event names its run and parent, and a recorded request says where it went and what came back
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Unreleased">
+    <nav class="md-nav" aria-label="v0.36.0 (2026-10-15): every event names its run and parent, and a recorded request says where it went and what came back">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -5433,15 +5433,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#unreleased" class="md-nav__link">
+  <a href="#v0360-2026-10-15-every-event-names-its-run-and-parent-and-a-recorded-request-says-where-it-went-and-what-came-back" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Unreleased
+        v0.36.0 (2026-10-15): every event names its run and parent, and a recorded request says where it went and what came back
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Unreleased">
+    <nav class="md-nav" aria-label="v0.36.0 (2026-10-15): every event names its run and parent, and a recorded request says where it went and what came back">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -7696,9 +7696,49 @@ not this stub.
 -->
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
-<h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="v0360-2026-10-15-every-event-names-its-run-and-parent-and-a-recorded-request-says-where-it-went-and-what-came-back">v0.36.0 (2026-10-15): every event names its run and parent, and a recorded request says where it went and what came back<a class="headerlink" href="#v0360-2026-10-15-every-event-names-its-run-and-parent-and-a-recorded-request-says-where-it-went-and-what-came-back" title="Permanent link">&para;</a></h2>
 <h3 id="events">Events<a class="headerlink" href="#events" title="Permanent link">&para;</a></h3>
 <ul>
+<li><strong>New: run identity on every event.</strong> <code>RunEvent.run_id</code> names one run of an agent and
+  <code>RunEvent.parent_run_id</code> the run that started it, so two concurrent runs of one agent stay apart.
+  <code>Agent.run(run_id=, parent_run_id=)</code> on <code>aimu.agents.Agent</code>, <code>aimu.aio.Agent</code>, and
+  <code>aimu.aio.SkillAgent</code> set them (an id is generated when omitted), and <code>ToolContext.run_id</code> tells a
+  tool which run called it, so it can pass that on as a child's <code>parent_run_id</code>.</li>
+<li><strong>Change: a spawn observer's <code>spawn_id</code> is the child run's <code>run_id</code>.</strong> <code>make_subagent_tool</code> and
+  <code>make_async_subagent_tool</code> name the child's run and pass the caller's <code>ToolContext.run_id</code> as its
+  <code>parent_run_id</code>, so every event of the child carries the link. The observed id was
+  <code>&lt;agent_type&gt;-&lt;8 hex&gt;</code> (<code>subagent-&lt;8 hex&gt;</code> on the generic shape) and is now
+  <code>subagent-&lt;agent_type&gt;-&lt;8 hex&gt;</code> (<code>subagent-&lt;8 hex&gt;</code>), the agent's name plus a suffix. A host that
+  parsed the old prefix must read the new one; one that treated the id as opaque is unaffected.</li>
+<li><strong>New: <code>Runner.as_tool()</code> parents the runs it starts.</strong> The tool <code>as_tool()</code> builds (sync and
+  async) takes an injected <code>ctx: Optional[ToolContext] = None</code>, absent from the schema the model
+  sees, and when the wrapped runner's <code>run</code> accepts <code>run_id</code> and <code>parent_run_id</code> it passes a fresh
+  id and the caller's <code>ctx.run_id</code>. A runner without those parameters (<code>Chain</code>, <code>Router</code>,
+  <code>Parallel</code>, <code>RemoteAgent</code>) is called with the task alone, as before. <code>OrchestratorAgent.run</code>
+  (sync and async) now accepts <code>run_id=</code> / <code>parent_run_id=</code> and forwards them, so an
+  orchestrator's workers are parented to its run.</li>
+<li><strong>Fix: recording a request can no longer fail it.</strong> A payload <code>json_safe</code> could not walk (a
+  self-referential dict) or a malformed endpoint port used to raise out of the request. The event
+  now carries <code>endpoint=None</code> and a <code>"&lt;unserializable: ...&gt;"</code> payload marker and logs a warning; with
+  no sink attached, neither the endpoint nor the payload is computed at all.</li>
+<li><strong>Fix: async HuggingFace and LlamaCpp clients forward <code>last_tool_calls</code>, <code>last_stop_reason</code>,
+  <code>last_usage</code>, and <code>last_output_truncated</code>,</strong> so <code>ModelTurnFinished</code> reports them rather than
+  <code>[]</code> and <code>None</code>.</li>
+<li><strong>Fix: <code>generate()</code> clears <code>last_tool_calls</code>,</strong> so its <code>ModelTurnFinished</code> no longer reports the
+  previous <code>chat()</code>'s tool calls.</li>
+<li><strong>Fix: IPv6 endpoints keep their brackets</strong> (<code>http://[::1]:11434/v1</code>), so a recorded <code>endpoint</code>
+  is a valid URL.</li>
+<li><strong>Change: <code>RequestPrepared.payload</code> is plain JSON data.</strong> Payloads held values with no JSON form
+  (Anthropic's <code>NOT_GIVEN</code> sentinel, Pydantic classes and instances, in-process rendered inputs), so
+  every host persisting a request hit the same error. <code>NOT_GIVEN</code> keys are dropped (the SDK omits
+  them from the wire), a Pydantic instance becomes its JSON form, and anything else with no JSON form
+  becomes a visible marker such as <code>"&lt;bytes 3&gt;"</code>. <code>client.last_request</code> keeps the raw object, so a
+  consumer comparing the event's payload by identity to it will now see a copy.</li>
+<li><strong>New: <code>RequestPrepared.endpoint</code> names the server the request went to.</strong> <code>provider</code> is a class
+  name, so two OpenAI-compatible servers were the same record. Each wire provider reports the base
+  URL its SDK client resolved (environment overrides such as <code>OLLAMA_HOST</code> included), with userinfo,
+  query, and fragment stripped; <code>None</code> means an in-process provider (HuggingFace, LlamaCpp) with no
+  wire request. Providers supply it through <code>_request_endpoint()</code>.</li>
 <li><strong>New: <code>RunFinished.ended_by</code> says which rule ended a run, and <code>RunFinished.max_iterations</code> the
   budget it ran under.</strong> <code>"answered"</code> (the model's last turn was a real answer), <code>"wrap_up"</code> (the
   round budget ran out while the model still wanted tools, and the forced tools-disabled call
@@ -7710,6 +7750,12 @@ not this stub.
 <li><strong>New: <code>ModelTurnFinished.stop_reason</code> carries the provider's own word for how the turn ended</strong>,
   the value of <code>client.last_stop_reason</code>. A sink receiving a spawned sub-agent's events never holds
   that sub-agent's client, so before this it had no way to read it.</li>
+<li><strong>New: <code>ModelTurnFinished.tool_calls</code> and <code>ModelTurnFinished.thinking</code></strong>, plus <code>client.last_tool_calls</code>,
+  forwarded through <code>ModelClient</code>, <code>AsyncModelClient</code>, the agentic view, and <code>FallbackClient</code>. A
+  tools-only round's <code>text</code> is empty, so these are what a host records as that round's response.</li>
+<li><strong>Fix: <code>last_stop_reason</code> (and so <code>ModelTurnFinished.stop_reason</code>) is now forwarded through
+  <code>ModelClient</code>, <code>AsyncModelClient</code>, and the agentic view, and adopted by <code>FallbackClient</code></strong>; through
+  <code>aimu.client()</code> it read <code>None</code>.</li>
 </ul>
 <h3 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h3>
 <ul>
