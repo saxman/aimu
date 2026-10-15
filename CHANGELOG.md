@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.36.0 (2026-10-15): every event names its run and parent, and a recorded request says where it went and what came back
 
 ### Events
 
