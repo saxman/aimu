@@ -7,7 +7,8 @@
 - **New: tool groups.** `aimu.tools.ToolGroup` and `Agent(tool_groups=[...])` (sync and async, including
   `SkillAgent`) let an agent hold tools without sending their schemas until it loads them. An agent with a
   deferred group carries `available_tools(filter="")` and `load_tools(name)`; `Agent.load_tool_group(name)`
-  is the host's route to the same load. `build` runs once per agent instance, at load time (off the event
+  is the host's route to the same load (it does not pass through `tool_approval`). A `build` that succeeds
+  runs once per agent instance, at load time (off the event
   loop on `aimu.aio`). Loading only appends and never shadows an existing tool name. A group with
   `build=None` is resident: already in `tools=`, listed only. See `docs/how-to/defer-tools.md`.
 - **New: `"tool_groups"` and `"tool_approval"` spawn spec keys** on `make_subagent_tool` and

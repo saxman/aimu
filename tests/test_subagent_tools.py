@@ -796,3 +796,18 @@ def test_a_spec_with_a_non_callable_tool_approval_is_refused_at_factory_time():
     types = {"bad": {"system_message": "x", "tool_approval": "yes"}}
     with pytest.raises(ValueError, match=r"agent_types\['bad'\]\['tool_approval'\] must be a callable"):
         make_subagent_tool(MODEL, agent_types=types)
+
+
+def test_a_nested_spawn_tool_gives_an_ungated_specialist_the_factory_gate():
+    # The grandchild's type names no gate, so only the nested tool's own gate can reach it: the factory's,
+    # never the gate of the spec that happened to build its parent.
+    types = {
+        "coder": {"system_message": "Code.", "tool_approval": _other_gate},
+        "writer": {"system_message": "Write."},
+    }
+    spawn = make_subagent_tool(MODEL, agent_types=types, max_depth=2, tool_approval=_gate)
+    spawn("coder", "task")
+    nested = [t for t in _RecordingAgent.instances[-1].tools if getattr(t, "__name__", "") == "spawn_subagent"]
+    assert nested
+    nested[0]("writer", "deeper task")
+    assert _RecordingAgent.instances[-1].tool_approval is _gate

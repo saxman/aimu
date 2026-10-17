@@ -144,3 +144,23 @@ async def test_skill_agent_appends_loaded_tools_after_its_skill_tools(tmp_path):
     agent._skills_tools = [demo__run]
     await agent.load_tool_group("web")
     assert _names(agent) == ["demo__run", "available_tools", "load_tools", "search_web"]
+
+
+async def test_a_cancelled_load_does_not_start_a_second_build():
+    # A run cancelled mid-build (a user pressing stop during a slow store open) must not leave the next
+    # load to start a second build beside the one still running in its worker thread.
+    starts = []
+
+    def slow():
+        starts.append(1)
+        time.sleep(0.3)
+        return [search_web]
+
+    agent = Agent(MockAsyncModelClient(["hi"]), tool_groups=[ToolGroup("web", "Search.", build=slow)])
+    first = asyncio.ensure_future(agent.load_tool_group("web"))
+    await asyncio.sleep(0.05)
+    first.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await first
+    assert await agent.load_tool_group("web") == "Loaded 'web': search_web."
+    assert starts == [1]

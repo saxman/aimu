@@ -27,7 +27,7 @@ The agent now carries two extra tools:
 - `available_tools(filter="")` lists every group with its state: `loadable`, `loaded`, or `resident`.
 - `load_tools(name)` builds the group, appends its tools, and returns the group's tool names and `guidance`.
 
-`build` runs at most once per agent instance, when the group is loaded, so a group that opens a store or
+A `build` that succeeds runs once per agent instance, when the group is loaded, so a group that opens a store or
 loads a model costs nothing until an agent asks for it. On `aimu.aio` it runs in a worker thread.
 
 ## List tools the agent already holds
@@ -56,6 +56,14 @@ An agent whose groups are all resident gets no extra tools.
 A model that calls a deferred tool without loading it gets a "not found" result that names
 `available_tools` and `load_tools`.
 
+## When a build fails
+
+If `build` raises, or returns something other than a list of named tool callables, the load fails
+cleanly: `load_tools` returns `Could not load '<name>': <error>`, the failure is logged at WARNING, and the
+group stays loadable, so a later load retries the build. On `aimu.aio`, a caller cancelled while a build is
+running stops waiting, but the build keeps going, and the next load of that group joins it instead of
+starting a second one.
+
 ## Restore loads without a model call
 
 A host rebuilding an agent for a resumed conversation can replay its loads directly:
@@ -64,6 +72,9 @@ A host rebuilding an agent for a resumed conversation can replay its loads direc
 for name in previously_loaded:
     await agent.load_tool_group(name)  # the same text load_tools returns
 ```
+
+`load_tool_group` is the host acting directly, so it does not pass through `tool_approval`; only the
+model's `load_tools` call does.
 
 ## Give a sub-agent groups
 

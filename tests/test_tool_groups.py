@@ -172,3 +172,15 @@ def test_missing_tool_hint_only_when_load_tools_is_present():
         " If it belongs to a tool group you have not loaded, call available_tools to see what you can load, "
         "then load_tools."
     )
+
+
+def test_record_rejects_a_tool_without_a_name_and_leaves_the_group_loadable():
+    # A nameless callable (a functools.partial) recorded as loaded would crash every later round, since
+    # the loop indexes tools by __name__; it must fail the load instead, before any state changes.
+    import functools
+
+    state = ToolGroupState([WEB])
+    nameless = functools.partial(lambda query: query, "x")
+    assert state.record("web", [nameless], existing_names=set()).startswith("Could not load 'web': ")
+    assert state.precheck("web") is None
+    assert state.loaded_tools() == []

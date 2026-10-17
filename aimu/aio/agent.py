@@ -166,9 +166,10 @@ class Agent(_AgentLoopMixin, AsyncRunner):
     tool_groups: list["ToolGroup"] = field(default_factory=list)
     _groups: Optional["ToolGroupState"] = field(default=None, init=False, repr=False)
     _group_tools: list = field(default_factory=list, init=False, repr=False)
-    # concurrent_tool_calls dispatches async tools under a TaskGroup, so two loads can interleave at the
-    # await on build; the lock makes the check-build-record sequence one step.
-    _group_lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False, repr=False)
+    # The build in flight for each group, so a second load (a concurrent call, or a retry after the first
+    # caller was cancelled) joins it instead of starting another: the worker thread a build runs in cannot
+    # be cancelled, so cancelling the caller must not cancel the record of what that thread is doing.
+    _group_builds: dict = field(default_factory=dict, init=False, repr=False)
     _last_messages: list = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -186,19 +187,33 @@ class Agent(_AgentLoopMixin, AsyncRunner):
 
         The host's route to the same load (see :meth:`aimu.agents.Agent.load_tool_group`). ``build`` runs
         in a worker thread, since a build may open a store or load a model and the event loop has other
-        conversations to serve meanwhile.
+        conversations to serve meanwhile. The build is awaited through ``asyncio.shield``: a caller
+        cancelled mid-build stops waiting, but the build itself keeps its place in ``_group_builds``, so
+        the next load joins it rather than starting a second one beside it. No lock is needed, because
+        every check-and-update of that dict happens between awaits.
         """
-        async with self._group_lock:
-            blocked = self._groups.precheck(name)
-            if blocked is not None:
-                return blocked
-            group = self._groups.group(name)
-            try:
-                built = await asyncio.to_thread(group.build)
-            except Exception as exc:
-                return self._groups.build_failed(group.name, exc)
-            existing = {getattr(fn, "__name__", None) for fn in self._effective_tools(None)}
-            return self._groups.record(group.name, built, existing)
+        blocked = self._groups.precheck(name)
+        if blocked is not None:
+            return blocked
+        group = self._groups.group(name)
+        task = self._group_builds.get(group.name)
+        if task is None:
+            task = asyncio.ensure_future(asyncio.to_thread(group.build))
+            self._group_builds[group.name] = task
+        try:
+            built = await asyncio.shield(task)
+        except Exception as exc:
+            if self._group_builds.get(group.name) is task:
+                del self._group_builds[group.name]
+            return self._groups.build_failed(group.name, exc)
+        if self._group_builds.get(group.name) is task:
+            del self._group_builds[group.name]
+        # A concurrent caller awaiting the same build may have recorded it first.
+        already = self._groups.precheck(group.name)
+        if already is not None:
+            return already
+        existing = {getattr(fn, "__name__", None) for fn in self._effective_tools(None)}
+        return self._groups.record(group.name, built, existing)
 
     def _make_group_tools(self) -> list:
         """This instance's ``available_tools`` and ``load_tools``, closures over its own state."""

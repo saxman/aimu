@@ -8,8 +8,9 @@ Claude Code's deferred tools, written as plain Python a reader can follow.
 
 Two kinds of group, told apart by ``build``:
 
-- **Deferred** (``build`` set): built at most once per agent instance, when loaded, so a side effect of
-  building (opening a store, loading a model) is paid only by an agent that actually loads the group.
+- **Deferred** (``build`` set): built once per agent instance, when loaded (again only after a failed
+  build), so a side effect of building (opening a store, loading a model) is paid only by an agent that
+  actually loads the group.
 - **Resident** (``build=None``): the host already put this group's tools in ``Agent(tools=...)``. It is
   listed so ``available_tools`` shows the agent its whole picture, and it is never built.
 
@@ -180,8 +181,12 @@ class ToolGroupState:
         ``existing_names`` is every tool name the agent holds right now. A built tool reusing one is
         skipped, never appended, and the result says which group (if any) holds the name.
         """
-        if not isinstance(built, list) or not all(callable(fn) for fn in built):
-            return self.build_failed(name, TypeError(f"build returned {built!r}, not a list of tool callables"))
+        # Checked before any state changes: the loop indexes tools by ``__name__`` every round, so a nameless
+        # callable recorded here would break every later round rather than just this load.
+        if not isinstance(built, list) or not all(
+            callable(fn) and isinstance(getattr(fn, "__name__", None), str) for fn in built
+        ):
+            return self.build_failed(name, TypeError(f"build returned {built!r}, not a list of named tool callables"))
         group = self._by_name[name]
         kept, skipped = [], []
         taken = set(existing_names)

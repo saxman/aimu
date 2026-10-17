@@ -1056,3 +1056,18 @@ def test_spec_keys_include_the_two_new_members():
     from aimu.tools.builtin import SUBAGENT_SPEC_KEYS
 
     assert {"tool_groups", "tool_approval"} <= SUBAGENT_SPEC_KEYS
+
+
+async def test_a_nested_spawn_tool_gives_an_ungated_specialist_the_factory_gate():
+    # The grandchild's type names no gate, so only the nested tool's own gate can reach it: the factory's,
+    # never the gate of the spec that happened to build its parent.
+    types = {
+        "coder": {"system_message": "Code.", "tool_approval": _other_gate},
+        "writer": {"system_message": "Write."},
+    }
+    spawn = make_async_subagent_tool(MODEL, agent_types=types, max_depth=2, tool_approval=_gate)
+    await spawn("coder", "task")
+    nested = [t for t in _RecordingAsyncAgent.instances[-1].tools if getattr(t, "__name__", "") == "spawn_subagent"]
+    assert nested
+    await nested[0]("writer", "deeper task")
+    assert _RecordingAsyncAgent.instances[-1].tool_approval is _gate
