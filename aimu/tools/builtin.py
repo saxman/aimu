@@ -2600,7 +2600,7 @@ def make_subagent_tool(
     * Typed (``agent_types`` given): the tool is ``spawn_subagent(agent_type, task)`` over a registry
       of named specialists (each value a dict with ``"system_message"`` and optional ``"tools"`` /
       ``"model"`` / ``"thinking"`` / ``"generate_kwargs"`` / ``"max_iterations"`` / ``"compaction"`` /
-      ``"inbox"``, and nothing else -- an unrecognized spec key raises at factory-call time rather
+      ``"inbox"`` / ``"tool_groups"`` / ``"tool_approval"``, and nothing else -- an unrecognized spec key raises at factory-call time rather
       than being ignored, since an ignored key reads exactly like an applied one); the available names
       are listed in the tool description. An
       unknown ``agent_type``, by contrast, is returned to the model as a tool result (self-correction),
@@ -2631,6 +2631,13 @@ def make_subagent_tool(
       spawned agent, read by the same *membership* rule as ``"compaction"`` and for the same reason: a
       spec naming ``"inbox": None`` is turning the factory's source off for this one specialist,
       which ``.get()`` cannot tell apart from a spec that never mentioned the key.
+      ``"tool_groups"`` is a list of :class:`~aimu.tools.ToolGroup` the specialist can load on demand.
+      There is no factory tier, so a spec omitting it spawns none; each spawn builds a fresh agent, so
+      its loads are its own even when several spawns of one type run at once.
+      ``"tool_approval"`` is this specialist's own approval gate, read by the *membership* rule:
+      omitted, it inherits the factory's ``tool_approval``; ``"tool_approval": None`` turns gating off
+      for this one specialist. A nested spawn tool keeps the factory's gate, for the reason it keeps
+      the factory's ``inbox``.
 
     A spawned sub-agent that runs out of context does not raise: the ``ContextOverflowError`` becomes a
     tool result naming the *sub-agent's* window as the one that filled. Uncaught, it would reach the

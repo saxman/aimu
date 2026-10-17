@@ -322,7 +322,7 @@ def make_async_subagent_tool(
     parent :class:`aimu.aio.Agent` ``concurrent_tool_calls=True`` and multiple spawn calls in one turn
     overlap under an ``asyncio.TaskGroup``. See the sync docstring for the full contract (generic vs
     typed mode, the per-spec ``"model"`` / ``"thinking"`` / ``"generate_kwargs"`` / ``"max_iterations"`` /
-    ``"inbox"`` keys, ``max_depth`` recursion guard, unknown-``agent_type`` handling, and the
+    ``"inbox"`` / ``"tool_groups"`` / ``"tool_approval"`` keys, ``max_depth`` recursion guard, unknown-``agent_type`` handling, and the
     ``tool_approval`` gate forwarded to every spawned sub-agent).
 
     In-process providers (HuggingFace, LlamaCpp) are wrapped per spawn via a fresh sync client (the aio
