@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
+import threading
 from contextlib import closing
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterator, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional, Union
 
 from aimu.agents._loop import _AgentLoopMixin
 from aimu.agents._tool_loop import _identifying, _ToolLoop, new_run_id
@@ -11,6 +12,9 @@ from aimu.agents.base import MessageHistory, Runner
 from aimu.agents.inbox import Inbox
 from aimu.events import EventSink
 from aimu.models.base import BaseModelClient, StreamChunk
+
+if TYPE_CHECKING:
+    from aimu.tools.groups import ToolGroup, ToolGroupState
 
 logger = logging.getLogger(__name__)
 
@@ -136,6 +140,14 @@ class Agent(_AgentLoopMixin, Runner):
     compaction: Optional[Callable[[list[dict]], list[dict]]] = None
     inbox: Optional[Inbox] = None
     concurrent_tool_calls: bool = False
+    # Tools this agent holds without advertising them until loaded (see aimu.tools.groups). A group with
+    # build=None is resident: its tools are already in `tools`, and it is listed only. When any group is
+    # deferred, the agent also carries available_tools and load_tools.
+    tool_groups: list["ToolGroup"] = field(default_factory=list)
+    _groups: Optional["ToolGroupState"] = field(default=None, init=False, repr=False)
+    _group_tools: list = field(default_factory=list, init=False, repr=False)
+    # concurrent_tool_calls dispatches sync tools on a thread pool, so two loads can arrive at once.
+    _group_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
     _last_messages: list = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -143,6 +155,62 @@ class Agent(_AgentLoopMixin, Runner):
             # Stable but unique-per-instance default. Users who need readable names
             # in messages histories should pass ``name=`` explicitly.
             self.name = f"agent-{id(self) & 0xFFFFFF:06x}"
+        from aimu.tools.groups import ToolGroupState, check_core_names, check_tool_groups
+
+        check_tool_groups(self.tool_groups, "tool_groups")
+        check_core_names(self.tools, self.tool_groups, "tools")
+        self._groups = ToolGroupState(self.tool_groups)
+        self._group_tools = self._make_group_tools() if self._groups.has_deferred else []
+
+    def load_tool_group(self, name: str) -> str:
+        """Load a deferred tool group into this agent and return what ``load_tools`` tells the model.
+
+        The host's route to the same load, for restoring a conversation's loads into a freshly built agent
+        without a model call; the ``load_tools`` tool calls this, so both get the same text.
+        """
+        with self._group_lock:
+            blocked = self._groups.precheck(name)
+            if blocked is not None:
+                return blocked
+            group = self._groups.group(name)
+            try:
+                built = group.build()
+            except Exception as exc:
+                return self._groups.build_failed(group.name, exc)
+            existing = {getattr(fn, "__name__", None) for fn in self._effective_tools(None)}
+            return self._groups.record(group.name, built, existing)
+
+    def _make_group_tools(self) -> list:
+        """This instance's ``available_tools`` and ``load_tools``, closures over its own state."""
+        from aimu.tools.decorator import tool
+
+        groups = self._groups
+
+        @tool
+        def available_tools(filter: str = "") -> str:
+            """List the tool groups you can use. Resident ones are already in your tools; loadable ones must
+            be loaded with load_tools before their tools can be called; loaded ones are ready.
+
+            Args:
+                filter: Optional. Show only groups whose name or description contains this text.
+            """
+            return groups.listing(filter)
+
+        @tool
+        def load_tools(name: str) -> str:
+            """Load a tool group by name so its tools can be called from your next step on. A load lasts for
+            the rest of this conversation, and loading a group twice is harmless.
+
+            Args:
+                name: The group's name, as available_tools lists it.
+            """
+            return self.load_tool_group(name)
+
+        return [available_tools, load_tools]
+
+    def _group_tail(self) -> list:
+        """The core tools, then loaded tools in load order: always last, so loading only appends."""
+        return self._group_tools + self._groups.loaded_tools()
 
     def run(
         self,
@@ -285,9 +353,10 @@ class Agent(_AgentLoopMixin, Runner):
             self._last_messages = list(self.model_client.messages)
 
     def _effective_tools(self, tools: Optional[list[Callable]]) -> list[Callable]:
-        """The tool callables for this run: the ``tools=`` override, else the agent's ``self.tools``.
-        (``SkillAgent`` overrides this to add its discovered skill tools.)"""
-        return list(tools) if tools is not None else list(self.tools)
+        """The tool callables for this run: the ``tools=`` override, else the agent's ``self.tools``, then
+        the tool-group tail (see :meth:`_group_tail`)."""
+        own = list(tools) if tools is not None else list(self.tools)
+        return own + self._group_tail()
 
     def _make_tool_loop(
         self,
