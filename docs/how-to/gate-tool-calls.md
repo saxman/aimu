@@ -117,3 +117,8 @@ user confirms before the assistant writes and runs code.
 
 - [Add a custom tool](add-custom-tool.md) and [Use MCP tools](use-mcp-tools.md): the tools a policy gates
 - [Build a personal assistant](build-personal-assistant.md): the approval demo in context
+
+## Gate each sub-agent type differently
+
+A typed spawn spec can carry its own `"tool_approval"`, so a coder can be asked about `run_command` while a
+researcher is not. Omitted, a spec inherits the factory's gate. See [Spawn sub-agents](spawn-subagents.md).
