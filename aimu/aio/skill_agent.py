@@ -66,14 +66,16 @@ class SkillAgent(Agent):
         self._skills_catalog_injected = new
 
     def _effective_tools(self, tools: Optional[list] = None) -> list:
-        """The agent's tools (or the ``tools=`` override) plus the discovered skill tools.
+        """The agent's tools (or the ``tools=`` override), the discovered skill tools, then the tool-group
+        tail.
 
-        Called each round by the tool-loop engine, so a skill authored mid-run via
-        :meth:`reload_skills` is advertised and dispatchable on the next round."""
-        base = super()._effective_tools(tools)
-        existing = {getattr(fn, "__name__", None) for fn in base}
+        Called each round by the tool-loop engine, so a skill authored mid-run via :meth:`reload_skills`
+        is advertised and dispatchable on the next round. The group tail goes last so that loading a group
+        only ever appends to the request's tool list."""
+        own = list(tools) if tools is not None else list(self.tools)
+        existing = {getattr(fn, "__name__", None) for fn in own}
         skills = [t for t in (self._skills_tools or []) if t.__name__ not in existing]
-        return base + skills
+        return own + skills + self._group_tail()
 
     async def _setup_skills_async(self) -> None:
         if not self.skill_manager.skills:
