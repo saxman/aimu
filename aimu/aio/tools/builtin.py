@@ -370,6 +370,8 @@ def make_async_subagent_tool(
         max_iter=None,
         compact=None,
         agent_inbox=None,
+        groups=None,
+        agent_approval=None,
     ):
         from aimu.aio.agent import Agent
 
@@ -410,11 +412,12 @@ def make_async_subagent_tool(
             max_iterations=cap,
             concurrent_tool_calls=concurrent_tool_calls,
             deps=deps,
-            tool_approval=tool_approval,
+            tool_approval=agent_approval,
             thinking=thinking,
             events=events,
             compaction=compact,
             inbox=agent_inbox,
+            tool_groups=list(groups or []),
         )
 
     async def _dispatch(agent, agent_type: Optional[str], task: str, parent_run_id: Optional[str]) -> str:
@@ -436,7 +439,14 @@ def make_async_subagent_tool(
     if agent_types is None:
 
         async def spawn_subagent(task: str, ctx: Optional[ToolContext] = None) -> str:
-            agent = _build_agent(system_message, tools, name="subagent", compact=compaction, agent_inbox=inbox)
+            agent = _build_agent(
+                system_message,
+                tools,
+                name="subagent",
+                compact=compaction,
+                agent_inbox=inbox,
+                agent_approval=tool_approval,
+            )
             return await _dispatch(agent, None, task, ctx.run_id if ctx is not None else None)
 
     else:
@@ -461,6 +471,10 @@ def make_async_subagent_tool(
                 # Membership, not `.get()`, for the same reason: a spec naming `"inbox": None` is
                 # turning the factory's source off, not omitting the key.
                 agent_inbox=spec["inbox"] if "inbox" in spec else inbox,
+                groups=spec.get("tool_groups"),
+                # Membership, not ``.get()``: ``"tool_approval": None`` turns the factory's gate off for this
+                # one specialist, which ``.get()`` cannot tell from a spec that never mentioned the key.
+                agent_approval=spec["tool_approval"] if "tool_approval" in spec else tool_approval,
             )
             return await _dispatch(agent, agent_type, task, ctx.run_id if ctx is not None else None)
 

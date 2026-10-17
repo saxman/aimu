@@ -41,6 +41,7 @@ from aimu.models._base.shared import ContextOverflowError
 # claim, `get_type_hints` cannot resolve it either, since the import never runs).
 from aimu.agents.inbox import Inbox
 from aimu.agents._tool_loop import new_run_id
+from aimu.tools.groups import check_tool_groups
 from aimu.tools.context import ToolContext
 
 from . import _execute_python_worker
@@ -2454,6 +2455,8 @@ SUBAGENT_SPEC_KEYS = frozenset(
         "max_iterations",
         "compaction",
         "inbox",
+        "tool_groups",
+        "tool_approval",
     }
 )
 
@@ -2479,6 +2482,18 @@ def _check_inbox(inbox, where: str) -> None:
     """
     if inbox is not None and not isinstance(inbox, Inbox):
         raise ValueError(f"{where} must implement Inbox (a reader() method), got {inbox!r}.")
+
+
+def _check_tool_approval(tool_approval, where: str) -> None:
+    """Reject a gate that is neither callable nor ``None`` at factory-call time, naming where it came from.
+
+    ``_check_compaction``'s argument again: deferred, a string gate would fail inside the child's loop as a
+    tool error the parent model is asked to recover from, and a truthy string would never be called at all.
+    """
+    if tool_approval is not None and not callable(tool_approval):
+        raise ValueError(
+            f"{where} must be a callable (name, arguments) -> bool | Denied, or None, got {tool_approval!r}."
+        )
 
 
 def _validate_subagent_config(
@@ -2511,6 +2526,10 @@ def _validate_subagent_config(
                 _check_compaction(spec["compaction"], f"agent_types[{type_name!r}]['compaction']")
             if "inbox" in spec:
                 _check_inbox(spec["inbox"], f"agent_types[{type_name!r}]['inbox']")
+            if "tool_groups" in spec:
+                check_tool_groups(spec["tool_groups"], f"agent_types[{type_name!r}]['tool_groups']")
+            if "tool_approval" in spec:
+                _check_tool_approval(spec["tool_approval"], f"agent_types[{type_name!r}]['tool_approval']")
 
 
 def _subagent_overflow_result(agent_type: Optional[str], exc: BaseException) -> str:
@@ -2687,6 +2706,8 @@ def make_subagent_tool(
         max_iter=None,
         compact=None,
         agent_inbox=None,
+        groups=None,
+        agent_approval=None,
     ):
         from aimu.agents.agent import Agent
         from aimu.models.model_client import ModelClient
@@ -2729,17 +2750,25 @@ def make_subagent_tool(
             max_iterations=cap,
             concurrent_tool_calls=concurrent_tool_calls,
             deps=deps,
-            tool_approval=tool_approval,
+            tool_approval=agent_approval,
             thinking=thinking,
             events=events,
             compaction=compact,
             inbox=agent_inbox,
+            tool_groups=list(groups or []),
         )
 
     if agent_types is None:
 
         def spawn_subagent(task: str, ctx: Optional[ToolContext] = None) -> str:
-            agent = _build_agent(system_message, tools, name="subagent", compact=compaction, agent_inbox=inbox)
+            agent = _build_agent(
+                system_message,
+                tools,
+                name="subagent",
+                compact=compaction,
+                agent_inbox=inbox,
+                agent_approval=tool_approval,
+            )
             try:
                 parent_run_id = ctx.run_id if ctx is not None else None
                 return agent.run(task, run_id=new_run_id(agent.name), parent_run_id=parent_run_id)
@@ -2769,6 +2798,10 @@ def make_subagent_tool(
                 # Membership, not ``.get()``, for the same reason: a spec naming ``"inbox": None``
                 # is turning the factory's source off for this one specialist.
                 agent_inbox=spec["inbox"] if "inbox" in spec else inbox,
+                groups=spec.get("tool_groups"),
+                # Membership, not ``.get()``: ``"tool_approval": None`` turns the factory's gate off for this
+                # one specialist, which ``.get()`` cannot tell from a spec that never mentioned the key.
+                agent_approval=spec["tool_approval"] if "tool_approval" in spec else tool_approval,
             )
             try:
                 parent_run_id = ctx.run_id if ctx is not None else None
