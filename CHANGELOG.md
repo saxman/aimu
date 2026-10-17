@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.37.0 (2026-10-17): an agent can hold tools it loads on demand, and each sub-agent type can carry its own approval gate
+
+### Tools
+
+- **New: tool groups.** `aimu.tools.ToolGroup` and `Agent(tool_groups=[...])` (sync and async, including
+  `SkillAgent`) let an agent hold tools without sending their schemas until it loads them. An agent with a
+  deferred group carries `available_tools(filter="")` and `load_tools(name)`; `Agent.load_tool_group(name)`
+  is the host's route to the same load (it does not pass through `tool_approval`). A `build` that succeeds
+  runs once per agent instance, at load time (off the event
+  loop on `aimu.aio`). Loading only appends and never shadows an existing tool name. A group with
+  `build=None` is resident: already in `tools=`, listed only. See `docs/how-to/defer-tools.md`.
+- **New: `"tool_groups"` and `"tool_approval"` spawn spec keys** on `make_subagent_tool` and
+  `make_async_subagent_tool`. `"tool_approval"` gives one specialist its own gate: absent inherits the
+  factory's, `None` turns it off for that specialist, and a nested spawn tool keeps the factory's.
+- **Change: a call to a tool the agent does not have** now names `available_tools` and `load_tools` in its
+  result when the agent can load tool groups. Agents without groups get the same message as before.
+
 ## v0.36.0 (2026-10-15): every event names its run and parent, and a recorded request says where it went and what came back
 
 ### Events

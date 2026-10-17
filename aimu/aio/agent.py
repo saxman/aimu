@@ -6,6 +6,7 @@ and ``AsyncIterator[StreamChunk]`` streaming.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from abc import ABC, abstractmethod
 from contextlib import aclosing
@@ -24,6 +25,7 @@ from ._tool_loop import _AsyncToolLoop
 
 if TYPE_CHECKING:
     from aimu.tools.context import ToolContext
+    from aimu.tools.groups import ToolGroup, ToolGroupState
 
 logger = logging.getLogger(__name__)
 
@@ -158,11 +160,92 @@ class Agent(_AgentLoopMixin, AsyncRunner):
     compaction: Optional[Callable[[list[dict]], list[dict]]] = None
     inbox: Optional[Inbox] = None
     concurrent_tool_calls: bool = False
+    # Tools this agent holds without advertising them until loaded (see aimu.tools.groups). A group with
+    # build=None is resident: its tools are already in `tools`, and it is listed only. When any group is
+    # deferred, the agent also carries available_tools and load_tools.
+    tool_groups: list["ToolGroup"] = field(default_factory=list)
+    _groups: Optional["ToolGroupState"] = field(default=None, init=False, repr=False)
+    _group_tools: list = field(default_factory=list, init=False, repr=False)
+    # The build in flight for each group, so a second load (a concurrent call, or a retry after the first
+    # caller was cancelled) joins it instead of starting another: the worker thread a build runs in cannot
+    # be cancelled, so cancelling the caller must not cancel the record of what that thread is doing.
+    _group_builds: dict = field(default_factory=dict, init=False, repr=False)
     _last_messages: list = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.name is None:
             self.name = f"agent-{id(self) & 0xFFFFFF:06x}"
+        from aimu.tools.groups import ToolGroupState, check_core_names, check_tool_groups
+
+        check_tool_groups(self.tool_groups, "tool_groups")
+        check_core_names(self.tools, self.tool_groups, "tools")
+        self._groups = ToolGroupState(self.tool_groups)
+        self._group_tools = self._make_group_tools() if self._groups.has_deferred else []
+
+    async def load_tool_group(self, name: str) -> str:
+        """Load a deferred tool group into this agent and return what ``load_tools`` tells the model.
+
+        The host's route to the same load (see :meth:`aimu.agents.Agent.load_tool_group`). ``build`` runs
+        in a worker thread, since a build may open a store or load a model and the event loop has other
+        conversations to serve meanwhile. The build is awaited through ``asyncio.shield``: a caller
+        cancelled mid-build stops waiting, but the build itself keeps its place in ``_group_builds``, so
+        the next load joins it rather than starting a second one beside it. No lock is needed, because
+        every check-and-update of that dict happens between awaits.
+        """
+        blocked = self._groups.precheck(name)
+        if blocked is not None:
+            return blocked
+        group = self._groups.group(name)
+        task = self._group_builds.get(group.name)
+        if task is None:
+            task = asyncio.ensure_future(asyncio.to_thread(group.build))
+            self._group_builds[group.name] = task
+        try:
+            built = await asyncio.shield(task)
+        except Exception as exc:
+            if self._group_builds.get(group.name) is task:
+                del self._group_builds[group.name]
+            return self._groups.build_failed(group.name, exc)
+        if self._group_builds.get(group.name) is task:
+            del self._group_builds[group.name]
+        # A concurrent caller awaiting the same build may have recorded it first.
+        already = self._groups.precheck(group.name)
+        if already is not None:
+            return already
+        existing = {getattr(fn, "__name__", None) for fn in self._effective_tools(None)}
+        return self._groups.record(group.name, built, existing)
+
+    def _make_group_tools(self) -> list:
+        """This instance's ``available_tools`` and ``load_tools``, closures over its own state."""
+        from aimu.tools.decorator import tool
+
+        groups = self._groups
+
+        @tool
+        def available_tools(filter: str = "") -> str:
+            """List the tool groups you can use. Resident ones are already in your tools; loadable ones must
+            be loaded with load_tools before their tools can be called; loaded ones are ready.
+
+            Args:
+                filter: Optional. Show only groups whose name or description contains this text.
+            """
+            return groups.listing(filter)
+
+        @tool
+        async def load_tools(name: str) -> str:
+            """Load a tool group by name so its tools can be called from your next step on. A load lasts for
+            the rest of this conversation, and loading a group twice is harmless.
+
+            Args:
+                name: The group's name, as available_tools lists it.
+            """
+            return await self.load_tool_group(name)
+
+        return [available_tools, load_tools]
+
+    def _group_tail(self) -> list:
+        """The core tools, then loaded tools in load order: always last, so loading only appends."""
+        return self._group_tools + self._groups.loaded_tools()
 
     async def run(
         self,
@@ -260,9 +343,10 @@ class Agent(_AgentLoopMixin, AsyncRunner):
         return await self._run_loop(loop, task, generate_kwargs, images)
 
     def _effective_tools(self, tools: Optional[list[Callable]]) -> list[Callable]:
-        """The tool callables for this run: the ``tools=`` override, else ``self.tools``.
-        (``SkillAgent`` overrides this to add its discovered skill tools.)"""
-        return list(tools) if tools is not None else list(self.tools)
+        """The tool callables for this run: the ``tools=`` override, else ``self.tools``, then the tool-group
+        tail (see :meth:`_group_tail`). (``SkillAgent`` overrides this to add its discovered skill tools.)"""
+        own = list(tools) if tools is not None else list(self.tools)
+        return own + self._group_tail()
 
     def _make_tool_loop(
         self,

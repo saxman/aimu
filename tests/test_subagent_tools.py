@@ -15,6 +15,7 @@ import pytest
 # recording fake; importing it fresh inside a test would just re-fetch the fake.
 from aimu.agents.agent import Agent as _RealAgent
 from aimu.models import ContextOverflowError
+from aimu.tools import ToolGroup
 from aimu.tools.builtin import make_subagent_tool
 from aimu.tools.context import ToolContext
 
@@ -52,6 +53,7 @@ class _RecordingAgent:
         events=None,
         compaction=None,
         inbox=None,
+        tool_groups=None,
     ):
         self.model_client = model_client
         self.system_message = system_message
@@ -65,6 +67,7 @@ class _RecordingAgent:
         self.events = events
         self.compaction = compaction
         self.inbox = inbox
+        self.tool_groups = list(tool_groups or [])
         self.enter = None
         self.exit = None
         _RecordingAgent.instances.append(self)
@@ -246,7 +249,8 @@ def test_agent_type_with_an_unknown_key_raises():
 
 def test_the_unknown_key_error_names_the_keys_that_are_accepted():
     with pytest.raises(
-        ValueError, match="generate_kwargs, inbox, max_iterations, model, system_message, thinking, tools"
+        ValueError,
+        match="generate_kwargs, inbox, max_iterations, model, system_message, thinking, tool_approval, tool_groups, tools",
     ):
         make_subagent_tool(MODEL, agent_types={"bad": {"system_message": "S.", "temperture": 0.2}})
 
@@ -731,3 +735,79 @@ def test_a_spawn_called_without_a_context_is_unparented_not_broken():
 def test_the_spawn_tool_schema_does_not_expose_the_context():
     spec = make_subagent_tool(MODEL, agent_types=TYPES).__tool_spec__
     assert "ctx" not in spec["function"]["parameters"]["properties"]
+
+
+_WEB_GROUP = ToolGroup("web", "Search the web.", build=list)
+
+
+def _gate(name, arguments):
+    return True
+
+
+def _other_gate(name, arguments):
+    return False
+
+
+def test_a_spec_tool_groups_reach_the_spawned_agent():
+    types = {"researcher": {"system_message": "Research.", "tool_groups": [_WEB_GROUP]}}
+    make_subagent_tool(MODEL, agent_types=types)("researcher", "task")
+    assert _RecordingAgent.instances[-1].tool_groups == [_WEB_GROUP]
+
+
+def test_a_spec_without_tool_groups_spawns_none():
+    make_subagent_tool(MODEL, agent_types=TYPES)("writer", "task")
+    assert _RecordingAgent.instances[-1].tool_groups == []
+
+
+def test_a_spec_tool_approval_overrides_the_factory_one():
+    types = {"coder": {"system_message": "Code.", "tool_approval": _other_gate}}
+    make_subagent_tool(MODEL, agent_types=types, tool_approval=_gate)("coder", "task")
+    assert _RecordingAgent.instances[-1].tool_approval is _other_gate
+
+
+def test_a_spec_omitting_tool_approval_inherits_the_factory_one():
+    make_subagent_tool(MODEL, agent_types=TYPES, tool_approval=_gate)("writer", "task")
+    assert _RecordingAgent.instances[-1].tool_approval is _gate
+
+
+def test_a_spec_can_turn_the_factory_tool_approval_off():
+    types = {"trusted": {"system_message": "Read.", "tool_approval": None}}
+    make_subagent_tool(MODEL, agent_types=types, tool_approval=_gate)("trusted", "task")
+    assert _RecordingAgent.instances[-1].tool_approval is None
+
+
+def test_a_nested_spawn_tool_carries_the_factory_tool_approval():
+    types = {"coder": {"system_message": "Code.", "tool_approval": _other_gate}}
+    spawn = make_subagent_tool(MODEL, agent_types=types, max_depth=2, tool_approval=_gate)
+    spawn("coder", "task")
+    nested = [t for t in _RecordingAgent.instances[-1].tools if getattr(t, "__name__", "") == "spawn_subagent"]
+    assert nested
+    nested[0]("coder", "deeper task")
+    assert _RecordingAgent.instances[-1].tool_approval is _other_gate
+
+
+def test_a_spec_with_malformed_tool_groups_is_refused_at_factory_time():
+    types = {"bad": {"system_message": "x", "tool_groups": ["web"]}}
+    with pytest.raises(ValueError, match=r"agent_types\['bad'\]\['tool_groups'\] must contain only ToolGroup"):
+        make_subagent_tool(MODEL, agent_types=types)
+
+
+def test_a_spec_with_a_non_callable_tool_approval_is_refused_at_factory_time():
+    types = {"bad": {"system_message": "x", "tool_approval": "yes"}}
+    with pytest.raises(ValueError, match=r"agent_types\['bad'\]\['tool_approval'\] must be a callable"):
+        make_subagent_tool(MODEL, agent_types=types)
+
+
+def test_a_nested_spawn_tool_gives_an_ungated_specialist_the_factory_gate():
+    # The grandchild's type names no gate, so only the nested tool's own gate can reach it: the factory's,
+    # never the gate of the spec that happened to build its parent.
+    types = {
+        "coder": {"system_message": "Code.", "tool_approval": _other_gate},
+        "writer": {"system_message": "Write."},
+    }
+    spawn = make_subagent_tool(MODEL, agent_types=types, max_depth=2, tool_approval=_gate)
+    spawn("coder", "task")
+    nested = [t for t in _RecordingAgent.instances[-1].tools if getattr(t, "__name__", "") == "spawn_subagent"]
+    assert nested
+    nested[0]("writer", "deeper task")
+    assert _RecordingAgent.instances[-1].tool_approval is _gate

@@ -1057,13 +1057,15 @@ class _ToolLoop(_BaseToolLoop):
     def _call_plain_tool(self, tc: dict, tc_id: str, iteration: int = 0) -> dict:
         """Dispatch one non-streaming tool call. Returns the ``role:"tool"`` message dict."""
         from aimu.tools.decorator import ToolArgumentError
+        from aimu.tools.groups import missing_tool_hint
 
-        fn = {f.__name__: f for f in self._current_tools()}.get(tc["name"])
+        by_name = {f.__name__: f for f in self._current_tools()}
+        fn = by_name.get(tc["name"])
         if fn is None:
             # A model inventing a tool name is one of the most interesting things a sink can
             # see, so it is a ToolCalled with the error set, not silence. The transcript
             # already records it; the telemetry channel must too.
-            content = f"Tool '{tc['name']}' not found."
+            content = f"Tool '{tc['name']}' not found." + missing_tool_hint(by_name)
             emit(
                 self._events,
                 ToolCalled(

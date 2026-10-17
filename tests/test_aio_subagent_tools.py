@@ -15,6 +15,7 @@ from aimu.aio.agent import Agent as _RealAsyncAgent
 from aimu.aio.tools import builtin as _aio_builtin
 from aimu.aio.tools.builtin import make_async_subagent_tool
 from aimu.models import ContextOverflowError, OllamaModel, StreamChunk, StreamingContentType
+from aimu.tools import ToolGroup
 from aimu.tools.context import ToolContext
 
 # Capture the real fresh-client builder and Agent before the autouse fixture patches the module
@@ -51,6 +52,7 @@ class _RecordingAsyncAgent:
         events=None,
         compaction=None,
         inbox=None,
+        tool_groups=None,
     ):
         self.model_client = model_client
         self.system_message = system_message
@@ -64,6 +66,7 @@ class _RecordingAsyncAgent:
         self.events = events
         self.compaction = compaction
         self.inbox = inbox
+        self.tool_groups = list(tool_groups or [])
         self.enter = None
         self.exit = None
         _RecordingAsyncAgent.instances.append(self)
@@ -984,3 +987,87 @@ async def test_a_spawn_called_without_a_context_is_unparented_not_broken():
 def test_the_spawn_tool_schema_does_not_expose_the_context():
     spec = make_async_subagent_tool(MODEL, agent_types=TYPES).__tool_spec__
     assert "ctx" not in spec["function"]["parameters"]["properties"]
+
+
+_WEB_GROUP = ToolGroup("web", "Search the web.", build=list)
+
+
+def _gate(name, arguments):
+    return True
+
+
+def _other_gate(name, arguments):
+    return False
+
+
+async def test_a_spec_tool_groups_reach_the_spawned_agent():
+    types = {"researcher": {"system_message": "Research.", "tool_groups": [_WEB_GROUP]}}
+    await make_async_subagent_tool(MODEL, agent_types=types)("researcher", "task")
+    assert _RecordingAsyncAgent.instances[-1].tool_groups == [_WEB_GROUP]
+
+
+async def test_a_spec_without_tool_groups_spawns_none():
+    await make_async_subagent_tool(MODEL, agent_types=TYPES)("writer", "task")
+    assert _RecordingAsyncAgent.instances[-1].tool_groups == []
+
+
+async def test_a_spec_tool_approval_overrides_the_factory_one():
+    types = {"coder": {"system_message": "Code.", "tool_approval": _other_gate}}
+    await make_async_subagent_tool(MODEL, agent_types=types, tool_approval=_gate)("coder", "task")
+    assert _RecordingAsyncAgent.instances[-1].tool_approval is _other_gate
+
+
+async def test_a_spec_omitting_tool_approval_inherits_the_factory_one():
+    await make_async_subagent_tool(MODEL, agent_types=TYPES, tool_approval=_gate)("writer", "task")
+    assert _RecordingAsyncAgent.instances[-1].tool_approval is _gate
+
+
+async def test_a_spec_can_turn_the_factory_tool_approval_off():
+    types = {"trusted": {"system_message": "Read.", "tool_approval": None}}
+    await make_async_subagent_tool(MODEL, agent_types=types, tool_approval=_gate)("trusted", "task")
+    assert _RecordingAsyncAgent.instances[-1].tool_approval is None
+
+
+async def test_a_nested_spawn_tool_carries_the_factory_tool_approval():
+    types = {"coder": {"system_message": "Code.", "tool_approval": _other_gate}}
+    spawn = make_async_subagent_tool(MODEL, agent_types=types, max_depth=2, tool_approval=_gate)
+    await spawn("coder", "task")
+    nested = [t for t in _RecordingAsyncAgent.instances[-1].tools if getattr(t, "__name__", "") == "spawn_subagent"]
+    assert nested
+    await nested[0]("coder", "deeper task")
+    # The grandchild is built from the coder spec again, so it gets that spec's gate; the factory gate is
+    # what the nested tool itself was built with.
+    assert _RecordingAsyncAgent.instances[-1].tool_approval is _other_gate
+
+
+async def test_a_spec_with_malformed_tool_groups_is_refused_at_factory_time():
+    types = {"bad": {"system_message": "x", "tool_groups": ["web"]}}
+    with pytest.raises(ValueError, match=r"agent_types\['bad'\]\['tool_groups'\] must contain only ToolGroup"):
+        make_async_subagent_tool(MODEL, agent_types=types)
+
+
+async def test_a_spec_with_a_non_callable_tool_approval_is_refused_at_factory_time():
+    types = {"bad": {"system_message": "x", "tool_approval": "yes"}}
+    with pytest.raises(ValueError, match=r"agent_types\['bad'\]\['tool_approval'\] must be a callable"):
+        make_async_subagent_tool(MODEL, agent_types=types)
+
+
+def test_spec_keys_include_the_two_new_members():
+    from aimu.tools.builtin import SUBAGENT_SPEC_KEYS
+
+    assert {"tool_groups", "tool_approval"} <= SUBAGENT_SPEC_KEYS
+
+
+async def test_a_nested_spawn_tool_gives_an_ungated_specialist_the_factory_gate():
+    # The grandchild's type names no gate, so only the nested tool's own gate can reach it: the factory's,
+    # never the gate of the spec that happened to build its parent.
+    types = {
+        "coder": {"system_message": "Code.", "tool_approval": _other_gate},
+        "writer": {"system_message": "Write."},
+    }
+    spawn = make_async_subagent_tool(MODEL, agent_types=types, max_depth=2, tool_approval=_gate)
+    await spawn("coder", "task")
+    nested = [t for t in _RecordingAsyncAgent.instances[-1].tools if getattr(t, "__name__", "") == "spawn_subagent"]
+    assert nested
+    await nested[0]("writer", "deeper task")
+    assert _RecordingAsyncAgent.instances[-1].tool_approval is _gate
