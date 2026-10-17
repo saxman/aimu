@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.37.0 (2026-10-17): an agent can hold tools it loads on demand, and each sub-agent type can carry its own approval gate
 
 ### Tools
 
