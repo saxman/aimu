@@ -8,9 +8,12 @@ or cross-process (``python -m aimu.tools.mcp``).
 
 from __future__ import annotations
 
+import ast
 import datetime
 import hashlib
 import logging
+import math
+import operator
 import os
 import re
 import signal
@@ -339,11 +342,105 @@ def get_weather(location: str) -> str:
     )
 
 
+# What `calculate` evaluates, as an allowlist over Python's own syntax tree. It used to be
+# `eval(expression, {"__builtins__": {}})`, which is not containment: an empty builtins dict still
+# leaves every object's class reachable, and `().__class__.__base__.__subclasses__()` walks from there
+# to `os`. Since `calculate` is in ALL_TOOLS, that was code execution for any caller, including every
+# client of `python -m aimu.tools.mcp`. Walking the tree means nothing runs that is not listed here.
+_CALCULATE_BINARY_OPERATORS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.FloorDiv: operator.floordiv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+}
+_CALCULATE_UNARY_OPERATORS = {ast.UAdd: operator.pos, ast.USub: operator.neg}
+_CALCULATE_NAMES = {
+    "abs": abs,
+    "round": round,
+    "min": min,
+    "max": max,
+    "sqrt": math.sqrt,
+    "exp": math.exp,
+    "log": math.log,
+    "log10": math.log10,
+    "floor": math.floor,
+    "ceil": math.ceil,
+    "pi": math.pi,
+    "e": math.e,
+}
+# Integers are exact and unbounded, so `9**9**9` would hold the process for as long as it took to
+# build a number of 370 million digits. The cap is checked before a power is computed and after every
+# other step, and it sits under Python's own 4,300-digit limit on printing an int, so a result that
+# passes it can always be returned.
+_CALCULATE_MAX_BITS = 10_000
+
+
+class _CalculateError(ValueError):
+    pass
+
+
+def _bounded(value):
+    if isinstance(value, int) and value.bit_length() > _CALCULATE_MAX_BITS:
+        raise _CalculateError("the result is too large (more than about 3,000 digits)")
+    return value
+
+
+def _evaluate_arithmetic(node: ast.AST):
+    if isinstance(node, ast.Constant) and type(node.value) in (int, float):
+        return node.value
+    if isinstance(node, ast.Name) and isinstance(_CALCULATE_NAMES.get(node.id), float):
+        return _CALCULATE_NAMES[node.id]
+    if isinstance(node, ast.UnaryOp) and type(node.op) in _CALCULATE_UNARY_OPERATORS:
+        return _bounded(_CALCULATE_UNARY_OPERATORS[type(node.op)](_evaluate_arithmetic(node.operand)))
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitXor):
+        # The one operator worth naming: a model writes `2^10` meaning a power, and Python reads it as
+        # XOR and answers 8, a wrong number that looks exactly like a right one.
+        raise _CalculateError("`^` is bitwise XOR in Python, not a power; write `**` (2**10 is 1024)")
+    if isinstance(node, ast.BinOp) and type(node.op) in _CALCULATE_BINARY_OPERATORS:
+        left = _evaluate_arithmetic(node.left)
+        right = _evaluate_arithmetic(node.right)
+        if isinstance(node.op, ast.Pow) and isinstance(left, int) and isinstance(right, int):
+            if abs(left) > 1 and left.bit_length() * right > _CALCULATE_MAX_BITS:
+                raise _CalculateError("the result is too large (more than about 3,000 digits)")
+        return _bounded(_CALCULATE_BINARY_OPERATORS[type(node.op)](left, right))
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and callable(_CALCULATE_NAMES.get(node.func.id))
+        and not node.keywords
+    ):
+        arguments = [_evaluate_arithmetic(argument) for argument in node.args]
+        return _bounded(_CALCULATE_NAMES[node.func.id](*arguments))
+    unsupported = ast.unparse(node)
+    if len(unsupported) > 80:
+        unsupported = unsupported[:77] + "..."
+    raise _CalculateError(
+        f"{unsupported!r} is not supported. Use numbers, + - * / // % **, parentheses, and "
+        f"{', '.join(_CALCULATE_NAMES)}; use execute_python for anything else"
+    )
+
+
 @tool
 def calculate(expression: str) -> str:
-    """Evaluates a simple arithmetic expression and returns the result."""
+    """Evaluates an arithmetic expression and returns the result.
+
+    Python arithmetic syntax: numbers, + - * / // % ** and parentheses. `**` is a power and `^` is
+    not; `%` is the remainder, not a percentage (write 15% of 200 as 0.15 * 200). Also accepts the
+    functions abs, round, min, max, sqrt, exp, log, log10, floor, ceil, and the constants pi and e.
+    Nothing else: no variables, units, or other functions. Use execute_python for anything more.
+
+    Args:
+        expression: The expression to evaluate, e.g. "(1250 * 1.08) / 12" or "round(2**0.5, 4)".
+    """
     try:
-        return str(eval(expression, {"__builtins__": {}}))
+        return str(_evaluate_arithmetic(ast.parse(expression, mode="eval").body))
+    except SyntaxError as e:
+        return f"Error: could not parse the expression as arithmetic ({e.msg})"
+    except OverflowError:
+        return "Error: the result is too large to represent as a float"
     except Exception as e:
         return f"Error: {e}"
 

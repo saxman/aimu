@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.38.0 (unreleased): `calculate` evaluates arithmetic and nothing else, and a delegator hears when its worker ran out of rounds
+
+### Tools
+
+- **Fix (security): `calculate` no longer executes code.** It was `eval(expression, {"__builtins__": {}})`,
+  and an empty builtins dict is not containment: `().__class__.__base__.__subclasses__()` reaches `os`
+  from any literal. Because `calculate` is in `ALL_TOOLS`, that was code execution for every agent given
+  the default tools and every client of `python -m aimu.tools.mcp`. It now walks the expression's syntax
+  tree over an allowlist: numbers, `+ - * / // % **`, parentheses, `abs`, `round`, `min`, `max`, `sqrt`,
+  `exp`, `log`, `log10`, `floor`, `ceil`, `pi`, and `e`. Anything else is an `Error:` result naming what
+  is accepted. An integer result past about 3,000 digits is refused before it is computed, so `9**9**9`
+  no longer holds the process.
+- **Change: `calculate` refuses `^`.** Python reads `2^10` as XOR and answers 8, a wrong number that
+  looks right; the result now says to write `**`. The description also states the syntax, including
+  that `%` is the remainder and not a percentage.
+- The `07-agents` and `09-workflows` notebooks defined their own `eval`-based calculator; both now call
+  `builtin.calculate`.
+
 ## v0.37.0 (2026-10-17): an agent can hold tools it loads on demand, and each sub-agent type can carry its own approval gate
 
 ### Tools

@@ -31,7 +31,7 @@ from fastmcp import FastMCP
 
 from aimu.models import OllamaClient
 from aimu.models import StreamingContentType
-from aimu.tools import MCPClient
+from aimu.tools import MCPClient, builtin
 
 mcp = FastMCP("Demo Tools")
 
@@ -50,11 +50,10 @@ def get_weather(location: str) -> str:
 
 @mcp.tool()
 def calculate(expression: str) -> str:
-    """Evaluates a simple arithmetic expression and returns the result."""
-    try:
-        return str(eval(expression, {"__builtins__": {}}))
-    except Exception as e:
-        return f"Error: {e}"
+    """Evaluates an arithmetic expression and returns the result."""
+    # Delegates rather than calling eval(): an empty __builtins__ is not containment, and a
+    # model-written expression can still walk from any object to `os`.
+    return builtin.calculate(expression)
 
 
 model_client = OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)
