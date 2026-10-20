@@ -10,8 +10,10 @@
   the default tools and every client of `python -m aimu.tools.mcp`. It now walks the expression's syntax
   tree over an allowlist: numbers, `+ - * / // % **`, parentheses, `abs`, `round`, `min`, `max`, `sqrt`,
   `exp`, `log`, `log10`, `floor`, `ceil`, `pi`, and `e`. Anything else is an `Error:` result naming what
-  is accepted. An integer result past about 3,000 digits is refused before it is computed, so `9**9**9`
-  no longer holds the process.
+  is accepted. An integer result past about 3,000 digits is refused, before computing it where it is a
+  power, so `9**9**9` no longer holds the process; so is `round` with `ndigits` beyond ±400, whose cost
+  hides inside the call (`round(1, -10**8)` ran for minutes). A complex result, such as a fractional
+  power of a negative number, is refused rather than returned.
 - **Change: `calculate` refuses `^`.** Python reads `2^10` as XOR and answers 8, a wrong number that
   looks right; the result now says to write `**`. The description also states the syntax, including
   that `%` is the remainder and not a percentage.

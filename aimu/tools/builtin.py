@@ -357,9 +357,32 @@ _CALCULATE_BINARY_OPERATORS = {
     ast.Pow: operator.pow,
 }
 _CALCULATE_UNARY_OPERATORS = {ast.UAdd: operator.pos, ast.USub: operator.neg}
+# Integers are exact and unbounded, so `9**9**9` would hold the process for as long as it took to
+# build a number of 370 million digits. The cap is checked before a power is computed and after every
+# other step, and it sits under Python's own 4,300-digit limit on printing an int, so a result that
+# passes it can always be returned.
+_CALCULATE_MAX_BITS = 10_000
+# `round` is the one allowed function whose cost hides inside the call: rounding an int to `ndigits`
+# computes 10**-ndigits first, so `round(1, -10**8)` runs for minutes on two tiny arguments that no
+# result check would ever see. Past a few hundred digits either way there is nothing left to round.
+_CALCULATE_MAX_ROUND_DIGITS = 400
+
+
+class _CalculateError(ValueError):
+    pass
+
+
+def _bounded_round(number, ndigits=None):
+    if ndigits is not None and abs(ndigits) > _CALCULATE_MAX_ROUND_DIGITS:
+        raise _CalculateError(
+            f"round() accepts ndigits between -{_CALCULATE_MAX_ROUND_DIGITS} and {_CALCULATE_MAX_ROUND_DIGITS}"
+        )
+    return round(number, ndigits)
+
+
 _CALCULATE_NAMES = {
     "abs": abs,
-    "round": round,
+    "round": _bounded_round,
     "min": min,
     "max": max,
     "sqrt": math.sqrt,
@@ -371,20 +394,14 @@ _CALCULATE_NAMES = {
     "pi": math.pi,
     "e": math.e,
 }
-# Integers are exact and unbounded, so `9**9**9` would hold the process for as long as it took to
-# build a number of 370 million digits. The cap is checked before a power is computed and after every
-# other step, and it sits under Python's own 4,300-digit limit on printing an int, so a result that
-# passes it can always be returned.
-_CALCULATE_MAX_BITS = 10_000
-
-
-class _CalculateError(ValueError):
-    pass
 
 
 def _bounded(value):
     if isinstance(value, int) and value.bit_length() > _CALCULATE_MAX_BITS:
         raise _CalculateError("the result is too large (more than about 3,000 digits)")
+    # A fractional power of a negative number is complex in Python: `(-8)**(1/3)` is not -2.
+    if isinstance(value, complex):
+        raise _CalculateError("the result is not a real number (a fractional power of a negative number?)")
     return value
 
 
@@ -2810,8 +2827,9 @@ def make_subagent_tool(
         events: The sink each spawned child reports to. It has to be passed explicitly: a spawn
             builds a fresh client per call, which is outside the client family a caller's scoped
             per-run override reaches, so a delegated run is otherwise invisible to a caller
-            measuring the whole turn. Set on the child :class:`~aimu.agents.Agent` (its own
-            ``events`` field), not passed to its ``run``.
+            measuring the whole turn. Each spawn passes it to the child's ``run`` wrapped in a
+            ``_RunEndingWatch``, which forwards every event and keeps the child's ``RunFinished``
+            so the tool can say when the round cap ended the child.
         compaction: A ``list[dict] -> list[dict]`` callable applied before every model turn of every
             spawned agent, so a long-running worker trims its own context rather than dying in it.
             The parent's conversation is untouched: this reaches the child's messages only. A spec's

@@ -474,9 +474,29 @@ def test_calculate_runs_nothing_outside_its_allowlist(expression):
     assert builtin.calculate(expression).startswith("Error:")
 
 
-@pytest.mark.parametrize("expression", ["9**9**9", "10**3000 * 10**3000", "2.0**100000"])
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "9**9**9",  # stopped before the power is computed
+        "2**5000 * 2**5000",  # each operand passes; only the bound after the multiplication catches it
+        "max(2**9000, 1) * 2**9000",  # the bound after a call, then after the multiplication
+        "2.0**100000",  # a float overflow rather than an int one
+    ],
+)
 def test_calculate_refuses_a_result_too_large_rather_than_hanging(expression):
     assert "too large" in builtin.calculate(expression)
+
+
+def test_calculate_refuses_a_round_whose_cost_hides_inside_the_call():
+    """Rounding an int to ndigits computes 10**-ndigits first: `round(1, -10**8)` ran for minutes on
+    two tiny arguments, which no result check sees."""
+    assert builtin.calculate("round(1, -10**8)").startswith("Error:")
+    assert builtin.calculate("round(1234, -2)") == "1200"
+
+
+@pytest.mark.parametrize("expression", ["(-1)**0.5", "(-8)**(1/3)"])
+def test_calculate_refuses_a_complex_result(expression):
+    assert "not a real number" in builtin.calculate(expression)
 
 
 @pytest.mark.parametrize("expression", ["1/0", "sqrt(-1)", "15%", "(" * 5000 + "1" + ")" * 5000])

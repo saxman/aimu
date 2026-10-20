@@ -112,7 +112,7 @@ async def _run_observed(
     *,
     run_id: str,
     parent_run_id: Optional[str],
-    events: EventSink,
+    events: Optional[EventSink] = None,
 ) -> str:
     """Run one spawn streamed, reporting it to ``observer``, and return the child's final answer.
 
@@ -122,7 +122,8 @@ async def _run_observed(
 
     ``run_id`` is reported as the ``spawn_id``, so a host keyed on the spawn reads the same value off
     every event of the child's run. ``events`` is that run's sink, the spawn's ``_RunEndingWatch``, so
-    this path learns how the child ended exactly as the unobserved one does.
+    this path learns how the child ended exactly as the unobserved one does. It defaults to None, which
+    leaves the child on its own ``events``, because hosts drive this helper directly in their tests.
     """
     spawn_id = run_id
     await _notify_observer(observer, "spawned", spawn_id, agent_type, task)
@@ -351,8 +352,10 @@ def make_async_subagent_tool(
     ``events`` is the sink each spawned child reports to. It has to be passed explicitly: a spawn
     builds a fresh client per call, which is outside the client family a caller's scoped per-run
     override reaches, so a delegated run is otherwise invisible to a caller measuring the whole
-    turn. Set on the child ``Agent`` rather than passed to its ``run``, which covers the observed
-    path too (``_run_observed`` calls ``run`` itself).
+    turn. Each spawn passes it to the child's ``run`` wrapped in a ``_RunEndingWatch``, which forwards
+    every event and keeps the child's ``RunFinished``, so the tool can say when the round cap ended
+    the child; the observed path passes the same watch to ``_run_observed``. The child ``Agent`` also
+    holds it as its own ``events``, for anything that reads the field outside a run.
 
     ``inbox`` is the :class:`~aimu.agents.inbox.Inbox` source each spawned agent's loop drains
     for mid-run messages. Each spawn opens its own reader from it, so several concurrent spawns (or
