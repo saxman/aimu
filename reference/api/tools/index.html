@@ -807,6 +807,8 @@
       
         
       
+        
+      
     
     
     
@@ -1072,6 +1074,34 @@
     
   
     Gate tool calls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/defer-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Defer tools until needed
   
 
     
@@ -5735,7 +5765,7 @@ the GIL/CUDA, and a shared <code>deps</code> object handed to concurrent spawns 
 <li>Typed (<code>agent_types</code> given): the tool is <code>spawn_subagent(agent_type, task)</code> over a registry
   of named specialists (each value a dict with <code>"system_message"</code> and optional <code>"tools"</code> /
   <code>"model"</code> / <code>"thinking"</code> / <code>"generate_kwargs"</code> / <code>"max_iterations"</code> / <code>"compaction"</code> /
-  <code>"inbox"</code>, and nothing else -- an unrecognized spec key raises at factory-call time rather
+  <code>"inbox"</code> / <code>"tool_groups"</code> / <code>"tool_approval"</code>, and nothing else -- an unrecognized spec key raises at factory-call time rather
   than being ignored, since an ignored key reads exactly like an applied one); the available names
   are listed in the tool description. An
   unknown <code>agent_type</code>, by contrast, is returned to the model as a tool result (self-correction),
@@ -5765,7 +5795,14 @@ the GIL/CUDA, and a shared <code>deps</code> object handed to concurrent spawns 
   <code>"inbox"</code> is an :class:<code>~aimu.agents.inbox.Inbox</code> source of mid-run messages for one
   spawned agent, read by the same <em>membership</em> rule as <code>"compaction"</code> and for the same reason: a
   spec naming <code>"inbox": None</code> is turning the factory's source off for this one specialist,
-  which <code>.get()</code> cannot tell apart from a spec that never mentioned the key.</li>
+  which <code>.get()</code> cannot tell apart from a spec that never mentioned the key.
+  <code>"tool_groups"</code> is a list of :class:<code>~aimu.tools.ToolGroup</code> the specialist can load on demand.
+  There is no factory tier, so a spec omitting it spawns none; each spawn builds a fresh agent, so
+  its loads are its own even when several spawns of one type run at once.
+  <code>"tool_approval"</code> is this specialist's own approval gate, read by the <em>membership</em> rule:
+  omitted, it inherits the factory's <code>tool_approval</code>; <code>"tool_approval": None</code> turns gating off
+  for this one specialist. A nested spawn tool keeps the factory's gate, for the reason it keeps
+  the factory's <code>inbox</code>.</li>
 </ul>
 <p>A spawned sub-agent that runs out of context does not raise: the <code>ContextOverflowError</code> becomes a
 tool result naming the <em>sub-agent's</em> window as the one that filled. Uncaught, it would reach the

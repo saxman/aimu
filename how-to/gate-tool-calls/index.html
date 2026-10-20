@@ -16,7 +16,7 @@
         <link rel="prev" href="../use-mcp-tools/">
       
       
-        <link rel="next" href="../browse-and-submit-forms/">
+        <link rel="next" href="../defer-tools/">
       
       
         
@@ -809,6 +809,8 @@
       
         
       
+        
+      
     
     
     
@@ -1194,10 +1196,49 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#gate-each-sub-agent-type-differently" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gate each sub-agent type differently
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../defer-tools/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Defer tools until needed
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -3332,6 +3373,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#gate-each-sub-agent-type-differently" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Gate each sub-agent type differently
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -3447,6 +3499,9 @@ user confirms before the assistant writes and runs code.</p>
 <li><a href="../add-custom-tool/">Add a custom tool</a> and <a href="../use-mcp-tools/">Use MCP tools</a>: the tools a policy gates</li>
 <li><a href="../build-personal-assistant/">Build a personal assistant</a>: the approval demo in context</li>
 </ul>
+<h2 id="gate-each-sub-agent-type-differently">Gate each sub-agent type differently<a class="headerlink" href="#gate-each-sub-agent-type-differently" title="Permanent link">&para;</a></h2>
+<p>A typed spawn spec can carry its own <code>"tool_approval"</code>, so a coder can be asked about <code>run_command</code> while a
+researcher is not. Omitted, a spec inherits the factory's gate. See <a href="../spawn-subagents/">Spawn sub-agents</a>.</p>
 
 
 
