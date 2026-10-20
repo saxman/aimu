@@ -18,6 +18,19 @@
 - The `07-agents` and `09-workflows` notebooks defined their own `eval`-based calculator; both now call
   `builtin.calculate`.
 
+### Agents
+
+- **Change: a spawned sub-agent cut off at its round cap is reported as such.** `make_subagent_tool` and
+  `make_async_subagent_tool` now put a note in front of the tool result when the child's `RunFinished`
+  says `ended_by == "wrap_up"`, naming the cap and saying the answer may be incomplete. The wrap-up
+  answer reads like any other and the parent model saw only that text, so a worker that ran out of
+  rounds was indistinguishable from one that finished. The note goes to the model only: an observer's
+  `finished` callback still receives the child's own text. A child that answered is returned unchanged.
+- **Change: the default wrap-up prompt asks what was not finished.** `DEFAULT_WRAP_UP_PROMPT` asked only
+  for a "best final answer", which invited the model to fill gaps from memory. It now asks the model to
+  say which parts of the task it did not finish, keeping "checked and found nothing" apart from "never
+  reached". A configured `final_answer_prompt` still replaces it.
+
 ## v0.37.0 (2026-10-17): an agent can hold tools it loads on demand, and each sub-agent type can carry its own approval gate
 
 ### Tools

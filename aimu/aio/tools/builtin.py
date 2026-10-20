@@ -39,7 +39,13 @@ from aimu.tools.builtin import (  # noqa: F401 (re-exports)
     wikipedia,
 )
 from aimu.tools.builtin import _reference_image_path, _require_reference_support
-from aimu.tools.builtin import _subagent_docstring, _subagent_overflow_result, _validate_subagent_config
+from aimu.tools.builtin import (
+    _RunEndingWatch,
+    _subagent_docstring,
+    _subagent_overflow_result,
+    _subagent_result,
+    _validate_subagent_config,
+)
 from aimu.tools.context import ToolContext
 from aimu.tools.decorator import tool
 
@@ -106,6 +112,7 @@ async def _run_observed(
     *,
     run_id: str,
     parent_run_id: Optional[str],
+    events: EventSink,
 ) -> str:
     """Run one spawn streamed, reporting it to ``observer``, and return the child's final answer.
 
@@ -114,7 +121,8 @@ async def _run_observed(
     keeps this path's result identical to the non-streamed one.
 
     ``run_id`` is reported as the ``spawn_id``, so a host keyed on the spawn reads the same value off
-    every event of the child's run.
+    every event of the child's run. ``events`` is that run's sink, the spawn's ``_RunEndingWatch``, so
+    this path learns how the child ended exactly as the unobserved one does.
     """
     spawn_id = run_id
     await _notify_observer(observer, "spawned", spawn_id, agent_type, task)
@@ -122,7 +130,9 @@ async def _run_observed(
     iteration = 0
     error: Optional[BaseException] = None
     try:
-        async for chunk in await agent.run(task, stream=True, run_id=run_id, parent_run_id=parent_run_id):
+        async for chunk in await agent.run(
+            task, stream=True, run_id=run_id, parent_run_id=parent_run_id, events=events
+        ):
             if chunk.iteration > iteration:
                 iteration = chunk.iteration
                 parts.clear()
@@ -429,12 +439,17 @@ def make_async_subagent_tool(
         explanation. See :func:`aimu.tools.builtin._subagent_overflow_result`.
         """
         run_id = new_run_id(agent.name)
+        watch = _RunEndingWatch(events, run_id)
         try:
             if observer is None:
-                return await agent.run(task, run_id=run_id, parent_run_id=parent_run_id)
-            return await _run_observed(agent, agent_type, task, observer, run_id=run_id, parent_run_id=parent_run_id)
+                answer = await agent.run(task, run_id=run_id, parent_run_id=parent_run_id, events=watch)
+            else:
+                answer = await _run_observed(
+                    agent, agent_type, task, observer, run_id=run_id, parent_run_id=parent_run_id, events=watch
+                )
         except ContextOverflowError as exc:
             return _subagent_overflow_result(agent_type, exc)
+        return _subagent_result(agent_type, answer, watch)
 
     if agent_types is None:
 

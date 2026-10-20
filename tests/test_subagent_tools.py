@@ -811,3 +811,44 @@ def test_a_nested_spawn_tool_gives_an_ungated_specialist_the_factory_gate():
     assert nested
     nested[0]("writer", "deeper task")
     assert _RecordingAgent.instances[-1].tool_approval is _gate
+
+
+# ---------------------------------------------------------------------------
+# A child that ran out of rounds
+# ---------------------------------------------------------------------------
+
+
+def _real_child(monkeypatch, responses):
+    """Swap in the real Agent and a scripted client, so the child's loop really reaches its cap."""
+    from tests.helpers import MockModelClient
+
+    monkeypatch.setattr("aimu.agents.agent.Agent", _RealAgent)
+    monkeypatch.setattr("aimu.models.model_client.ModelClient", lambda m: MockModelClient(responses))
+
+
+def test_a_child_cut_off_at_its_cap_is_reported_as_such(monkeypatch):
+    """The wrap-up answer reads like any other, and the delegating model sees only the text, so the
+    note is what tells it the worker did not finish."""
+    _real_child(monkeypatch, ["tool", "tool", "partial answer"])
+    spawn = make_subagent_tool(MODEL, agent_types={"worker": {"system_message": "w", "max_iterations": 2}})
+    result = spawn("worker", "do the thing")
+    assert result.startswith("[The sub-agent 'worker' reached its tool-use limit of 2 rounds")
+    assert result.endswith("partial answer")
+
+
+def test_a_child_that_answered_is_returned_untouched(monkeypatch):
+    _real_child(monkeypatch, ["tool", "full answer"])
+    spawn = make_subagent_tool(MODEL, agent_types={"worker": {"system_message": "w", "max_iterations": 5}})
+    assert spawn("worker", "do the thing") == "full answer"
+
+
+def test_watching_for_the_cap_still_forwards_every_event(monkeypatch):
+    from aimu.events import RunFinished
+
+    _real_child(monkeypatch, ["tool", "tool", "partial answer"])
+    seen = []
+    spawn = make_subagent_tool(
+        MODEL, agent_types={"worker": {"system_message": "w", "max_iterations": 2}}, events=seen.append
+    )
+    spawn("worker", "do the thing")
+    assert [e.ended_by for e in seen if isinstance(e, RunFinished)] == ["wrap_up"]

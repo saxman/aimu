@@ -1071,3 +1071,45 @@ async def test_a_nested_spawn_tool_gives_an_ungated_specialist_the_factory_gate(
     assert nested
     await nested[0]("writer", "deeper task")
     assert _RecordingAsyncAgent.instances[-1].tool_approval is _gate
+
+
+# ---------------------------------------------------------------------------
+# A child that ran out of rounds
+# ---------------------------------------------------------------------------
+
+
+def _real_async_child(monkeypatch, responses):
+    """Swap in the real async Agent and a scripted client, so the child's loop really reaches its cap."""
+    from tests.helpers_aio import MockAsyncModelClient
+
+    monkeypatch.setattr("aimu.aio.agent.Agent", _RealAsyncAgent)
+    monkeypatch.setattr(
+        "aimu.aio.tools.builtin._fresh_async_subagent_client", lambda m: MockAsyncModelClient(responses)
+    )
+
+
+async def test_a_child_cut_off_at_its_cap_is_reported_as_such(monkeypatch):
+    _real_async_child(monkeypatch, ["tool", "tool", "partial answer"])
+    spawn = make_async_subagent_tool(MODEL, agent_types={"worker": {"system_message": "w", "max_iterations": 2}})
+    result = await spawn("worker", "do the thing")
+    assert result.startswith("[The sub-agent 'worker' reached its tool-use limit of 2 rounds")
+    assert result.endswith("partial answer")
+
+
+async def test_a_child_that_answered_is_returned_untouched(monkeypatch):
+    _real_async_child(monkeypatch, ["tool", "full answer"])
+    spawn = make_async_subagent_tool(MODEL, agent_types={"worker": {"system_message": "w", "max_iterations": 5}})
+    assert await spawn("worker", "do the thing") == "full answer"
+
+
+async def test_an_observed_child_cut_off_at_its_cap_is_reported_to_the_model_only(monkeypatch):
+    """The streamed path learns how the child ended the same way, and the note goes to the delegating
+    model alone: the observer is handed the worker's own text, as with an overflow."""
+    _real_async_child(monkeypatch, ["tool", "tool", "partial answer"])
+    observer = _RecordingObserver()
+    spawn = make_async_subagent_tool(
+        MODEL, agent_types={"worker": {"system_message": "w", "max_iterations": 2}}, observer=observer
+    )
+    result = await spawn("worker", "do the thing")
+    assert result.startswith("[The sub-agent 'worker' reached its tool-use limit")
+    assert observer.events[-1][2] == "partial answer"
