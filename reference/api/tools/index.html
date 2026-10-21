@@ -4815,7 +4815,42 @@ is used and from_timezone is ignored.</p>
 
     <div class="doc doc-contents first">
 
-        <p>Evaluates a simple arithmetic expression and returns the result.</p>
+        <p>Evaluates an arithmetic expression and returns the result.</p>
+<p>Python arithmetic syntax: numbers, + - * / // % ** and parentheses. <code>**</code> is a power and <code>^</code> is
+not; <code>%</code> is the remainder, not a percentage (write 15% of 200 as 0.15 * 200). Also accepts the
+functions abs, round, min, max, sqrt, exp, log, log10, floor, ceil, and the constants pi and e.
+Nothing else: no variables, units, or other functions. Use execute_python for anything more.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>expression</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The expression to evaluate, e.g. "(1250 * 1.08) / 12" or "round(2**0.5, 4)".</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>
@@ -6009,8 +6044,9 @@ Matches :class:<code>~aimu.agents.Agent</code>/:meth:<code>~aimu.agents.Agent.ru
                 <p>The sink each spawned child reports to. It has to be passed explicitly: a spawn
 builds a fresh client per call, which is outside the client family a caller's scoped
 per-run override reaches, so a delegated run is otherwise invisible to a caller
-measuring the whole turn. Set on the child :class:<code>~aimu.agents.Agent</code> (its own
-<code>events</code> field), not passed to its <code>run</code>.</p>
+measuring the whole turn. Each spawn passes it to the child's <code>run</code> wrapped in a
+<code>_RunEndingWatch</code>, which forwards every event and keeps the child's <code>RunFinished</code>
+so the tool can say when the round cap ended the child.</p>
               </div>
             </td>
             <td>

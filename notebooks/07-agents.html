@@ -406,7 +406,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="quick-start-aimu.tool-and-agent">Quick start: <code>@aimu.tool</code> and <code>Agent</code></h2>
 <p>The shortest path to a working agent: decorate any Python function with <code>@aimu.tool</code> and pass it to an <code>Agent</code>. The decorator inspects the signature and docstring to build an OpenAI-format tool spec; the agent registers the function on its <code>ModelClient</code> and dispatches calls in-process.</p>
 <p>Use this route for tools that live in the same process as your code. For cross-process tools (a shared tool server, a fleet of agents sharing a catalog), use <code>MCPClient</code> as shown in the next section. The two routes can be combined on the same agent.</p>
-<div id="6dd2672e" class="cell" data-execution_count="1">
+<div id="0562981c" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ModelClient, OllamaModel</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
@@ -427,12 +427,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
 <p>Create an <code>OllamaClient</code> with a tool-capable model and build a few demo tools from an in-process <code>MCPClient</code> via <code>as_tools()</code>. The tools are passed to each <code>Agent</code> via <code>tools=</code>; the same <code>model_client</code> and <code>demo_tools</code> are reused across all sections.</p>
-<div id="9aa76bff" class="cell" data-execution_count="2">
+<div id="b21111ad" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> datetime</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> fastmcp <span class="im">import</span> FastMCP</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaClient</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> MCPClient</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> MCPClient, builtin</span>
 <span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>mcp <span class="op">=</span> FastMCP(<span class="st">"Demo Tools"</span>)</span>
 <span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
@@ -452,28 +452,27 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
 <span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> calculate(expression: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
-<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Evaluates a simple arithmetic expression and returns the result."""</span></span>
-<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span>:</span>
-<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">str</span>(<span class="bu">eval</span>(expression, {<span class="st">"__builtins__"</span>: {}}))</span>
-<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e:</span>
-<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="ss">f"Error: </span><span class="sc">{</span>e<span class="sc">}</span><span class="ss">"</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Evaluates an arithmetic expression and returns the result."""</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Delegates rather than calling eval(): an empty __builtins__ is not containment, and a</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>    <span class="co"># model-written expression can still walk from any object to `os`.</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> builtin.calculate(expression)</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)</span>
-<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a><span class="co"># MCPClient.as_tools() turns the server's tools into @tool-style callables. Tools now live</span></span>
-<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a><span class="co"># on the Agent (pass them via tools=), not on the client; keep the MCPClient reference alive.</span></span>
-<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>mcp_client <span class="op">=</span> MCPClient(server<span class="op">=</span>mcp)</span>
-<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>demo_tools <span class="op">=</span> mcp_client.as_tools()</span>
-<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Model:"</span>, model_client.model.value)</span>
-<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Tools:"</span>, [fn.<span class="va">__name__</span> <span class="cf">for</span> fn <span class="kw">in</span> demo_tools])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a><span class="co"># MCPClient.as_tools() turns the server's tools into @tool-style callables. Tools now live</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a><span class="co"># on the Agent (pass them via tools=), not on the client; keep the MCPClient reference alive.</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>mcp_client <span class="op">=</span> MCPClient(server<span class="op">=</span>mcp)</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>demo_tools <span class="op">=</span> mcp_client.as_tools()</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Model:"</span>, model_client.model.value)</span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Tools:"</span>, [fn.<span class="va">__name__</span> <span class="cf">for</span> fn <span class="kw">in</span> demo_tools])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="a---basic-agent" class="level2">
 <h2 class="anchored" data-anchor-id="a---basic-agent">A - Basic Agent</h2>
 <p>An <code>Agent</code> wraps a <code>ModelClient</code> and runs an agentic loop: on each turn the model may call tools, which the agent executes and feeds back; the agent then continues until the model responds without calling any tools (or <code>max_iterations</code> is reached). The model client handles a single turn; the loop lives in the agent.</p>
 <p>This is the simplest possible usage â€” two lines.</p>
-<div id="7f26c2ea" class="cell" data-execution_count="3">
+<div id="fad22e99" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
@@ -484,13 +483,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>The agent called both tools â€” date/time and calculator â€” and assembled the results into a final answer. Inspect the full message history to see every step.</p>
-<div id="b482cd60" class="cell" data-execution_count="4">
+<div id="d5520b5e" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <section id="per-run-tool-override" class="level3">
 <h3 class="anchored" data-anchor-id="per-run-tool-override">Per-run tool override</h3>
 <p><code>Agent(tools=...)</code> sets the agent’s <em>configured</em> tools. To use a different set for a single run (a narrower set for a quick task, or none at all) pass <code>tools=</code> to <code>run()</code>. It applies to every turn of that run’s agentic loop and is restored afterward; <code>tools=None</code> (the default) uses the configured tools, and <code>tools=[]</code> disables tools for the run. (Since MCP tools are also just callables in the agent’s <code>tools</code> via <code>as_tools()</code>, the override covers them too.)</p>
-<div id="4685fd35" class="cell" data-execution_count="5">
+<div id="a40c214d" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -519,7 +518,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="guaranteed-final-answer-at-the-iteration-cap" class="level3">
 <h3 class="anchored" data-anchor-id="guaranteed-final-answer-at-the-iteration-cap">Guaranteed final answer at the iteration cap</h3>
 <p>By default, if an agent reaches <code>max_iterations</code> while still calling tools, <code>run()</code> returns whatever that last (possibly tool-only) turn produced, which can be empty. Set <code>final_answer_prompt</code> to guarantee a usable result: when the cap is hit with a tool call still pending, the agent sends that prompt <strong>once with tools disabled</strong>, forcing the model to synthesize an answer from what it has gathered so far. This wrap-up turn is <em>not</em> counted against <code>max_iterations</code>, and it never fires on a normal finish (a turn with no tool calls). <code>OrchestratorAgent.assemble(..., final_answer_prompt=...)</code> forwards it to the inner orchestrator.</p>
-<div id="c696e0ca" class="cell" data-execution_count="6">
+<div id="3820c923" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> builtin</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>capped_client <span class="op">=</span> ModelClient(OllamaModel.QWEN_3_5_9B)</span>
@@ -540,7 +539,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="b---agent-with-system-message" class="level2">
 <h2 class="anchored" data-anchor-id="b---agent-with-system-message">B - Agent with System Message</h2>
 <p>Pass a <code>system_message</code> to give the agent a specific persona or set of instructions.</p>
-<div id="eeac9150" class="cell" data-execution_count="7">
+<div id="34502c26" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(</span>
@@ -554,14 +553,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> agent.run(<span class="st">"Should I visit Paris or London today?"</span>)</span>
 <span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="65d2622a" class="cell" data-execution_count="8">
+<div id="0f2cbb7d" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
 <section id="c---agent-from-config" class="level2">
 <h2 class="anchored" data-anchor-id="c---agent-from-config">C - Agent from Config</h2>
 <p><code>Agent.from_config()</code> creates an agent from a plain dict. This makes it easy to define agents in configuration files or environment settings without writing boilerplate code.</p>
-<div id="0308d8bd" class="cell" data-execution_count="9">
+<div id="ac8cefa2" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>agent_config <span class="op">=</span> {</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">"name"</span>: <span class="st">"calculator-agent"</span>,</span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">"system_message"</span>: <span class="st">"You are a maths assistant. Use the calculate tool for all arithmetic. If you've answered the original query and don't need to use any more tools, repeat the final answer."</span>,</span>
@@ -577,11 +576,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Max iterations:   </span><span class="sc">{</span>agent<span class="sc">.</span>max_iterations<span class="sc">}</span><span class="ss">"</span>)</span>
 <span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"System message:   </span><span class="sc">{</span>model_client<span class="sc">.</span>system_message<span class="sc">}</span><span class="ss">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="722c99ce" class="cell" data-execution_count="10">
+<div id="29ca97ab" class="cell" data-execution_count="10">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> agent.run(<span class="st">"What is (17 * 23) + (88 / 4)?"</span>)</span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="3135007f" class="cell" data-execution_count="11">
+<div id="d4eb821e" class="cell" data-execution_count="11">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
@@ -589,7 +588,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="d---streaming-agent-output">D - Streaming Agent Output</h2>
 <p><code>run(stream=True)</code> yields <code>StreamChunk</code> objects, each with <code>phase</code>, <code>content</code>, <code>agent</code>, and <code>iteration</code>. The same chunk type flows through <code>client.chat(stream=True)</code> and every workflow; <code>agent</code> and <code>iteration</code> are populated by the agent/workflow runner (and default to <code>None</code> / <code>0</code> for plain client chats).</p>
 <p>The <code>iteration</code> field shows which loop round produced each chunk, making it easy to follow multi-step reasoning. Use <code>chunk.is_text()</code> / <code>chunk.is_tool_call()</code> to dispatch without writing out the phase comparison.</p>
-<div id="0d66c7f7" class="cell" data-execution_count="12">
+<div id="659830bf" class="cell" data-execution_count="12">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
@@ -616,7 +615,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> chunk.phase <span class="op">==</span> StreamingContentType.GENERATING:</span>
 <span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<div id="df853d5d" class="cell" data-execution_count="13">
+<div id="d2bc52b3" class="cell" data-execution_count="13">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>model_client.messages</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section>
@@ -625,7 +624,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p><code>agent.as_model_client()</code> returns a <code>BaseModelClient</code> view backed by the agent. Use it anywhere a plain model client is accepted (web UIs, conversation managers, etc.) to get the full agentic loop transparently.</p>
 <p><code>chat()</code> on the returned view runs the complete <code>Agent</code> loop and returns once the model stops calling tools. <code>generate()</code> bypasses the loop and calls the inner client directly. State (<code>messages</code>, <code>system_message</code>) delegates to <code>agent.model_client</code>, so the view is a true drop-in replacement.</p>
 <p>To run a workflow (<code>Chain</code>, <code>Router</code>, etc.), call its <code>run()</code> or <code>run(stream=True)</code> directly; see <strong><a href="./09-workflows.html">notebook 09</a></strong> for workflow patterns.</p>
-<div id="976b9fe4" class="cell" data-execution_count="14">
+<div id="40c638ef" class="cell" data-execution_count="14">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)</span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>tools <span class="op">=</span> MCPClient(server<span class="op">=</span>mcp).as_tools()</span>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -639,7 +638,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="f---execute_python-tool" class="level2">
 <h2 class="anchored" data-anchor-id="f---execute_python-tool">F - execute_python Tool</h2>
 <p>The <code>execute_python</code> built-in runs Python code in a fresh subprocess for an agent – useful for data analysis and computation. The subprocess buys a hard timeout, crash isolation, and no access to this process’s environment variables, but it is <strong>not a security boundary</strong> (restricted builtins and an import allowlist stop accidents, not attempts, and the filesystem/network are not confined), so it is in <code>builtin.compute</code> but not <code>ALL_TOOLS</code>; opt in explicitly. <code>execute_python_in_process</code> is the faster, weaker-isolation alternative that shares this process’s memory and environment.</p>
-<div id="777d085e" class="cell" data-execution_count="15">
+<div id="700befca" class="cell" data-execution_count="15">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> builtin</span>
 <span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
 <span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaClient, OllamaModel</span>
@@ -659,7 +658,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="g---inspecting-agent-tool-calls" class="level2">
 <h2 class="anchored" data-anchor-id="g---inspecting-agent-tool-calls">G - Inspecting Agent Tool Calls</h2>
 <p><code>extract_tool_calls(messages)</code> converts the raw OpenAI-format message history into a structured list of <code>{iteration, tool, arguments, result}</code> records.</p>
-<div id="2a02f8cd" class="cell" data-execution_count="16">
+<div id="40f58fdf" class="cell" data-execution_count="16">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> extract_tool_calls</span>
 <span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>calls <span class="op">=</span> extract_tool_calls(compute_agent.model_client.messages)</span>
@@ -669,7 +668,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="distinguishing-agent-loop-turns-from-user-input" class="level3">
 <h3 class="anchored" data-anchor-id="distinguishing-agent-loop-turns-from-user-input">Distinguishing agent-loop turns from user input</h3>
 <p>To reach its answer the agent injects its own <code>{"role": "user", ...}</code> turns (the continuation prompt between tool rounds, and a final-answer prompt if it hits <code>max_iterations</code>). In a replayed history these look identical to what the user typed. AIMU marks them with an inert <code>provenance</code> key so a UI can tell them apart; genuine user input is left untagged. The key is stripped from every provider request (like the <code>thinking</code> key), so it never reaches the model.</p>
-<div id="236ddf68" class="cell" data-execution_count="17">
+<div id="2a3bbdec" class="cell" data-execution_count="17">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Only the first user turn was typed by the user; the rest are agent-loop prompts.</span></span>
@@ -684,7 +683,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="h---checkpointing-saverestore-after-failure" class="level2">
 <h2 class="anchored" data-anchor-id="h---checkpointing-saverestore-after-failure">H - Checkpointing (save/restore after failure)</h2>
 <p>Save the live partial state on failure and restore before retrying. <code>agent.restore()</code> strips the system message to prevent duplication.</p>
-<div id="4ff70c90" class="cell" data-execution_count="18">
+<div id="0bfbc87b" class="cell" data-execution_count="18">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> json</span>
 <span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>save_path <span class="op">=</span> <span class="st">"/tmp/agent_checkpoint.json"</span></span>
@@ -707,7 +706,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="i---clean-up" class="level2">
 <h2 class="anchored" data-anchor-id="i---clean-up">I - Clean Up</h2>
 <p>Delete model clients to release any held resources.</p>
-<div id="cdd2083b" class="cell" data-execution_count="19">
+<div id="b2716d8f" class="cell" data-execution_count="19">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> model_client, agentic_client</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 
@@ -1233,7 +1232,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb20-55"><a href="#cb20-55" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> fastmcp <span class="im">import</span> FastMCP</span>
 <span id="cb20-56"><a href="#cb20-56" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb20-57"><a href="#cb20-57" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaClient</span>
-<span id="cb20-58"><a href="#cb20-58" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> MCPClient</span>
+<span id="cb20-58"><a href="#cb20-58" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> MCPClient, builtin</span>
 <span id="cb20-59"><a href="#cb20-59" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb20-60"><a href="#cb20-60" aria-hidden="true" tabindex="-1"></a>mcp <span class="op">=</span> FastMCP(<span class="st">"Demo Tools"</span>)</span>
 <span id="cb20-61"><a href="#cb20-61" aria-hidden="true" tabindex="-1"></a></span>
@@ -1253,286 +1252,285 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb20-75"><a href="#cb20-75" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb20-76"><a href="#cb20-76" aria-hidden="true" tabindex="-1"></a><span class="at">@mcp.tool</span>()</span>
 <span id="cb20-77"><a href="#cb20-77" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> calculate(expression: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
-<span id="cb20-78"><a href="#cb20-78" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Evaluates a simple arithmetic expression and returns the result."""</span></span>
-<span id="cb20-79"><a href="#cb20-79" aria-hidden="true" tabindex="-1"></a>    <span class="cf">try</span>:</span>
-<span id="cb20-80"><a href="#cb20-80" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">str</span>(<span class="bu">eval</span>(expression, {<span class="st">"__builtins__"</span>: {}}))</span>
-<span id="cb20-81"><a href="#cb20-81" aria-hidden="true" tabindex="-1"></a>    <span class="cf">except</span> <span class="pp">Exception</span> <span class="im">as</span> e:</span>
-<span id="cb20-82"><a href="#cb20-82" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="ss">f"Error: </span><span class="sc">{</span>e<span class="sc">}</span><span class="ss">"</span></span>
+<span id="cb20-78"><a href="#cb20-78" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Evaluates an arithmetic expression and returns the result."""</span></span>
+<span id="cb20-79"><a href="#cb20-79" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Delegates rather than calling eval(): an empty __builtins__ is not containment, and a</span></span>
+<span id="cb20-80"><a href="#cb20-80" aria-hidden="true" tabindex="-1"></a>    <span class="co"># model-written expression can still walk from any object to `os`.</span></span>
+<span id="cb20-81"><a href="#cb20-81" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> builtin.calculate(expression)</span>
+<span id="cb20-82"><a href="#cb20-82" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb20-83"><a href="#cb20-83" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-84"><a href="#cb20-84" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-85"><a href="#cb20-85" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)</span>
-<span id="cb20-86"><a href="#cb20-86" aria-hidden="true" tabindex="-1"></a><span class="co"># MCPClient.as_tools() turns the server's tools into @tool-style callables. Tools now live</span></span>
-<span id="cb20-87"><a href="#cb20-87" aria-hidden="true" tabindex="-1"></a><span class="co"># on the Agent (pass them via tools=), not on the client; keep the MCPClient reference alive.</span></span>
-<span id="cb20-88"><a href="#cb20-88" aria-hidden="true" tabindex="-1"></a>mcp_client <span class="op">=</span> MCPClient(server<span class="op">=</span>mcp)</span>
-<span id="cb20-89"><a href="#cb20-89" aria-hidden="true" tabindex="-1"></a>demo_tools <span class="op">=</span> mcp_client.as_tools()</span>
-<span id="cb20-90"><a href="#cb20-90" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-91"><a href="#cb20-91" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Model:"</span>, model_client.model.value)</span>
-<span id="cb20-92"><a href="#cb20-92" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Tools:"</span>, [fn.<span class="va">__name__</span> <span class="cf">for</span> fn <span class="kw">in</span> demo_tools])</span>
-<span id="cb20-93"><a href="#cb20-93" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb20-94"><a href="#cb20-94" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-95"><a href="#cb20-95" aria-hidden="true" tabindex="-1"></a><span class="fu">## A - Basic Agent</span></span>
-<span id="cb20-96"><a href="#cb20-96" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-97"><a href="#cb20-97" aria-hidden="true" tabindex="-1"></a>An <span class="in">`Agent`</span> wraps a <span class="in">`ModelClient`</span> and runs an agentic loop: on each turn the model may call tools, which the agent executes and feeds back; the agent then continues until the model responds without calling any tools (or <span class="in">`max_iterations`</span> is reached). The model client handles a single turn; the loop lives in the agent.</span>
-<span id="cb20-98"><a href="#cb20-98" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-99"><a href="#cb20-99" aria-hidden="true" tabindex="-1"></a>This is the simplest possible usage â€” two lines.</span>
-<span id="cb20-100"><a href="#cb20-100" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-103"><a href="#cb20-103" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb20-104"><a href="#cb20-104" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
-<span id="cb20-105"><a href="#cb20-105" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-106"><a href="#cb20-106" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
-<span id="cb20-107"><a href="#cb20-107" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-108"><a href="#cb20-108" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(model_client, name<span class="op">=</span><span class="st">"assistant"</span>, tools<span class="op">=</span>demo_tools, max_iterations<span class="op">=</span><span class="dv">5</span>)</span>
-<span id="cb20-109"><a href="#cb20-109" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> agent.run(<span class="st">"Get the current date and time. Subsequently calculate 123 * 456."</span>)</span>
-<span id="cb20-110"><a href="#cb20-110" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-111"><a href="#cb20-111" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span>
-<span id="cb20-112"><a href="#cb20-112" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb20-113"><a href="#cb20-113" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-114"><a href="#cb20-114" aria-hidden="true" tabindex="-1"></a>The agent called both tools â€” date/time and calculator â€” and assembled the results into a final answer. Inspect the full message history to see every step.</span>
-<span id="cb20-115"><a href="#cb20-115" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-118"><a href="#cb20-118" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb20-119"><a href="#cb20-119" aria-hidden="true" tabindex="-1"></a>model_client.messages</span>
-<span id="cb20-120"><a href="#cb20-120" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb20-121"><a href="#cb20-121" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-122"><a href="#cb20-122" aria-hidden="true" tabindex="-1"></a><span class="fu">### Per-run tool override</span></span>
-<span id="cb20-123"><a href="#cb20-123" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-124"><a href="#cb20-124" aria-hidden="true" tabindex="-1"></a><span class="in">`Agent(tools=...)`</span> sets the agent's *configured* tools. To use a different set for a single run (a narrower set for a quick task, or none at all) pass <span class="in">`tools=`</span> to <span class="in">`run()`</span>. It applies to every turn of that run's agentic loop and is restored afterward; <span class="in">`tools=None`</span> (the default) uses the configured tools, and <span class="in">`tools=[]`</span> disables tools for the run. (Since MCP tools are also just callables in the agent's <span class="in">`tools`</span> via <span class="in">`as_tools()`</span>, the override covers them too.)</span>
-<span id="cb20-125"><a href="#cb20-125" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-128"><a href="#cb20-128" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb20-129"><a href="#cb20-129" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
+<span id="cb20-84"><a href="#cb20-84" aria-hidden="true" tabindex="-1"></a>model_client <span class="op">=</span> OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)</span>
+<span id="cb20-85"><a href="#cb20-85" aria-hidden="true" tabindex="-1"></a><span class="co"># MCPClient.as_tools() turns the server's tools into @tool-style callables. Tools now live</span></span>
+<span id="cb20-86"><a href="#cb20-86" aria-hidden="true" tabindex="-1"></a><span class="co"># on the Agent (pass them via tools=), not on the client; keep the MCPClient reference alive.</span></span>
+<span id="cb20-87"><a href="#cb20-87" aria-hidden="true" tabindex="-1"></a>mcp_client <span class="op">=</span> MCPClient(server<span class="op">=</span>mcp)</span>
+<span id="cb20-88"><a href="#cb20-88" aria-hidden="true" tabindex="-1"></a>demo_tools <span class="op">=</span> mcp_client.as_tools()</span>
+<span id="cb20-89"><a href="#cb20-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-90"><a href="#cb20-90" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Model:"</span>, model_client.model.value)</span>
+<span id="cb20-91"><a href="#cb20-91" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Tools:"</span>, [fn.<span class="va">__name__</span> <span class="cf">for</span> fn <span class="kw">in</span> demo_tools])</span>
+<span id="cb20-92"><a href="#cb20-92" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb20-93"><a href="#cb20-93" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-94"><a href="#cb20-94" aria-hidden="true" tabindex="-1"></a><span class="fu">## A - Basic Agent</span></span>
+<span id="cb20-95"><a href="#cb20-95" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-96"><a href="#cb20-96" aria-hidden="true" tabindex="-1"></a>An <span class="in">`Agent`</span> wraps a <span class="in">`ModelClient`</span> and runs an agentic loop: on each turn the model may call tools, which the agent executes and feeds back; the agent then continues until the model responds without calling any tools (or <span class="in">`max_iterations`</span> is reached). The model client handles a single turn; the loop lives in the agent.</span>
+<span id="cb20-97"><a href="#cb20-97" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-98"><a href="#cb20-98" aria-hidden="true" tabindex="-1"></a>This is the simplest possible usage â€” two lines.</span>
+<span id="cb20-99"><a href="#cb20-99" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-102"><a href="#cb20-102" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb20-103"><a href="#cb20-103" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
+<span id="cb20-104"><a href="#cb20-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-105"><a href="#cb20-105" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
+<span id="cb20-106"><a href="#cb20-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-107"><a href="#cb20-107" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(model_client, name<span class="op">=</span><span class="st">"assistant"</span>, tools<span class="op">=</span>demo_tools, max_iterations<span class="op">=</span><span class="dv">5</span>)</span>
+<span id="cb20-108"><a href="#cb20-108" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> agent.run(<span class="st">"Get the current date and time. Subsequently calculate 123 * 456."</span>)</span>
+<span id="cb20-109"><a href="#cb20-109" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-110"><a href="#cb20-110" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span>
+<span id="cb20-111"><a href="#cb20-111" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb20-112"><a href="#cb20-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-113"><a href="#cb20-113" aria-hidden="true" tabindex="-1"></a>The agent called both tools â€” date/time and calculator â€” and assembled the results into a final answer. Inspect the full message history to see every step.</span>
+<span id="cb20-114"><a href="#cb20-114" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-117"><a href="#cb20-117" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb20-118"><a href="#cb20-118" aria-hidden="true" tabindex="-1"></a>model_client.messages</span>
+<span id="cb20-119"><a href="#cb20-119" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb20-120"><a href="#cb20-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-121"><a href="#cb20-121" aria-hidden="true" tabindex="-1"></a><span class="fu">### Per-run tool override</span></span>
+<span id="cb20-122"><a href="#cb20-122" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-123"><a href="#cb20-123" aria-hidden="true" tabindex="-1"></a><span class="in">`Agent(tools=...)`</span> sets the agent's *configured* tools. To use a different set for a single run (a narrower set for a quick task, or none at all) pass <span class="in">`tools=`</span> to <span class="in">`run()`</span>. It applies to every turn of that run's agentic loop and is restored afterward; <span class="in">`tools=None`</span> (the default) uses the configured tools, and <span class="in">`tools=[]`</span> disables tools for the run. (Since MCP tools are also just callables in the agent's <span class="in">`tools`</span> via <span class="in">`as_tools()`</span>, the override covers them too.)</span>
+<span id="cb20-124"><a href="#cb20-124" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-127"><a href="#cb20-127" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb20-128"><a href="#cb20-128" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
+<span id="cb20-129"><a href="#cb20-129" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb20-130"><a href="#cb20-130" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-131"><a href="#cb20-131" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-132"><a href="#cb20-132" aria-hidden="true" tabindex="-1"></a><span class="at">@aimu.tool</span></span>
-<span id="cb20-133"><a href="#cb20-133" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> add(a: <span class="bu">int</span>, b: <span class="bu">int</span>) <span class="op">-&gt;</span> <span class="bu">int</span>:</span>
-<span id="cb20-134"><a href="#cb20-134" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Add two integers."""</span></span>
-<span id="cb20-135"><a href="#cb20-135" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> a <span class="op">+</span> b</span>
+<span id="cb20-131"><a href="#cb20-131" aria-hidden="true" tabindex="-1"></a><span class="at">@aimu.tool</span></span>
+<span id="cb20-132"><a href="#cb20-132" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> add(a: <span class="bu">int</span>, b: <span class="bu">int</span>) <span class="op">-&gt;</span> <span class="bu">int</span>:</span>
+<span id="cb20-133"><a href="#cb20-133" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Add two integers."""</span></span>
+<span id="cb20-134"><a href="#cb20-134" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> a <span class="op">+</span> b</span>
+<span id="cb20-135"><a href="#cb20-135" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb20-136"><a href="#cb20-136" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-137"><a href="#cb20-137" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-138"><a href="#cb20-138" aria-hidden="true" tabindex="-1"></a><span class="at">@aimu.tool</span></span>
-<span id="cb20-139"><a href="#cb20-139" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> multiply(a: <span class="bu">int</span>, b: <span class="bu">int</span>) <span class="op">-&gt;</span> <span class="bu">int</span>:</span>
-<span id="cb20-140"><a href="#cb20-140" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Multiply two integers."""</span></span>
-<span id="cb20-141"><a href="#cb20-141" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> a <span class="op">*</span> b</span>
+<span id="cb20-137"><a href="#cb20-137" aria-hidden="true" tabindex="-1"></a><span class="at">@aimu.tool</span></span>
+<span id="cb20-138"><a href="#cb20-138" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> multiply(a: <span class="bu">int</span>, b: <span class="bu">int</span>) <span class="op">-&gt;</span> <span class="bu">int</span>:</span>
+<span id="cb20-139"><a href="#cb20-139" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Multiply two integers."""</span></span>
+<span id="cb20-140"><a href="#cb20-140" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> a <span class="op">*</span> b</span>
+<span id="cb20-141"><a href="#cb20-141" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb20-142"><a href="#cb20-142" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-143"><a href="#cb20-143" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-144"><a href="#cb20-144" aria-hidden="true" tabindex="-1"></a>override_client <span class="op">=</span> ModelClient(OllamaModel.QWEN_3_5_9B)</span>
-<span id="cb20-145"><a href="#cb20-145" aria-hidden="true" tabindex="-1"></a>override_agent <span class="op">=</span> Agent(override_client, tools<span class="op">=</span>[add, multiply], max_iterations<span class="op">=</span><span class="dv">4</span>)</span>
-<span id="cb20-146"><a href="#cb20-146" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-147"><a href="#cb20-147" aria-hidden="true" tabindex="-1"></a><span class="co"># Configured with both tools, but expose only `add` for this run.</span></span>
-<span id="cb20-148"><a href="#cb20-148" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(override_agent.run(<span class="st">"What is 12 + 30?"</span>, tools<span class="op">=</span>[add]))</span>
-<span id="cb20-149"><a href="#cb20-149" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-150"><a href="#cb20-150" aria-hidden="true" tabindex="-1"></a><span class="co"># Next run with no override uses the configured tools again (add + multiply).</span></span>
-<span id="cb20-151"><a href="#cb20-151" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(override_agent.run(<span class="st">"What is 6 times 7?"</span>))</span>
-<span id="cb20-152"><a href="#cb20-152" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb20-153"><a href="#cb20-153" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-154"><a href="#cb20-154" aria-hidden="true" tabindex="-1"></a><span class="fu">### Guaranteed final answer at the iteration cap</span></span>
-<span id="cb20-155"><a href="#cb20-155" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-156"><a href="#cb20-156" aria-hidden="true" tabindex="-1"></a>By default, if an agent reaches <span class="in">`max_iterations`</span> while still calling tools, <span class="in">`run()`</span> returns whatever that last (possibly tool-only) turn produced, which can be empty. Set <span class="in">`final_answer_prompt`</span> to guarantee a usable result: when the cap is hit with a tool call still pending, the agent sends that prompt **once with tools disabled**, forcing the model to synthesize an answer from what it has gathered so far. This wrap-up turn is *not* counted against <span class="in">`max_iterations`</span>, and it never fires on a normal finish (a turn with no tool calls). <span class="in">`OrchestratorAgent.assemble(..., final_answer_prompt=...)`</span> forwards it to the inner orchestrator.</span>
-<span id="cb20-157"><a href="#cb20-157" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-160"><a href="#cb20-160" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb20-161"><a href="#cb20-161" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> builtin</span>
-<span id="cb20-162"><a href="#cb20-162" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-163"><a href="#cb20-163" aria-hidden="true" tabindex="-1"></a>capped_client <span class="op">=</span> ModelClient(OllamaModel.QWEN_3_5_9B)</span>
-<span id="cb20-164"><a href="#cb20-164" aria-hidden="true" tabindex="-1"></a>capped_agent <span class="op">=</span> Agent(</span>
-<span id="cb20-165"><a href="#cb20-165" aria-hidden="true" tabindex="-1"></a>    capped_client,</span>
-<span id="cb20-166"><a href="#cb20-166" aria-hidden="true" tabindex="-1"></a>    system_message<span class="op">=</span><span class="st">"You are a maths assistant. Use the calculate tool for each arithmetic step."</span>,</span>
-<span id="cb20-167"><a href="#cb20-167" aria-hidden="true" tabindex="-1"></a>    tools<span class="op">=</span>[builtin.calculate],</span>
-<span id="cb20-168"><a href="#cb20-168" aria-hidden="true" tabindex="-1"></a>    max_iterations<span class="op">=</span><span class="dv">2</span>,  <span class="co"># deliberately tight, so the loop may hit the cap mid-task</span></span>
-<span id="cb20-169"><a href="#cb20-169" aria-hidden="true" tabindex="-1"></a>    final_answer_prompt<span class="op">=</span><span class="st">"Stop using tools and give your best final answer now from what you have."</span>,</span>
-<span id="cb20-170"><a href="#cb20-170" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb20-171"><a href="#cb20-171" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-172"><a href="#cb20-172" aria-hidden="true" tabindex="-1"></a><span class="co"># If the agent exhausts its iterations while still calling tools, the forced wrap-up</span></span>
-<span id="cb20-173"><a href="#cb20-173" aria-hidden="true" tabindex="-1"></a><span class="co"># turn (tools disabled) ensures a non-empty answer instead of a blank result.</span></span>
-<span id="cb20-174"><a href="#cb20-174" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(capped_agent.run(<span class="st">"Compute (12 + 30) * 7, then subtract 5, then halve the result."</span>))</span>
-<span id="cb20-175"><a href="#cb20-175" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb20-176"><a href="#cb20-176" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-177"><a href="#cb20-177" aria-hidden="true" tabindex="-1"></a><span class="fu">## B - Agent with System Message</span></span>
-<span id="cb20-178"><a href="#cb20-178" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-179"><a href="#cb20-179" aria-hidden="true" tabindex="-1"></a>Pass a <span class="in">`system_message`</span> to give the agent a specific persona or set of instructions.</span>
-<span id="cb20-180"><a href="#cb20-180" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-183"><a href="#cb20-183" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb20-184"><a href="#cb20-184" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
-<span id="cb20-185"><a href="#cb20-185" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-186"><a href="#cb20-186" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(</span>
-<span id="cb20-187"><a href="#cb20-187" aria-hidden="true" tabindex="-1"></a>    model_client,</span>
-<span id="cb20-188"><a href="#cb20-188" aria-hidden="true" tabindex="-1"></a>    name<span class="op">=</span><span class="st">"weather-bot"</span>,</span>
-<span id="cb20-189"><a href="#cb20-189" aria-hidden="true" tabindex="-1"></a>    tools<span class="op">=</span>demo_tools,</span>
-<span id="cb20-190"><a href="#cb20-190" aria-hidden="true" tabindex="-1"></a>    max_iterations<span class="op">=</span><span class="dv">5</span>,</span>
-<span id="cb20-191"><a href="#cb20-191" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb20-192"><a href="#cb20-192" aria-hidden="true" tabindex="-1"></a>model_client.system_message <span class="op">=</span> <span class="st">"You are a travel assistant. Always check the weather before giving advice. Be concise. If you've answered the original query and don't need to use any more tools, repeat the final answer."</span></span>
-<span id="cb20-193"><a href="#cb20-193" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-194"><a href="#cb20-194" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> agent.run(<span class="st">"Should I visit Paris or London today?"</span>)</span>
-<span id="cb20-195"><a href="#cb20-195" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span>
-<span id="cb20-196"><a href="#cb20-196" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb20-197"><a href="#cb20-197" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-200"><a href="#cb20-200" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb20-201"><a href="#cb20-201" aria-hidden="true" tabindex="-1"></a>model_client.messages</span>
-<span id="cb20-202"><a href="#cb20-202" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb20-203"><a href="#cb20-203" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-204"><a href="#cb20-204" aria-hidden="true" tabindex="-1"></a><span class="fu">## C - Agent from Config</span></span>
-<span id="cb20-205"><a href="#cb20-205" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-206"><a href="#cb20-206" aria-hidden="true" tabindex="-1"></a><span class="in">`Agent.from_config()`</span> creates an agent from a plain dict. This makes it easy to define agents in configuration files or environment settings without writing boilerplate code.</span>
-<span id="cb20-207"><a href="#cb20-207" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-210"><a href="#cb20-210" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb20-211"><a href="#cb20-211" aria-hidden="true" tabindex="-1"></a>agent_config <span class="op">=</span> {</span>
-<span id="cb20-212"><a href="#cb20-212" aria-hidden="true" tabindex="-1"></a>    <span class="st">"name"</span>: <span class="st">"calculator-agent"</span>,</span>
-<span id="cb20-213"><a href="#cb20-213" aria-hidden="true" tabindex="-1"></a>    <span class="st">"system_message"</span>: <span class="st">"You are a maths assistant. Use the calculate tool for all arithmetic. If you've answered the original query and don't need to use any more tools, repeat the final answer."</span>,</span>
-<span id="cb20-214"><a href="#cb20-214" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_iterations"</span>: <span class="dv">8</span>,</span>
-<span id="cb20-215"><a href="#cb20-215" aria-hidden="true" tabindex="-1"></a>    <span class="st">"continuation_prompt"</span>: <span class="st">"Continue solving the problem step by step."</span>,</span>
-<span id="cb20-216"><a href="#cb20-216" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb20-217"><a href="#cb20-217" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-218"><a href="#cb20-218" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
-<span id="cb20-219"><a href="#cb20-219" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent.from_config(agent_config, model_client)</span>
-<span id="cb20-220"><a href="#cb20-220" aria-hidden="true" tabindex="-1"></a>agent.tools <span class="op">=</span> demo_tools  <span class="co"># from_config configs are plain dicts; attach tool callables directly</span></span>
-<span id="cb20-221"><a href="#cb20-221" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-222"><a href="#cb20-222" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Agent name:       </span><span class="sc">{</span>agent<span class="sc">.</span>name<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb20-223"><a href="#cb20-223" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Max iterations:   </span><span class="sc">{</span>agent<span class="sc">.</span>max_iterations<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb20-224"><a href="#cb20-224" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"System message:   </span><span class="sc">{</span>model_client<span class="sc">.</span>system_message<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb20-225"><a href="#cb20-225" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb20-226"><a href="#cb20-226" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-229"><a href="#cb20-229" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb20-230"><a href="#cb20-230" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> agent.run(<span class="st">"What is (17 * 23) + (88 / 4)?"</span>)</span>
-<span id="cb20-231"><a href="#cb20-231" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span>
-<span id="cb20-232"><a href="#cb20-232" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb20-233"><a href="#cb20-233" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-236"><a href="#cb20-236" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb20-237"><a href="#cb20-237" aria-hidden="true" tabindex="-1"></a>model_client.messages</span>
-<span id="cb20-238"><a href="#cb20-238" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb20-239"><a href="#cb20-239" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-240"><a href="#cb20-240" aria-hidden="true" tabindex="-1"></a><span class="fu">## D - Streaming Agent Output</span></span>
-<span id="cb20-241"><a href="#cb20-241" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-242"><a href="#cb20-242" aria-hidden="true" tabindex="-1"></a><span class="in">`run(stream=True)`</span> yields <span class="in">`StreamChunk`</span> objects, each with <span class="in">`phase`</span>, <span class="in">`content`</span>, <span class="in">`agent`</span>, and <span class="in">`iteration`</span>. The same chunk type flows through <span class="in">`client.chat(stream=True)`</span> and every workflow; <span class="in">`agent`</span> and <span class="in">`iteration`</span> are populated by the agent/workflow runner (and default to <span class="in">`None`</span> / <span class="in">`0`</span> for plain client chats).</span>
-<span id="cb20-243"><a href="#cb20-243" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-244"><a href="#cb20-244" aria-hidden="true" tabindex="-1"></a>The <span class="in">`iteration`</span> field shows which loop round produced each chunk, making it easy to follow multi-step reasoning. Use <span class="in">`chunk.is_text()`</span> / <span class="in">`chunk.is_tool_call()`</span> to dispatch without writing out the phase comparison.</span>
-<span id="cb20-245"><a href="#cb20-245" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-248"><a href="#cb20-248" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb20-249"><a href="#cb20-249" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
-<span id="cb20-250"><a href="#cb20-250" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-251"><a href="#cb20-251" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
-<span id="cb20-252"><a href="#cb20-252" aria-hidden="true" tabindex="-1"></a>model_client.system_message <span class="op">=</span> <span class="va">None</span></span>
-<span id="cb20-253"><a href="#cb20-253" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-254"><a href="#cb20-254" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(model_client, name<span class="op">=</span><span class="st">"streamer"</span>, tools<span class="op">=</span>demo_tools, max_iterations<span class="op">=</span><span class="dv">6</span>)</span>
-<span id="cb20-255"><a href="#cb20-255" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-256"><a href="#cb20-256" aria-hidden="true" tabindex="-1"></a>current_iteration <span class="op">=</span> <span class="op">-</span><span class="dv">1</span></span>
-<span id="cb20-257"><a href="#cb20-257" aria-hidden="true" tabindex="-1"></a>current_phase <span class="op">=</span> <span class="va">None</span></span>
-<span id="cb20-258"><a href="#cb20-258" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-259"><a href="#cb20-259" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> agent.run(<span class="st">"What is the weather in Tokyo, and what is 99 * 11?"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
-<span id="cb20-260"><a href="#cb20-260" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> chunk.iteration <span class="op">!=</span> current_iteration:</span>
-<span id="cb20-261"><a href="#cb20-261" aria-hidden="true" tabindex="-1"></a>        current_iteration <span class="op">=</span> chunk.iteration</span>
-<span id="cb20-262"><a href="#cb20-262" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">--- iteration </span><span class="sc">{</span>current_iteration<span class="sc">}</span><span class="ss"> ---"</span>)</span>
-<span id="cb20-263"><a href="#cb20-263" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-264"><a href="#cb20-264" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> chunk.phase <span class="op">!=</span> current_phase:</span>
-<span id="cb20-265"><a href="#cb20-265" aria-hidden="true" tabindex="-1"></a>        current_phase <span class="op">=</span> chunk.phase</span>
-<span id="cb20-266"><a href="#cb20-266" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">--- phase </span><span class="sc">{</span>current_phase<span class="sc">.</span>value<span class="sc">}</span><span class="ss"> ---"</span>)</span>
-<span id="cb20-267"><a href="#cb20-267" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-268"><a href="#cb20-268" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> chunk.phase <span class="op">==</span> StreamingContentType.THINKING:</span>
-<span id="cb20-269"><a href="#cb20-269" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>chunk<span class="sc">.</span>content<span class="sc">}</span><span class="ss">"</span>, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb20-270"><a href="#cb20-270" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> chunk.phase <span class="op">==</span> StreamingContentType.TOOL_CALLING:</span>
-<span id="cb20-271"><a href="#cb20-271" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>chunk<span class="sc">.</span>content[<span class="st">'name'</span>]<span class="sc">}</span><span class="ss">(</span><span class="sc">{</span>chunk<span class="sc">.</span>content[<span class="st">'arguments'</span>]<span class="sc">!r}</span><span class="ss">) &gt; </span><span class="sc">{</span>chunk<span class="sc">.</span>content[<span class="st">'response'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
-<span id="cb20-272"><a href="#cb20-272" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> chunk.phase <span class="op">==</span> StreamingContentType.GENERATING:</span>
-<span id="cb20-273"><a href="#cb20-273" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
-<span id="cb20-274"><a href="#cb20-274" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb20-275"><a href="#cb20-275" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-278"><a href="#cb20-278" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb20-279"><a href="#cb20-279" aria-hidden="true" tabindex="-1"></a>model_client.messages</span>
-<span id="cb20-280"><a href="#cb20-280" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb20-281"><a href="#cb20-281" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-282"><a href="#cb20-282" aria-hidden="true" tabindex="-1"></a><span class="fu">## E - agent.as_model_client()</span></span>
-<span id="cb20-283"><a href="#cb20-283" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-284"><a href="#cb20-284" aria-hidden="true" tabindex="-1"></a><span class="in">`agent.as_model_client()`</span> returns a <span class="in">`BaseModelClient`</span> view backed by the agent. Use it anywhere a plain model client is accepted (web UIs, conversation managers, etc.) to get the full agentic loop transparently.</span>
-<span id="cb20-285"><a href="#cb20-285" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-286"><a href="#cb20-286" aria-hidden="true" tabindex="-1"></a><span class="in">`chat()`</span> on the returned view runs the complete <span class="in">`Agent`</span> loop and returns once the model stops calling tools. <span class="in">`generate()`</span> bypasses the loop and calls the inner client directly. State (<span class="in">`messages`</span>, <span class="in">`system_message`</span>) delegates to <span class="in">`agent.model_client`</span>, so the view is a true drop-in replacement.</span>
-<span id="cb20-287"><a href="#cb20-287" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-288"><a href="#cb20-288" aria-hidden="true" tabindex="-1"></a>To run a workflow (<span class="in">`Chain`</span>, <span class="in">`Router`</span>, etc.), call its <span class="in">`run()`</span> or <span class="in">`run(stream=True)`</span> directly; see **[notebook 09](09-workflows.qmd)** for workflow patterns.</span>
-<span id="cb20-289"><a href="#cb20-289" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-292"><a href="#cb20-292" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb20-293"><a href="#cb20-293" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)</span>
-<span id="cb20-294"><a href="#cb20-294" aria-hidden="true" tabindex="-1"></a>tools <span class="op">=</span> MCPClient(server<span class="op">=</span>mcp).as_tools()</span>
-<span id="cb20-295"><a href="#cb20-295" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-296"><a href="#cb20-296" aria-hidden="true" tabindex="-1"></a>agentic_client <span class="op">=</span> Agent(client, tools<span class="op">=</span>tools, max_iterations<span class="op">=</span><span class="dv">5</span>).as_model_client()</span>
-<span id="cb20-297"><a href="#cb20-297" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-298"><a href="#cb20-298" aria-hidden="true" tabindex="-1"></a><span class="co"># chat() drives the full agentic loop: identical call site to a plain ModelClient</span></span>
-<span id="cb20-299"><a href="#cb20-299" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> agentic_client.chat(<span class="st">"What is the weather in Berlin, and what is 42 * 7?"</span>)</span>
-<span id="cb20-300"><a href="#cb20-300" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span>
-<span id="cb20-301"><a href="#cb20-301" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb20-302"><a href="#cb20-302" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-303"><a href="#cb20-303" aria-hidden="true" tabindex="-1"></a><span class="fu">## F - execute_python Tool</span></span>
-<span id="cb20-304"><a href="#cb20-304" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-305"><a href="#cb20-305" aria-hidden="true" tabindex="-1"></a>The <span class="in">`execute_python`</span> built-in runs Python code in a fresh subprocess for an agent -- useful for data analysis and computation. The subprocess buys a hard timeout, crash isolation, and no access to this process's environment variables, but it is **not a security boundary** (restricted builtins and an import allowlist stop accidents, not attempts, and the filesystem/network are not confined), so it is in <span class="in">`builtin.compute`</span> but not <span class="in">`ALL_TOOLS`</span>; opt in explicitly. <span class="in">`execute_python_in_process`</span> is the faster, weaker-isolation alternative that shares this process's memory and environment.</span>
-<span id="cb20-306"><a href="#cb20-306" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-309"><a href="#cb20-309" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb20-310"><a href="#cb20-310" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> builtin</span>
-<span id="cb20-311"><a href="#cb20-311" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
-<span id="cb20-312"><a href="#cb20-312" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaClient, OllamaModel</span>
-<span id="cb20-313"><a href="#cb20-313" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-314"><a href="#cb20-314" aria-hidden="true" tabindex="-1"></a>compute_client <span class="op">=</span> OllamaClient(OllamaModel.QWEN_3_8B)</span>
-<span id="cb20-315"><a href="#cb20-315" aria-hidden="true" tabindex="-1"></a>compute_agent <span class="op">=</span> Agent(</span>
-<span id="cb20-316"><a href="#cb20-316" aria-hidden="true" tabindex="-1"></a>    compute_client,</span>
-<span id="cb20-317"><a href="#cb20-317" aria-hidden="true" tabindex="-1"></a>    system_message<span class="op">=</span><span class="st">"You are a data analysis assistant. Use execute_python for calculations."</span>,</span>
-<span id="cb20-318"><a href="#cb20-318" aria-hidden="true" tabindex="-1"></a>    name<span class="op">=</span><span class="st">"compute-agent"</span>,</span>
-<span id="cb20-319"><a href="#cb20-319" aria-hidden="true" tabindex="-1"></a>    tools<span class="op">=</span>builtin.compute,  <span class="co"># includes calculate and execute_python</span></span>
-<span id="cb20-320"><a href="#cb20-320" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb20-321"><a href="#cb20-321" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-322"><a href="#cb20-322" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> compute_agent.run(<span class="st">"Compute the mean and standard deviation of [4, 8, 15, 16, 23, 42]."</span>)</span>
-<span id="cb20-323"><a href="#cb20-323" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span>
-<span id="cb20-324"><a href="#cb20-324" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb20-325"><a href="#cb20-325" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-326"><a href="#cb20-326" aria-hidden="true" tabindex="-1"></a><span class="fu">## G - Inspecting Agent Tool Calls</span></span>
-<span id="cb20-327"><a href="#cb20-327" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-328"><a href="#cb20-328" aria-hidden="true" tabindex="-1"></a><span class="in">`extract_tool_calls(messages)`</span> converts the raw OpenAI-format message history into a structured list of <span class="in">`{iteration, tool, arguments, result}`</span> records.</span>
-<span id="cb20-329"><a href="#cb20-329" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-332"><a href="#cb20-332" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb20-333"><a href="#cb20-333" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> extract_tool_calls</span>
-<span id="cb20-334"><a href="#cb20-334" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-335"><a href="#cb20-335" aria-hidden="true" tabindex="-1"></a>calls <span class="op">=</span> extract_tool_calls(compute_agent.model_client.messages)</span>
-<span id="cb20-336"><a href="#cb20-336" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> call <span class="kw">in</span> calls:</span>
-<span id="cb20-337"><a href="#cb20-337" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Iteration </span><span class="sc">{</span>call[<span class="st">'iteration'</span>]<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>call[<span class="st">'tool'</span>]<span class="sc">}</span><span class="ss">(</span><span class="sc">{</span>call[<span class="st">'arguments'</span>]<span class="sc">}</span><span class="ss">) -&gt; </span><span class="sc">{</span><span class="bu">str</span>(call[<span class="st">'result'</span>])[:<span class="dv">80</span>]<span class="sc">!r}</span><span class="ss">"</span>)</span>
-<span id="cb20-338"><a href="#cb20-338" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb20-339"><a href="#cb20-339" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-340"><a href="#cb20-340" aria-hidden="true" tabindex="-1"></a><span class="fu">### Distinguishing agent-loop turns from user input</span></span>
-<span id="cb20-341"><a href="#cb20-341" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-342"><a href="#cb20-342" aria-hidden="true" tabindex="-1"></a>To reach its answer the agent injects its own <span class="in">`{"role": "user", ...}`</span> turns (the continuation prompt between tool rounds, and a final-answer prompt if it hits <span class="in">`max_iterations`</span>). In a replayed history these look identical to what the user typed. AIMU marks them with an inert <span class="in">`provenance`</span> key so a UI can tell them apart; genuine user input is left untagged. The key is stripped from every provider request (like the <span class="in">`thinking`</span> key), so it never reaches the model.</span>
-<span id="cb20-343"><a href="#cb20-343" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-346"><a href="#cb20-346" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb20-347"><a href="#cb20-347" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
-<span id="cb20-348"><a href="#cb20-348" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-349"><a href="#cb20-349" aria-hidden="true" tabindex="-1"></a><span class="co"># Only the first user turn was typed by the user; the rest are agent-loop prompts.</span></span>
-<span id="cb20-350"><a href="#cb20-350" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> message <span class="kw">in</span> compute_agent.model_client.messages:</span>
-<span id="cb20-351"><a href="#cb20-351" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> message[<span class="st">"role"</span>] <span class="op">!=</span> <span class="st">"user"</span>:</span>
-<span id="cb20-352"><a href="#cb20-352" aria-hidden="true" tabindex="-1"></a>        <span class="cf">continue</span></span>
-<span id="cb20-353"><a href="#cb20-353" aria-hidden="true" tabindex="-1"></a>    origin <span class="op">=</span> message.get(aimu.PROVENANCE_KEY) <span class="kw">or</span> <span class="st">"typed by the user"</span></span>
-<span id="cb20-354"><a href="#cb20-354" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"[</span><span class="sc">{</span>origin<span class="sc">}</span><span class="ss">] </span><span class="sc">{</span>message[<span class="st">'content'</span>][:<span class="dv">70</span>]<span class="sc">!r}</span><span class="ss">"</span>)</span>
-<span id="cb20-355"><a href="#cb20-355" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb20-356"><a href="#cb20-356" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-357"><a href="#cb20-357" aria-hidden="true" tabindex="-1"></a><span class="fu">## H - Checkpointing (save/restore after failure)</span></span>
-<span id="cb20-358"><a href="#cb20-358" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-359"><a href="#cb20-359" aria-hidden="true" tabindex="-1"></a>Save the live partial state on failure and restore before retrying. <span class="in">`agent.restore()`</span> strips the system message to prevent duplication.</span>
-<span id="cb20-360"><a href="#cb20-360" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-363"><a href="#cb20-363" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb20-364"><a href="#cb20-364" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> json</span>
-<span id="cb20-365"><a href="#cb20-365" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-366"><a href="#cb20-366" aria-hidden="true" tabindex="-1"></a>save_path <span class="op">=</span> <span class="st">"/tmp/agent_checkpoint.json"</span></span>
-<span id="cb20-367"><a href="#cb20-367" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-368"><a href="#cb20-368" aria-hidden="true" tabindex="-1"></a><span class="co"># Simulate a run that saves state (in production: save on exception)</span></span>
-<span id="cb20-369"><a href="#cb20-369" aria-hidden="true" tabindex="-1"></a>compute_agent.model_client.messages <span class="op">=</span> []</span>
-<span id="cb20-370"><a href="#cb20-370" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> compute_agent.run(<span class="st">"What is 2 ** 32?"</span>)</span>
-<span id="cb20-371"><a href="#cb20-371" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> <span class="bu">open</span>(save_path, <span class="st">"w"</span>) <span class="im">as</span> f:</span>
-<span id="cb20-372"><a href="#cb20-372" aria-hidden="true" tabindex="-1"></a>    json.dump(compute_agent.model_client.messages, f)</span>
-<span id="cb20-373"><a href="#cb20-373" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Checkpoint saved. Restoring and running a follow-up..."</span>)</span>
-<span id="cb20-374"><a href="#cb20-374" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-375"><a href="#cb20-375" aria-hidden="true" tabindex="-1"></a><span class="co"># Restore and continue</span></span>
-<span id="cb20-376"><a href="#cb20-376" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> <span class="bu">open</span>(save_path) <span class="im">as</span> f:</span>
-<span id="cb20-377"><a href="#cb20-377" aria-hidden="true" tabindex="-1"></a>    saved <span class="op">=</span> json.load(f)</span>
-<span id="cb20-378"><a href="#cb20-378" aria-hidden="true" tabindex="-1"></a>compute_agent.restore(saved)</span>
-<span id="cb20-379"><a href="#cb20-379" aria-hidden="true" tabindex="-1"></a>follow_up <span class="op">=</span> compute_agent.run(<span class="st">"Now square that result."</span>)</span>
-<span id="cb20-380"><a href="#cb20-380" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(follow_up)</span>
-<span id="cb20-381"><a href="#cb20-381" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb20-382"><a href="#cb20-382" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-383"><a href="#cb20-383" aria-hidden="true" tabindex="-1"></a><span class="fu">## I - Clean Up</span></span>
-<span id="cb20-384"><a href="#cb20-384" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-385"><a href="#cb20-385" aria-hidden="true" tabindex="-1"></a>Delete model clients to release any held resources.</span>
-<span id="cb20-386"><a href="#cb20-386" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb20-389"><a href="#cb20-389" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb20-390"><a href="#cb20-390" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> model_client, agentic_client</span>
-<span id="cb20-391"><a href="#cb20-391" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb20-143"><a href="#cb20-143" aria-hidden="true" tabindex="-1"></a>override_client <span class="op">=</span> ModelClient(OllamaModel.QWEN_3_5_9B)</span>
+<span id="cb20-144"><a href="#cb20-144" aria-hidden="true" tabindex="-1"></a>override_agent <span class="op">=</span> Agent(override_client, tools<span class="op">=</span>[add, multiply], max_iterations<span class="op">=</span><span class="dv">4</span>)</span>
+<span id="cb20-145"><a href="#cb20-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-146"><a href="#cb20-146" aria-hidden="true" tabindex="-1"></a><span class="co"># Configured with both tools, but expose only `add` for this run.</span></span>
+<span id="cb20-147"><a href="#cb20-147" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(override_agent.run(<span class="st">"What is 12 + 30?"</span>, tools<span class="op">=</span>[add]))</span>
+<span id="cb20-148"><a href="#cb20-148" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-149"><a href="#cb20-149" aria-hidden="true" tabindex="-1"></a><span class="co"># Next run with no override uses the configured tools again (add + multiply).</span></span>
+<span id="cb20-150"><a href="#cb20-150" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(override_agent.run(<span class="st">"What is 6 times 7?"</span>))</span>
+<span id="cb20-151"><a href="#cb20-151" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb20-152"><a href="#cb20-152" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-153"><a href="#cb20-153" aria-hidden="true" tabindex="-1"></a><span class="fu">### Guaranteed final answer at the iteration cap</span></span>
+<span id="cb20-154"><a href="#cb20-154" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-155"><a href="#cb20-155" aria-hidden="true" tabindex="-1"></a>By default, if an agent reaches <span class="in">`max_iterations`</span> while still calling tools, <span class="in">`run()`</span> returns whatever that last (possibly tool-only) turn produced, which can be empty. Set <span class="in">`final_answer_prompt`</span> to guarantee a usable result: when the cap is hit with a tool call still pending, the agent sends that prompt **once with tools disabled**, forcing the model to synthesize an answer from what it has gathered so far. This wrap-up turn is *not* counted against <span class="in">`max_iterations`</span>, and it never fires on a normal finish (a turn with no tool calls). <span class="in">`OrchestratorAgent.assemble(..., final_answer_prompt=...)`</span> forwards it to the inner orchestrator.</span>
+<span id="cb20-156"><a href="#cb20-156" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-159"><a href="#cb20-159" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb20-160"><a href="#cb20-160" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> builtin</span>
+<span id="cb20-161"><a href="#cb20-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-162"><a href="#cb20-162" aria-hidden="true" tabindex="-1"></a>capped_client <span class="op">=</span> ModelClient(OllamaModel.QWEN_3_5_9B)</span>
+<span id="cb20-163"><a href="#cb20-163" aria-hidden="true" tabindex="-1"></a>capped_agent <span class="op">=</span> Agent(</span>
+<span id="cb20-164"><a href="#cb20-164" aria-hidden="true" tabindex="-1"></a>    capped_client,</span>
+<span id="cb20-165"><a href="#cb20-165" aria-hidden="true" tabindex="-1"></a>    system_message<span class="op">=</span><span class="st">"You are a maths assistant. Use the calculate tool for each arithmetic step."</span>,</span>
+<span id="cb20-166"><a href="#cb20-166" aria-hidden="true" tabindex="-1"></a>    tools<span class="op">=</span>[builtin.calculate],</span>
+<span id="cb20-167"><a href="#cb20-167" aria-hidden="true" tabindex="-1"></a>    max_iterations<span class="op">=</span><span class="dv">2</span>,  <span class="co"># deliberately tight, so the loop may hit the cap mid-task</span></span>
+<span id="cb20-168"><a href="#cb20-168" aria-hidden="true" tabindex="-1"></a>    final_answer_prompt<span class="op">=</span><span class="st">"Stop using tools and give your best final answer now from what you have."</span>,</span>
+<span id="cb20-169"><a href="#cb20-169" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb20-170"><a href="#cb20-170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-171"><a href="#cb20-171" aria-hidden="true" tabindex="-1"></a><span class="co"># If the agent exhausts its iterations while still calling tools, the forced wrap-up</span></span>
+<span id="cb20-172"><a href="#cb20-172" aria-hidden="true" tabindex="-1"></a><span class="co"># turn (tools disabled) ensures a non-empty answer instead of a blank result.</span></span>
+<span id="cb20-173"><a href="#cb20-173" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(capped_agent.run(<span class="st">"Compute (12 + 30) * 7, then subtract 5, then halve the result."</span>))</span>
+<span id="cb20-174"><a href="#cb20-174" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb20-175"><a href="#cb20-175" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-176"><a href="#cb20-176" aria-hidden="true" tabindex="-1"></a><span class="fu">## B - Agent with System Message</span></span>
+<span id="cb20-177"><a href="#cb20-177" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-178"><a href="#cb20-178" aria-hidden="true" tabindex="-1"></a>Pass a <span class="in">`system_message`</span> to give the agent a specific persona or set of instructions.</span>
+<span id="cb20-179"><a href="#cb20-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-182"><a href="#cb20-182" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb20-183"><a href="#cb20-183" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
+<span id="cb20-184"><a href="#cb20-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-185"><a href="#cb20-185" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(</span>
+<span id="cb20-186"><a href="#cb20-186" aria-hidden="true" tabindex="-1"></a>    model_client,</span>
+<span id="cb20-187"><a href="#cb20-187" aria-hidden="true" tabindex="-1"></a>    name<span class="op">=</span><span class="st">"weather-bot"</span>,</span>
+<span id="cb20-188"><a href="#cb20-188" aria-hidden="true" tabindex="-1"></a>    tools<span class="op">=</span>demo_tools,</span>
+<span id="cb20-189"><a href="#cb20-189" aria-hidden="true" tabindex="-1"></a>    max_iterations<span class="op">=</span><span class="dv">5</span>,</span>
+<span id="cb20-190"><a href="#cb20-190" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb20-191"><a href="#cb20-191" aria-hidden="true" tabindex="-1"></a>model_client.system_message <span class="op">=</span> <span class="st">"You are a travel assistant. Always check the weather before giving advice. Be concise. If you've answered the original query and don't need to use any more tools, repeat the final answer."</span></span>
+<span id="cb20-192"><a href="#cb20-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-193"><a href="#cb20-193" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> agent.run(<span class="st">"Should I visit Paris or London today?"</span>)</span>
+<span id="cb20-194"><a href="#cb20-194" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span>
+<span id="cb20-195"><a href="#cb20-195" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb20-196"><a href="#cb20-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-199"><a href="#cb20-199" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb20-200"><a href="#cb20-200" aria-hidden="true" tabindex="-1"></a>model_client.messages</span>
+<span id="cb20-201"><a href="#cb20-201" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb20-202"><a href="#cb20-202" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-203"><a href="#cb20-203" aria-hidden="true" tabindex="-1"></a><span class="fu">## C - Agent from Config</span></span>
+<span id="cb20-204"><a href="#cb20-204" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-205"><a href="#cb20-205" aria-hidden="true" tabindex="-1"></a><span class="in">`Agent.from_config()`</span> creates an agent from a plain dict. This makes it easy to define agents in configuration files or environment settings without writing boilerplate code.</span>
+<span id="cb20-206"><a href="#cb20-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-209"><a href="#cb20-209" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb20-210"><a href="#cb20-210" aria-hidden="true" tabindex="-1"></a>agent_config <span class="op">=</span> {</span>
+<span id="cb20-211"><a href="#cb20-211" aria-hidden="true" tabindex="-1"></a>    <span class="st">"name"</span>: <span class="st">"calculator-agent"</span>,</span>
+<span id="cb20-212"><a href="#cb20-212" aria-hidden="true" tabindex="-1"></a>    <span class="st">"system_message"</span>: <span class="st">"You are a maths assistant. Use the calculate tool for all arithmetic. If you've answered the original query and don't need to use any more tools, repeat the final answer."</span>,</span>
+<span id="cb20-213"><a href="#cb20-213" aria-hidden="true" tabindex="-1"></a>    <span class="st">"max_iterations"</span>: <span class="dv">8</span>,</span>
+<span id="cb20-214"><a href="#cb20-214" aria-hidden="true" tabindex="-1"></a>    <span class="st">"continuation_prompt"</span>: <span class="st">"Continue solving the problem step by step."</span>,</span>
+<span id="cb20-215"><a href="#cb20-215" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb20-216"><a href="#cb20-216" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-217"><a href="#cb20-217" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
+<span id="cb20-218"><a href="#cb20-218" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent.from_config(agent_config, model_client)</span>
+<span id="cb20-219"><a href="#cb20-219" aria-hidden="true" tabindex="-1"></a>agent.tools <span class="op">=</span> demo_tools  <span class="co"># from_config configs are plain dicts; attach tool callables directly</span></span>
+<span id="cb20-220"><a href="#cb20-220" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-221"><a href="#cb20-221" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Agent name:       </span><span class="sc">{</span>agent<span class="sc">.</span>name<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb20-222"><a href="#cb20-222" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Max iterations:   </span><span class="sc">{</span>agent<span class="sc">.</span>max_iterations<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb20-223"><a href="#cb20-223" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"System message:   </span><span class="sc">{</span>model_client<span class="sc">.</span>system_message<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb20-224"><a href="#cb20-224" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb20-225"><a href="#cb20-225" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-228"><a href="#cb20-228" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb20-229"><a href="#cb20-229" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> agent.run(<span class="st">"What is (17 * 23) + (88 / 4)?"</span>)</span>
+<span id="cb20-230"><a href="#cb20-230" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span>
+<span id="cb20-231"><a href="#cb20-231" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb20-232"><a href="#cb20-232" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-235"><a href="#cb20-235" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb20-236"><a href="#cb20-236" aria-hidden="true" tabindex="-1"></a>model_client.messages</span>
+<span id="cb20-237"><a href="#cb20-237" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb20-238"><a href="#cb20-238" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-239"><a href="#cb20-239" aria-hidden="true" tabindex="-1"></a><span class="fu">## D - Streaming Agent Output</span></span>
+<span id="cb20-240"><a href="#cb20-240" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-241"><a href="#cb20-241" aria-hidden="true" tabindex="-1"></a><span class="in">`run(stream=True)`</span> yields <span class="in">`StreamChunk`</span> objects, each with <span class="in">`phase`</span>, <span class="in">`content`</span>, <span class="in">`agent`</span>, and <span class="in">`iteration`</span>. The same chunk type flows through <span class="in">`client.chat(stream=True)`</span> and every workflow; <span class="in">`agent`</span> and <span class="in">`iteration`</span> are populated by the agent/workflow runner (and default to <span class="in">`None`</span> / <span class="in">`0`</span> for plain client chats).</span>
+<span id="cb20-242"><a href="#cb20-242" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-243"><a href="#cb20-243" aria-hidden="true" tabindex="-1"></a>The <span class="in">`iteration`</span> field shows which loop round produced each chunk, making it easy to follow multi-step reasoning. Use <span class="in">`chunk.is_text()`</span> / <span class="in">`chunk.is_tool_call()`</span> to dispatch without writing out the phase comparison.</span>
+<span id="cb20-244"><a href="#cb20-244" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-247"><a href="#cb20-247" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb20-248"><a href="#cb20-248" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> StreamingContentType</span>
+<span id="cb20-249"><a href="#cb20-249" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-250"><a href="#cb20-250" aria-hidden="true" tabindex="-1"></a>model_client.messages <span class="op">=</span> []</span>
+<span id="cb20-251"><a href="#cb20-251" aria-hidden="true" tabindex="-1"></a>model_client.system_message <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb20-252"><a href="#cb20-252" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-253"><a href="#cb20-253" aria-hidden="true" tabindex="-1"></a>agent <span class="op">=</span> Agent(model_client, name<span class="op">=</span><span class="st">"streamer"</span>, tools<span class="op">=</span>demo_tools, max_iterations<span class="op">=</span><span class="dv">6</span>)</span>
+<span id="cb20-254"><a href="#cb20-254" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-255"><a href="#cb20-255" aria-hidden="true" tabindex="-1"></a>current_iteration <span class="op">=</span> <span class="op">-</span><span class="dv">1</span></span>
+<span id="cb20-256"><a href="#cb20-256" aria-hidden="true" tabindex="-1"></a>current_phase <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb20-257"><a href="#cb20-257" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-258"><a href="#cb20-258" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> chunk <span class="kw">in</span> agent.run(<span class="st">"What is the weather in Tokyo, and what is 99 * 11?"</span>, stream<span class="op">=</span><span class="va">True</span>):</span>
+<span id="cb20-259"><a href="#cb20-259" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> chunk.iteration <span class="op">!=</span> current_iteration:</span>
+<span id="cb20-260"><a href="#cb20-260" aria-hidden="true" tabindex="-1"></a>        current_iteration <span class="op">=</span> chunk.iteration</span>
+<span id="cb20-261"><a href="#cb20-261" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">--- iteration </span><span class="sc">{</span>current_iteration<span class="sc">}</span><span class="ss"> ---"</span>)</span>
+<span id="cb20-262"><a href="#cb20-262" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-263"><a href="#cb20-263" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> chunk.phase <span class="op">!=</span> current_phase:</span>
+<span id="cb20-264"><a href="#cb20-264" aria-hidden="true" tabindex="-1"></a>        current_phase <span class="op">=</span> chunk.phase</span>
+<span id="cb20-265"><a href="#cb20-265" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">--- phase </span><span class="sc">{</span>current_phase<span class="sc">.</span>value<span class="sc">}</span><span class="ss"> ---"</span>)</span>
+<span id="cb20-266"><a href="#cb20-266" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-267"><a href="#cb20-267" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> chunk.phase <span class="op">==</span> StreamingContentType.THINKING:</span>
+<span id="cb20-268"><a href="#cb20-268" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>chunk<span class="sc">.</span>content<span class="sc">}</span><span class="ss">"</span>, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb20-269"><a href="#cb20-269" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> chunk.phase <span class="op">==</span> StreamingContentType.TOOL_CALLING:</span>
+<span id="cb20-270"><a href="#cb20-270" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span>chunk<span class="sc">.</span>content[<span class="st">'name'</span>]<span class="sc">}</span><span class="ss">(</span><span class="sc">{</span>chunk<span class="sc">.</span>content[<span class="st">'arguments'</span>]<span class="sc">!r}</span><span class="ss">) &gt; </span><span class="sc">{</span>chunk<span class="sc">.</span>content[<span class="st">'response'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb20-271"><a href="#cb20-271" aria-hidden="true" tabindex="-1"></a>    <span class="cf">elif</span> chunk.phase <span class="op">==</span> StreamingContentType.GENERATING:</span>
+<span id="cb20-272"><a href="#cb20-272" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(chunk.content, end<span class="op">=</span><span class="st">""</span>, flush<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb20-273"><a href="#cb20-273" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb20-274"><a href="#cb20-274" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-277"><a href="#cb20-277" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb20-278"><a href="#cb20-278" aria-hidden="true" tabindex="-1"></a>model_client.messages</span>
+<span id="cb20-279"><a href="#cb20-279" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb20-280"><a href="#cb20-280" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-281"><a href="#cb20-281" aria-hidden="true" tabindex="-1"></a><span class="fu">## E - agent.as_model_client()</span></span>
+<span id="cb20-282"><a href="#cb20-282" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-283"><a href="#cb20-283" aria-hidden="true" tabindex="-1"></a><span class="in">`agent.as_model_client()`</span> returns a <span class="in">`BaseModelClient`</span> view backed by the agent. Use it anywhere a plain model client is accepted (web UIs, conversation managers, etc.) to get the full agentic loop transparently.</span>
+<span id="cb20-284"><a href="#cb20-284" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-285"><a href="#cb20-285" aria-hidden="true" tabindex="-1"></a><span class="in">`chat()`</span> on the returned view runs the complete <span class="in">`Agent`</span> loop and returns once the model stops calling tools. <span class="in">`generate()`</span> bypasses the loop and calls the inner client directly. State (<span class="in">`messages`</span>, <span class="in">`system_message`</span>) delegates to <span class="in">`agent.model_client`</span>, so the view is a true drop-in replacement.</span>
+<span id="cb20-286"><a href="#cb20-286" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-287"><a href="#cb20-287" aria-hidden="true" tabindex="-1"></a>To run a workflow (<span class="in">`Chain`</span>, <span class="in">`Router`</span>, etc.), call its <span class="in">`run()`</span> or <span class="in">`run(stream=True)`</span> directly; see **[notebook 09](09-workflows.qmd)** for workflow patterns.</span>
+<span id="cb20-288"><a href="#cb20-288" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-291"><a href="#cb20-291" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb20-292"><a href="#cb20-292" aria-hidden="true" tabindex="-1"></a>client <span class="op">=</span> OllamaClient(OllamaClient.MODELS.QWEN_3_5_9B)</span>
+<span id="cb20-293"><a href="#cb20-293" aria-hidden="true" tabindex="-1"></a>tools <span class="op">=</span> MCPClient(server<span class="op">=</span>mcp).as_tools()</span>
+<span id="cb20-294"><a href="#cb20-294" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-295"><a href="#cb20-295" aria-hidden="true" tabindex="-1"></a>agentic_client <span class="op">=</span> Agent(client, tools<span class="op">=</span>tools, max_iterations<span class="op">=</span><span class="dv">5</span>).as_model_client()</span>
+<span id="cb20-296"><a href="#cb20-296" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-297"><a href="#cb20-297" aria-hidden="true" tabindex="-1"></a><span class="co"># chat() drives the full agentic loop: identical call site to a plain ModelClient</span></span>
+<span id="cb20-298"><a href="#cb20-298" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> agentic_client.chat(<span class="st">"What is the weather in Berlin, and what is 42 * 7?"</span>)</span>
+<span id="cb20-299"><a href="#cb20-299" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span>
+<span id="cb20-300"><a href="#cb20-300" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb20-301"><a href="#cb20-301" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-302"><a href="#cb20-302" aria-hidden="true" tabindex="-1"></a><span class="fu">## F - execute_python Tool</span></span>
+<span id="cb20-303"><a href="#cb20-303" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-304"><a href="#cb20-304" aria-hidden="true" tabindex="-1"></a>The <span class="in">`execute_python`</span> built-in runs Python code in a fresh subprocess for an agent -- useful for data analysis and computation. The subprocess buys a hard timeout, crash isolation, and no access to this process's environment variables, but it is **not a security boundary** (restricted builtins and an import allowlist stop accidents, not attempts, and the filesystem/network are not confined), so it is in <span class="in">`builtin.compute`</span> but not <span class="in">`ALL_TOOLS`</span>; opt in explicitly. <span class="in">`execute_python_in_process`</span> is the faster, weaker-isolation alternative that shares this process's memory and environment.</span>
+<span id="cb20-305"><a href="#cb20-305" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-308"><a href="#cb20-308" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb20-309"><a href="#cb20-309" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> builtin</span>
+<span id="cb20-310"><a href="#cb20-310" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
+<span id="cb20-311"><a href="#cb20-311" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> OllamaClient, OllamaModel</span>
+<span id="cb20-312"><a href="#cb20-312" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-313"><a href="#cb20-313" aria-hidden="true" tabindex="-1"></a>compute_client <span class="op">=</span> OllamaClient(OllamaModel.QWEN_3_8B)</span>
+<span id="cb20-314"><a href="#cb20-314" aria-hidden="true" tabindex="-1"></a>compute_agent <span class="op">=</span> Agent(</span>
+<span id="cb20-315"><a href="#cb20-315" aria-hidden="true" tabindex="-1"></a>    compute_client,</span>
+<span id="cb20-316"><a href="#cb20-316" aria-hidden="true" tabindex="-1"></a>    system_message<span class="op">=</span><span class="st">"You are a data analysis assistant. Use execute_python for calculations."</span>,</span>
+<span id="cb20-317"><a href="#cb20-317" aria-hidden="true" tabindex="-1"></a>    name<span class="op">=</span><span class="st">"compute-agent"</span>,</span>
+<span id="cb20-318"><a href="#cb20-318" aria-hidden="true" tabindex="-1"></a>    tools<span class="op">=</span>builtin.compute,  <span class="co"># includes calculate and execute_python</span></span>
+<span id="cb20-319"><a href="#cb20-319" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb20-320"><a href="#cb20-320" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-321"><a href="#cb20-321" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> compute_agent.run(<span class="st">"Compute the mean and standard deviation of [4, 8, 15, 16, 23, 42]."</span>)</span>
+<span id="cb20-322"><a href="#cb20-322" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(result)</span>
+<span id="cb20-323"><a href="#cb20-323" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb20-324"><a href="#cb20-324" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-325"><a href="#cb20-325" aria-hidden="true" tabindex="-1"></a><span class="fu">## G - Inspecting Agent Tool Calls</span></span>
+<span id="cb20-326"><a href="#cb20-326" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-327"><a href="#cb20-327" aria-hidden="true" tabindex="-1"></a><span class="in">`extract_tool_calls(messages)`</span> converts the raw OpenAI-format message history into a structured list of <span class="in">`{iteration, tool, arguments, result}`</span> records.</span>
+<span id="cb20-328"><a href="#cb20-328" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-331"><a href="#cb20-331" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb20-332"><a href="#cb20-332" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu <span class="im">import</span> extract_tool_calls</span>
+<span id="cb20-333"><a href="#cb20-333" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-334"><a href="#cb20-334" aria-hidden="true" tabindex="-1"></a>calls <span class="op">=</span> extract_tool_calls(compute_agent.model_client.messages)</span>
+<span id="cb20-335"><a href="#cb20-335" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> call <span class="kw">in</span> calls:</span>
+<span id="cb20-336"><a href="#cb20-336" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Iteration </span><span class="sc">{</span>call[<span class="st">'iteration'</span>]<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>call[<span class="st">'tool'</span>]<span class="sc">}</span><span class="ss">(</span><span class="sc">{</span>call[<span class="st">'arguments'</span>]<span class="sc">}</span><span class="ss">) -&gt; </span><span class="sc">{</span><span class="bu">str</span>(call[<span class="st">'result'</span>])[:<span class="dv">80</span>]<span class="sc">!r}</span><span class="ss">"</span>)</span>
+<span id="cb20-337"><a href="#cb20-337" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb20-338"><a href="#cb20-338" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-339"><a href="#cb20-339" aria-hidden="true" tabindex="-1"></a><span class="fu">### Distinguishing agent-loop turns from user input</span></span>
+<span id="cb20-340"><a href="#cb20-340" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-341"><a href="#cb20-341" aria-hidden="true" tabindex="-1"></a>To reach its answer the agent injects its own <span class="in">`{"role": "user", ...}`</span> turns (the continuation prompt between tool rounds, and a final-answer prompt if it hits <span class="in">`max_iterations`</span>). In a replayed history these look identical to what the user typed. AIMU marks them with an inert <span class="in">`provenance`</span> key so a UI can tell them apart; genuine user input is left untagged. The key is stripped from every provider request (like the <span class="in">`thinking`</span> key), so it never reaches the model.</span>
+<span id="cb20-342"><a href="#cb20-342" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-345"><a href="#cb20-345" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb20-346"><a href="#cb20-346" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
+<span id="cb20-347"><a href="#cb20-347" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-348"><a href="#cb20-348" aria-hidden="true" tabindex="-1"></a><span class="co"># Only the first user turn was typed by the user; the rest are agent-loop prompts.</span></span>
+<span id="cb20-349"><a href="#cb20-349" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> message <span class="kw">in</span> compute_agent.model_client.messages:</span>
+<span id="cb20-350"><a href="#cb20-350" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> message[<span class="st">"role"</span>] <span class="op">!=</span> <span class="st">"user"</span>:</span>
+<span id="cb20-351"><a href="#cb20-351" aria-hidden="true" tabindex="-1"></a>        <span class="cf">continue</span></span>
+<span id="cb20-352"><a href="#cb20-352" aria-hidden="true" tabindex="-1"></a>    origin <span class="op">=</span> message.get(aimu.PROVENANCE_KEY) <span class="kw">or</span> <span class="st">"typed by the user"</span></span>
+<span id="cb20-353"><a href="#cb20-353" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"[</span><span class="sc">{</span>origin<span class="sc">}</span><span class="ss">] </span><span class="sc">{</span>message[<span class="st">'content'</span>][:<span class="dv">70</span>]<span class="sc">!r}</span><span class="ss">"</span>)</span>
+<span id="cb20-354"><a href="#cb20-354" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb20-355"><a href="#cb20-355" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-356"><a href="#cb20-356" aria-hidden="true" tabindex="-1"></a><span class="fu">## H - Checkpointing (save/restore after failure)</span></span>
+<span id="cb20-357"><a href="#cb20-357" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-358"><a href="#cb20-358" aria-hidden="true" tabindex="-1"></a>Save the live partial state on failure and restore before retrying. <span class="in">`agent.restore()`</span> strips the system message to prevent duplication.</span>
+<span id="cb20-359"><a href="#cb20-359" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-362"><a href="#cb20-362" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb20-363"><a href="#cb20-363" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> json</span>
+<span id="cb20-364"><a href="#cb20-364" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-365"><a href="#cb20-365" aria-hidden="true" tabindex="-1"></a>save_path <span class="op">=</span> <span class="st">"/tmp/agent_checkpoint.json"</span></span>
+<span id="cb20-366"><a href="#cb20-366" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-367"><a href="#cb20-367" aria-hidden="true" tabindex="-1"></a><span class="co"># Simulate a run that saves state (in production: save on exception)</span></span>
+<span id="cb20-368"><a href="#cb20-368" aria-hidden="true" tabindex="-1"></a>compute_agent.model_client.messages <span class="op">=</span> []</span>
+<span id="cb20-369"><a href="#cb20-369" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> compute_agent.run(<span class="st">"What is 2 ** 32?"</span>)</span>
+<span id="cb20-370"><a href="#cb20-370" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> <span class="bu">open</span>(save_path, <span class="st">"w"</span>) <span class="im">as</span> f:</span>
+<span id="cb20-371"><a href="#cb20-371" aria-hidden="true" tabindex="-1"></a>    json.dump(compute_agent.model_client.messages, f)</span>
+<span id="cb20-372"><a href="#cb20-372" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Checkpoint saved. Restoring and running a follow-up..."</span>)</span>
+<span id="cb20-373"><a href="#cb20-373" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-374"><a href="#cb20-374" aria-hidden="true" tabindex="-1"></a><span class="co"># Restore and continue</span></span>
+<span id="cb20-375"><a href="#cb20-375" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> <span class="bu">open</span>(save_path) <span class="im">as</span> f:</span>
+<span id="cb20-376"><a href="#cb20-376" aria-hidden="true" tabindex="-1"></a>    saved <span class="op">=</span> json.load(f)</span>
+<span id="cb20-377"><a href="#cb20-377" aria-hidden="true" tabindex="-1"></a>compute_agent.restore(saved)</span>
+<span id="cb20-378"><a href="#cb20-378" aria-hidden="true" tabindex="-1"></a>follow_up <span class="op">=</span> compute_agent.run(<span class="st">"Now square that result."</span>)</span>
+<span id="cb20-379"><a href="#cb20-379" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(follow_up)</span>
+<span id="cb20-380"><a href="#cb20-380" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb20-381"><a href="#cb20-381" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-382"><a href="#cb20-382" aria-hidden="true" tabindex="-1"></a><span class="fu">## I - Clean Up</span></span>
+<span id="cb20-383"><a href="#cb20-383" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-384"><a href="#cb20-384" aria-hidden="true" tabindex="-1"></a>Delete model clients to release any held resources.</span>
+<span id="cb20-385"><a href="#cb20-385" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-388"><a href="#cb20-388" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb20-389"><a href="#cb20-389" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> model_client, agentic_client</span>
+<span id="cb20-390"><a href="#cb20-390" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 </code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->

@@ -6645,8 +6645,10 @@ window to the sub-agent rather than to the caller, which is what an uncaught one
 <p><code>events</code> is the sink each spawned child reports to. It has to be passed explicitly: a spawn
 builds a fresh client per call, which is outside the client family a caller's scoped per-run
 override reaches, so a delegated run is otherwise invisible to a caller measuring the whole
-turn. Set on the child <code>Agent</code> rather than passed to its <code>run</code>, which covers the observed
-path too (<code>_run_observed</code> calls <code>run</code> itself).</p>
+turn. Each spawn passes it to the child's <code>run</code> wrapped in a <code>_RunEndingWatch</code>, which forwards
+every event and keeps the child's <code>RunFinished</code>, so the tool can say when the round cap ended
+the child; the observed path passes the same watch to <code>_run_observed</code>. The child <code>Agent</code> also
+holds it as its own <code>events</code>, for anything that reads the field outside a run.</p>
 <p><code>inbox</code> is the :class:<code>~aimu.agents.inbox.Inbox</code> source each spawned agent's loop drains
 for mid-run messages. Each spawn opens its own reader from it, so several concurrent spawns (or
 nested ones) sharing one source never share a cursor. A spec's own <code>"inbox"</code> key overrides it,
