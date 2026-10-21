@@ -151,9 +151,16 @@ def _attributing(sink, agent_name, iteration_getter):
 # Forced wrap-up prompt used when the loop hits the round cap with tools still pending and the
 # agent configured no ``final_answer_prompt``. Tools are disabled for this turn, so it asks the
 # model to answer from the context it has already gathered.
+#
+# A run cut off here is unfinished by definition, and an answer that does not say so reads exactly
+# like a finished one. Asking only for a "best final answer" invited the model to cover the gap from
+# memory, so the prompt asks it to name what it did not reach, and to keep "looked and found nothing"
+# apart from "never looked", which are different findings that read alike once written up.
 DEFAULT_WRAP_UP_PROMPT = (
-    "You have reached the tool-use limit for this task. Do not call any more tools. "
-    "Provide your best final answer now using the information you have already gathered."
+    "You have reached the tool-use limit for this task. Do not call any more tools. Give your final "
+    "answer now from what you have already gathered, and say plainly which parts of the task you did "
+    "not finish: keep what you checked and found nothing on apart from what you never reached, and do "
+    "not fill a gap from memory."
 )
 
 # Terminal-turn classifications (shared by the sync and async loops).

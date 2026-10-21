@@ -430,6 +430,88 @@ def test_builtin_all_tools_still_exposed():
     assert builtin.calculate in builtin.ALL_TOOLS
 
 
+@pytest.mark.parametrize(
+    "expression, expected",
+    [
+        ("2 + 2", "4"),
+        ("(1250 * 1.08) / 12", "112.5"),
+        ("2**10", "1024"),
+        ("7 // 2 + 7 % 2", "4"),
+        ("-3 + +1", "-2"),
+        ("round(2**0.5, 4)", "1.4142"),
+        ("max(1, sqrt(16), abs(-3))", "4.0"),
+        ("floor(pi * 100) / 100", "3.14"),
+    ],
+)
+def test_calculate_evaluates_arithmetic(expression, expected):
+    assert builtin.calculate(expression) == expected
+
+
+def test_calculate_refuses_xor_rather_than_answering_it():
+    """`2^10` evaluates to 8 in Python, a wrong number that reads like a right one."""
+    result = builtin.calculate("2^10")
+    assert result.startswith("Error:")
+    assert "**" in result
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "().__class__.__base__.__subclasses__()",
+        "[c for c in ().__class__.__mro__]",
+        "__import__('os').getcwd()",
+        "abs.__self__",
+        "lambda: 1",
+        "x + 1",
+        "True + 1",
+        "'a' * 3",
+        "min(*[1, 2])",
+        "round(number=1.5)",
+    ],
+)
+def test_calculate_runs_nothing_outside_its_allowlist(expression):
+    """The old `eval(expression, {"__builtins__": {}})` reached `os` through the first of these."""
+    assert builtin.calculate(expression).startswith("Error:")
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "9**9**9",  # stopped before the power is computed
+        "2**5000 * 2**5000",  # each operand passes; only the bound after the multiplication catches it
+        "max(2**9000, 1) * 2**9000",  # the bound after a call, then after the multiplication
+        "2.0**100000",  # a float overflow rather than an int one
+    ],
+)
+def test_calculate_refuses_a_result_too_large_rather_than_hanging(expression):
+    assert "too large" in builtin.calculate(expression)
+
+
+def test_calculate_refuses_a_round_whose_cost_hides_inside_the_call():
+    """Rounding an int to ndigits computes 10**-ndigits first: `round(1, -10**8)` ran for minutes on
+    two tiny arguments, which no result check sees."""
+    assert builtin.calculate("round(1, -10**8)").startswith("Error:")
+    assert builtin.calculate("round(1234, -2)") == "1200"
+
+
+@pytest.mark.parametrize("expression", ["(-1)**0.5", "(-8)**(1/3)"])
+def test_calculate_refuses_a_complex_result(expression):
+    assert "not a real number" in builtin.calculate(expression)
+
+
+@pytest.mark.parametrize("expression", ["1/0", "sqrt(-1)", "15%", "(" * 5000 + "1" + ")" * 5000])
+def test_calculate_reports_a_bad_expression_as_an_error(expression):
+    assert builtin.calculate(expression).startswith("Error:")
+
+
+def test_calculate_description_names_every_function_it_accepts():
+    """The model learns what it may write from the description alone, so the two must not drift."""
+    from aimu.tools.builtin import _CALCULATE_NAMES
+
+    for name in _CALCULATE_NAMES:
+        assert name in builtin.calculate.__doc__
+
+
 def test_multiple_tool_calls_client_reused():
     mcp = FastMCP("TestTools")
 

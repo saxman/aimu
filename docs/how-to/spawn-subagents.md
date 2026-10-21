@@ -78,6 +78,16 @@ That bounds growth **spread over many rounds**, which is the common shape. It ca
 
 Only `ContextOverflowError` is converted. Any other failure inside a spawn still propagates to the caller. With an `observer` attached (async, see below), the observer's `finished` callback still receives the exception, so a front end's spawn card is still marked failed: display keeps the error, and only the model gets the explanation.
 
+**A child that runs out of rounds says so, and so does the tool.** When a worker reaches its `max_iterations` still wanting tools, its loop makes one tools-disabled wrap-up call, and the default wrap-up prompt asks it to name the parts of the task it did not finish, keeping "checked and found nothing" apart from "never reached". The answer that comes back still reads like any other, and the parent model sees only that text, so the spawn tool puts a note in front of it naming the cap:
+
+```text
+[The sub-agent 'researcher' reached its tool-use limit of 25 rounds before it finished, and wrote the
+answer below without further tool calls. Treat it as possibly incomplete, and check it for parts of the
+task it says it did not reach.]
+```
+
+The tool learns how the worker ended from the worker's own `RunFinished` (`ended_by == "wrap_up"`), the same record a host's event sink sees. A worker that answered on its own comes back unchanged. As with an overflow, the note is for the model only: an `observer`'s `finished` callback receives the worker's own text.
+
 ## Bound recursion with `max_depth`
 
 `max_depth` (default `1`) counts the caller's agent as level 1, so by default spawned sub-agents get **no** spawn tool of their own — a safe anti-fan-out default. Raise it to let sub-agents spawn their own:

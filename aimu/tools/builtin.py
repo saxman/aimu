@@ -8,9 +8,12 @@ or cross-process (``python -m aimu.tools.mcp``).
 
 from __future__ import annotations
 
+import ast
 import datetime
 import hashlib
 import logging
+import math
+import operator
 import os
 import re
 import signal
@@ -27,7 +30,7 @@ import requests
 from dotenv import load_dotenv
 
 from aimu._window import past_end, window, window_complaint
-from aimu.events import EventSink
+from aimu.events import EventSink, RunFinished
 
 # The leaf module rather than `aimu.models`, whose package __init__ reaches back into `aimu.tools`.
 from aimu.models._base.shared import ContextOverflowError
@@ -339,11 +342,122 @@ def get_weather(location: str) -> str:
     )
 
 
+# What `calculate` evaluates, as an allowlist over Python's own syntax tree. It used to be
+# `eval(expression, {"__builtins__": {}})`, which is not containment: an empty builtins dict still
+# leaves every object's class reachable, and `().__class__.__base__.__subclasses__()` walks from there
+# to `os`. Since `calculate` is in ALL_TOOLS, that was code execution for any caller, including every
+# client of `python -m aimu.tools.mcp`. Walking the tree means nothing runs that is not listed here.
+_CALCULATE_BINARY_OPERATORS = {
+    ast.Add: operator.add,
+    ast.Sub: operator.sub,
+    ast.Mult: operator.mul,
+    ast.Div: operator.truediv,
+    ast.FloorDiv: operator.floordiv,
+    ast.Mod: operator.mod,
+    ast.Pow: operator.pow,
+}
+_CALCULATE_UNARY_OPERATORS = {ast.UAdd: operator.pos, ast.USub: operator.neg}
+# Integers are exact and unbounded, so `9**9**9` would hold the process for as long as it took to
+# build a number of 370 million digits. The cap is checked before a power is computed and after every
+# other step, and it sits under Python's own 4,300-digit limit on printing an int, so a result that
+# passes it can always be returned.
+_CALCULATE_MAX_BITS = 10_000
+# `round` is the one allowed function whose cost hides inside the call: rounding an int to `ndigits`
+# computes 10**-ndigits first, so `round(1, -10**8)` runs for minutes on two tiny arguments that no
+# result check would ever see. Past a few hundred digits either way there is nothing left to round.
+_CALCULATE_MAX_ROUND_DIGITS = 400
+
+
+class _CalculateError(ValueError):
+    pass
+
+
+def _bounded_round(number, ndigits=None):
+    if ndigits is not None and abs(ndigits) > _CALCULATE_MAX_ROUND_DIGITS:
+        raise _CalculateError(
+            f"round() accepts ndigits between -{_CALCULATE_MAX_ROUND_DIGITS} and {_CALCULATE_MAX_ROUND_DIGITS}"
+        )
+    return round(number, ndigits)
+
+
+_CALCULATE_NAMES = {
+    "abs": abs,
+    "round": _bounded_round,
+    "min": min,
+    "max": max,
+    "sqrt": math.sqrt,
+    "exp": math.exp,
+    "log": math.log,
+    "log10": math.log10,
+    "floor": math.floor,
+    "ceil": math.ceil,
+    "pi": math.pi,
+    "e": math.e,
+}
+
+
+def _bounded(value):
+    if isinstance(value, int) and value.bit_length() > _CALCULATE_MAX_BITS:
+        raise _CalculateError("the result is too large (more than about 3,000 digits)")
+    # A fractional power of a negative number is complex in Python: `(-8)**(1/3)` is not -2.
+    if isinstance(value, complex):
+        raise _CalculateError("the result is not a real number (a fractional power of a negative number?)")
+    return value
+
+
+def _evaluate_arithmetic(node: ast.AST):
+    if isinstance(node, ast.Constant) and type(node.value) in (int, float):
+        return node.value
+    if isinstance(node, ast.Name) and isinstance(_CALCULATE_NAMES.get(node.id), float):
+        return _CALCULATE_NAMES[node.id]
+    if isinstance(node, ast.UnaryOp) and type(node.op) in _CALCULATE_UNARY_OPERATORS:
+        return _bounded(_CALCULATE_UNARY_OPERATORS[type(node.op)](_evaluate_arithmetic(node.operand)))
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitXor):
+        # The one operator worth naming: a model writes `2^10` meaning a power, and Python reads it as
+        # XOR and answers 8, a wrong number that looks exactly like a right one.
+        raise _CalculateError("`^` is bitwise XOR in Python, not a power; write `**` (2**10 is 1024)")
+    if isinstance(node, ast.BinOp) and type(node.op) in _CALCULATE_BINARY_OPERATORS:
+        left = _evaluate_arithmetic(node.left)
+        right = _evaluate_arithmetic(node.right)
+        if isinstance(node.op, ast.Pow) and isinstance(left, int) and isinstance(right, int):
+            if abs(left) > 1 and left.bit_length() * right > _CALCULATE_MAX_BITS:
+                raise _CalculateError("the result is too large (more than about 3,000 digits)")
+        return _bounded(_CALCULATE_BINARY_OPERATORS[type(node.op)](left, right))
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and callable(_CALCULATE_NAMES.get(node.func.id))
+        and not node.keywords
+    ):
+        arguments = [_evaluate_arithmetic(argument) for argument in node.args]
+        return _bounded(_CALCULATE_NAMES[node.func.id](*arguments))
+    unsupported = ast.unparse(node)
+    if len(unsupported) > 80:
+        unsupported = unsupported[:77] + "..."
+    raise _CalculateError(
+        f"{unsupported!r} is not supported. Use numbers, + - * / // % **, parentheses, and "
+        f"{', '.join(_CALCULATE_NAMES)}; use execute_python for anything else"
+    )
+
+
 @tool
 def calculate(expression: str) -> str:
-    """Evaluates a simple arithmetic expression and returns the result."""
+    """Evaluates an arithmetic expression and returns the result.
+
+    Python arithmetic syntax: numbers, + - * / // % ** and parentheses. `**` is a power and `^` is
+    not; `%` is the remainder, not a percentage (write 15% of 200 as 0.15 * 200). Also accepts the
+    functions abs, round, min, max, sqrt, exp, log, log10, floor, ceil, and the constants pi and e.
+    Nothing else: no variables, units, or other functions. Use execute_python for anything more.
+
+    Args:
+        expression: The expression to evaluate, e.g. "(1250 * 1.08) / 12" or "round(2**0.5, 4)".
+    """
     try:
-        return str(eval(expression, {"__builtins__": {}}))
+        return str(_evaluate_arithmetic(ast.parse(expression, mode="eval").body))
+    except SyntaxError as e:
+        return f"Error: could not parse the expression as arithmetic ({e.msg})"
+    except OverflowError:
+        return "Error: the result is too large to represent as a float"
     except Exception as e:
         return f"Error: {e}"
 
@@ -2562,6 +2676,48 @@ def _subagent_overflow_result(agent_type: Optional[str], exc: BaseException) -> 
     )
 
 
+class _RunEndingWatch:
+    """An event sink that forwards every event to ``sink`` and keeps the ``RunFinished`` of one run.
+
+    How a spawned run ended is recorded on its ``RunFinished`` and nowhere else the spawn tool can
+    read, since ``run`` returns only the answer text. Watching the run's own events reads that
+    published record rather than adding a second one to ``Agent``.
+    """
+
+    def __init__(self, sink: Optional[EventSink], run_id: str):
+        self._sink = sink
+        self._run_id = run_id
+        self.finished: Optional[RunFinished] = None
+
+    def __call__(self, event) -> None:
+        if isinstance(event, RunFinished) and event.run_id == self._run_id:
+            self.finished = event
+        if self._sink is not None:
+            self._sink(event)
+
+
+def _subagent_result(agent_type: Optional[str], answer: str, watch: _RunEndingWatch) -> str:
+    """The tool result for a finished spawn: its answer, with a note when the round cap ended it.
+
+    A worker cut off at its cap is unfinished by definition, but the answer its forced wrap-up wrote
+    reads like any other, and the delegating model sees only that text. The wrap-up prompt asks the
+    worker to say what it did not reach, and this note is the half that does not depend on the worker
+    doing so. It leads rather than trails so a long answer cannot bury it, and it goes to the model
+    only: an observer is still handed the worker's own text, the same split the overflow result makes.
+    """
+    finished = watch.finished
+    if finished is None or finished.ended_by != "wrap_up":
+        return answer
+    who = f" {agent_type!r}" if agent_type else ""
+    budget = f" of {finished.max_iterations} rounds" if finished.max_iterations else ""
+    return (
+        f"[The sub-agent{who} reached its tool-use limit{budget} before it finished, and wrote the answer "
+        "below without further tool calls. Treat it as possibly incomplete, and check it for parts of the "
+        "task it says it did not reach.]\n\n"
+        f"{answer}"
+    )
+
+
 def make_subagent_tool(
     model,
     *,
@@ -2671,8 +2827,9 @@ def make_subagent_tool(
         events: The sink each spawned child reports to. It has to be passed explicitly: a spawn
             builds a fresh client per call, which is outside the client family a caller's scoped
             per-run override reaches, so a delegated run is otherwise invisible to a caller
-            measuring the whole turn. Set on the child :class:`~aimu.agents.Agent` (its own
-            ``events`` field), not passed to its ``run``.
+            measuring the whole turn. Each spawn passes it to the child's ``run`` wrapped in a
+            ``_RunEndingWatch``, which forwards every event and keeps the child's ``RunFinished``
+            so the tool can say when the round cap ended the child.
         compaction: A ``list[dict] -> list[dict]`` callable applied before every model turn of every
             spawned agent, so a long-running worker trims its own context rather than dying in it.
             The parent's conversation is untouched: this reaches the child's messages only. A spec's
@@ -2776,11 +2933,14 @@ def make_subagent_tool(
                 agent_inbox=inbox,
                 agent_approval=tool_approval,
             )
+            run_id = new_run_id(agent.name)
+            watch = _RunEndingWatch(events, run_id)
             try:
                 parent_run_id = ctx.run_id if ctx is not None else None
-                return agent.run(task, run_id=new_run_id(agent.name), parent_run_id=parent_run_id)
+                answer = agent.run(task, run_id=run_id, parent_run_id=parent_run_id, events=watch)
             except ContextOverflowError as exc:
                 return _subagent_overflow_result(None, exc)
+            return _subagent_result(None, answer, watch)
 
     else:
 
@@ -2810,11 +2970,14 @@ def make_subagent_tool(
                 # one specialist, which ``.get()`` cannot tell from a spec that never mentioned the key.
                 agent_approval=spec["tool_approval"] if "tool_approval" in spec else tool_approval,
             )
+            run_id = new_run_id(agent.name)
+            watch = _RunEndingWatch(events, run_id)
             try:
                 parent_run_id = ctx.run_id if ctx is not None else None
-                return agent.run(task, run_id=new_run_id(agent.name), parent_run_id=parent_run_id)
+                answer = agent.run(task, run_id=run_id, parent_run_id=parent_run_id, events=watch)
             except ContextOverflowError as exc:
                 return _subagent_overflow_result(agent_type, exc)
+            return _subagent_result(agent_type, answer, watch)
 
     spawn_subagent.__name__ = tool_name
     spawn_subagent.__qualname__ = tool_name

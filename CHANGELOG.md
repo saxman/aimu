@@ -1,5 +1,38 @@
 # Changelog
 
+## v0.38.0 (2026-10-21): `calculate` evaluates arithmetic and nothing else, and a delegator hears when its worker ran out of rounds
+
+### Tools
+
+- **Fix (security): `calculate` no longer executes code.** It was `eval(expression, {"__builtins__": {}})`,
+  and an empty builtins dict is not containment: `().__class__.__base__.__subclasses__()` reaches `os`
+  from any literal. Because `calculate` is in `ALL_TOOLS`, that was code execution for every agent given
+  the default tools and every client of `python -m aimu.tools.mcp`. It now walks the expression's syntax
+  tree over an allowlist: numbers, `+ - * / // % **`, parentheses, `abs`, `round`, `min`, `max`, `sqrt`,
+  `exp`, `log`, `log10`, `floor`, `ceil`, `pi`, and `e`. Anything else is an `Error:` result naming what
+  is accepted. An integer result past about 3,000 digits is refused, before computing it where it is a
+  power, so `9**9**9` no longer holds the process; so is `round` with `ndigits` beyond ±400, whose cost
+  hides inside the call (`round(1, -10**8)` ran for minutes). A complex result, such as a fractional
+  power of a negative number, is refused rather than returned.
+- **Change: `calculate` refuses `^`.** Python reads `2^10` as XOR and answers 8, a wrong number that
+  looks right; the result now says to write `**`. The description also states the syntax, including
+  that `%` is the remainder and not a percentage.
+- The `07-agents` and `09-workflows` notebooks defined their own `eval`-based calculator; both now call
+  `builtin.calculate`.
+
+### Agents
+
+- **Change: a spawned sub-agent cut off at its round cap is reported as such.** `make_subagent_tool` and
+  `make_async_subagent_tool` now put a note in front of the tool result when the child's `RunFinished`
+  says `ended_by == "wrap_up"`, naming the cap and saying the answer may be incomplete. The wrap-up
+  answer reads like any other and the parent model saw only that text, so a worker that ran out of
+  rounds was indistinguishable from one that finished. The note goes to the model only: an observer's
+  `finished` callback still receives the child's own text. A child that answered is returned unchanged.
+- **Change: the default wrap-up prompt asks what was not finished.** `DEFAULT_WRAP_UP_PROMPT` asked only
+  for a "best final answer", which invited the model to fill gaps from memory. It now asks the model to
+  say which parts of the task it did not finish, keeping "checked and found nothing" apart from "never
+  reached". A configured `final_answer_prompt` still replaces it.
+
 ## v0.37.0 (2026-10-17): an agent can hold tools it loads on demand, and each sub-agent type can carry its own approval gate
 
 ### Tools
