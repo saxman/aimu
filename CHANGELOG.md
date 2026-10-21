@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.38.0 (unreleased): `calculate` evaluates arithmetic and nothing else, and a delegator hears when its worker ran out of rounds
+## v0.38.0 (2026-10-21): `calculate` evaluates arithmetic and nothing else, and a delegator hears when its worker ran out of rounds
 
 ### Tools
 
