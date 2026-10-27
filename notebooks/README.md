@@ -4,7 +4,7 @@
 
 GitHub displays `.qmd` files as plain source, so browse the rendered HTML at the link above.
 
-These are runnable tutorial demos, one per subsystem, numbered `01`–`26` to build up
+These are runnable tutorial demos, one per subsystem, numbered `01`–`30` to build up
 incrementally. They are authored as plain-text [Quarto](https://quarto.org) `.qmd` files
 (markdown with executable `python` cells).
 
