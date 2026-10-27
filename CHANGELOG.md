@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Notebooks
+
+- **New: `30-agent-architectures`, single agent or orchestrator?** One agent whose tools are all deferred
+  `ToolGroup`s and an orchestrator delegating to specialists through a typed `spawn_subagent` get the
+  same assignment, which is the question itself: predict which of them wins on answer quality, token
+  cost, and wall-clock time, and design an experiment to test it. The notebook measures both from their
+  `aimu.events` (sub-agents included, through `parent_run_id`), judges each deliverable blind, grades
+  each architecture's predictions against the measurement, and ships with the record of one real run.
+
 ## v0.38.0 (2026-10-21): `calculate` evaluates arithmetic and nothing else, and a delegator hears when its worker ran out of rounds
 
 ### Tools
