@@ -31,7 +31,8 @@ cannot settle the general question, and the recorded run at the end says so.
 
 > Every role defaults to a local Ollama model, `qwen3.8:27b`, and web search goes through a SearXNG
 > instance (`SEARXNG_BASE_URL`, default `http://localhost:8080`). A full run takes hours on a local
-> 27B model. The check cells run instantly and need neither.
+> 27B model. The check cells make no model calls and finish in seconds, though building an
+> architecture constructs an `ollama:` client, which needs Ollama running.
 
 ## A - Setup
 
