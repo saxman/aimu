@@ -221,3 +221,479 @@ assert t.summary("r1")["input_tokens"] is None  # absent, never zero
 
 assert deliverable_text("Answer", {"b.md": "B", "a.md": "A"}) == "Answer\n\n## Document: a.md\n\nA\n\n## Document: b.md\n\nB"
 ```
+
+## C - The assignment
+
+Both architectures get exactly this message. It asks for a prediction per dimension, because a single
+overall verdict would hide the tradeoff: an architecture can be right about cost and wrong about quality.
+
+```{python}
+#| label: assignment
+ASSIGNMENT = """\
+Question: for a task like this one, which needs web research, then the design of an experiment, then \
+writing code, which of these two agent architectures performs better?
+
+- A single agent that holds many tools, organized in groups it loads on demand.
+- An orchestrator with no domain tools of its own, which delegates to specialist sub-agents (a \
+researcher, a designer, and a coder), each holding only the tools its role needs.
+
+Predict a winner separately for each of three dimensions: answer quality, total token cost, and \
+wall-clock time. For each dimension the prediction is exactly one of: single, orchestrator, or no \
+clear difference.
+
+Research the question on the web and cite the sources you used. Then deliver:
+1. Your three predictions, each with its reasoning.
+2. A design for an experiment that would test them: what to run, what to measure, and which confounds \
+to control.
+3. Python code sketches for that experiment. Sketches only: nothing will be executed.
+
+If you can write documents, put the experiment design and the code sketches in documents, and keep your \
+final answer to the predictions, their reasoning, and a short summary of each document."""
+
+BASE_SYSTEM = (
+    "You are careful and rigorous. Ground every claim in a source you actually read, say when you are "
+    "unsure, and always finish with a complete answer."
+)
+
+
+def system_message(role: str) -> str:
+    """The role paragraph first, since a spawn tool shows each specialist by its first line."""
+    return f"{role}\n\n{BASE_SYSTEM}"
+```
+
+Every agent's system message is the same base plus one paragraph for its role, so the two
+architectures differ only where the architecture itself requires it. Note what the assignment does *not*
+say: neither agent is told which of the two architectures it is.
+
+## D - Architecture A: one agent that looks tools up
+
+Architecture A is one `Agent` with no resident tools at all. Everything it can do arrives as a deferred
+`ToolGroup`: the group's tools are built only when the model asks for them, so the agent starts with just
+two tools from AIMU, `available_tools` (list the groups, one line each) and `load_tools` (load one).
+Finding the right capability is part of its job.
+
+Three of the groups serve the task: `web`, a scratch `documents` store for the design and the code
+sketches, and nothing else it strictly needs. Three are distractors (`time`, `weather`, `math`), there so
+that choosing among groups is a real choice rather than a formality.
+
+```{python}
+#| label: single-agent
+import aimu
+from aimu.agents import Agent
+from aimu.memory import DocumentStore
+from aimu.tools import ToolGroup
+from aimu.tools import builtin
+from aimu.tools.builtin import calculate, get_web_content, get_weather, make_document_tools, web_search, wikipedia
+
+WEB_TOOLS = [web_search, get_web_content, wikipedia]
+
+
+def build_single_agent(store: DocumentStore, sink: RunTrace) -> Agent:
+    groups = [
+        ToolGroup("web", "Search the web, read web pages and PDFs, and look things up on Wikipedia.", build=lambda: list(WEB_TOOLS)),
+        ToolGroup("documents", "Write, read, edit, and list documents in a scratch store.", build=lambda: make_document_tools(store)),
+        ToolGroup("time", "The current date and time, and time zone conversion.", build=lambda: list(builtin.time)),
+        ToolGroup("weather", "Current weather and forecasts for a place.", build=lambda: [get_weather]),
+        ToolGroup("math", "Evaluate an arithmetic expression.", build=lambda: [calculate]),
+    ]
+    return Agent(
+        aimu.client(MODELS["single"]),
+        system_message=system_message(
+            "You work alone. Your tools are in groups: list them with available_tools and load the ones "
+            "you need with load_tools before calling them."
+        ),
+        name="single",
+        tool_groups=groups,
+        max_iterations=MAX_ITERATIONS["single"],
+        concurrent_tool_calls=True,
+        events=sink,
+    )
+```
+
+## E - Architecture B: an orchestrator and specialists
+
+Architecture B is an orchestrator holding one tool, a typed `spawn_subagent` from
+`make_subagent_tool(agent_types=...)`. Each call builds a fresh specialist with its own context and only
+its own tools, runs it to completion, and returns its final answer to the orchestrator as a tool result.
+The spawn tool's description lists the specialists by the first line of each one's system message,
+which is how the orchestrator knows whom it can call.
+
+The designer and the coder write to the *same* document store, so the coder can read the design rather
+than depend on the orchestrator to relay it. Whether the orchestrator tells it to is up to the
+orchestrator, and is worth looking at in the results. Each specialist gets its own set of document tools
+over that store, because the tools' read-before-replace guard remembers what *its* holder has read.
+
+`events=sink` on the spawn tool is what makes the specialists' model calls visible to `RunTrace`: each
+spawn builds a fresh client, outside anything the orchestrator's own sink reaches.
+
+```{python}
+#| label: orchestrator
+from aimu.tools.builtin import make_subagent_tool
+
+
+def build_orchestrator(store: DocumentStore, sink: RunTrace) -> Agent:
+    specialists = {
+        "researcher": {
+            "system_message": system_message(
+                "Research specialist: searches the web and reads sources, then reports findings with the URL "
+                "of every source relied on."
+            ),
+            "tools": list(WEB_TOOLS),
+            "model": MODELS["researcher"],
+        },
+        "designer": {
+            "system_message": system_message(
+                "Experiment design specialist: writes a rigorous experiment design into a document in the "
+                "shared store, and reports its path and a summary."
+            ),
+            "tools": make_document_tools(store),
+            "model": MODELS["designer"],
+        },
+        "coder": {
+            "system_message": system_message(
+                "Coding specialist: writes Python code sketches into documents in the shared store (nothing "
+                "is executed), and reports their paths and a summary. Reads the design document first when "
+                "there is one."
+            ),
+            "tools": make_document_tools(store),
+            "model": MODELS["coder"],
+        },
+    }
+    spawn = make_subagent_tool(
+        MODELS["orchestrator"],
+        agent_types=specialists,
+        max_iterations=MAX_ITERATIONS["worker"],
+        events=sink,
+    )
+    return Agent(
+        aimu.client(MODELS["orchestrator"]),
+        system_message=system_message(
+            "You coordinate specialists and have no tools of your own besides spawn_subagent. Give each "
+            "specialist a complete, self-contained task, and assemble their results into your final answer. "
+            "The designer and the coder share one document store."
+        ),
+        name="orchestrator",
+        tools=[spawn],
+        max_iterations=MAX_ITERATIONS["orchestrator"],
+        concurrent_tool_calls=True,
+        events=sink,
+    )
+
+
+BUILDERS = {"single": build_single_agent, "orchestrator": build_orchestrator}
+```
+
+Neither architecture can run code: no `execute_python`, no `run_command`, and no filesystem writer. The
+check below builds both, calls no model, and asserts exactly that, plus the shape each one is meant to
+have:
+
+```{python}
+#| label: check-architectures
+from aimu.memory import DocumentStore
+
+forbidden = {"execute_python", "run_command", "write_file", "edit_file"}
+single = build_single_agent(DocumentStore(), RunTrace())
+assert single.tools == [] and all(not g.resident for g in single.tool_groups)
+single_names = {fn.__name__ for g in single.tool_groups for fn in g.build()}
+assert {"web_search", "get_web_content", "save_document"} <= single_names and not single_names & forbidden
+
+orch = build_orchestrator(DocumentStore(), RunTrace())
+assert [fn.__name__ for fn in orch.tools] == ["spawn_subagent"] and orch.tool_groups == []
+for kind in ("researcher", "designer", "coder"):
+    assert kind in orch.tools[0].__doc__
+```
+
+## F - One run
+
+`run_once` builds a fresh agent over a fresh document store, runs the assignment, and turns what happened
+into one plain, JSON-safe record. Its `run_id` is chosen here and passed to `agent.run`, which is what lets
+`RunTrace` find this run's events, and its specialists', afterward.
+
+A run that raises is still a run. Its tokens and time up to the failure are kept, `ended_by` becomes
+`"error"`, and the loop moves on: dropping it would make an architecture that fails cheaply look cheap.
+
+Building the agent happens outside the timed region, so a run's wall time is the run itself. (An
+`ollama:` client checks the registry when it is constructed, and a spawned specialist builds its client
+inside the run, so the orchestrator's time does include one such check per spawn.)
+
+```{python}
+#| label: run-once
+from datetime import datetime, timezone
+
+
+def run_once(architecture: str, index: int, builders: dict = BUILDERS) -> dict:
+    run_id = f"{architecture}-{index}"
+    store, sink = DocumentStore(), RunTrace()
+    started_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    answer, error, started = None, None, None
+    try:
+        agent = builders[architecture](store, sink)
+        started = time.monotonic()
+        answer = agent.run(ASSIGNMENT, run_id=run_id)
+    except Exception as exc:
+        error = repr(exc)
+    wall_s = time.monotonic() - started if started is not None else 0.0
+
+    summary = sink.summary(run_id)
+    if error:
+        summary["ended_by"], summary["error"] = "error", summary["error"] or error
+    return {
+        "architecture": architecture,
+        "index": index,
+        "models": dict(MODELS),
+        "started_at": started_at,
+        "wall_s": round(wall_s, 1),
+        "answer": answer,
+        "documents": {path: store.read(path) for path in store.list_paths()},
+        "urls": retrieved_urls(sink, run_id),
+        **summary,
+    }
+```
+
+## G - Judging and extracting predictions
+
+Two model calls turn a finished run into something gradable, and both read the same text: the run's
+final answer plus every document it wrote. Grading the answer alone would grade a summary of work that
+sits in a document.
+
+**Extracting the predictions.** The assignment asked for one of three words per dimension. A model told to
+answer in a fixed shape mostly does, but "mostly" is the problem, so the words are pulled out with
+`schema=` ([notebook 03](03-structured-output.qmd)) and then checked: anything outside the three allowed
+values means the run's predictions are treated as missing, rather than guessed at.
+
+**The judge.** A rubric of four criteria, each scored 1 to 5. The judge is blind: it sees the deliverable
+and the list of URLs the run actually retrieved, and nothing that says which architecture produced it.
+That list is what "grounding" can honestly mean here. A judge with no tools cannot check what a page
+says, but it can check whether a cited source is one the run ever saw. And note who the judge is: by
+default, the same model it is grading.
+
+```{python}
+#| label: evaluate-def
+from dataclasses import asdict, dataclass
+from statistics import mean
+
+PREDICTION_VALUES = ("single", "orchestrator", "no clear difference")
+CRITERIA = ("grounding", "reasoning", "design", "code_fit")
+
+
+@dataclass
+class Predictions:
+    quality: str
+    tokens: str
+    time: str
+
+
+@dataclass
+class Scores:
+    grounding: int
+    reasoning: int
+    design: int
+    code_fit: int
+
+
+def parse_predictions(p: Predictions | None) -> dict[str, str] | None:
+    if p is None:
+        return None
+    values = {k: str(v).strip().lower() for k, v in asdict(p).items()}
+    return values if all(v in PREDICTION_VALUES for v in values.values()) else None
+
+
+def parse_scores(s: Scores | None) -> dict[str, int] | None:
+    if s is None:
+        return None
+    values = asdict(s)
+    return values if all(isinstance(v, int) and 1 <= v <= 5 for v in values.values()) else None
+
+
+EXTRACT_PROMPT = """\
+The text below answers a question about two agent architectures, "single" (one agent that loads tools on \
+demand) and "orchestrator" (an orchestrator delegating to specialist sub-agents). Report the prediction it \
+makes for each of answer quality, token cost, and wall-clock time. Each value must be exactly one of: \
+single, orchestrator, no clear difference. If it makes no prediction for a dimension, write none.
+
+<text>
+{deliverable}
+</text>"""
+
+JUDGE_PROMPT = """\
+You are grading a research deliverable. It answers whether a single agent that loads tools on demand or an \
+orchestrator with specialist sub-agents performs better on a research, design, and coding task, with \
+predictions, an experiment design, and code sketches. Score each criterion from 1 (poor) to 5 (excellent):
+
+- grounding: claims are attributed to sources, those sources appear in the retrieved list below, and they \
+are characterized plausibly. Citing a source that is not in the list counts against it.
+- reasoning: the predictions follow from the evidence and the reasoning is explicit about uncertainty.
+- design: the experiment would actually test the predictions: clear measurements, controls, and the \
+confounds that matter.
+- code_fit: the code sketches implement the design rather than something adjacent to it.
+
+<retrieved_urls>
+{urls}
+</retrieved_urls>
+
+<deliverable>
+{deliverable}
+</deliverable>"""
+
+
+def extract_predictions(deliverable: str) -> dict[str, str] | None:
+    try:
+        return parse_predictions(aimu.client(MODELS["judge"]).generate(EXTRACT_PROMPT.format(deliverable=deliverable), schema=Predictions))
+    except Exception as exc:
+        logging.warning("prediction extraction failed: %r", exc)
+        return None
+
+
+def judge(deliverable: str, urls: list[str]) -> dict[str, int]:
+    floor = dict.fromkeys(CRITERIA, 1)
+    if not deliverable.strip():
+        return floor
+    prompt = JUDGE_PROMPT.format(urls="\n".join(urls) or "(none)", deliverable=deliverable)
+    try:
+        return parse_scores(aimu.client(MODELS["judge"]).generate(prompt, schema=Scores)) or floor
+    except Exception as exc:
+        logging.warning("judging failed: %r", exc)
+        return floor
+
+
+def evaluate(record: dict) -> dict:
+    deliverable = deliverable_text(record["answer"], record["documents"])
+    scores = judge(deliverable, record["urls"])
+    return {
+        **record,
+        "predictions": extract_predictions(deliverable) if deliverable.strip() else None,
+        "scores": scores,
+        "quality": round(mean(scores.values()), 2),
+    }
+```
+
+The check below runs a whole "run" with an agent that raises immediately, then exercises the two parsers
+that stand between a model's structured output and the grading:
+
+```{python}
+#| label: check-evaluate
+class Exploding:
+    def run(self, task, **kwargs):
+        raise TimeoutError("ollama timed out")
+
+rec = run_once("single", 99, builders={"single": lambda store, sink: Exploding()})
+assert rec["ended_by"] == "error" and "timed out" in rec["error"] and rec["answer"] is None
+assert rec["wall_s"] >= 0 and json.dumps(rec)
+
+assert parse_predictions(Predictions("Single", "orchestrator", "no clear difference")) == {
+    "quality": "single", "tokens": "orchestrator", "time": "no clear difference"}
+assert parse_predictions(Predictions("both", "single", "single")) is None
+assert parse_predictions(None) is None
+assert parse_scores(Scores(5, 4, 3, 2)) == {"grounding": 5, "reasoning": 4, "design": 3, "code_fit": 2}
+assert parse_scores(Scores(6, 4, 3, 2)) is None
+```
+
+## H - Who actually won, and who called it
+
+Three rules decide the winners, and each is a choice worth seeing:
+
+- **Every run counts.** A run that hit its round cap or raised keeps its tokens, its time, and whatever
+  quality the judge gave its partial deliverable. Leaving it out would reward failing early, which is
+  cheap and fast. How often each architecture finished is its own column, `completed`.
+- **Overlapping ranges are "no clear difference".** With three runs per side, a difference of means
+  inside the run-to-run spread is not evidence of anything. A winner is declared only when every run of
+  one architecture beats every run of the other.
+- **Missing token counts are "unmeasured".** If any run's provider reported no usage, the tokens
+  comparison has no winner, rather than one computed from the runs that happened to report.
+
+Lower is better for tokens and time; higher is better for quality. A prediction is graded only for runs
+that made one, and an architecture whose runs made none gets `n/a`, not 0%.
+
+```{python}
+#| label: grading
+import pandas as pd
+
+HIGHER_IS_BETTER = {"quality": True, "tokens": False, "time": False}
+
+
+def measure(record: dict, dimension: str) -> float | None:
+    if dimension == "quality":
+        return record["quality"]
+    if dimension == "time":
+        return record["wall_s"]
+    if record["input_tokens"] is None or record["output_tokens"] is None:
+        return None
+    return record["input_tokens"] + record["output_tokens"]
+
+
+def by_architecture(records: list[dict]) -> dict[str, list[dict]]:
+    return {a: [r for r in records if r["architecture"] == a] for a in ARCHITECTURES}
+
+
+def measured_winners(records: list[dict]) -> dict[str, str]:
+    groups = by_architecture(records)
+    winners = {}
+    for dimension in DIMENSIONS:
+        values = {a: [measure(r, dimension) for r in runs] for a, runs in groups.items()}
+        if any(not v or None in v for v in values.values()):
+            winners[dimension] = "unmeasured"
+            continue
+        single, orchestrator = values["single"], values["orchestrator"]
+        if max(single) < min(orchestrator):
+            low, high = "single", "orchestrator"
+        elif max(orchestrator) < min(single):
+            low, high = "orchestrator", "single"
+        else:
+            winners[dimension] = "no clear difference"
+            continue
+        winners[dimension] = high if HIGHER_IS_BETTER[dimension] else low
+    return winners
+
+
+def summary_table(records: list[dict]) -> pd.DataFrame:
+    rows = {}
+    for architecture, runs in by_architecture(records).items():
+        row = {"runs": len(runs), "completed": sum(r["ended_by"] == "answered" for r in runs) / len(runs) if runs else None}
+        for dimension in DIMENSIONS:
+            values = pd.Series([measure(r, dimension) for r in runs], dtype="float")
+            row |= {f"{dimension}_mean": values.mean(), f"{dimension}_min": values.min(), f"{dimension}_max": values.max()}
+        rows[architecture] = row
+    return pd.DataFrame.from_dict(rows, orient="index")
+
+
+def prediction_accuracy(records: list[dict], winners: dict[str, str]) -> pd.DataFrame:
+    rows = {}
+    for architecture, runs in by_architecture(records).items():
+        predicted = [r["predictions"] for r in runs if r["predictions"]]
+        rows[architecture] = {
+            d: "n/a" if not predicted or winners[d] == "unmeasured" else sum(p[d] == winners[d] for p in predicted) / len(predicted)
+            for d in DIMENSIONS
+        }
+    return pd.DataFrame.from_dict(rows, orient="index", dtype=object)
+
+
+def source_overlap(records: list[dict]) -> float:
+    """How much the two architectures read the same things: shared URLs over all URLs (Jaccard)."""
+    sources = [set().union(*(r["urls"] for r in runs)) for runs in by_architecture(records).values()]
+    union = sources[0] | sources[1]
+    return len(sources[0] & sources[1]) / len(union) if union else 0.0
+```
+
+The check below grades four hand-made runs. The orchestrator's second run ended at its round cap and was
+cheap and fast because of it: it still counts, and it is what makes the token and time ranges overlap.
+
+```{python}
+#| label: check-grading
+def r(arch, quality, tokens, wall, ended="answered", preds=None, urls=()):
+    return {"architecture": arch, "quality": quality, "input_tokens": tokens, "output_tokens": 0 if tokens is not None else None,
+            "wall_s": wall, "ended_by": ended, "predictions": preds, "urls": list(urls)}
+
+p = {"quality": "single", "tokens": "single", "time": "orchestrator"}
+recs = [r("single", 4.0, 100, 50, preds=p, urls=["u1"]), r("single", 4.5, 120, 60, preds=p),
+        r("orchestrator", 3.0, 400, 55, urls=["u1", "u2"]), r("orchestrator", 1.0, 30, 5, ended="wrap_up")]
+w = measured_winners(recs)
+assert w == {"quality": "single", "tokens": "no clear difference", "time": "no clear difference"}
+assert summary_table(recs).loc["orchestrator", "completed"] == 0.5
+acc = prediction_accuracy(recs, w)
+assert acc.loc["single", "quality"] == 1.0 and acc.loc["single", "tokens"] == 0.0
+assert acc.loc["orchestrator", "quality"] == "n/a"  # no predictions at all: n/a, not 0%
+assert source_overlap(recs) == 0.5
+
+recs[0]["input_tokens"] = None
+assert measured_winners(recs)["tokens"] == "unmeasured"
+```
