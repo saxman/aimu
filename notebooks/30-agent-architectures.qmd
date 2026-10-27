@@ -697,3 +697,86 @@ assert source_overlap(recs) == 0.5
 recs[0]["input_tokens"] = None
 assert measured_winners(recs)["tokens"] == "unmeasured"
 ```
+
+## I - Running the experiment
+
+A full run takes hours on a local model, which is long enough for something to go wrong part way. So
+every finished run is written to `RESULTS_PATH` the moment it is evaluated, and the loop skips any run
+already recorded there: an interrupted experiment resumes instead of starting over. Delete the file to
+start fresh.
+
+The architectures take turns, run by run, rather than all of one and then all of the other. A local
+machine's speed drifts over hours (thermals, other work), and interleaving spreads that drift across both
+sides instead of landing it on one. Each run's wall time still includes whatever else the machine was
+doing at the time.
+
+```{python}
+#| label: experiment-def
+def load_results(path: Path) -> list[dict]:
+    return json.loads(path.read_text()) if path.exists() else []
+
+
+def save_results(path: Path, records: list[dict]) -> None:
+    """Write through a temporary file, so an interruption mid-write cannot corrupt finished runs."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    partial = path.with_suffix(".partial")
+    partial.write_text(json.dumps(records, indent=1, default=str))
+    os.replace(partial, path)
+
+
+def pending_runs(records: list[dict], n_runs: int) -> list[tuple[str, int]]:
+    done = {(r["architecture"], r["index"]) for r in records}
+    return [(a, i) for i in range(n_runs) for a in ARCHITECTURES if (a, i) not in done]
+```
+
+The check below exercises the bookkeeping without running anything:
+
+```{python}
+#| label: check-resume
+import tempfile
+
+tmp = Path(tempfile.mkdtemp()) / "nested" / "results.json"
+assert load_results(tmp) == []
+save_results(tmp, [{"architecture": "single", "index": 0}])
+assert load_results(tmp) == [{"architecture": "single", "index": 0}]
+assert pending_runs(load_results(tmp), n_runs=2) == [("orchestrator", 0), ("single", 1), ("orchestrator", 1)]
+```
+
+And the experiment itself. Re-run this cell after an interruption and it picks up where it stopped.
+
+```{python}
+#| label: experiment
+records = load_results(RESULTS_PATH)
+for architecture, index in pending_runs(records, N_RUNS):
+    record = evaluate(run_once(architecture, index))
+    records.append(record)
+    save_results(RESULTS_PATH, records)
+    print(f"{architecture} #{index}: ended_by={record['ended_by']} quality={record['quality']} "
+          f"tokens={measure(record, 'tokens')} time={record['wall_s']}s")
+```
+
+## J - Results
+
+This cell reads the results file, so it works on the committed record of the run below as well as on a
+run of your own.
+
+```{python}
+#| label: results
+records = load_results(RESULTS_PATH)
+if not records:
+    print(f"No results at {RESULTS_PATH} yet: run the experiment cell first.")
+else:
+    winners = measured_winners(records)
+    pd.set_option("display.width", 160)
+    print(summary_table(records).round(1).to_string(), end="\n\n")
+    print("Measured winners:", winners, end="\n\n")
+    print("Prediction accuracy (fraction of runs that predicted the winner):")
+    print(prediction_accuracy(records, winners).to_string(), end="\n\n")
+    print(f"Source overlap between the architectures: {source_overlap(records):.2f}", end="\n\n")
+    per_run = pd.DataFrame(
+        [{"architecture": r["architecture"], "index": r["index"], "ended_by": r["ended_by"], "quality": r["quality"],
+          "tokens": measure(r, "tokens"), "wall_s": r["wall_s"], "model_calls": r["model_calls"],
+          "predictions": r["predictions"]} for r in records]
+    )
+    print(per_run.to_string(index=False))
+```
