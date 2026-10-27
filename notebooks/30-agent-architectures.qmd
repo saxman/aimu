@@ -979,3 +979,74 @@ else:
     if unjudged := [f"{r['architecture']} #{r['index']}" for r in records if r.get("judge_error")]:
         print("\nUnjudged (run the re-evaluate cell):", ", ".join(unjudged))
 ```
+
+## K - What one run found
+
+The committed results file, `data/30-agent-architectures.json`, is one full run of this notebook, and the
+results cell above prints its tables. Here is what it says, and what it does not.
+
+**The setup.** Every role ran on `ollama:qwen3.8:27b` (build `47951e4a6661`, Ollama 0.40.7, which served
+it with its MLX runner), three runs per architecture, on 2026-10-27. Round caps were 40 for the single
+agent, 12 for the orchestrator, and 20 per specialist. Ollama's `OLLAMA_NUM_PARALLEL` was not set, so the
+server used its default.
+
+Two facts about that machine shape the numbers, and both are worth knowing before you read them:
+
+- **The context window was requested, not enforced.** Every client asked for a 32,768-token window, and
+  Ollama reported the model loaded with one. But the MLX runner did not hold prompts to it: the largest
+  single prompt was 41,723 tokens in a single-agent run and 56,286 in an orchestrator run (inside a
+  specialist), and Ollama reports processing them in full. No run overflowed, so the effective window was
+  larger than the `context_length` every record carries. `max_input_tokens` in each record is the
+  measured truth.
+- **The machine was swapping.** On a 36 GB machine the loaded model occupied 30.7 GB, and swap grew to
+  about 20 GB during the run. Every wall time here is "this machine under memory pressure". Interleaving
+  spreads that across both architectures, but it is not a clean machine.
+
+**What was measured.**
+
+| | quality (1-5) | tokens | wall time | finished |
+|---|---|---|---|---|
+| single agent | 4.25 (3.75 to 4.5) | 174,023 (150,282 to 206,783) | 790 s (708 to 911) | 3 of 3 |
+| orchestrator | 4.58 (4.25 to 4.75) | 856,820 (700,392 to 948,109) | 3,224 s (2,309 to 4,342) | 3 of 3 |
+
+- **Tokens and time: the single agent, clearly.** The orchestrator spent about five times the tokens and
+  took about four times as long, and every orchestrator run was costlier and slower than every
+  single-agent run.
+- **Quality: no clear difference.** The orchestrator's mean is higher, but its worst run (4.25) scored
+  below two of the single agent's runs (4.5), so three runs cannot separate them. The gap is almost all
+  in one criterion: grounding averaged 4.67 for the orchestrator and 3.67 for the single agent. Design
+  differed by a third of a point (5.0 and 4.67), and reasoning (4.67 each) and code fit (4.0 each) were
+  level.
+
+**Why, as far as the records show.** The task's stages depend on each other, and the orchestrator
+treated them that way: in all three runs it called the researcher, then the designer, then the coder,
+one at a time. `concurrent_tool_calls` was on and never used, so delegation bought no parallelism here,
+only handoffs. Most of the extra tokens went to the researcher, which used between 52% and 78% of each
+orchestrator run's tokens on its own, more than an entire single-agent run each time. It also read
+widely: the orchestrator's runs retrieved 74 to 98 URLs against the single agent's 23 to 40, and the two
+architectures' sources barely overlapped (5%), which is probably where the grounding score came from.
+The coder read the designer's document from the shared store in every run: twice because the
+orchestrator told it to, and once on its own after the orchestrator relayed the question instead.
+
+The single agent, for its part, found what it needed every time: it loaded `web` and `documents` and
+never touched a distractor group.
+
+**Who called it.** Every one of the six runs predicted that the single agent would spend fewer tokens,
+and all six were right. Quality and time went worse:
+
+- *Quality*: all three single-agent runs predicted the single agent would give the better answer, which
+  the measurement does not support. Two of the three orchestrator runs predicted no clear difference,
+  which it does; the third predicted the orchestrator.
+- *Time*: one run of each architecture predicted the single agent would finish sooner. The rest
+  predicted no clear difference, or the orchestrator.
+
+The single agent never once predicted the other architecture would win on anything. That is the
+confound section C warned about, showing up: each agent knew which architecture it was.
+
+**What not to conclude.** This is one task, one local model, three runs per side, a judge that is the
+same model it graded, agents that knew their own architecture, a context window larger than the one
+requested, and a machine that was swapping. It does not say a single agent is better in general. It
+says that on a sequential research, design, and coding task with this model, delegating to specialists
+cost about five times the tokens and four times the time, for an improvement in answer quality that
+three runs could not distinguish from noise, and that both architectures predicted the cost correctly
+and the quality and time largely did not. The method is the part to take away: measure the claim.
