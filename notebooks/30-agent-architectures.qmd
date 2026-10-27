@@ -120,3 +120,104 @@ if problems:
     raise RuntimeError("Not ready to run:\n- " + "\n- ".join(problems))
 print("Ready:", sorted(set(MODELS.values())), "with SearXNG at", SEARXNG_URL)
 ```
+
+## B - Measuring a run
+
+A run's cost is spread across many model calls, and for the orchestrator, across several agents. Every
+one of them emits `aimu.events` ([notebook 27](27-observing-runs.qmd)), and every event carries the
+`run_id` of the run that made it and the `parent_run_id` of the run that started that one. A spawned
+specialist's run has the orchestrator's run as its parent, so one sink attached everywhere can roll a
+whole run up: keep the events whose `run_id` is the root, or whose `parent_run_id` is.
+
+`RunTrace` is that sink. It keeps every event, and `summary(root)` totals what one run cost. One rule
+matters more than it looks: if any model call in the run reported no token usage, the run's tokens are
+*absent*, not zero. A local server may report nothing, and a zero would be a false claim that the run
+was free.
+
+```{python}
+#| label: trace
+import re
+from collections import defaultdict
+
+from aimu.events import ModelTurnFinished, RunFinished, ToolCalled
+
+URL = re.compile(r"https?://[^\s)\]>\"']+")
+
+
+class RunTrace:
+    """An events sink that keeps everything, so a run can be totalled after it ends."""
+
+    def __init__(self):
+        self.events = []
+
+    def __call__(self, event) -> None:
+        self.events.append(event)
+
+    def of(self, root: str) -> list:
+        return [e for e in self.events if root in (e.run_id, e.parent_run_id)]
+
+    def summary(self, root: str) -> dict:
+        turns = [e for e in self.of(root) if isinstance(e, ModelTurnFinished)]
+        measured = all(e.usage is not None for e in turns)
+        per_agent = defaultdict(lambda: {"model_calls": 0, "input_tokens": 0, "output_tokens": 0})
+        for e in turns:
+            agent = per_agent[e.agent]
+            agent["model_calls"] += 1
+            for key in ("input_tokens", "output_tokens"):
+                agent[key] += (e.usage or {}).get(key) or 0
+        if not measured:
+            for agent in per_agent.values():
+                agent["input_tokens"] = agent["output_tokens"] = None
+        finished = [e for e in self.events if isinstance(e, RunFinished) and e.run_id == root]
+        return {
+            "input_tokens": sum(a["input_tokens"] for a in per_agent.values()) if measured else None,
+            "output_tokens": sum(a["output_tokens"] for a in per_agent.values()) if measured else None,
+            "model_calls": len(turns),
+            "tool_calls": [{"agent": e.agent, "name": e.name} for e in self.of(root) if isinstance(e, ToolCalled)],
+            "per_agent": dict(per_agent),
+            "ended_by": finished[-1].ended_by if finished else None,
+            "error": repr(finished[-1].error) if finished and finished[-1].error else None,
+        }
+
+
+def retrieved_urls(trace: RunTrace, root: str) -> list[str]:
+    """Every URL the run fetched, or was shown by a search: what it could honestly cite."""
+    urls = set()
+    for e in trace.of(root):
+        if isinstance(e, ToolCalled) and e.name == "get_web_content" and e.arguments.get("url"):
+            urls.add(e.arguments["url"])
+        elif isinstance(e, ToolCalled) and e.name == "web_search" and e.result:
+            urls.update(URL.findall(e.result))
+    return sorted(urls)
+
+
+def deliverable_text(answer: str | None, documents: dict[str, str]) -> str:
+    """The final answer plus every document the run wrote: what gets judged."""
+    parts = [answer or ""] + [f"## Document: {path}\n\n{documents[path]}" for path in sorted(documents)]
+    return "\n\n".join(parts)
+```
+
+The check below builds events by hand, including one from an unrelated run that must not be counted:
+
+```{python}
+#| label: check-trace
+from aimu.events import ModelTurnFinished, RunFinished, ToolCalled
+
+t = RunTrace()
+t(ModelTurnFinished(agent="orch", run_id="r1", usage={"input_tokens": 100, "output_tokens": 10}))
+t(ModelTurnFinished(agent="researcher", run_id="w1", parent_run_id="r1", usage={"input_tokens": 50, "output_tokens": 5}))
+t(ToolCalled(agent="researcher", run_id="w1", parent_run_id="r1", name="web_search", arguments={"query": "x"}, result="1. A\n   https://a.example/post\n"))
+t(ToolCalled(agent="researcher", run_id="w1", parent_run_id="r1", name="get_web_content", arguments={"url": "https://b.example"}))
+t(ModelTurnFinished(agent="other", run_id="zz", usage={"input_tokens": 999, "output_tokens": 999}))
+t(RunFinished(agent="orch", run_id="r1", ended_by="answered"))
+s = t.summary("r1")
+assert (s["input_tokens"], s["output_tokens"], s["model_calls"]) == (150, 15, 2)
+assert s["per_agent"]["researcher"]["input_tokens"] == 50
+assert s["ended_by"] == "answered"
+assert retrieved_urls(t, "r1") == ["https://a.example/post", "https://b.example"]
+
+t(ModelTurnFinished(agent="orch", run_id="r1", usage=None))
+assert t.summary("r1")["input_tokens"] is None  # absent, never zero
+
+assert deliverable_text("Answer", {"b.md": "B", "a.md": "A"}) == "Answer\n\n## Document: a.md\n\nA\n\n## Document: b.md\n\nB"
+```
