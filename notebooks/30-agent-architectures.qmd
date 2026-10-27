@@ -1,0 +1,122 @@
+---
+title: "Single Agent or Orchestrator? Measuring the Tradeoff"
+jupyter: python3
+---
+
+
+There are two common ways to give an agent a lot of capability. One agent can hold every tool, loading
+each group only when it needs it ([notebook 06](06-tools.qmd) covers tool groups). Or an orchestrator
+can hold no domain tools at all and delegate to specialist sub-agents, each with a small, tailored tool
+set ([notebook 07](07-agents.qmd) covers `spawn_subagent`). Which one gives better answers, spends fewer
+tokens, and finishes sooner?
+
+This notebook asks the agents. Both architectures get the same assignment, and the assignment *is* the
+question: research whether a single agent or an orchestrator would do better on a task like this one,
+predict a winner for answer quality, token cost, and wall-clock time, and design an experiment that
+would test those predictions. Then the notebook measures both architectures on that very assignment and
+checks each one's predictions against what actually happened to it.
+
+An agent's opinion about agent design is a claim. A measurement is evidence. The point here is the
+method for checking one against the other, not a verdict: one task, one model, and a handful of runs
+cannot settle the general question, and the recorded run at the end says so.
+
+**What this notebook covers:**
+- Measuring a whole run, sub-agents included, from its `aimu.events`
+- Architecture A: one `Agent` whose tools are all deferred `ToolGroup`s
+- Architecture B: an orchestrator holding only a typed `spawn_subagent`
+- A blind judge, and predictions extracted with `schema=`
+- Grading rules that count failed runs instead of hiding them
+- An experiment loop that survives a crash and resumes
+- What one real run found
+
+> Every role defaults to a local Ollama model, `qwen3.8:27b`, and web search goes through a SearXNG
+> instance (`SEARXNG_BASE_URL`, default `http://localhost:8080`). A full run takes hours on a local
+> 27B model. The check cells run instantly and need neither.
+
+## A - Setup
+
+Every role's model is set here. Swap any of them, but note that giving the two architectures different
+models confounds the comparison: a difference in results would no longer be a difference in
+architecture alone.
+
+```{python}
+#| label: setup
+import json
+import logging
+import os
+import time
+from pathlib import Path
+
+import requests
+
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)  # quiet the HTTP transport noise
+
+from aimu.tools.builtin import SEARXNG_BASE_URL
+
+MODEL = "ollama:qwen3.8:27b"
+MODELS = {
+    "single": MODEL,
+    "orchestrator": MODEL,
+    "researcher": MODEL,
+    "designer": MODEL,
+    "coder": MODEL,
+    "judge": MODEL,
+}
+N_RUNS = 3
+MAX_ITERATIONS = {"single": 40, "orchestrator": 12, "worker": 20}
+SEARXNG_URL = SEARXNG_BASE_URL
+RESULTS_PATH = Path("data/30-agent-architectures.json")
+
+ARCHITECTURES = ("single", "orchestrator")
+DIMENSIONS = ("quality", "tokens", "time")
+```
+
+Before spending hours, check that everything the run needs is answering: SearXNG, and every Ollama
+model the roles name.
+
+```{python}
+#| label: preflight-def
+def preflight(models: dict[str, str], searxng_url: str) -> list[str]:
+    """Everything that would stop a run, one sentence each. An empty list means ready."""
+    problems = []
+    try:
+        requests.get(f"{searxng_url}/search", params={"q": "test", "format": "json"}, timeout=5).raise_for_status()
+    except requests.RequestException as exc:
+        problems.append(f"SearXNG is not answering at {searxng_url} ({exc.__class__.__name__}). Start it, or set SEARXNG_BASE_URL.")
+
+    wanted = sorted({m.removeprefix("ollama:") for m in models.values() if m.startswith("ollama:")})
+    if wanted:
+        host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+        host = host if host.startswith("http") else f"http://{host}"
+        try:
+            tags = requests.get(f"{host}/api/tags", timeout=5).json()["models"]
+            pulled = {t["name"] for t in tags}
+        except (requests.RequestException, KeyError, ValueError) as exc:
+            problems.append(f"Ollama is not answering at {host} ({exc.__class__.__name__}). Start Ollama.")
+        else:
+            for name in wanted:
+                if name not in pulled and f"{name}:latest" not in pulled:
+                    problems.append(f"Ollama has no model {name}. Run: ollama pull {name}")
+    return problems
+```
+
+The check below runs `preflight` against a port nothing listens on and a model nobody has, and asserts
+that both problems are named in a way you could act on:
+
+```{python}
+#| label: check-preflight
+problems = preflight({"single": "ollama:no-such-model:1b"}, "http://127.0.0.1:9")
+assert any("SearXNG" in p and "127.0.0.1:9" in p for p in problems), problems
+assert any("no-such-model:1b" in p and "ollama pull" in p for p in problems), problems
+```
+
+And the real check, against the configured roles:
+
+```{python}
+#| label: preflight
+problems = preflight(MODELS, SEARXNG_URL)
+if problems:
+    raise RuntimeError("Not ready to run:\n- " + "\n- ".join(problems))
+print("Ready:", sorted(set(MODELS.values())), "with SearXNG at", SEARXNG_URL)
+```
