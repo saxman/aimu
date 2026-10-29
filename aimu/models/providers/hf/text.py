@@ -97,6 +97,17 @@ def _raise_if_prompt_overflows(hf_model: Any, model_inputs: Any, *, model_name: 
     )
 
 
+def _think_block_prefilled(model: "HuggingFaceModel", thinking: Optional[ResolvedThinking]) -> bool:
+    """Whether the rendered prompt ends inside an *open* ``<think>`` block.
+
+    ``think_opener_in_prompt`` describes the template with thinking on. With thinking off, the
+    same templates prefill a closed block instead (``<think></think>``), so a reply with no
+    ``</think>`` is an answer, not truncated reasoning. ``thinking=None`` renders with the
+    capability default, which is on for every model that carries the flag.
+    """
+    return model.think_opener_in_prompt and (thinking is None or thinking.enabled)
+
+
 DEFAULT_GENERATE_KWARGS = {
     # High enough not to cut off tool calls or thinking; callers override via generate_kwargs.
     "max_new_tokens": LOCAL_MAX_TOKENS,
@@ -534,6 +545,7 @@ class HuggingFaceClient(BaseModelClient):
         # Popped here, not peeked: this dict is splatted into generate() below, which
         # rejects unknown keyword arguments.
         thinking = pop_thinking(generate_kwargs)
+        think_prefilled = _think_block_prefilled(self.model, thinking)
         model_inputs = self._apply_chat_template(messages, tools, thinking=thinking)
         # No wire payload for an in-process model: the closest equivalent is the resolved
         # generation kwargs plus the rendered prompt actually fed to the tokenizer/processor.
@@ -588,7 +600,7 @@ class HuggingFaceClient(BaseModelClient):
         logger.debug("[raw] response: %s", response)
 
         if self.model.supports_thinking:
-            opened = self.model.think_opener_in_prompt or response.startswith("<think>")
+            opened = think_prefilled or response.startswith("<think>")
             if "</think>" in response:
                 idx = response.index("</think>")
                 start = len("<think>") if response.startswith("<think>") else 0
@@ -642,7 +654,7 @@ class HuggingFaceClient(BaseModelClient):
             # <think> may be pre-filled in the prompt template (e.g. Qwen3.5) and thus
             # consumed by skip_prompt=True before streaming begins. Detect thinking by
             # scanning for </think> rather than requiring <think> at the start.
-            opened = self.model.think_opener_in_prompt
+            opened = _think_block_prefilled(self.model, thinking)
             if response_part.startswith("<think>"):
                 response_part = response_part[len("<think>") :]
                 opened = True
