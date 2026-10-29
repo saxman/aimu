@@ -48,6 +48,10 @@ class OllamaModel(Model):
     # NVIDIA
     NEMOTRON_CASCADE_2_30B = Wire("nemotron-cascade-2:30b", structured_output=True)
     NEMOTRON_3_NANO_30B = Wire("nemotron-3-nano:30b", structured_output=True)
+    NEMOTRON_3_5_LIGHTNING_30B = Wire("nemotron-3.5-lightning:30b", structured_output=True)
+    NEMOTRON_3_5_BOLT_E4B = Wire("nemotron-3.5-bolt:e4b", structured_output=True)
+    NEMOTRON_3_5_BOLT_74B = Wire("nemotron-3.5-bolt:74b-a9b", structured_output=True)
+    NEMOTRON_3_5_SUPER_120B = Wire("nemotron-3.5-super:120b", structured_output=True)
     # Zhipu AI: doesn't use tools when expected
     GLM_4_7_FLASH_31B_Q4 = Wire("glm-4.7-flash:q4_K_M", structured_output=True)
     # OpenAI

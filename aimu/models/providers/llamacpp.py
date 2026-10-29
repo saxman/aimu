@@ -127,6 +127,10 @@ class LlamaCppModel(Model):
     GEMMA_4_31B = Wire("gemma-4-31b", why=_NO_MMPROJ, vision=False)
     NEMOTRON_CASCADE_2_30B = Wire("nemotron-cascade-2-30b-a3b")
     NEMOTRON_3_NANO_30B = Wire("nemotron-3-nano-30b-a3b")
+    NEMOTRON_3_5_LIGHTNING_30B = Wire("nemotron-3.5-lightning-30b-a3b")
+    NEMOTRON_3_5_BOLT_E4B = Wire("nemotron-3.5-bolt-e4b")
+    NEMOTRON_3_5_BOLT_74B = Wire("nemotron-3.5-bolt-74b-a9b", why=_NO_MMPROJ, vision=False)
+    NEMOTRON_3_5_SUPER_120B = Wire("nemotron-3.5-super-vl-120b-a12b", why=_NO_MMPROJ, vision=False)
     # Zhipu AI: doesn't use tools reliably (matches OllamaModel's own note); this is an intrinsic
     # weights limitation, not a serving-path one, so no tools=True override here either.
     GLM_4_7_FLASH_31B_Q4 = Wire("glm-4.7-flash-q4")

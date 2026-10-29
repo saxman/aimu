@@ -572,6 +572,10 @@ class OllamaOpenAIModel(Model):
     # NVIDIA
     NEMOTRON_CASCADE_2_30B = Wire("nemotron-cascade-2:30b", structured_output=True)
     NEMOTRON_3_NANO_30B = Wire("nemotron-3-nano:30b", structured_output=True)
+    NEMOTRON_3_5_LIGHTNING_30B = Wire("nemotron-3.5-lightning:30b", structured_output=True)
+    NEMOTRON_3_5_BOLT_E4B = Wire("nemotron-3.5-bolt:e4b", structured_output=True)
+    NEMOTRON_3_5_BOLT_74B = Wire("nemotron-3.5-bolt:74b-a9b", structured_output=True)
+    NEMOTRON_3_5_SUPER_120B = Wire("nemotron-3.5-super:120b", structured_output=True)
     # Zhipu AI: doesn't use tools when expected
     GLM_4_7_FLASH_31B_Q4 = Wire("glm-4.7-flash:q4_K_M", structured_output=True)
     # OpenAI
@@ -722,6 +726,12 @@ class LMStudioOpenAIModel(Model):
     MINISTRAL_3_14B = Wire("ministral-3-14b")
     NEMOTRON_CASCADE_2_30B = Wire("nemotron-cascade-2-30b-a3b")
     NEMOTRON_3_NANO_30B = Wire("nemotron-3-nano-30b-a3b")
+    # lmstudio-community publishes a GGUF build of each; keys follow the quant-free GGUF
+    # convention above.
+    NEMOTRON_3_5_LIGHTNING_30B = Wire("nemotron-3.5-lightning-30b-a3b")
+    NEMOTRON_3_5_BOLT_E4B = Wire("nemotron-3.5-bolt-e4b")
+    NEMOTRON_3_5_BOLT_74B = Wire("nemotron-3.5-bolt-74b-a9b", why=_NO_MMPROJ, vision=False)
+    NEMOTRON_3_5_SUPER_120B = Wire("nemotron-3.5-super-vl-120b-a12b", why=_NO_MMPROJ, vision=False)
     SMOLLM2_1_7B = Wire("smollm2-1.7b-instruct")
     # OpenAI-compat servers (LM Studio included) parse tool calls server-side; the in-process HF
     # and native Ollama paths have no tool-parse format assigned for Gemma 3 (same override as
@@ -816,6 +826,13 @@ class LMStudioOpenAIModel(Model):
     NEMOTRON_3_NANO_30B_4BIT = Wire("nvidia-nemotron-3-nano-30b-a3b-mlx-4bit")
     NEMOTRON_3_NANO_30B_8BIT = Wire("nvidia-nemotron-3-nano-30b-a3b-mlx-8bit")
     NEMOTRON_3_NANO_30B_BF16 = Wire("nvidia-nemotron-3-nano-30b-a3b-mlx-bf16")
+    # mlx-community's plain trio, unlike Nano's above, carries no "-mlx-" infix.
+    NEMOTRON_3_5_LIGHTNING_30B_4BIT = Wire("nvidia-nemotron-3.5-lightning-30b-a3b-4bit")
+    NEMOTRON_3_5_LIGHTNING_30B_8BIT = Wire("nvidia-nemotron-3.5-lightning-30b-a3b-8bit")
+    NEMOTRON_3_5_LIGHTNING_30B_BF16 = Wire("nvidia-nemotron-3.5-lightning-30b-a3b-bf16")
+    # lmstudio-community's MLX builds (mlx-community has only an OptiQ 4bit); no bf16.
+    NEMOTRON_3_5_BOLT_E4B_4BIT = Wire("nvidia-nemotron-3.5-bolt-e4b-mlx-4bit")
+    NEMOTRON_3_5_BOLT_E4B_8BIT = Wire("nvidia-nemotron-3.5-bolt-e4b-mlx-8bit")
     # Microsoft
     PHI_4_14B_4BIT = Wire("phi-4-4bit")
     PHI_4_14B_8BIT = Wire("phi-4-8bit")
@@ -899,6 +916,10 @@ class VLLMOpenAIModel(Model):
     # -- there is no shorter form to fall back to. Distinct from the multimodal
     # Nemotron-3-Nano-Omni-30B-A3B-Reasoning line, which is a different model.
     NEMOTRON_3_NANO_30B = Wire("nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16")
+    NEMOTRON_3_5_LIGHTNING_30B = Wire("nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16")
+    NEMOTRON_3_5_BOLT_E4B = Wire("nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-BF16")
+    NEMOTRON_3_5_BOLT_74B = Wire("nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-BF16")
+    NEMOTRON_3_5_SUPER_120B = Wire("nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16")
     # Zhipu AI: doesn't use tools reliably (matches OllamaModel's own note); this is an
     # intrinsic weights limitation rather than a serving-path one, so no tools=True override
     # here either. The _Q4 in the member name carries over from OllamaModel's quantized
@@ -985,6 +1006,10 @@ class HFOpenAIModel(Model):
     # -- there is no shorter form to fall back to. Distinct from the multimodal
     # Nemotron-3-Nano-Omni-30B-A3B-Reasoning line, which is a different model.
     NEMOTRON_3_NANO_30B = Wire("nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16")
+    NEMOTRON_3_5_LIGHTNING_30B = Wire("nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16")
+    NEMOTRON_3_5_BOLT_E4B = Wire("nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-BF16")
+    NEMOTRON_3_5_BOLT_74B = Wire("nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-BF16")
+    NEMOTRON_3_5_SUPER_120B = Wire("nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16")
     # Zhipu AI: doesn't use tools reliably (matches OllamaModel's own note); this is an
     # intrinsic weights limitation rather than a serving-path one, so no tools=True override
     # here either. The _Q4 in the member name carries over from OllamaModel's quantized
@@ -1043,6 +1068,10 @@ class LlamaServerOpenAIModel(Model):
     # NVIDIA
     NEMOTRON_CASCADE_2_30B = Wire("nemotron-cascade-2-30b-a3b.gguf")
     NEMOTRON_3_NANO_30B = Wire("nemotron-3-nano-30b-a3b.gguf")
+    NEMOTRON_3_5_LIGHTNING_30B = Wire("nemotron-3.5-lightning-30b-a3b.gguf")
+    NEMOTRON_3_5_BOLT_E4B = Wire("nemotron-3.5-bolt-e4b.gguf")
+    NEMOTRON_3_5_BOLT_74B = Wire("nemotron-3.5-bolt-74b-a9b.gguf", why=_NO_MMPROJ, vision=False)
+    NEMOTRON_3_5_SUPER_120B = Wire("nemotron-3.5-super-vl-120b-a12b.gguf", why=_NO_MMPROJ, vision=False)
     # Zhipu AI: doesn't use tools reliably (matches OllamaModel's own note); this is an intrinsic
     # weights limitation, not a serving-path one, so no tools=True override here either.
     GLM_4_7_FLASH_31B_Q4 = Wire("glm-4.7-flash-q4_k_m.gguf")
@@ -1138,6 +1167,11 @@ class SGLangOpenAIModel(Model):
     # -- there is no shorter form to fall back to. Distinct from the multimodal
     # Nemotron-3-Nano-Omni-30B-A3B-Reasoning line, which is a different model.
     NEMOTRON_3_NANO_30B = Wire("nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16")
+    NEMOTRON_3_5_LIGHTNING_30B = Wire("nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16")
+    NEMOTRON_3_5_BOLT_E4B = Wire("nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-BF16")
+    # No NEMOTRON_3_5_BOLT_74B: its card documents vLLM only, with a custom `ultra_v3`
+    # reasoning-parser plugin; SGLang support for that parse is unstated.
+    NEMOTRON_3_5_SUPER_120B = Wire("nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16")
     # Zhipu AI: doesn't use tools reliably (matches OllamaModel's own note); this is an
     # intrinsic weights limitation rather than a serving-path one, so no tools=True override
     # here either. The _Q4 in the member name carries over from OllamaModel's quantized
@@ -1323,6 +1357,14 @@ class OMLXOpenAIModel(Model):
     NEMOTRON_3_NANO_30B_4BIT = Wire("NVIDIA-Nemotron-3-Nano-30B-A3B-MLX-4Bit")
     NEMOTRON_3_NANO_30B_8BIT = Wire("NVIDIA-Nemotron-3-Nano-30B-A3B-MLX-8Bit")
     NEMOTRON_3_NANO_30B_BF16 = Wire("NVIDIA-Nemotron-3-Nano-30B-A3B-MLX-BF16")
+    # mlx-community's plain trio, without Nano's "-MLX-" infix.
+    NEMOTRON_3_5_LIGHTNING_30B_4BIT = Wire("NVIDIA-Nemotron-3.5-Lightning-30B-A3B-4bit")
+    NEMOTRON_3_5_LIGHTNING_30B_8BIT = Wire("NVIDIA-Nemotron-3.5-Lightning-30B-A3B-8bit")
+    NEMOTRON_3_5_LIGHTNING_30B_BF16 = Wire("NVIDIA-Nemotron-3.5-Lightning-30B-A3B-bf16")
+    # lmstudio-community's MLX builds: mlx-community publishes only an OptiQ 4bit, a distinct
+    # quantization method rather than this catalog's plain convention. No bf16 build.
+    NEMOTRON_3_5_BOLT_E4B_4BIT = Wire("NVIDIA-Nemotron-3.5-Bolt-E4B-MLX-4bit")
+    NEMOTRON_3_5_BOLT_E4B_8BIT = Wire("NVIDIA-Nemotron-3.5-Bolt-E4B-MLX-8bit")
     # Microsoft
     PHI_4_14B_4BIT = Wire("phi-4-4bit")
     PHI_4_14B_8BIT = Wire("phi-4-8bit")

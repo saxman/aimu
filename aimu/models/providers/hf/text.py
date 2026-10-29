@@ -51,12 +51,18 @@ def _load_profile(model: "HuggingFaceModel") -> str:
     mid = model.value
     if model.name == "MAGISTRAL_SMALL":
         return "mistral3"
-    if mid.startswith("google/gemma-4"):
+    # Nemotron 3.5 Bolt E4B is a Gemma 4 E4B post-train: same architecture, processor, and
+    # structured-token output, so it needs the same processor.parse_response() path.
+    if mid.startswith(("google/gemma-4", "nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B")):
         return "gemma4"
     if mid.startswith("google/gemma-3"):
         return "gemma3"
     if mid.startswith(("Qwen/Qwen3.5", "Qwen/Qwen3.6", "Qwen/Qwen3.8")):
         return "qwen-multimodal"
+    # Nemotron-H Omni (Bolt 74B, Super VL): the language model and vision encoder are one
+    # checkpoint that transformers maps only to AutoModelForImageTextToText.
+    if mid.startswith(("nvidia/NVIDIA-Nemotron-3.5-Bolt-74B", "nvidia/NVIDIA-Nemotron-3.5-Super-VL")):
+        return "nemotron-omni"
     return "causal-lm"
 
 
@@ -244,6 +250,20 @@ class HuggingFaceModel(Model):
 
     # NVIDIA: Nemotron-H is the multimodal Hybrid series (Mamba + Transformer)
     NEMOTRON_H_8B = (Wire("nvidia/Nemotron-H-8B-Instruct-HF", audio=True), ToolCallFormat.XML)
+    # Nemotron 3 Nano and 3.5 Lightning / Bolt 74B / Super VL are Nemotron-H MoE hybrids
+    # (native in transformers, so no trust_remote_code despite the Nano repo's auto_map). All
+    # four templates emit Qwen-style <tool_call><function=...> markup and prefill a bare
+    # `<think>\n` when thinking is on. Bolt 74B and Super VL route to the processor branch
+    # (see _load_profile) so vision input reaches the model. BF16 checkpoints, like every
+    # other repo-id catalog's entry for these models.
+    NEMOTRON_3_NANO_30B = (Wire("nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16"), ToolCallFormat.XML, True)
+    NEMOTRON_3_5_LIGHTNING_30B = (Wire("nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16"), ToolCallFormat.XML, True)
+    NEMOTRON_3_5_BOLT_74B = (Wire("nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-BF16"), ToolCallFormat.XML, True)
+    NEMOTRON_3_5_SUPER_120B = (Wire("nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16"), ToolCallFormat.XML, True)
+    # Gemma 4 E4B underneath (see _load_profile): tool calls and reasoning come back through
+    # processor.parse_response(), hence ToolCallFormat.NA, as for GEMMA_4_*. No audio=True,
+    # unlike GEMMA_4_E4B: NVIDIA declares the post-train text-only (see MODEL_FACTS).
+    NEMOTRON_3_5_BOLT_E4B = (Wire("nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-BF16"), ToolCallFormat.NA)
 
     # OpenAI
     GPT_OSS_20B = (Wire("openai/gpt-oss-20b"), ToolCallFormat.XML)
@@ -340,14 +360,15 @@ class HuggingFaceClient(BaseModelClient):
         # same parsing path as non-processor models.
         self._uses_processor_parse_response = False
 
-        self._cache_key = _make_cache_key(model.value, _load_profile(model), model_kwargs)
+        load_profile = _load_profile(model)
+        self._cache_key = _make_cache_key(model.value, load_profile, model_kwargs)
         with _registry_lock:
             if self._cache_key in _model_registry:
                 cached = _model_registry[self._cache_key]
                 self._hf_model, self._hf_tokenizer, self._hf_processor, self._uses_processor_parse_response = cached
                 return
 
-        if model == self.MODELS.MAGISTRAL_SMALL:
+        if load_profile == "mistral3":
             self._hf_tokenizer = AutoTokenizer.from_pretrained(model.value, tokenizer_type="mistral")
 
             bnb_config = BitsAndBytesConfig(load_in_8bit=True, bnb_8bit_compute_dtype=torch.bfloat16)
@@ -356,16 +377,16 @@ class HuggingFaceClient(BaseModelClient):
             )
         elif model == self.MODELS.GPT_OSS_20B and torch.backends.mps.is_available():
             raise ValueError("GPT-OSS-20B is not supported on MPS devices.")
-        elif model.value.startswith("google/gemma-4"):
+        elif load_profile == "gemma4":
             self._hf_processor = AutoProcessor.from_pretrained(model.value)
             self._hf_tokenizer = self._hf_processor.tokenizer
             self._hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
             self._uses_processor_parse_response = True
-        elif model.value.startswith("google/gemma-3"):
+        elif load_profile == "gemma3":
             self._hf_processor = AutoProcessor.from_pretrained(model.value)
             self._hf_tokenizer = self._hf_processor.tokenizer
             self._hf_model = AutoModelForCausalLM.from_pretrained(model.value, **model_kwargs)
-        elif model.value.startswith(("Qwen/Qwen3.5", "Qwen/Qwen3.6", "Qwen/Qwen3.8")):
+        elif load_profile in ("qwen-multimodal", "nemotron-omni"):
             # Qwen 3.5/3.6/3.8 are unified multimodal checkpoints and must ALWAYS load via
             # AutoModelForImageTextToText -- even for the text-only enum members (which
             # simply leave the vision tower unused; chat(images=...) is gated separately
@@ -377,6 +398,8 @@ class HuggingFaceClient(BaseModelClient):
             # bf16 (router mlp.gate, lm_head, embed_tokens, linear_attn projections)
             # mis-quantize and crash with "mat1 and mat2 to have the same dtype, but got
             # BFloat16 != Float8_e4m3fn". The ImageTextToText tree matches the skip-list.
+            # Nemotron-H Omni shares this loader for a simpler reason: transformers maps its
+            # model type to no causal-LM class at all.
             self._hf_processor = AutoProcessor.from_pretrained(model.value)
             self._hf_tokenizer = self._hf_processor.tokenizer
             self._hf_model = AutoModelForImageTextToText.from_pretrained(model.value, **model_kwargs)

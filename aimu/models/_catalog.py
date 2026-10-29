@@ -148,6 +148,8 @@ _QWEN_INSTRUCT_KWARGS = {
     "repetition_penalty": 1.0,
 }
 _MUSE_GLIMMER_KWARGS = {"temperature": 1.0, "top_p": 0.95, "top_k": 64}
+# Every Nemotron 3.5 card: the same values in thinking and non-thinking mode.
+_NEMOTRON_3_5_KWARGS = {"temperature": 1.0, "top_p": 0.95}
 
 
 MODEL_FACTS: dict[str, ModelFacts] = {
@@ -432,6 +434,29 @@ MODEL_FACTS: dict[str, ModelFacts] = {
     "NEMOTRON_CASCADE_2_30B_8BIT": ModelFacts(tools=True, thinking=True),
     "NEMOTRON_CASCADE_2_30B_BF16": ModelFacts(tools=True, thinking=True),
     "NEMOTRON_H_8B": ModelFacts(tools=True),
+    # Nemotron 3.5. Every card gives one sampling profile for both thinking modes (temperature
+    # 1.0, top_p 0.95), so none carries a nonthinking_generation_kwargs. thinking_levels=False on
+    # all four: the Super VL / Bolt 74B templates read a boolean `medium_effort` that appends
+    # "{reasoning effort: efficient}" to the last user turn, which is not a low/medium/high scale.
+    "NEMOTRON_3_5_LIGHTNING_30B": ModelFacts(tools=True, thinking=True, generation_kwargs=_NEMOTRON_3_5_KWARGS),
+    # Quantization variants of NEMOTRON_3_5_LIGHTNING_30B (MLX); facts mirror the bare entry.
+    "NEMOTRON_3_5_LIGHTNING_30B_4BIT": ModelFacts(tools=True, thinking=True, generation_kwargs=_NEMOTRON_3_5_KWARGS),
+    "NEMOTRON_3_5_LIGHTNING_30B_8BIT": ModelFacts(tools=True, thinking=True, generation_kwargs=_NEMOTRON_3_5_KWARGS),
+    "NEMOTRON_3_5_LIGHTNING_30B_BF16": ModelFacts(tools=True, thinking=True, generation_kwargs=_NEMOTRON_3_5_KWARGS),
+    # vision=False despite the Gemma 4 E4B base (whose config still carries vision and audio
+    # towers, and which Ollama badges vision+audio): NVIDIA's card lists text as the only input
+    # type and its own vLLM recipe sets every multimodal limit to 0. A wrong True lets a caller
+    # pass images that fail or degrade at request time.
+    "NEMOTRON_3_5_BOLT_E4B": ModelFacts(tools=True, thinking=True, generation_kwargs=_NEMOTRON_3_5_KWARGS),
+    # Quantization variants of NEMOTRON_3_5_BOLT_E4B (MLX, lmstudio-community; no bf16 build).
+    "NEMOTRON_3_5_BOLT_E4B_4BIT": ModelFacts(tools=True, thinking=True, generation_kwargs=_NEMOTRON_3_5_KWARGS),
+    "NEMOTRON_3_5_BOLT_E4B_8BIT": ModelFacts(tools=True, thinking=True, generation_kwargs=_NEMOTRON_3_5_KWARGS),
+    "NEMOTRON_3_5_BOLT_74B": ModelFacts(tools=True, thinking=True, vision=True, generation_kwargs=_NEMOTRON_3_5_KWARGS),
+    # The card recommends temperature 0.6 for vision requests; text's 1.0 is the default here
+    # since most requests carry no image.
+    "NEMOTRON_3_5_SUPER_120B": ModelFacts(
+        tools=True, thinking=True, vision=True, generation_kwargs=_NEMOTRON_3_5_KWARGS
+    ),
     # Microsoft. PHI_4_MINI and PHI_4_MINI_3_8B were two catalog names for one model, collapsed
     # onto PHI_4_MINI_3_8B in Task 6. tools=True per microsoft/Phi-4-mini-instruct's chat
     # template (tokenizer_config.json emits a <|tool|>{tools}<|/tool|> block for a system
