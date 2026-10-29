@@ -1319,6 +1319,74 @@ def test_hf_never_passes_the_reserved_key_to_transformers_generate():
     assert seen[0]["max_new_tokens"] == 16
 
 
+def _hf_decoding_client(model, generated: str):
+    """A HuggingFaceClient stand-in whose model "generates" ``generated``, for the decode paths."""
+    from aimu.models.providers.hf.text import HuggingFaceClient
+
+    class _Inputs(dict):
+        input_ids = [[0, 1, 2]]
+
+        def to(self, device):
+            return self
+
+    class _Tokenizer:
+        def apply_chat_template(self, messages, **kw):
+            return "rendered"
+
+        def __call__(self, *a, **kw):
+            return _Inputs()
+
+        def decode(self, *a, **kw):
+            return generated
+
+    client = types.SimpleNamespace(
+        model=model,
+        _hf_processor=None,
+        _hf_tokenizer=_Tokenizer(),
+        _hf_model=types.SimpleNamespace(device="cpu", generate=lambda **kw: [[0, 1, 2, 3]]),
+        _uses_processor_parse_response=False,
+        last_thinking=None,
+        _pending_thinking_tokens=[],
+        _parsed_tool_calls=None,
+        MODELS=type(model),
+    )
+    client._apply_chat_template = HuggingFaceClient._apply_chat_template.__get__(client, type(client))
+    client._record_request = lambda *a, **k: None
+    client._record_generated_length = lambda *a, **k: None
+    return client
+
+
+def test_hf_thinking_off_answer_is_not_mistaken_for_a_prefilled_think_block():
+    """A template that prefills ``<think>`` when thinking is on prefills a *closed* block when it
+    is off, so the reply carries no ``</think>``. Reading it as an unclosed think block would file
+    the whole answer as reasoning and return an empty string.
+    """
+    from aimu.models.providers.hf.text import HuggingFaceClient, HuggingFaceModel
+
+    model = HuggingFaceModel.QWEN_3_5_9B
+    assert model.think_opener_in_prompt
+    client = _hf_decoding_client(model, "the answer")
+    kwargs = {"max_new_tokens": 16, THINKING_KWARG: ResolvedThinking(enabled=False, level=None)}
+
+    response = HuggingFaceClient._generate_sync(client, [{"role": "user", "content": "hi"}], kwargs, None)
+
+    assert response == "the answer"
+    assert client.last_thinking is None
+
+
+def test_hf_streamed_thinking_off_answer_is_not_mistaken_for_a_prefilled_think_block():
+    from aimu.models.providers.hf.text import HuggingFaceClient, HuggingFaceModel
+
+    client = _hf_decoding_client(HuggingFaceModel.QWEN_3_5_9B, "")
+    kwargs = {"max_new_tokens": 16, THINKING_KWARG: ResolvedThinking(enabled=False, level=None)}
+    streamer = iter(["", "the ", "answer"])
+
+    tokens = HuggingFaceClient._generate_streaming(client, [{"role": "user", "content": "hi"}], kwargs, None, streamer)
+
+    assert "".join(tokens) == "the answer"
+    assert not client._pending_thinking_tokens
+
+
 # ---------------------------------------------------------------------------
 # Agent-level threading: thinking= reaches every chat() the agent loop makes
 # ---------------------------------------------------------------------------

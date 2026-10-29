@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### Models
+
+- **New: Nemotron 3.5 Lightning, Bolt E4B, Bolt 74B, and Super VL.** `NEMOTRON_3_5_LIGHTNING_30B`
+  (30B-A3B, the successor to Nemotron 3 Nano), `NEMOTRON_3_5_BOLT_E4B` (8B, post-trained from Gemma 4
+  E4B), `NEMOTRON_3_5_BOLT_74B` (74B-A9B, vision), and `NEMOTRON_3_5_SUPER_120B` (120B-A12B, vision),
+  all with tools and thinking. Each is in the Ollama, `ollama-openai`, LM Studio, vLLM, HF Serve,
+  llama-server, llama.cpp, and in-process HuggingFace catalogs, plus SGLang for all but Bolt 74B, whose
+  card serves it through a vLLM-only reasoning-parser plugin. MLX builds are in oMLX and LM Studio:
+  `NEMOTRON_3_5_LIGHTNING_30B_4BIT/_8BIT/_BF16` and `NEMOTRON_3_5_BOLT_E4B_4BIT/_8BIT`. Bolt E4B is
+  declared text-only, following NVIDIA's card, although its Gemma 4 base and Ollama's badges suggest
+  vision and audio. On the GGUF paths (LM Studio, llama-server, llama.cpp) Bolt 74B and Super VL drop
+  vision, as Gemma 4 does there, since no mmproj projector is loaded. Every card gives one sampling
+  profile, temperature 1.0 and top_p 0.95, in both thinking modes. Super VL's "medium effort" switch is
+  not mapped to `thinking=` levels: it is a boolean, not a low/medium/high scale.
+- **New: `HuggingFaceModel.NEMOTRON_3_NANO_30B`.** Nemotron 3 Nano was in every other local catalog but
+  not the in-process one. transformers serves Nemotron-H natively, so no `trust_remote_code` is needed.
+- **Fix: `thinking=False` no longer returns an empty answer on HuggingFace for Qwen 3.5, 3.6, and 3.8.**
+  Their templates prefill `<think>` when thinking is on and a closed `<think></think>` when it is off. The
+  decoder assumed the open form in both cases, so a thinking-off reply, which has no `</think>`, was filed
+  as reasoning. The Nemotron-H members above share these templates, so they would have had the same fault.
+
 ### Notebooks
 
 - **New: `30-agent-architectures`, single agent or orchestrator?** One agent whose tools are all deferred

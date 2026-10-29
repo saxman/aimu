@@ -98,6 +98,10 @@ Gemini 2.5 thinking models emit `<think>` tags on Google's OpenAI-compatible end
 | `GEMMA_3_12B` | `gemma3:12b` | ✗ | ✗ | ✅ |
 | `NEMOTRON_CASCADE_2_30B` | `nemotron-cascade-2:30b` | ✅ | ✅ | ✗ |
 | `NEMOTRON_3_NANO_30B` | `nemotron-3-nano:30b` | ✅ | ✅ | ✗ |
+| `NEMOTRON_3_5_LIGHTNING_30B` | `nemotron-3.5-lightning:30b` | ✅ | ✅ | ✗ |
+| `NEMOTRON_3_5_BOLT_E4B` | `nemotron-3.5-bolt:e4b` | ✅ | ✅ | ✗ |
+| `NEMOTRON_3_5_BOLT_74B` | `nemotron-3.5-bolt:74b-a9b` | ✅ | ✅ | ✅ |
+| `NEMOTRON_3_5_SUPER_120B` | `nemotron-3.5-super:120b` | ✅ | ✅ | ✅ |
 | `GLM_4_7_FLASH_31B_Q4` | `glm-4.7-flash:q4_K_M` | ✗ | ✅ | ✗ |
 | `GPT_OSS_20B` | `gpt-oss:20b` | ✅ | ✅ | ✗ |
 | `MAGISTRAL_SMALL_24B` | `magistral:24b` | ✅ | ✅ | ✗ |
@@ -129,6 +133,11 @@ Some Ollama models can technically be asked for tools but produce unreliable too
 | `GEMMA_4_12B` | `google/gemma-4-12b-it` | ✅ | ✅ | ✅ |
 | `GEMMA_3_12B` | `google/gemma-3-12b-it` | ✗ | ✗ | ✅ |
 | `NEMOTRON_H_8B` | `nvidia/Nemotron-H-8B-Instruct-HF` | ✅ | ✗ | ✗ |
+| `NEMOTRON_3_NANO_30B` | `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16` | ✅ | ✅ | ✗ |
+| `NEMOTRON_3_5_LIGHTNING_30B` | `nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-BF16` | ✅ | ✅ | ✗ |
+| `NEMOTRON_3_5_BOLT_74B` | `nvidia/NVIDIA-Nemotron-3.5-Bolt-74B-A9B-BF16` | ✅ | ✅ | ✅ |
+| `NEMOTRON_3_5_SUPER_120B` | `nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-BF16` | ✅ | ✅ | ✅ |
+| `NEMOTRON_3_5_BOLT_E4B` | `nvidia/NVIDIA-Nemotron-3.5-Bolt-E4B-BF16` | ✅ | ✅ | ✗ |
 | `GPT_OSS_20B` | `openai/gpt-oss-20b` | ✅ | ✅ | ✗ |
 | `MAGISTRAL_SMALL` | `mistralai/Magistral-Small-2509` | ✅ | ✗ | ✗ |
 | `MISTRAL_NEMO_12B` | `mistralai/Mistral-Nemo-Instruct-2407` | ✅ | ✗ | ✗ |
@@ -173,6 +182,10 @@ Some Ollama models can technically be asked for tools but produce unreliable too
 | `GEMMA_4_31B` * | `gemma-4-31b` | ✅ | ✅ | ✗ |
 | `NEMOTRON_CASCADE_2_30B` | `nemotron-cascade-2-30b-a3b` | ✅ | ✅ | ✗ |
 | `NEMOTRON_3_NANO_30B` | `nemotron-3-nano-30b-a3b` | ✅ | ✅ | ✗ |
+| `NEMOTRON_3_5_LIGHTNING_30B` | `nemotron-3.5-lightning-30b-a3b` | ✅ | ✅ | ✗ |
+| `NEMOTRON_3_5_BOLT_E4B` | `nemotron-3.5-bolt-e4b` | ✅ | ✅ | ✗ |
+| `NEMOTRON_3_5_BOLT_74B` * | `nemotron-3.5-bolt-74b-a9b` | ✅ | ✅ | ✗ |
+| `NEMOTRON_3_5_SUPER_120B` * | `nemotron-3.5-super-vl-120b-a12b` | ✅ | ✅ | ✗ |
 | `GLM_4_7_FLASH_31B_Q4` | `glm-4.7-flash-q4` | ✗ | ✅ | ✗ |
 | `GPT_OSS_20B` | `gpt-oss-20b` | ✅ | ✅ | ✗ |
 | `SMOLLM2_1_7B` | `smollm2-1.7b` | ✗ | ✗ | ✗ |
@@ -282,6 +295,15 @@ No `MUSE_GLIMMER_30B` here: llama-cpp-python runs the same llama.cpp engine as l
 | `NEMOTRON_3_NANO_30B_4BIT` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
 | `NEMOTRON_3_NANO_30B_8BIT` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
 | `NEMOTRON_3_NANO_30B_BF16` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `NEMOTRON_3_5_LIGHTNING_30B` | ✅ | ✅ | ✗ | all |
+| `NEMOTRON_3_5_LIGHTNING_30B_4BIT` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `NEMOTRON_3_5_LIGHTNING_30B_8BIT` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `NEMOTRON_3_5_LIGHTNING_30B_BF16` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `NEMOTRON_3_5_BOLT_E4B` | ✅ | ✅ | ✗ | all |
+| `NEMOTRON_3_5_BOLT_E4B_4BIT` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `NEMOTRON_3_5_BOLT_E4B_8BIT` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `NEMOTRON_3_5_BOLT_74B` | ✅ | ✅ | ✅ ※ | all except SGLang |
+| `NEMOTRON_3_5_SUPER_120B` | ✅ | ✅ | ✅ ※ | all |
 | `GLM_4_7_FLASH_31B_Q4` | ✗ | ✅ | ✗ | all |
 | `GLM_4_7_FLASH_31B_Q4_4BIT` | ✗ | ✅ | ✗ | oMLX, LM Studio ¶ |
 | `GLM_4_7_FLASH_31B_Q4_8BIT` | ✗ | ✅ | ✗ | oMLX, LM Studio ¶ |

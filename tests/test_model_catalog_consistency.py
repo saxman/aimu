@@ -216,6 +216,13 @@ EXPECTED_OVERRIDES = {
     ("LlamaCppModel", "QWEN_3_6_27B", "vision"),
     ("LlamaCppModel", "QWEN_3_6_35B", "vision"),
     ("LlamaCppModel", "QWEN_3_8_27B", "vision"),
+    # The two vision-capable Nemotron 3.5 models, on the same three GGUF catalogs.
+    ("LlamaServerOpenAIModel", "NEMOTRON_3_5_BOLT_74B", "vision"),
+    ("LlamaServerOpenAIModel", "NEMOTRON_3_5_SUPER_120B", "vision"),
+    ("LMStudioOpenAIModel", "NEMOTRON_3_5_BOLT_74B", "vision"),
+    ("LMStudioOpenAIModel", "NEMOTRON_3_5_SUPER_120B", "vision"),
+    ("LlamaCppModel", "NEMOTRON_3_5_BOLT_74B", "vision"),
+    ("LlamaCppModel", "NEMOTRON_3_5_SUPER_120B", "vision"),
     # Task 11: GEMMA_3_12B's MLX quantizations on both MLX-serving catalogs (oMLX and LM
     # Studio's MLX entries) carry the same tools=True override as every other OpenAI-compat
     # catalog's GEMMA_3_12B, for the same reason (server-side tool-call parsing). Unlike the
@@ -307,6 +314,12 @@ _EXPECTED_THINK_OPENER: dict[str, bool] = {
     "GPT_OSS_20B": False,  # no opener
     "DEEPSEEK_R1_8B": True,  # template tail: {{'<｜Assistant｜><think>\n'}}
     "SMOLLM3_3B": False,  # closed <think>\n\n</think>\n in non-think mode
+    # Nemotron-H templates, thinking on: {{- '<|im_start|>assistant\n<think>\n' }}
+    "NEMOTRON_3_NANO_30B": True,
+    "NEMOTRON_3_5_LIGHTNING_30B": True,
+    "NEMOTRON_3_5_BOLT_74B": True,
+    "NEMOTRON_3_5_SUPER_120B": True,
+    "NEMOTRON_3_5_BOLT_E4B": False,  # Gemma 4 <|channel> framing
 }
 
 

@@ -147,12 +147,14 @@ def test_hf_repo_runtimes_share_one_id_namespace():
 
     A model servable by one is servable by the others, so a name present in one and
     absent from another is drift. (Muse Glimmer is the documented exception: vLLM has
-    dedicated tool/reasoning parsers for its framing and the other two do not.)
+    dedicated tool/reasoning parsers for its framing and the other two do not. Nemotron 3.5
+    Bolt 74B is the same case: its card serves it on vLLM through a custom `ultra_v3`
+    reasoning-parser plugin, and SGLang support for that parse is unstated.)
     """
     from aimu.models.providers.openai_compat import HFOpenAIModel, SGLangOpenAIModel, VLLMOpenAIModel
 
     catalogs = {"vLLM": VLLMOpenAIModel, "SGLang": SGLangOpenAIModel, "HF Serve": HFOpenAIModel}
-    exceptions = {"MUSE_GLIMMER_30B"}
+    exceptions = {"MUSE_GLIMMER_30B", "NEMOTRON_3_5_BOLT_74B"}
     sets = {name: {m.name for m in enum} - exceptions for name, enum in catalogs.items()}
     reference = sets["vLLM"]
     for name, members in sets.items():
@@ -268,7 +270,8 @@ def test_hf_tools_true_requires_a_parse_route():
     Reading ``aimu/models/providers/hf/text.py::HuggingFaceClient.__init__``, a member has a
     parse route one of two ways: a ``tool_call_format`` other than ``ToolCallFormat.NA`` (the
     per-model regex/XML/JSON parsers), or the processor ``parse_response()`` path, which that
-    method enables only for ``model.value.startswith("google/gemma-4")``. (``MAGISTRAL_SMALL``
+    method enables only for the ``"gemma4"`` load profile (``_load_profile``: Gemma 4 and the
+    Gemma-4-based Nemotron 3.5 Bolt E4B). (``MAGISTRAL_SMALL``
     also loads via the processor branch, but its route to tool calls is its own
     ``ToolCallFormat.BRACKETED``, already covered by the first condition -- the processor branch
     itself does not set ``_uses_processor_parse_response`` for it.)
@@ -278,15 +281,15 @@ def test_hf_tools_true_requires_a_parse_route():
     Ollama/vLLM siblings' catalogs, weights that don't reliably call tools), so asserting the
     reverse would fail on a case that isn't a bug.
     """
-    from aimu.models.providers.hf.text import HuggingFaceModel, ToolCallFormat
+    from aimu.models.providers.hf.text import HuggingFaceModel, ToolCallFormat, _load_profile
 
     for member in HuggingFaceModel:
         if not member.supports_tools:
             continue
-        has_parse_route = member.tool_call_format != ToolCallFormat.NA or member.value.startswith("google/gemma-4")
+        has_parse_route = member.tool_call_format != ToolCallFormat.NA or _load_profile(member) == "gemma4"
         assert has_parse_route, (
             f"HuggingFaceModel.{member.name} claims tools=True but has no tool-call parse route "
-            f"(tool_call_format is NA and its wire id does not start with 'google/gemma-4', the "
+            f"(tool_call_format is NA and its load profile is not 'gemma4', the "
             f"only processor-parse-response path). Either give it a ToolCallFormat, or set "
             f"tools=False here via Wire(..., why=..., tools=False) if this serving path genuinely "
             f"cannot surface a tool call for these weights."

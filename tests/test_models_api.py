@@ -1859,7 +1859,7 @@ def test_hf_load_profile_routes_every_vision_model_to_a_processor_branch():
     from aimu.models.providers.hf.text import HuggingFaceModel, _load_profile
 
     # Profiles whose __init__ branch loads an AutoProcessor.
-    processor_profiles = {"gemma4", "gemma3", "qwen-multimodal", "mistral3"}
+    processor_profiles = {"gemma4", "gemma3", "qwen-multimodal", "mistral3", "nemotron-omni"}
 
     text_only_routed = [
         model.name
@@ -1875,3 +1875,14 @@ def test_hf_load_profile_recognises_qwen_3_8():
 
     assert _load_profile(HuggingFaceModel.QWEN_3_8_27B) == "qwen-multimodal"
     assert _load_profile(HuggingFaceModel.QWEN_3_8_27B_FP8) == "qwen-multimodal"
+
+
+def test_hf_load_profile_routes_nemotron_3_5_by_architecture():
+    """Bolt E4B is Gemma 4 underneath; Bolt 74B and Super VL have no causal-LM class at all."""
+    from aimu.models.providers.hf.text import HuggingFaceModel, _load_profile
+
+    assert _load_profile(HuggingFaceModel.NEMOTRON_3_5_BOLT_E4B) == "gemma4"
+    assert _load_profile(HuggingFaceModel.NEMOTRON_3_5_BOLT_74B) == "nemotron-omni"
+    assert _load_profile(HuggingFaceModel.NEMOTRON_3_5_SUPER_120B) == "nemotron-omni"
+    assert _load_profile(HuggingFaceModel.NEMOTRON_3_5_LIGHTNING_30B) == "causal-lm"
+    assert _load_profile(HuggingFaceModel.NEMOTRON_3_NANO_30B) == "causal-lm"
