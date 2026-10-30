@@ -15,6 +15,7 @@ from aimu.models.providers.ollama import (
     OLLAMA_GENERATE_KWARGS,
     OllamaClient,
     OllamaModel,
+    _PullProgress,
     _ollama_client_kwargs,
     _ollama_endpoint,
     _raise_if_context_overflowed,
@@ -24,6 +25,14 @@ from aimu.models.providers.ollama import (
 from .._base import AsyncBaseModelClient
 
 logger = logging.getLogger(__name__)
+
+
+async def apull_ollama_model(sdk_client: ollama.AsyncClient, model_id: str) -> None:
+    """Async twin of :func:`aimu.models.providers.ollama.pull_ollama_model`; logs identically."""
+    progress = _PullProgress(model_id, _ollama_endpoint(sdk_client))
+    async for event in await sdk_client.pull(model_id, stream=True):
+        progress.observe(event)
+    progress.finish()
 
 
 class AsyncOllamaClient(AsyncBaseModelClient):

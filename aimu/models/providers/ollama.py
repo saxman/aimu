@@ -121,6 +121,82 @@ def _ollama_endpoint(sdk_client: Any) -> Optional[str]:
     return recordable_endpoint(getattr(getattr(sdk_client, "_client", None), "base_url", None))
 
 
+def _format_bytes(count: int) -> str:
+    """Binary units with one decimal (``9.3 GiB``), for pull logs."""
+    for unit, size in (("GiB", 1024**3), ("MiB", 1024**2), ("KiB", 1024)):
+        if count >= size:
+            return f"{count / size:.1f} {unit}"
+    return f"{count} B"
+
+
+class _PullProgress:
+    """Turns an Ollama pull's progress stream into log lines; shared by the sync and async helpers.
+
+    Ollama has no "is there an update?" endpoint, so whether a pull will download anything is only
+    known once a layer reports ``completed < total``. That first event is what earns the WARNING:
+    construction or ``aimu.pull`` is about to block on a download. Layers already on disk arrive
+    complete and stay silent, so an up-to-date pull logs nothing above DEBUG.
+    """
+
+    def __init__(self, model_id: str, endpoint: Optional[str]):
+        self.model_id = model_id
+        self.endpoint = endpoint or "the default host"
+        self._first: dict[str, int] = {}
+        self._last: dict[str, int] = {}
+        self._logged_decile: dict[str, int] = {}
+        self._warned = False
+
+    def observe(self, event: Any) -> None:
+        digest, total, completed = event.digest, event.total, event.completed
+        if not digest or not total or completed is None:
+            return
+        self._first.setdefault(digest, completed)
+        self._last[digest] = completed
+        if completed >= total:
+            return
+        if not self._warned:
+            self._warned = True
+            logger.warning(
+                "Pulling Ollama model %r on %s: downloading a %s layer (the total download size is not "
+                "known in advance).",
+                self.model_id,
+                self.endpoint,
+                _format_bytes(total),
+            )
+        decile = completed * 10 // total
+        if decile > self._logged_decile.get(digest, 0):
+            self._logged_decile[digest] = decile
+            logger.info(
+                "Pulling Ollama model %r: layer %s at %d%% of %s.",
+                self.model_id,
+                digest[:19],
+                decile * 10,
+                _format_bytes(total),
+            )
+
+    def finish(self) -> None:
+        transferred = sum(self._last[digest] - self._first[digest] for digest in self._last)
+        if transferred:
+            logger.info(
+                "Pulled Ollama model %r on %s: %s downloaded.", self.model_id, self.endpoint, _format_bytes(transferred)
+            )
+        else:
+            logger.debug("Ollama model %r on %s is already up to date.", self.model_id, self.endpoint)
+
+
+def pull_ollama_model(sdk_client: Any, model_id: str) -> None:
+    """Pull ``model_id`` onto the server ``sdk_client`` talks to, logging when bytes actually move.
+
+    Ollama's own rule applies: only missing or changed layers download, so pulling an up-to-date
+    model costs one registry round trip and nothing else. A pull error (an unknown tag, an
+    unreachable server) propagates as the SDK raised it.
+    """
+    progress = _PullProgress(model_id, _ollama_endpoint(sdk_client))
+    for event in sdk_client.pull(model_id, stream=True):
+        progress.observe(event)
+    progress.finish()
+
+
 # Ollama's wording for a missing model: `model "qwen3:8b" not found, try pulling it first`.
 _MODEL_NOT_FOUND = re.compile(r"\bmodel\b.*\bnot found\b", re.IGNORECASE)
 
