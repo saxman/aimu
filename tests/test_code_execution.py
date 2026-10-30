@@ -488,6 +488,9 @@ class _StdinRaisingOnClose:
     def write(self, data):
         return self._real.write(data)
 
+    def flush(self):
+        return self._real.flush()
+
     def close(self):
         self._state["closes"] += 1
         if self._state["closes"] == 1:
@@ -533,6 +536,50 @@ def test_interrupt_while_feeding_stdin_kills_the_child_instead_of_orphaning_it(m
             os.killpg(os.getpgid(pid), signal.SIGKILL)
         except (ProcessLookupError, PermissionError):
             pass
+
+
+def test_a_child_that_exits_without_reading_stdin_returns_its_output(monkeypatch):
+    """A child that never reads its input is answered with its own output, not a BrokenPipeError.
+
+    ``Popen`` buffers stdin, so a payload smaller than the buffer (8 KiB through Python 3.13,
+    128 KiB from 3.14, which is why ``execute_python`` only broke there) never reaches the pipe
+    at ``write()``: the bytes, and the EPIPE from a reader that has gone, arrive at ``close()``.
+    The supervisor caught BrokenPipeError around the write alone. The child is made to exit
+    before the write instead of racing it, so the pipe is guaranteed to have no reader.
+    """
+    real_popen = subprocess.Popen
+
+    class _WriteAfterChildExits:
+        def __init__(self, real, proc):
+            self._real = real
+            self._proc = proc
+
+        def write(self, data):
+            self._proc.wait()
+            return self._real.write(data)
+
+        def __getattr__(self, name):
+            return getattr(self._real, name)
+
+    class _LatePopen(real_popen):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.stdin = _WriteAfterChildExits(self.stdin, self)
+
+    monkeypatch.setattr(subprocess, "Popen", _LatePopen)
+
+    run = builtin._run_supervised(
+        [sys.executable, "-c", "print('exited without reading')"],
+        stdin_data=b"x" * 100,
+        cwd=None,
+        env=dict(os.environ),
+        timeout_s=10,
+        output_limit_bytes=10_000,
+    )
+
+    assert run.exit_code == 0
+    assert run.stdout.strip() == "exited without reading"
+    assert not run.timed_out
 
 
 def test_a_fast_backgrounding_snippet_returns_its_real_output_not_a_false_timeout():
