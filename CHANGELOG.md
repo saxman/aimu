@@ -41,6 +41,11 @@
   and a completion line. An up-to-date pull logs only at DEBUG.
 - **New: `ollama_host=`** on `available_text_models()` and `available_embedding_models()`, to list a
   remote Ollama server's models for one call.
+- **Fix: SpeechT5 loads.** Its vocoder was requested as `microsoft/speecht5-hifigan`, a repo that does not
+  exist; the id is `microsoft/speecht5_hifigan`.
+- **Fix: the Streamlit and Gradio example apps no longer start a download on their own.** Their model menus
+  offer installed Ollama models only, and their startup default never falls back to a HuggingFace or
+  llama.cpp client, whose constructor downloads weights.
 - **Fix: `available_embedding_models()` finds installed Ollama embedders.** Ollama lists an untagged
   model as `nomic-embed-text:latest` and the catalog id has no tag, so none was ever discovered.
 

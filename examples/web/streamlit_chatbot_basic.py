@@ -5,6 +5,8 @@ from aimu.agents import Agent
 from aimu.history import ConversationManager
 from aimu.models import OllamaClient, StreamingContentType, available_text_clients, available_text_models
 from aimu.tools import builtin
+from model_choice import NO_OLLAMA_MODELS, NO_READY_MODEL, default_client_and_model, model_key
+from model_choice import model_options as _model_options
 
 
 def stream_reply(client, message):
@@ -24,36 +26,26 @@ You will always use available tools to help answer questions and complete tasks.
 INITIAL_USER_MESSAGE = "Introduce what model you are and share what tools you have access to."
 
 
-NO_OLLAMA_MODELS = (
-    'No Ollama models are installed. Install one with `ollama pull qwen3.5:9b` or `aimu.pull("ollama:qwen3.5:9b")`, '
-    "then reload."
-)
-
-
 def _new_client(client_cls, model):
     return client_cls(model, system_message=SYSTEM_MESSAGE)
 
 
 @st.cache_data(ttl=30, show_spinner=False)
 def installed_models() -> set[tuple[str, str]]:
-    # Keyed by (enum, member) name: the same member name exists under several providers.
-    return {(type(m).__name__, m.name) for m in available_text_models(include_hf_cache=False)}
+    return {model_key(m) for m in available_text_models(include_hf_cache=False)}
 
 
 def model_options(client_cls):
-    """Ollama clients no longer download a model on construction, so offer only installed ones."""
-    if client_cls is not OllamaClient:
-        return client_cls.TOOL_MODELS
-    return [m for m in client_cls.TOOL_MODELS if (type(m).__name__, m.name) in installed_models()]
+    return _model_options(client_cls, installed_models(), ollama_client=OllamaClient)
 
 
 if "client" not in st.session_state:
-    client_cls = available_text_clients()[0]
-    options = model_options(client_cls)
-    if not options:
-        st.warning(NO_OLLAMA_MODELS)
+    client_cls, model = default_client_and_model(
+        available_text_clients(), installed_models(), ollama_client=OllamaClient
+    )
+    if client_cls is None:
+        st.warning(NO_READY_MODEL)
         st.stop()
-    model = options[0]
     st.session_state.client = _new_client(client_cls, model)
     st.session_state.conversation_manager = ConversationManager(
         db_path=str(paths.output / "chat_history_basic.json"),

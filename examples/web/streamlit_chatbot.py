@@ -28,6 +28,8 @@ from aimu.models import (
     available_text_models,
 )
 from aimu.tools import builtin
+from model_choice import NO_OLLAMA_MODELS, NO_READY_MODEL, default_client_and_model, model_key
+from model_choice import model_options as _model_options
 
 # Avoid torch RuntimeError when using Hugging Face Transformers
 torch.classes.__path__ = []
@@ -46,34 +48,23 @@ IMAGE_CLIENT_CLASSES = available_image_clients()
 AUDIO_CLIENT_CLASSES = available_audio_clients()
 SPEECH_CLIENT_CLASSES = available_speech_clients()
 
-NO_OLLAMA_MODELS = (
-    'No Ollama models are installed. Install one with `ollama pull qwen3.5:9b` or `aimu.pull("ollama:qwen3.5:9b")`, '
-    "then reload."
-)
-
 
 @st.cache_data(ttl=30, show_spinner=False)
 def _installed_models() -> set[tuple[str, str]]:
-    # Keyed by (enum, member) name: the same member name exists under several providers.
-    return {(type(m).__name__, m.name) for m in available_text_models(include_hf_cache=False)}
+    return {model_key(m) for m in available_text_models(include_hf_cache=False)}
 
 
 def model_options(client_cls):
-    """Ollama clients no longer download a model on construction, so offer only installed ones."""
-    if client_cls is not OllamaClient:
-        return client_cls.TOOL_MODELS
-    return [m for m in client_cls.TOOL_MODELS if (type(m).__name__, m.name) in _installed_models()]
+    return _model_options(client_cls, _installed_models(), ollama_client=OllamaClient)
 
 
 def _default_client_and_model():
-    """Qwen 3.5 9B on Ollama when installed, else the first installed Ollama model, else another provider."""
-    candidates = ([OllamaClient] if HAS_OLLAMA else []) + [c for c in MODEL_CLIENTS if c is not OllamaClient]
-    for client_cls in candidates:
-        options = model_options(client_cls)
-        if options:
-            preferred = OllamaModel.QWEN_3_5_9B if HAS_OLLAMA else None
-            return client_cls, preferred if preferred in options else options[0]
-    return None, None
+    return default_client_and_model(
+        MODEL_CLIENTS,
+        _installed_models(),
+        ollama_client=OllamaClient,
+        preferred=OllamaModel.QWEN_3_5_9B if HAS_OLLAMA else None,
+    )
 
 
 SLIDER_DEFAULTS = {"temperature": 0.15, "top_p": 0.9, "repeat_penalty": 1.1}
@@ -440,7 +431,7 @@ if "model_client" not in st.session_state:
         st.session_state.speech_client_error = speech_err
     default_client, default_model = _default_client_and_model()
     if default_client is None:
-        st.warning(NO_OLLAMA_MODELS)
+        st.warning(NO_READY_MODEL)
         st.stop()
     _rebuild_client(default_client, default_model, True, 10)
 

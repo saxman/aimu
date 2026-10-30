@@ -165,7 +165,7 @@ def test_declaration_covers_every_repo_the_loader_requests(recorder, module_name
 def test_speecht5_declares_its_vocoder_and_dataset():
     speech = _module("speech")
     declared = speech.HuggingFaceSpeechClient._hub_downloads(speech.HuggingFaceSpeechModel.SPEECHT5.spec)
-    assert HubDownload("microsoft/speecht5-hifigan") in declared
+    assert HubDownload("microsoft/speecht5_hifigan") in declared
     assert HubDownload("Matthijs/cmu-arctic-xvectors", "dataset", {"split": "validation"}) in declared
 
 
@@ -173,21 +173,110 @@ def _siblings(*names):
     return types.SimpleNamespace(siblings=[types.SimpleNamespace(rfilename=n) for n in names])
 
 
-def test_weight_patterns_drop_bin_only_beside_safetensors(monkeypatch):
+def test_weight_patterns_allows_exactly_the_selected_files(monkeypatch):
     monkeypatch.setattr(
         huggingface_hub.HfApi,
         "model_info",
-        lambda self, repo_id: _siblings("model.safetensors", "pytorch_model.bin", "onnx/model.onnx"),
+        lambda self, repo_id: _siblings("config.json", "model.safetensors", "pytorch_model.bin", "onnx/model.onnx"),
     )
-    _allow, ignore = download.weight_patterns("org/both")
-    assert "*.bin" in ignore
-    assert "onnx/*" in ignore
+    assert download.weight_patterns("org/both") == (["config.json", "model.safetensors"], None)
 
     monkeypatch.setattr(
         huggingface_hub.HfApi, "model_info", lambda self, repo_id: _siblings("pytorch_model.bin", "config.json")
     )
-    _allow, ignore = download.weight_patterns("org/bin-only")
-    assert "*.bin" not in ignore
+    assert download.weight_patterns("org/bin-only") == (["pytorch_model.bin", "config.json"], None)
+
+
+# Real Hub listings (trimmed of nothing that matters to weight selection), captured 2026-10-30. Each repo
+# carries a second copy of its weights that transformers never reads; a snapshot of the whole repo would
+# download 2-5x what the loader needs.
+_GPT_OSS = [
+    "config.json",
+    "metal/model.bin",
+    "model-00000-of-00002.safetensors",
+    "model-00001-of-00002.safetensors",
+    "model-00002-of-00002.safetensors",
+    "model.safetensors.index.json",
+    "original/config.json",
+    "original/model.safetensors",
+    "tokenizer.json",
+]
+_WHISPER_LARGE_V3 = [
+    "config.json",
+    "flax_model.msgpack",
+    "model.fp32-00001-of-00002.safetensors",
+    "model.fp32-00002-of-00002.safetensors",
+    "model.safetensors",
+    "model.safetensors.index.fp32.json",
+    "pytorch_model.bin",
+    "pytorch_model.bin.index.fp32.json",
+    "pytorch_model.fp32-00001-of-00002.bin",
+    "tokenizer.json",
+]
+_DISTIL_WHISPER = ["config.json", "model.fp32.safetensors", "model.safetensors", "onnx/encoder_model.onnx"]
+_MUSICGEN_LARGE = [
+    "compression_state_dict.bin",
+    "config.json",
+    "pytorch_model-00001-of-00002.bin",
+    "pytorch_model-00002-of-00002.bin",
+    "pytorch_model.bin.index.json",
+    "spiece.model",
+    "state_dict.bin",
+]
+_BARK = [
+    "coarse.pt",
+    "coarse_2.pt",
+    "config.json",
+    "fine_2.pt",
+    "pytorch_model.bin",
+    "speaker_embeddings/v2/en_speaker_0_coarse_prompt.npy",
+    "speaker_embeddings_path.json",
+    "text_2.pt",
+]
+_EMBEDDING_GEMMA_2 = [
+    "1_Pooling/config.json",
+    "2_Normalize/config.json",
+    "config.json",
+    "model.safetensors",
+    "modules.json",
+]
+
+
+def _weights(selected):
+    return sorted(f for f in selected if f.rsplit(".", 1)[-1] in {"safetensors", "bin", "pt", "msgpack", "onnx"})
+
+
+@pytest.mark.parametrize(
+    ("files", "expected_weights"),
+    [
+        pytest.param(_GPT_OSS, [f"model-0000{i}-of-00002.safetensors" for i in range(3)], id="gpt-oss-20b"),
+        pytest.param(_WHISPER_LARGE_V3, ["model.safetensors"], id="whisper-large-v3"),
+        pytest.param(_DISTIL_WHISPER, ["model.safetensors"], id="distil-large-v3"),
+        pytest.param(
+            _MUSICGEN_LARGE,
+            ["pytorch_model-00001-of-00002.bin", "pytorch_model-00002-of-00002.bin"],
+            id="musicgen-large",
+        ),
+        pytest.param(_BARK, ["pytorch_model.bin"], id="bark"),
+        pytest.param(_EMBEDDING_GEMMA_2, ["model.safetensors"], id="embeddinggemma-2"),
+    ],
+)
+def test_select_files_keeps_only_the_weights_transformers_reads(files, expected_weights):
+    selected = download.select_files(files)
+    assert _weights(selected) == expected_weights
+    # Everything that is not a weight file stays: configs, tokenizers, sentence-transformers modules,
+    # Bark's speaker embeddings.
+    non_weights = [f for f in files if f not in _weights(files) and not f.startswith(("original/", "metal/", "onnx/"))]
+    assert set(non_weights) <= set(selected)
+
+
+def test_select_files_keeps_every_weight_in_an_unrecognized_layout():
+    # A directory with weights under no standard name is kept whole: over-fetching beats a pull that
+    # leaves the loader something to download.
+    assert download.select_files(["config.json", "weights/encoder.safetensors"]) == [
+        "config.json",
+        "weights/encoder.safetensors",
+    ]
 
 
 def test_fetch_dispatches_by_kind(monkeypatch):

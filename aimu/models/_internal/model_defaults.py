@@ -97,43 +97,55 @@ def _provider_prefix(member: "Model") -> str:
 
 
 def _ollama_installed_names(host: Optional[str] = None) -> set[str]:
-    """Model names pulled on a running Ollama server (empty set if unreachable).
+    """Model names pulled on a running Ollama server.
 
     With no ``host`` this probes the server the module-level ``ollama.list()`` resolves to:
-    ``OLLAMA_HOST`` if set, else ``127.0.0.1:11434``. A client's ``host=`` is invisible here, since
-    discovery runs before any client exists; ``host`` is the per-call way to name a remote server.
+    ``OLLAMA_HOST`` if set, else ``127.0.0.1:11434``, and any failure reads as an empty set, since that
+    probe runs implicitly (default-model resolution, name tiebreaking) and a server that is not running
+    is the common case. A client's ``host=`` is invisible here, since discovery runs before any client
+    exists; ``host`` is the per-call way to name a remote server. A host the caller named is not probed
+    silently: a ``/v1`` suffix raises ``ValueError`` and an unreachable server raises the transport
+    error, rather than both looking like a server with nothing installed.
+    """
+    from .. import HAS_OLLAMA
+
+    if not HAS_OLLAMA:
+        return set()
+    if host is not None:
+        return _list_ollama_names(host)
+    try:
+        return _list_ollama_names(None)
+    except Exception:  # server down, lib quirk, etc.
+        return set()
+
+
+def _list_ollama_names(host: Optional[str]) -> set[str]:
+    """``ollama list`` as a set of names; raises on any failure.
 
     Ollama lists an untagged model as ``name:latest`` while catalog ids carry no tag
     (``nomic-embed-text``), so each ``:latest`` name is also reported without the suffix.
     """
-    try:
-        from .. import HAS_OLLAMA
+    import ollama
 
-        if not HAS_OLLAMA:
-            return set()
-        import ollama
+    if host is None:
+        resp = ollama.list()
+    else:
+        from ..providers.ollama import _ollama_client_kwargs
 
-        if host is None:
-            resp = ollama.list()
-        else:
-            from ..providers.ollama import _ollama_client_kwargs
-
-            resp = ollama.Client(**_ollama_client_kwargs(host, None)).list()
-        raw = getattr(resp, "models", None)
-        if raw is None and isinstance(resp, dict):
-            raw = resp.get("models", [])
-        names: set[str] = set()
-        for entry in raw or []:
-            name = getattr(entry, "model", None) or getattr(entry, "name", None)
-            if name is None and isinstance(entry, dict):
-                name = entry.get("model") or entry.get("name")
-            if name:
-                names.add(name)
-                if name.endswith(":latest"):
-                    names.add(name.removesuffix(":latest"))
-        return names
-    except Exception:  # server down, lib quirk, etc.
-        return set()
+        resp = ollama.Client(**_ollama_client_kwargs(host, None)).list()
+    raw = getattr(resp, "models", None)
+    if raw is None and isinstance(resp, dict):
+        raw = resp.get("models", [])
+    names: set[str] = set()
+    for entry in raw or []:
+        name = getattr(entry, "model", None) or getattr(entry, "name", None)
+        if name is None and isinstance(entry, dict):
+            name = entry.get("model") or entry.get("name")
+        if name:
+            names.add(name)
+            if name.endswith(":latest"):
+                names.add(name.removesuffix(":latest"))
+    return names
 
 
 def _hf_cached_repo_ids() -> set[str]:
@@ -160,16 +172,18 @@ def _hf_cached_modality_members(members: list, has_flag: bool) -> list:
 
 
 def _ollama_members(host: Optional[str] = None) -> list:
-    """Every ``OllamaModel`` enum member installed on a running Ollama server."""
+    """Every ``OllamaModel`` enum member installed on a running Ollama server.
+
+    Raises only for an explicit ``host`` (see :func:`_ollama_installed_names`).
+    """
     try:
         from .. import HAS_OLLAMA, OllamaModel
-
-        if not HAS_OLLAMA:
-            return []
-        names = _ollama_installed_names(host)
-        return [m for m in OllamaModel if m.value in names] if names else []
     except Exception:
         return []
+    if not HAS_OLLAMA:
+        return []
+    names = _ollama_installed_names(host)
+    return [m for m in OllamaModel if m.value in names]
 
 
 def _hf_cached_members() -> list:
@@ -297,16 +311,18 @@ def available_transcription_models() -> list:
 
 
 def _ollama_embedding_members(host: Optional[str] = None) -> list:
-    """Every ``OllamaEmbeddingModel`` member installed on a running Ollama server."""
+    """Every ``OllamaEmbeddingModel`` member installed on a running Ollama server.
+
+    Raises only for an explicit ``host`` (see :func:`_ollama_installed_names`).
+    """
     try:
         from .. import HAS_OLLAMA_EMBEDDING, OllamaEmbeddingModel
-
-        if not HAS_OLLAMA_EMBEDDING:
-            return []
-        names = _ollama_installed_names(host)
-        return [m for m in OllamaEmbeddingModel if m.value in names] if names else []
     except Exception:
         return []
+    if not HAS_OLLAMA_EMBEDDING:
+        return []
+    names = _ollama_installed_names(host)
+    return [m for m in OllamaEmbeddingModel if m.value in names]
 
 
 def _hf_embedding_members() -> list:

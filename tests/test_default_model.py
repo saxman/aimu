@@ -409,6 +409,26 @@ def test_ollama_host_reaches_sdk_client(monkeypatch):
 
 
 @pytest.mark.skipif(not aimu.models.HAS_OLLAMA, reason="ollama not installed")
+def test_explicit_ollama_host_with_v1_suffix_raises():
+    """A host the caller named is not probed silently: a misconfiguration must not read as an empty server."""
+    with pytest.raises(ValueError, match="/v1"):
+        _defaults.available_text_models(include_hf_cache=False, ollama_host="http://localhost:11434/v1")
+
+
+@pytest.mark.skipif(not aimu.models.HAS_OLLAMA, reason="ollama not installed")
+def test_explicit_unreachable_ollama_host_raises(monkeypatch):
+    import httpx
+    import ollama
+
+    def unreachable():
+        raise httpx.ConnectError("refused")
+
+    monkeypatch.setattr(ollama, "Client", lambda **kw: types.SimpleNamespace(list=unreachable))
+    with pytest.raises(httpx.ConnectError):
+        _defaults.available_embedding_models(ollama_host="http://gpu-box:11434")
+
+
+@pytest.mark.skipif(not aimu.models.HAS_OLLAMA, reason="ollama not installed")
 def test_ollama_host_none_keeps_module_level_list(monkeypatch):
     import ollama
 

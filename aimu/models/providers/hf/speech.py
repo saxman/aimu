@@ -61,7 +61,7 @@ _SPEECHT5_SAMPLE_RATE = 16_000
 # Index into the CMU Arctic xvectors dataset used as the default speaker embedding.
 _SPEECHT5_DEFAULT_SPEAKER_IDX = 7306
 # SpeechT5 loads a vocoder and speaker embeddings from repos other than its own.
-_SPEECHT5_VOCODER = "microsoft/speecht5-hifigan"
+_SPEECHT5_VOCODER = "microsoft/speecht5_hifigan"
 _SPEECHT5_XVECTORS = "Matthijs/cmu-arctic-xvectors"
 
 

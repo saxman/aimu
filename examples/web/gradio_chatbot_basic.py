@@ -73,31 +73,22 @@ def respond(message, history, client, manager):
 
 
 from aimu.models import OllamaClient, OllamaModel, available_text_models  # noqa: E402
-
-NO_OLLAMA_MODELS = (
-    'No Ollama models are installed. Install one with `ollama pull qwen3.5:9b` or `aimu.pull("ollama:qwen3.5:9b")`, '
-    "then restart."
-)
+from model_choice import NO_OLLAMA_MODELS, NO_READY_MODEL, default_client_and_model, model_key, model_options  # noqa: E402
 
 
 def _model_options(cls):
-    """Ollama clients no longer download a model on construction, so offer only installed ones."""
-    if cls is not OllamaClient:
-        return cls.TOOL_MODELS
-    installed = set(available_text_models(include_hf_cache=False))
-    return [m for m in cls.TOOL_MODELS if m in installed]
+    installed = {model_key(m) for m in available_text_models(include_hf_cache=False)}
+    return model_options(cls, installed, ollama_client=OllamaClient)
 
 
-def _default_client_and_model():
-    """Qwen 3.5 9B on Ollama when installed, else the first installed Ollama model, else another provider."""
-    for cls in sorted(_all_clients, key=lambda c: c is not OllamaClient):
-        options = _model_options(cls)
-        if options:
-            return cls, OllamaModel.QWEN_3_5_9B if OllamaModel.QWEN_3_5_9B in options else options[0]
-    raise SystemExit(NO_OLLAMA_MODELS)
-
-
-_default_cls, _default_model = _default_client_and_model()
+_default_cls, _default_model = default_client_and_model(
+    _all_clients,
+    {model_key(m) for m in available_text_models(include_hf_cache=False)},
+    ollama_client=OllamaClient,
+    preferred=OllamaModel.QWEN_3_5_9B,
+)
+if _default_cls is None:
+    raise SystemExit(NO_READY_MODEL)
 _init_client = _new_client(_default_cls, _default_model)
 _init_manager = _new_manager(use_last_conversation=True)
 _init_client.messages = _init_manager.messages
