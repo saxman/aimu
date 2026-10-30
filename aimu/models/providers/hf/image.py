@@ -28,6 +28,7 @@ from typing import Any, Optional, Union
 # loader. Pipeline weights are still loaded lazily inside ``_load_pipeline``.
 import diffusers  # noqa: F401  # used dynamically via getattr in _load_pipeline
 
+from ._download import HubDownload
 from ._device import auto_place_pipeline, default_torch_dtype, move_to_device, pop_device_hint
 from ...base import BaseImageClient, HuggingFaceImageSpec, ImageModel
 
@@ -45,6 +46,9 @@ def _make_cache_key(spec_id: str, pipeline_class: str, model_kwargs: dict | None
 # (bf16 on CUDA, fp16 on MPS, fp32 on CPU) unless the caller specifies one. See
 # _load_pipeline.
 DEFAULT_MODEL_KWARGS: dict[str, Any] = {}
+
+# The pipeline_kwargs that change which files a pipeline loads, and so which files a pull fetches.
+_DOWNLOAD_OPTIONS = ("variant", "use_safetensors")
 
 
 class HuggingFaceImageModel(ImageModel):
@@ -208,6 +212,17 @@ class HuggingFaceImageClient(BaseImageClient):
         self._pipe: Any = None  # lazy
         self._img2img_pipe: Any = None  # lazy; loaded via from_pipe() on first img2img call
         self._cache_key = _make_cache_key(spec.id, spec.pipeline_class, model_kwargs)
+
+    @classmethod
+    def _hub_downloads(cls, spec) -> list[HubDownload]:
+        """Everything this client's loader downloads for ``spec``, for ``aimu.pull``.
+
+        Must change whenever the loader fetches something new; ``tests/test_hf_downloads.py`` fails
+        when they disagree.
+        """
+        # diffusers' own download applies the same variant and safetensors selection as from_pretrained.
+        options = {key: value for key, value in (spec.pipeline_kwargs or {}).items() if key in _DOWNLOAD_OPTIONS}
+        return [HubDownload(spec.id, "diffusers", options)]
 
     def _load_pipeline(self) -> Any:
         """Resolve the pipeline class from the diffusers namespace and load weights."""

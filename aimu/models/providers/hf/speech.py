@@ -41,6 +41,7 @@ from typing import Any, Optional, Union
 import soundfile  # noqa: F401
 
 from ._device import move_to_device, pop_device_hint, resolve_device
+from ._download import HubDownload
 from ...base import BaseSpeechClient, HuggingFaceSpeechSpec, SpeechModel
 
 logger = logging.getLogger(__name__)
@@ -59,6 +60,9 @@ _BARK_SAMPLE_RATE = 24_000
 _SPEECHT5_SAMPLE_RATE = 16_000
 # Index into the CMU Arctic xvectors dataset used as the default speaker embedding.
 _SPEECHT5_DEFAULT_SPEAKER_IDX = 7306
+# SpeechT5 loads a vocoder and speaker embeddings from repos other than its own.
+_SPEECHT5_VOCODER = "microsoft/speecht5-hifigan"
+_SPEECHT5_XVECTORS = "Matthijs/cmu-arctic-xvectors"
 
 
 class HuggingFaceSpeechModel(SpeechModel):
@@ -163,6 +167,21 @@ class HuggingFaceSpeechClient(BaseSpeechClient):
     # Lazy loaders
     # ------------------------------------------------------------------
 
+    @classmethod
+    def _hub_downloads(cls, spec) -> list[HubDownload]:
+        """Everything this client's loader downloads for ``spec``, for ``aimu.pull``.
+
+        Must change whenever the loader fetches something new; ``tests/test_hf_downloads.py`` fails
+        when they disagree.
+        """
+        if spec.pipeline_type == "speecht5":
+            return [
+                HubDownload(spec.id),
+                HubDownload(_SPEECHT5_VOCODER),
+                HubDownload(_SPEECHT5_XVECTORS, "dataset", {"split": "validation"}),
+            ]
+        return [HubDownload(spec.id)]
+
     def _load_tts_pipeline(self) -> Any:
         from transformers import pipeline
 
@@ -189,7 +208,7 @@ class HuggingFaceSpeechClient(BaseSpeechClient):
         logger.info("Loading SpeechT5 %s", self.spec.id)
         processor = SpeechT5Processor.from_pretrained(self.spec.id, **kwargs)
         model = SpeechT5ForTextToSpeech.from_pretrained(self.spec.id, **kwargs)
-        vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5-hifigan", **kwargs)
+        vocoder = SpeechT5HifiGan.from_pretrained(_SPEECHT5_VOCODER, **kwargs)
 
         model = model.to(device)
         vocoder = vocoder.to(device)
@@ -197,7 +216,7 @@ class HuggingFaceSpeechClient(BaseSpeechClient):
         # Load default speaker embedding from CMU Arctic xvectors dataset.
         from datasets import load_dataset
 
-        xvectors = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
+        xvectors = load_dataset(_SPEECHT5_XVECTORS, split="validation")
         default_embedding = torch.tensor(xvectors[_SPEECHT5_DEFAULT_SPEAKER_IDX]["xvector"]).unsqueeze(0).to(device)
 
         return processor, model, vocoder, default_embedding
@@ -281,7 +300,7 @@ class HuggingFaceSpeechClient(BaseSpeechClient):
                 if self._xvectors_cache is None:
                     from datasets import load_dataset
 
-                    self._xvectors_cache = load_dataset("Matthijs/cmu-arctic-xvectors", split="validation")
+                    self._xvectors_cache = load_dataset(_SPEECHT5_XVECTORS, split="validation")
                 device = next(self._pipe.parameters()).device
                 speaker_embedding = torch.tensor(self._xvectors_cache[idx]["xvector"]).unsqueeze(0).to(device)
             except (ValueError, IndexError):
