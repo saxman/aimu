@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
 
 from aimu.agents._tool_loop import new_run_id
 from aimu.events import EventSink
-from aimu.models import ContextOverflowError, StreamChunk, StreamingContentType
+from aimu.models import ContextOverflowError, ModelNotInstalledError, StreamChunk, StreamingContentType
 from aimu.tools.builtin import (  # noqa: F401 (re-exports)
     DEFAULT_SUBAGENT_SYSTEM_MESSAGE,
     calculate,
@@ -42,6 +42,7 @@ from aimu.tools.builtin import _reference_image_path, _require_reference_support
 from aimu.tools.builtin import (
     _RunEndingWatch,
     _subagent_docstring,
+    _subagent_missing_model_result,
     _subagent_overflow_result,
     _subagent_result,
     _validate_subagent_config,
@@ -452,6 +453,8 @@ def make_async_subagent_tool(
                 )
         except ContextOverflowError as exc:
             return _subagent_overflow_result(agent_type, exc)
+        except ModelNotInstalledError as exc:
+            return _subagent_missing_model_result(agent_type, exc)
         return _subagent_result(agent_type, answer, watch)
 
     if agent_types is None:
