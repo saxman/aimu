@@ -170,14 +170,14 @@ def test_available_text_models_concatenates_in_priority_order(monkeypatch):
     ollama = [_FakeMember("o", True)]
     hf = [_FakeMember("h", False)]
     servers = [_FakeMember("s", True)]
-    monkeypatch.setattr(_defaults, "_ollama_members", lambda: ollama)
+    monkeypatch.setattr(_defaults, "_ollama_members", lambda host=None: ollama)
     monkeypatch.setattr(_defaults, "_hf_cached_members", lambda: hf)
     monkeypatch.setattr(_defaults, "_openai_compat_members", lambda: servers)
     assert _defaults.available_text_models() == ollama + hf + servers
 
 
 def test_available_text_models_skips_hf_cache_when_disabled(monkeypatch):
-    monkeypatch.setattr(_defaults, "_ollama_members", lambda: [])
+    monkeypatch.setattr(_defaults, "_ollama_members", lambda host=None: [])
     monkeypatch.setattr(_defaults, "_hf_cached_members", lambda: pytest.fail("HF cache must be skipped"))
     monkeypatch.setattr(_defaults, "_openai_compat_members", lambda: [_FakeMember("s", False)])
     assert [m.value for m in _defaults.available_text_models(include_hf_cache=False)] == ["s"]
@@ -280,7 +280,7 @@ def test_hf_cached_modality_members_empty_when_flag_off(monkeypatch):
 def test_available_embedding_models_concatenates_ollama_then_hf(monkeypatch):
     ollama = [_FakeMember("nomic-embed-text", False)]
     hf = [_FakeMember("BAAI/bge-small-en-v1.5", False)]
-    monkeypatch.setattr(_defaults, "_ollama_embedding_members", lambda: ollama)
+    monkeypatch.setattr(_defaults, "_ollama_embedding_members", lambda host=None: ollama)
     monkeypatch.setattr(_defaults, "_hf_embedding_members", lambda: hf)
     assert _defaults.available_embedding_models() == ollama + hf
 
@@ -381,3 +381,46 @@ def test_vllm_id_not_claimed_by_omlx(monkeypatch):
     found = {(type(m).__name__, m.name) for m in _defaults._openai_compat_members()}
     assert ("VLLMOpenAIModel", "QWEN_3_8B") in found
     assert not any(enum_name == "OMLXOpenAIModel" for enum_name, _ in found)
+
+
+# --- ollama_host= and :latest tags ----------------------------------------------------
+
+
+def _ollama_listing(*names):
+    return types.SimpleNamespace(models=[types.SimpleNamespace(model=name) for name in names])
+
+
+@pytest.mark.skipif(not aimu.models.HAS_OLLAMA, reason="ollama not installed")
+def test_ollama_host_reaches_sdk_client(monkeypatch):
+    import ollama
+
+    built = []
+
+    def client(**kwargs):
+        built.append(kwargs)
+        return types.SimpleNamespace(list=lambda: _ollama_listing("qwen3:8b"))
+
+    monkeypatch.setattr(ollama, "Client", client)
+    monkeypatch.setattr(ollama, "list", lambda: pytest.fail("module-level ollama.list must not be used"))
+    monkeypatch.setattr(_defaults, "_openai_compat_members", lambda: [])
+    found = _defaults.available_text_models(include_hf_cache=False, ollama_host="http://gpu-box:11434")
+    assert aimu.models.OllamaModel.QWEN_3_8B in found
+    assert built == [{"host": "http://gpu-box:11434"}]
+
+
+@pytest.mark.skipif(not aimu.models.HAS_OLLAMA, reason="ollama not installed")
+def test_ollama_host_none_keeps_module_level_list(monkeypatch):
+    import ollama
+
+    monkeypatch.setattr(ollama, "list", lambda: _ollama_listing("qwen3:8b"))
+    monkeypatch.setattr(ollama, "Client", lambda **kw: pytest.fail("no client should be built without a host"))
+    assert aimu.models.OllamaModel.QWEN_3_8B in _defaults._ollama_members()
+
+
+@pytest.mark.skipif(not aimu.models.HAS_OLLAMA, reason="ollama not installed")
+def test_latest_tag_matches_untagged_id(monkeypatch):
+    import ollama
+
+    monkeypatch.setattr(ollama, "list", lambda: _ollama_listing("nomic-embed-text:latest"))
+    monkeypatch.setattr(_defaults, "_hf_embedding_members", lambda: [])
+    assert aimu.models.OllamaEmbeddingModel.NOMIC_EMBED_TEXT in _defaults.available_embedding_models()
