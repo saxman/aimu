@@ -1,5 +1,6 @@
 from ..base import (
     ContextOverflowError,
+    ModelNotInstalledError,
     StreamingContentType,
     StreamChunk,
     Model,
@@ -18,6 +19,7 @@ from .._internal.usage import stop_reason_from_ollama, usage_from_ollama
 
 import ollama
 import logging
+import re
 from typing import Any, Iterator, Optional, Union
 
 logger = logging.getLogger(__name__)
@@ -109,6 +111,38 @@ def _raise_if_context_overflowed(exc: ollama.ResponseError, messages: list[dict]
     ) from exc
 
 
+def _ollama_endpoint(sdk_client: Any) -> Optional[str]:
+    """The base URL an ``ollama.Client`` / ``ollama.AsyncClient`` resolved, for logs and errors.
+
+    The SDK exposes no public base URL; its wrapped httpx client holds the resolved host
+    (``OLLAMA_HOST`` included). Private, so read defensively: a missing attribute yields ``None``
+    rather than failing the caller.
+    """
+    return recordable_endpoint(getattr(getattr(sdk_client, "_client", None), "base_url", None))
+
+
+# Ollama's wording for a missing model: `model "qwen3:8b" not found, try pulling it first`.
+_MODEL_NOT_FOUND = re.compile(r"\bmodel\b.*\bnot found\b", re.IGNORECASE)
+
+
+def _raise_if_model_missing(exc: ollama.ResponseError, model_id: str, endpoint: Optional[str]) -> None:
+    """Translate Ollama's "model not found" 404 into ``ModelNotInstalledError``, or return.
+
+    Clients no longer pull at construction, so this is the error a caller meets when a model was
+    never installed. Both the status and the wording are checked: a proxy or a wrong path also
+    answers 404 ("404 page not found"), and that is not a missing model.
+    """
+    if exc.status_code != 404 or not _MODEL_NOT_FOUND.search(str(exc)):
+        return
+    raise ModelNotInstalledError(
+        f"Model {model_id!r} is not installed on the Ollama server at {endpoint or 'the default host'}. "
+        f'Install it with aimu.pull("ollama:{model_id}") (or `ollama pull {model_id}` on that server), '
+        "or construct the client with pull=True.",
+        model=model_id,
+        endpoint=endpoint,
+    ) from exc
+
+
 # Ollama's native options. ``repeat_penalty`` is the field its SDK actually has, so the portable
 # spelling is renamed into it rather than dropped. ``min_p`` has no field at all: the SDK types
 # ``options`` as a pydantic ``Options`` model, which discards unknown keys on validation, so the value
@@ -183,10 +217,7 @@ class OllamaClient(BaseModelClient):
         self._client.pull(model.value)
 
     def _request_endpoint(self) -> Optional[str]:
-        # ollama.Client exposes no public base URL; its wrapped httpx client holds the resolved
-        # host (OLLAMA_HOST included). Private, so read defensively: a missing attribute records
-        # no endpoint rather than failing the request.
-        return recordable_endpoint(getattr(getattr(self._client, "_client", None), "base_url", None))
+        return _ollama_endpoint(self._client)
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
@@ -245,7 +276,11 @@ class OllamaClient(BaseModelClient):
             "format": response_format,
         }
         self._record_request(payload)
-        response = self._client.generate(**payload)
+        try:
+            response = self._client.generate(**payload)
+        except ollama.ResponseError as exc:
+            _raise_if_model_missing(exc, self.model.value, self._request_endpoint())
+            raise
 
         logger.debug("LLM raw response: %s", response)
         self.last_usage = usage_from_ollama(response)
@@ -290,21 +325,26 @@ class OllamaClient(BaseModelClient):
             "format": response_format,
         }
         self._record_request(payload)
-        response = self._client.generate(**payload)
 
         self.last_thinking = ""
         self.last_usage = None
         self._record_stop_reason(None)
 
         response_part = None
-        for response_part in response:
-            logger.debug("LLM raw response part: %s", response_part)
+        # The SDK raises when the stream is first advanced, not at the call, so the iteration is
+        # inside the try.
+        try:
+            for response_part in self._client.generate(**payload):
+                logger.debug("LLM raw response part: %s", response_part)
 
-            if response_part.thinking:
-                self.last_thinking += response_part.thinking
-                yield StreamChunk(StreamingContentType.THINKING, response_part.thinking)
+                if response_part.thinking:
+                    self.last_thinking += response_part.thinking
+                    yield StreamChunk(StreamingContentType.THINKING, response_part.thinking)
 
-            yield StreamChunk(StreamingContentType.GENERATING, response_part["response"])
+                yield StreamChunk(StreamingContentType.GENERATING, response_part["response"])
+        except ollama.ResponseError as exc:
+            _raise_if_model_missing(exc, self.model.value, self._request_endpoint())
+            raise
 
         # The final part (done=true) carries the eval counts.
         if response_part is not None:
@@ -341,6 +381,7 @@ class OllamaClient(BaseModelClient):
         try:
             response = self._client.chat(**payload)
         except ollama.ResponseError as exc:
+            _raise_if_model_missing(exc, self.model.value, self._request_endpoint())
             _raise_if_context_overflowed(exc, messages)
             raise
 
@@ -396,6 +437,7 @@ class OllamaClient(BaseModelClient):
                 turn,
             )
         except ollama.ResponseError as exc:
+            _raise_if_model_missing(exc, self.model.value, self._request_endpoint())
             _raise_if_context_overflowed(exc, messages)
             raise
         if turn["last_part"] is not None:
@@ -541,7 +583,11 @@ class OllamaEmbeddingClient(BaseEmbeddingClient):
     def _embed(self, texts: list[str], **kwargs: Any) -> list[list[float]]:
         if self._output_dimensions:
             kwargs["dimensions"] = self._output_dimensions
-        response = self._client.embed(model=self.spec.id, input=texts, **kwargs)
+        try:
+            response = self._client.embed(model=self.spec.id, input=texts, **kwargs)
+        except ollama.ResponseError as exc:
+            _raise_if_model_missing(exc, self.spec.id, _ollama_endpoint(self._client))
+            raise
         return [list(vector) for vector in response["embeddings"]]
 
     def __repr__(self) -> str:

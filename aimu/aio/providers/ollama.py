@@ -8,7 +8,6 @@ from typing import AsyncIterator, Optional, Union
 import ollama
 
 from aimu.models._internal.image_input import _adapt_messages_for_ollama
-from aimu.models._internal.endpoint import recordable_endpoint
 from aimu.models._internal.thinking import pop_thinking
 from aimu.models._internal.usage import stop_reason_from_ollama, usage_from_ollama
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
@@ -17,7 +16,9 @@ from aimu.models.providers.ollama import (
     OllamaClient,
     OllamaModel,
     _ollama_client_kwargs,
+    _ollama_endpoint,
     _raise_if_context_overflowed,
+    _raise_if_model_missing,
 )
 
 from .._base import AsyncBaseModelClient
@@ -62,10 +63,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         self._client = ollama.AsyncClient(**_ollama_client_kwargs(host, timeout))
 
     def _request_endpoint(self) -> Optional[str]:
-        # ollama.Client exposes no public base URL; its wrapped httpx client holds the resolved
-        # host (OLLAMA_HOST included). Private, so read defensively: a missing attribute records
-        # no endpoint rather than failing the request.
-        return recordable_endpoint(getattr(getattr(self._client, "_client", None), "base_url", None))
+        return _ollama_endpoint(self._client)
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
@@ -124,7 +122,11 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             "format": response_format,
         }
         self._record_request(payload)
-        response = await self._client.generate(**payload)
+        try:
+            response = await self._client.generate(**payload)
+        except ollama.ResponseError as exc:
+            _raise_if_model_missing(exc, self.model.value, self._request_endpoint())
+            raise
         self.last_usage = usage_from_ollama(response)
         self._record_stop_reason(stop_reason_from_ollama(response))
 
@@ -153,17 +155,22 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             "format": response_format,
         }
         self._record_request(payload)
-        response = await self._client.generate(**payload)
 
         self.last_thinking = ""
         self.last_usage = None
         self._record_stop_reason(None)
         response_part = None
-        async for response_part in response:
-            if response_part.thinking:
-                self.last_thinking += response_part.thinking
-                yield StreamChunk(StreamingContentType.THINKING, response_part.thinking)
-            yield StreamChunk(StreamingContentType.GENERATING, response_part["response"])
+        # The SDK raises when the stream is first advanced, not at the call, so the iteration is
+        # inside the try.
+        try:
+            async for response_part in await self._client.generate(**payload):
+                if response_part.thinking:
+                    self.last_thinking += response_part.thinking
+                    yield StreamChunk(StreamingContentType.THINKING, response_part.thinking)
+                yield StreamChunk(StreamingContentType.GENERATING, response_part["response"])
+        except ollama.ResponseError as exc:
+            _raise_if_model_missing(exc, self.model.value, self._request_endpoint())
+            raise
 
         # The final part (done=true) carries the eval counts.
         if response_part is not None:
@@ -202,6 +209,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         try:
             response = await self._client.chat(**payload)
         except ollama.ResponseError as exc:
+            _raise_if_model_missing(exc, self.model.value, self._request_endpoint())
             _raise_if_context_overflowed(exc, messages)
             raise
         self.last_usage = usage_from_ollama(response)
@@ -255,6 +263,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             async for chunk in self._consume_turn(await _open(), turn):
                 yield chunk
         except ollama.ResponseError as exc:
+            _raise_if_model_missing(exc, self.model.value, self._request_endpoint())
             _raise_if_context_overflowed(exc, messages)
             raise
         if turn["last_part"] is not None:
