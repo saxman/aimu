@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import AsyncIterator, Optional, Union
 
@@ -36,7 +37,12 @@ async def apull_ollama_model(sdk_client: ollama.AsyncClient, model_id: str) -> N
 
 
 class AsyncOllamaClient(AsyncBaseModelClient):
-    """Async Ollama client. Mirrors :class:`OllamaClient` using ``ollama.AsyncClient``."""
+    """Async Ollama client. Mirrors :class:`OllamaClient` using ``ollama.AsyncClient``.
+
+    With ``pull=True`` the model is pulled before the first request rather than in the constructor,
+    which cannot await and where a download would block the event loop. Concurrent first requests
+    share one pull, and a pull that fails is retried by the next request.
+    """
 
     MODELS = OllamaModel
 
@@ -54,6 +60,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         max_retries: Optional[int] = None,
         *,
         host: Optional[str] = None,
+        pull: bool = False,
     ):
         super().__init__(model, None, system_message)
 
@@ -64,12 +71,19 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             )
 
         self.model_keep_alive_seconds = model_keep_alive_seconds
-
-        # Model pull happens lazily on first request; `ollama.AsyncClient` doesn't
-        # expose a separate pull. Users who want eager pull can call
-        # `ollama.Client(host=host).pull(model.value)` themselves -- module-level
-        # `ollama.pull` would target OLLAMA_HOST rather than this client's `host`.
         self._client = ollama.AsyncClient(**_ollama_client_kwargs(host, timeout))
+        self._pull_pending = pull
+        self._pull_lock: Optional[asyncio.Lock] = None
+
+    async def _ensure_pulled(self) -> None:
+        if not self._pull_pending:
+            return
+        if self._pull_lock is None:
+            self._pull_lock = asyncio.Lock()
+        async with self._pull_lock:
+            if self._pull_pending:
+                await apull_ollama_model(self._client, self.model.value)
+                self._pull_pending = False
 
     def _request_endpoint(self) -> Optional[str]:
         return _ollama_endpoint(self._client)
@@ -114,6 +128,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         audio: Optional[list] = None,
         response_format: Optional[dict] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
+        await self._ensure_pulled()
         generate_kwargs = self._resolve_generate_kwargs(generate_kwargs)
         gen_images = OllamaClient._extract_ollama_images(images)
 
@@ -196,6 +211,8 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         audio: Optional[list] = None,
         response_format: Optional[dict] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
+        # Before setup, so a failed pull leaves no user turn behind in the history.
+        await self._ensure_pulled()
         generate_kwargs, tools = await self._chat_setup(
             user_message, generate_kwargs, use_tools, images=images, audio=audio
         )

@@ -261,6 +261,13 @@ def _ollama_client_kwargs(host: Optional[str], timeout: Optional[float]) -> dict
 
 
 class OllamaClient(BaseModelClient):
+    """Chat client for Ollama's native API.
+
+    Construction does no network I/O unless ``pull=True``, which pulls the model before returning
+    (downloading only what is missing or changed, logged when bytes move). Without it, a model the
+    server does not have raises :class:`ModelNotInstalledError` at the first request.
+    """
+
     MODELS = OllamaModel
 
     GENERATE_KWARG_SUPPORT = OLLAMA_GENERATE_KWARGS
@@ -277,6 +284,7 @@ class OllamaClient(BaseModelClient):
         max_retries: Optional[int] = None,
         *,
         host: Optional[str] = None,
+        pull: bool = False,
     ):
         super().__init__(model, None, system_message)
 
@@ -289,8 +297,10 @@ class OllamaClient(BaseModelClient):
         # TODO extend model_keep_alive_seconds to other model clients
         self.model_keep_alive_seconds = model_keep_alive_seconds
         self._client = ollama.Client(**_ollama_client_kwargs(host, timeout))
-        # Runs against `host` when set, so the pull lands on the remote server.
-        self._client.pull(model.value)
+        # Opt-in: a pull re-checks the registry and downloads a newer build of an installed model,
+        # which is a side effect a caller has to ask for. Runs against `host` when set.
+        if pull:
+            pull_ollama_model(self._client, model.value)
 
     def _request_endpoint(self) -> Optional[str]:
         return _ollama_endpoint(self._client)
@@ -622,8 +632,8 @@ class OllamaEmbeddingClient(BaseEmbeddingClient):
     """Text-embedding client for a local Ollama server.
 
     Pass an :class:`OllamaEmbeddingModel` member, an :class:`OllamaEmbeddingSpec`, or an
-    ``"ollama:<model_id>"`` string. The model is pulled on construction (same as
-    :class:`OllamaClient`).
+    ``"ollama:<model_id>"`` string. Construction does no network I/O unless ``pull=True``, which pulls
+    the model (downloading only what is missing or changed), as on :class:`OllamaClient`.
 
     ``host`` targets a remote Ollama server; pass the same value used for the text client, since
     embedding a corpus against one server and querying against another silently produces vectors
@@ -640,6 +650,7 @@ class OllamaEmbeddingClient(BaseEmbeddingClient):
         host: Optional[str] = None,
         timeout: Optional[float] = None,
         dimensions: Optional[int] = None,
+        pull: bool = False,
     ):
         if isinstance(model, str):
             spec = _parse_embedding_model_string(model)
@@ -654,7 +665,8 @@ class OllamaEmbeddingClient(BaseEmbeddingClient):
             )
         super().__init__(model=model, model_kwargs=model_kwargs, spec=spec, dimensions=dimensions)
         self._client = ollama.Client(**_ollama_client_kwargs(host, timeout))
-        self._client.pull(spec.id)
+        if pull:
+            pull_ollama_model(self._client, spec.id)
 
     def _embed(self, texts: list[str], **kwargs: Any) -> list[list[float]]:
         if self._output_dimensions:
