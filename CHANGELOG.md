@@ -58,6 +58,15 @@
   `aimu.events` (sub-agents included, through `parent_run_id`), judges each deliverable blind, grades
   each architecture's predictions against the measurement, and ships with the record of one real run.
 
+### Tools
+
+- **Fix: `execute_python` returns the child's output when the child exits without reading its input.**
+  The supervisor caught `BrokenPipeError` around the write to the child's stdin, but stdin is buffered, so
+  a payload smaller than the buffer only reached the pipe at `close()`, outside that guard. On Python 3.14,
+  whose default buffer grew from 8 KiB to 128 KiB, that covered every `execute_python` payload: a child
+  that exited early raised `BrokenPipeError`, and an interrupt during the write surfaced as
+  `BrokenPipeError` instead of `KeyboardInterrupt`. `run_command` sends no stdin and was unaffected.
+
 ## v0.38.0 (2026-10-21): `calculate` evaluates arithmetic and nothing else, and a delegator hears when its worker ran out of rounds
 
 ### Tools

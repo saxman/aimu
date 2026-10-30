@@ -9,6 +9,7 @@ or cross-process (``python -m aimu.tools.mcp``).
 from __future__ import annotations
 
 import ast
+import contextlib
 import datetime
 import hashlib
 import logging
@@ -772,13 +773,20 @@ def _run_supervised(
                 if stdin_data is not None:
                     try:
                         proc.stdin.write(stdin_data)
+                        # stdin is buffered: a payload smaller than the buffer (8 KiB through
+                        # Python 3.13, 128 KiB from 3.14) reaches the pipe only when flushed.
+                        # Flushing here keeps the EPIPE below and leaves close() nothing to
+                        # flush into a child the interrupt path has since killed.
+                        proc.stdin.flush()
                     except BrokenPipeError:
                         # The child exited before reading its input. Not an interruption:
                         # fall through to the normal path, where its output and exit code
                         # explain why.
                         pass
                     finally:
-                        proc.stdin.close()
+                        # After a failed flush, close() retries it and raises the same EPIPE.
+                        with contextlib.suppress(BrokenPipeError):
+                            proc.stdin.close()
                 proc.wait(timeout=timeout_s)
             except subprocess.TimeoutExpired:
                 _kill_process_group(proc)

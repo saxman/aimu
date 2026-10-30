@@ -16,6 +16,7 @@ from typing import Iterable
 from fastmcp import FastMCP
 
 from helpers import create_real_model_client, resolve_model_params
+from aimu.agents import Agent
 from aimu.models import BaseModelClient, StreamingContentType, StreamChunk
 from aimu.tools.client import MCPClient
 
@@ -173,7 +174,11 @@ def test_chat_streamed_multiple_turns(model_client):
 
 
 def test_chat_with_tools(model_client):
-    """Test that the model can use tools to answer questions from the user."""
+    """Test that the model can use tools to answer questions from the user.
+
+    ``chat()`` is one model turn and does not execute the tools it is shown, so the full
+    tool-using answer is driven through ``Agent``, which owns the tool loop.
+    """
 
     # ensure the chat history is reset and set system message for tools
     model_client.messages = []
@@ -187,9 +192,9 @@ def test_chat_with_tools(model_client):
         return 27.0
 
     mcp_client = MCPClient(server=mcp)
-    model_client.tools = mcp_client.as_tools()
+    agent = Agent(model_client, tools=mcp_client.as_tools())
 
-    response = model_client.chat("What is the temperature in Paris?")
+    response = agent.run("What is the temperature in Paris?")
 
     # If the model does not support tools, we shouldn't see tools being used
     if not model_client.model.supports_tools:
@@ -272,7 +277,10 @@ def test_generate_streamed_exclude_thinking(model_client):
 
 
 def test_chat_streamed_with_tools(model_client):
-    """Test that the model can use tools to answer questions from the user in a streamed manner."""
+    """Test that the model can use tools to answer questions from the user in a streamed manner.
+
+    Driven through ``Agent`` for the reason given in ``test_chat_with_tools``.
+    """
 
     # ensure the chat history is reset and set system message for tools
     model_client.messages = []
@@ -286,9 +294,9 @@ def test_chat_streamed_with_tools(model_client):
         return 27.0
 
     mcp_client = MCPClient(server=mcp)
-    model_client.tools = mcp_client.as_tools()
+    agent = Agent(model_client, tools=mcp_client.as_tools())
 
-    response = model_client.chat("What is the temperature in Paris?", stream=True)
+    response = agent.run("What is the temperature in Paris?", stream=True)
 
     content = ""
     for chunk in response:
