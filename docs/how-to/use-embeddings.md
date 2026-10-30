@@ -45,12 +45,13 @@ The `embed()` surface is identical across providers; pick one with a
 
 ```python
 aimu.embedding_client("openai:text-embedding-3-small")  # cloud, reads OPENAI_API_KEY
-aimu.embedding_client("ollama:nomic-embed-text")        # local server (ollama pull first)
+aimu.embedding_client("ollama:nomic-embed-text")        # local server (pull first)
 aimu.embedding_client("hf:BAAI/bge-small-en-v1.5")      # local sentence-transformers ([hf] extra)
 ```
 
 - **OpenAI** (cloud): reads `OPENAI_API_KEY`.
-- **Ollama** (local server): pull the model first, e.g. `ollama pull nomic-embed-text`.
+- **Ollama** (local server): pull the model first, with `aimu.pull("ollama:nomic-embed-text")` or
+  `ollama pull nomic-embed-text`, or pass `pull=True`. See [Download models](download-models.md).
 - **HuggingFace** (local): backed by `sentence-transformers` (the `[hf]` extra), so each
   model's own pooling/normalization config is honoured. Weights download on first use and
   are cached; free them with `aimu.clear_hf_cache()`.

@@ -105,6 +105,7 @@ nav:
       - Compare models: how-to/compare-models.md
       - Observe a run: how-to/observe-a-run.md
       - Switch providers: how-to/switch-providers.md
+      - Download models: how-to/download-models.md
       - Add a custom tool: how-to/add-custom-tool.md
       - Add a new model: how-to/add-new-model.md
       - Add or update a provider: how-to/add-new-provider.md

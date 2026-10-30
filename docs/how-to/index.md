@@ -9,6 +9,7 @@ If you're new to AIMU, start with the [tutorials](../tutorials/index.md) instead
 - [Compare models](compare-models.md): find out what a model can do: capability flags, the same task across providers, token cost, what a run actually did, then `Benchmark` at scale
 - [Observe a run](observe-a-run.md): attach `events=` to see turn-by-turn telemetry, `last_request` for the exact payload sent, and a worked OpenTelemetry-shaped sink
 - [Switch providers](switch-providers.md): change backends without changing call sites
+- [Download models](download-models.md): see what is installed, `aimu.pull()` ahead of time, `pull=True`, and `ModelNotInstalledError`
 - [Add a new model](add-new-model.md): register a model enum member
 - [Add or update a provider](add-new-provider.md): write a provider client and wire it into the factory
 - [Stream output](stream-output.md): `stream=True`, phase filtering, helpers
