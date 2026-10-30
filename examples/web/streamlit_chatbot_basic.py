@@ -3,8 +3,10 @@ import streamlit as st
 from aimu import PROVENANCE_KEY, paths
 from aimu.agents import Agent
 from aimu.history import ConversationManager
-from aimu.models import StreamingContentType, available_text_clients
+from aimu.models import OllamaClient, StreamingContentType, available_text_clients, available_text_models
 from aimu.tools import builtin
+from model_choice import NO_OLLAMA_MODELS, NO_READY_MODEL, default_client_and_model, model_key
+from model_choice import model_options as _model_options
 
 
 def stream_reply(client, message):
@@ -28,9 +30,22 @@ def _new_client(client_cls, model):
     return client_cls(model, system_message=SYSTEM_MESSAGE)
 
 
+@st.cache_data(ttl=30, show_spinner=False)
+def installed_models() -> set[tuple[str, str]]:
+    return {model_key(m) for m in available_text_models(include_hf_cache=False)}
+
+
+def model_options(client_cls):
+    return _model_options(client_cls, installed_models(), ollama_client=OllamaClient)
+
+
 if "client" not in st.session_state:
-    client_cls = available_text_clients()[0]
-    model = client_cls.TOOL_MODELS[0]
+    client_cls, model = default_client_and_model(
+        available_text_clients(), installed_models(), ollama_client=OllamaClient
+    )
+    if client_cls is None:
+        st.warning(NO_READY_MODEL)
+        st.stop()
     st.session_state.client = _new_client(client_cls, model)
     st.session_state.conversation_manager = ConversationManager(
         db_path=str(paths.output / "chat_history_basic.json"),
@@ -43,7 +58,11 @@ with st.sidebar:
     st.write("Basic AI Assistant")
 
     client_cls = st.selectbox("Model client", options=available_text_clients(), format_func=lambda x: x.__name__)
-    model = st.selectbox("Model", options=client_cls.TOOL_MODELS, format_func=lambda x: x.name)
+    options = model_options(client_cls)
+    if not options:
+        st.warning(NO_OLLAMA_MODELS)
+        st.stop()
+    model = st.selectbox("Model", options=options, format_func=lambda x: x.name)
 
     current = st.session_state.client
     if not isinstance(current, client_cls) or current.model != model:

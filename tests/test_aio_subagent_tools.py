@@ -7,6 +7,7 @@ recording fakes. Mirrors tests/test_subagent_tools.py.
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 
 import pytest
@@ -14,7 +15,7 @@ import pytest
 from aimu.aio.agent import Agent as _RealAsyncAgent
 from aimu.aio.tools import builtin as _aio_builtin
 from aimu.aio.tools.builtin import make_async_subagent_tool
-from aimu.models import ContextOverflowError, OllamaModel, StreamChunk, StreamingContentType
+from aimu.models import ContextOverflowError, ModelNotInstalledError, OllamaModel, StreamChunk, StreamingContentType
 from aimu.tools import ToolGroup
 from aimu.tools.context import ToolContext
 
@@ -691,6 +692,43 @@ async def test_an_observed_spawn_still_reports_the_overflow_as_a_failure(monkeyp
     kind, _spawn_id, _partial, error = observer.events[-1]
     assert kind == "finished"
     assert isinstance(error, ContextOverflowError)
+
+
+class _UninstalledModelAgent(_RecordingAsyncAgent):
+    async def run(self, task, *args, **kwargs):
+        raise ModelNotInstalledError(
+            "Model 'qwen3:8b' is not installed ... construct the client with pull=True.",
+            model="qwen3:8b",
+            endpoint="http://gpu-box:11434",
+        )
+
+
+@pytest.mark.parametrize("typed", [False, True])
+async def test_spawn_with_uninstalled_model_returns_tool_result(monkeypatch, caplog, typed):
+    monkeypatch.setattr("aimu.aio.agent.Agent", _UninstalledModelAgent)
+    with caplog.at_level(logging.WARNING, logger="aimu.tools.builtin"):
+        if typed:
+            result = await make_async_subagent_tool(MODEL, agent_types=TYPES)("researcher", "dig into X")
+        else:
+            result = await make_async_subagent_tool(MODEL)("summarize X")
+    assert "qwen3:8b" in result
+    assert "not installed" in result
+    assert "retrying will not help" in result
+    assert "pull=True" not in result
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert "aimu.pull(" in warnings[0]
+
+
+async def test_async_observer_still_hears_failure_for_uninstalled_model(monkeypatch):
+    monkeypatch.setattr("aimu.aio.agent.Agent", _UninstalledModelAgent)
+    observer = _RecordingObserver()
+    spawn = make_async_subagent_tool(MODEL, agent_types=TYPES, observer=observer)
+    result = await spawn("researcher", "find X")
+    assert "not installed" in result
+    kind, _spawn_id, _partial, error = observer.events[-1]
+    assert kind == "finished"
+    assert isinstance(error, ModelNotInstalledError)
 
 
 async def test_other_child_failures_still_propagate(monkeypatch):

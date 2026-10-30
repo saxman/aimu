@@ -33,7 +33,7 @@ from aimu._window import past_end, window, window_complaint
 from aimu.events import EventSink, RunFinished
 
 # The leaf module rather than `aimu.models`, whose package __init__ reaches back into `aimu.tools`.
-from aimu.models._base.shared import ContextOverflowError
+from aimu.models._base.shared import ContextOverflowError, ModelNotInstalledError
 
 # The leaf module rather than `aimu.agents`, for the reason the line above it gives: importing the
 # package would force full execution of `aimu.agents` (Agent, OrchestratorAgent, SkillAgent, every
@@ -2676,6 +2676,32 @@ def _subagent_overflow_result(agent_type: Optional[str], exc: BaseException) -> 
     )
 
 
+def _subagent_missing_model_result(agent_type: Optional[str], exc: ModelNotInstalledError) -> str:
+    """The tool result for a spawn whose model is not installed, written for the *parent model*.
+
+    ``ModelNotInstalledError``'s message tells whoever built the client to pull the model. Read by the
+    parent model, that is advice it cannot act on, and an uncaught error reads as a transient tool
+    failure, so it would re-spawn the same specialist until its iterations ran out. Returned rather
+    than raised for the reason ``_subagent_overflow_result`` is: the parent can still recover (do the
+    work another way), while the fix itself belongs to the operator, who gets it in a WARNING.
+    """
+    who = f" {agent_type!r}" if agent_type else ""
+    _logger.warning(
+        "A spawned sub-agent%s could not start: model %r is not installed on %s. Install it with "
+        'aimu.pull("ollama:%s") or construct its client with pull=True.',
+        who,
+        exc.model,
+        exc.endpoint or "the default Ollama host",
+        exc.model,
+    )
+    return (
+        f"The sub-agent{who} could not start: its model {exc.model!r} is not installed on the model "
+        "server. This is a setup problem that only whoever runs this program can fix: retrying will not "
+        "help, and neither will rephrasing the task. Do the work another way: yourself, or with a "
+        "different agent type."
+    )
+
+
 class _RunEndingWatch:
     """An event sink that forwards every event to ``sink`` and keeps the ``RunFinished`` of one run.
 
@@ -2940,6 +2966,8 @@ def make_subagent_tool(
                 answer = agent.run(task, run_id=run_id, parent_run_id=parent_run_id, events=watch)
             except ContextOverflowError as exc:
                 return _subagent_overflow_result(None, exc)
+            except ModelNotInstalledError as exc:
+                return _subagent_missing_model_result(None, exc)
             return _subagent_result(None, answer, watch)
 
     else:
@@ -2977,6 +3005,8 @@ def make_subagent_tool(
                 answer = agent.run(task, run_id=run_id, parent_run_id=parent_run_id, events=watch)
             except ContextOverflowError as exc:
                 return _subagent_overflow_result(agent_type, exc)
+            except ModelNotInstalledError as exc:
+                return _subagent_missing_model_result(agent_type, exc)
             return _subagent_result(agent_type, answer, watch)
 
     spawn_subagent.__name__ = tool_name

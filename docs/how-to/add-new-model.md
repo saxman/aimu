@@ -284,7 +284,7 @@ Then run the model-client tests against the new entry:
 pytest tests/test_models.py --client=anthropic --model=CLAUDE_OPUS_5
 ```
 
-The model client is auto-pulled (Ollama, HuggingFace) or hits the cloud API on first use.
+The live tests pull Ollama models themselves; HuggingFace weights download on first use; cloud models just hit the API. To download a model yourself, see [Download models](download-models.md).
 
 ## See also
 

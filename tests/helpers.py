@@ -323,7 +323,9 @@ def create_real_model_client(request) -> Iterator[BaseModelClient]:
 
         time.sleep(2)  # give Ollama time to free memory from the prior model
         try:
-            client = OllamaClient(model, system_message="You are a helpful assistant.", model_keep_alive_seconds=2)
+            client = OllamaClient(
+                model, system_message="You are a helpful assistant.", model_keep_alive_seconds=2, pull=True
+            )
         except ollama.ResponseError as exc:
             # Model can't be pulled in this environment (e.g. a 412 when the local
             # Ollama is too old for the model's manifest format). Skip rather than error.

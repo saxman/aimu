@@ -13,6 +13,7 @@ from .base import (
     BaseSpeechClient,
     BaseTranscriptionClient,
     ContextOverflowError,
+    ModelNotInstalledError,
     ModelRefusalError,
     EmbeddingModel,
     EmbeddingSpec,
@@ -65,6 +66,7 @@ from .model_client import (
     resolve_model_enum,
     resolve_model_string,
 )
+from .model_pull import pull
 from .speech_client import SpeechClient, resolve_speech_model_string
 from .transcription_client import TranscriptionClient, resolve_transcription_model_string
 
@@ -239,6 +241,7 @@ __all__ = [
     "ModelClient",
     "ModelConnectionError",
     "ContextOverflowError",
+    "ModelNotInstalledError",
     "ModelRefusalError",
     "ModelSpec",
     "OpenAISpeechSpec",
@@ -269,6 +272,7 @@ __all__ = [
     "resolve_default_text_model_enum",
     "resolve_image_model_enum",
     "resolve_image_model_string",
+    "pull",
     "resolve_model_enum",
     "resolve_model_string",
     "resolve_speech_model_string",

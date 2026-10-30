@@ -1,5 +1,6 @@
 from ..base import (
     ContextOverflowError,
+    ModelNotInstalledError,
     StreamingContentType,
     StreamChunk,
     Model,
@@ -18,6 +19,7 @@ from .._internal.usage import stop_reason_from_ollama, usage_from_ollama
 
 import ollama
 import logging
+import re
 from typing import Any, Iterator, Optional, Union
 
 logger = logging.getLogger(__name__)
@@ -109,6 +111,114 @@ def _raise_if_context_overflowed(exc: ollama.ResponseError, messages: list[dict]
     ) from exc
 
 
+def _ollama_endpoint(sdk_client: Any) -> Optional[str]:
+    """The base URL an ``ollama.Client`` / ``ollama.AsyncClient`` resolved, for logs and errors.
+
+    The SDK exposes no public base URL; its wrapped httpx client holds the resolved host
+    (``OLLAMA_HOST`` included). Private, so read defensively: a missing attribute yields ``None``
+    rather than failing the caller.
+    """
+    return recordable_endpoint(getattr(getattr(sdk_client, "_client", None), "base_url", None))
+
+
+def _format_bytes(count: int) -> str:
+    """Binary units with one decimal (``9.3 GiB``), for pull logs."""
+    for unit, size in (("GiB", 1024**3), ("MiB", 1024**2), ("KiB", 1024)):
+        if count >= size:
+            return f"{count / size:.1f} {unit}"
+    return f"{count} B"
+
+
+class _PullProgress:
+    """Turns an Ollama pull's progress stream into log lines; shared by the sync and async helpers.
+
+    Ollama has no "is there an update?" endpoint, so whether a pull will download anything is only
+    known once a layer reports ``completed < total``. That first event is what earns the WARNING:
+    construction or ``aimu.pull`` is about to block on a download. Layers already on disk arrive
+    complete and stay silent, so an up-to-date pull logs nothing above DEBUG.
+    """
+
+    def __init__(self, model_id: str, endpoint: Optional[str]):
+        self.model_id = model_id
+        self.endpoint = endpoint or "the default host"
+        self._first: dict[str, int] = {}
+        self._last: dict[str, int] = {}
+        self._logged_decile: dict[str, int] = {}
+        self._warned = False
+
+    def observe(self, event: Any) -> None:
+        digest, total, completed = event.digest, event.total, event.completed
+        if not digest or not total or completed is None:
+            return
+        self._first.setdefault(digest, completed)
+        self._last[digest] = completed
+        if completed >= total:
+            return
+        if not self._warned:
+            self._warned = True
+            logger.warning(
+                "Pulling Ollama model %r on %s: downloading a %s layer (the total download size is not "
+                "known in advance).",
+                self.model_id,
+                self.endpoint,
+                _format_bytes(total),
+            )
+        decile = completed * 10 // total
+        if decile > self._logged_decile.get(digest, 0):
+            self._logged_decile[digest] = decile
+            logger.info(
+                "Pulling Ollama model %r: layer %s at %d%% of %s.",
+                self.model_id,
+                digest[:19],
+                decile * 10,
+                _format_bytes(total),
+            )
+
+    def finish(self) -> None:
+        transferred = sum(self._last[digest] - self._first[digest] for digest in self._last)
+        if transferred:
+            logger.info(
+                "Pulled Ollama model %r on %s: %s downloaded.", self.model_id, self.endpoint, _format_bytes(transferred)
+            )
+        else:
+            logger.debug("Ollama model %r on %s is already up to date.", self.model_id, self.endpoint)
+
+
+def pull_ollama_model(sdk_client: Any, model_id: str) -> None:
+    """Pull ``model_id`` onto the server ``sdk_client`` talks to, logging when bytes actually move.
+
+    Ollama's own rule applies: only missing or changed layers download, so pulling an up-to-date
+    model costs one registry round trip and nothing else. A pull error (an unknown tag, an
+    unreachable server) propagates as the SDK raised it.
+    """
+    progress = _PullProgress(model_id, _ollama_endpoint(sdk_client))
+    for event in sdk_client.pull(model_id, stream=True):
+        progress.observe(event)
+    progress.finish()
+
+
+# Ollama's wording for a missing model: `model "qwen3:8b" not found, try pulling it first`.
+_MODEL_NOT_FOUND = re.compile(r"\bmodel\b.*\bnot found\b", re.IGNORECASE)
+
+
+def _raise_if_model_missing(exc: ollama.ResponseError, model_id: str, endpoint: Optional[str]) -> None:
+    """Translate Ollama's "model not found" 404 into ``ModelNotInstalledError``, or return.
+
+    Clients no longer pull at construction, so this is the error a caller meets when a model was
+    never installed. Both the status and the wording are checked: a proxy or a wrong path also
+    answers 404 ("404 page not found"), and that is not a missing model.
+    """
+    if exc.status_code != 404 or not _MODEL_NOT_FOUND.search(str(exc)):
+        return
+    raise ModelNotInstalledError(
+        f"Model {model_id!r} is not installed on the Ollama server at {endpoint or 'the default host'}. "
+        f'Install it with aimu.pull("ollama:{model_id}") (or `ollama pull {model_id}` on that server), '
+        "or construct the client with pull=True.",
+        model=model_id,
+        endpoint=endpoint,
+    ) from exc
+
+
 # Ollama's native options. ``repeat_penalty`` is the field its SDK actually has, so the portable
 # spelling is renamed into it rather than dropped. ``min_p`` has no field at all: the SDK types
 # ``options`` as a pydantic ``Options`` model, which discards unknown keys on validation, so the value
@@ -151,6 +261,13 @@ def _ollama_client_kwargs(host: Optional[str], timeout: Optional[float]) -> dict
 
 
 class OllamaClient(BaseModelClient):
+    """Chat client for Ollama's native API.
+
+    Construction does no network I/O unless ``pull=True``, which pulls the model before returning
+    (downloading only what is missing or changed, logged when bytes move). Without it, a model the
+    server does not have raises :class:`ModelNotInstalledError` at the first request.
+    """
+
     MODELS = OllamaModel
 
     GENERATE_KWARG_SUPPORT = OLLAMA_GENERATE_KWARGS
@@ -167,6 +284,7 @@ class OllamaClient(BaseModelClient):
         max_retries: Optional[int] = None,
         *,
         host: Optional[str] = None,
+        pull: bool = False,
     ):
         super().__init__(model, None, system_message)
 
@@ -179,14 +297,13 @@ class OllamaClient(BaseModelClient):
         # TODO extend model_keep_alive_seconds to other model clients
         self.model_keep_alive_seconds = model_keep_alive_seconds
         self._client = ollama.Client(**_ollama_client_kwargs(host, timeout))
-        # Runs against `host` when set, so the pull lands on the remote server.
-        self._client.pull(model.value)
+        # Opt-in: a pull re-checks the registry and downloads a newer build of an installed model,
+        # which is a side effect a caller has to ask for. Runs against `host` when set.
+        if pull:
+            pull_ollama_model(self._client, model.value)
 
     def _request_endpoint(self) -> Optional[str]:
-        # ollama.Client exposes no public base URL; its wrapped httpx client holds the resolved
-        # host (OLLAMA_HOST included). Private, so read defensively: a missing attribute records
-        # no endpoint rather than failing the request.
-        return recordable_endpoint(getattr(getattr(self._client, "_client", None), "base_url", None))
+        return _ollama_endpoint(self._client)
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
@@ -245,7 +362,11 @@ class OllamaClient(BaseModelClient):
             "format": response_format,
         }
         self._record_request(payload)
-        response = self._client.generate(**payload)
+        try:
+            response = self._client.generate(**payload)
+        except ollama.ResponseError as exc:
+            _raise_if_model_missing(exc, self.model.value, self._request_endpoint())
+            raise
 
         logger.debug("LLM raw response: %s", response)
         self.last_usage = usage_from_ollama(response)
@@ -290,21 +411,26 @@ class OllamaClient(BaseModelClient):
             "format": response_format,
         }
         self._record_request(payload)
-        response = self._client.generate(**payload)
 
         self.last_thinking = ""
         self.last_usage = None
         self._record_stop_reason(None)
 
         response_part = None
-        for response_part in response:
-            logger.debug("LLM raw response part: %s", response_part)
+        # The SDK raises when the stream is first advanced, not at the call, so the iteration is
+        # inside the try.
+        try:
+            for response_part in self._client.generate(**payload):
+                logger.debug("LLM raw response part: %s", response_part)
 
-            if response_part.thinking:
-                self.last_thinking += response_part.thinking
-                yield StreamChunk(StreamingContentType.THINKING, response_part.thinking)
+                if response_part.thinking:
+                    self.last_thinking += response_part.thinking
+                    yield StreamChunk(StreamingContentType.THINKING, response_part.thinking)
 
-            yield StreamChunk(StreamingContentType.GENERATING, response_part["response"])
+                yield StreamChunk(StreamingContentType.GENERATING, response_part["response"])
+        except ollama.ResponseError as exc:
+            _raise_if_model_missing(exc, self.model.value, self._request_endpoint())
+            raise
 
         # The final part (done=true) carries the eval counts.
         if response_part is not None:
@@ -341,6 +467,7 @@ class OllamaClient(BaseModelClient):
         try:
             response = self._client.chat(**payload)
         except ollama.ResponseError as exc:
+            _raise_if_model_missing(exc, self.model.value, self._request_endpoint())
             _raise_if_context_overflowed(exc, messages)
             raise
 
@@ -396,6 +523,7 @@ class OllamaClient(BaseModelClient):
                 turn,
             )
         except ollama.ResponseError as exc:
+            _raise_if_model_missing(exc, self.model.value, self._request_endpoint())
             _raise_if_context_overflowed(exc, messages)
             raise
         if turn["last_part"] is not None:
@@ -504,8 +632,8 @@ class OllamaEmbeddingClient(BaseEmbeddingClient):
     """Text-embedding client for a local Ollama server.
 
     Pass an :class:`OllamaEmbeddingModel` member, an :class:`OllamaEmbeddingSpec`, or an
-    ``"ollama:<model_id>"`` string. The model is pulled on construction (same as
-    :class:`OllamaClient`).
+    ``"ollama:<model_id>"`` string. Construction does no network I/O unless ``pull=True``, which pulls
+    the model (downloading only what is missing or changed), as on :class:`OllamaClient`.
 
     ``host`` targets a remote Ollama server; pass the same value used for the text client, since
     embedding a corpus against one server and querying against another silently produces vectors
@@ -522,6 +650,7 @@ class OllamaEmbeddingClient(BaseEmbeddingClient):
         host: Optional[str] = None,
         timeout: Optional[float] = None,
         dimensions: Optional[int] = None,
+        pull: bool = False,
     ):
         if isinstance(model, str):
             spec = _parse_embedding_model_string(model)
@@ -536,12 +665,17 @@ class OllamaEmbeddingClient(BaseEmbeddingClient):
             )
         super().__init__(model=model, model_kwargs=model_kwargs, spec=spec, dimensions=dimensions)
         self._client = ollama.Client(**_ollama_client_kwargs(host, timeout))
-        self._client.pull(spec.id)
+        if pull:
+            pull_ollama_model(self._client, spec.id)
 
     def _embed(self, texts: list[str], **kwargs: Any) -> list[list[float]]:
         if self._output_dimensions:
             kwargs["dimensions"] = self._output_dimensions
-        response = self._client.embed(model=self.spec.id, input=texts, **kwargs)
+        try:
+            response = self._client.embed(model=self.spec.id, input=texts, **kwargs)
+        except ollama.ResponseError as exc:
+            _raise_if_model_missing(exc, self.spec.id, _ollama_endpoint(self._client))
+            raise
         return [list(vector) for vector in response["embeddings"]]
 
     def __repr__(self) -> str:

@@ -41,6 +41,7 @@ from typing import Any, Optional, Union
 import soundfile  # noqa: F401
 
 from ._device import move_to_device, pop_device_hint
+from ._download import HubDownload
 from ...base import AudioModel, BaseAudioClient, HuggingFaceAudioSpec, StreamChunk, StreamingContentType
 
 logger = logging.getLogger(__name__)
@@ -166,6 +167,17 @@ class HuggingFaceAudioClient(BaseAudioClient):
     # ------------------------------------------------------------------
     # Lazy loaders
     # ------------------------------------------------------------------
+
+    @classmethod
+    def _hub_downloads(cls, spec) -> list[HubDownload]:
+        """Everything this client's loader downloads for ``spec``, for ``aimu.pull``.
+
+        Must change whenever the loader fetches something new; ``tests/test_hf_downloads.py`` fails
+        when they disagree.
+        """
+        if spec.pipeline_type == "musicgen":
+            return [HubDownload(spec.id)]
+        return [HubDownload(spec.id, "diffusers")]
 
     def _load_musicgen(self) -> tuple[Any, Any]:
         """Load MusicGen processor + model from transformers."""

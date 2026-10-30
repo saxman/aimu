@@ -1,5 +1,6 @@
 from ...base import StreamingContentType, StreamChunk, Model, BaseModelClient, ContextOverflowError, classproperty
 from ..._catalog import Wire
+from ._download import HubDownload
 from ..._internal.audio_input import _extract_audio_arrays, _replace_audio_with_placeholder
 from ..._internal.generate_kwargs import LOCAL_MAX_TOKENS, Unsupported
 from ..._internal.image_input import (
@@ -331,6 +332,15 @@ class HuggingFaceClient(BaseModelClient):
         "device_map": "auto",
         "torch_dtype": "auto",
     }
+
+    @classmethod
+    def _hub_downloads(cls, spec) -> list[HubDownload]:
+        """Everything this client's loader downloads for ``spec``, for ``aimu.pull``.
+
+        Must change whenever the loader fetches something new; ``tests/test_hf_downloads.py`` fails
+        when they disagree.
+        """
+        return [HubDownload(spec.id)]
 
     def __init__(
         self,

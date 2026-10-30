@@ -27,6 +27,7 @@ class FakeClient:
 
     def pull(self, model, *args, **kwargs):
         self.pulled.append(model)
+        return iter(())
 
     def embed(self, model=None, input=None, **kwargs):
         self.embedded = (model, input)
@@ -92,10 +93,10 @@ def test_sync_client_forwards_host_with_timeout(sync_clients):
 
 
 def test_sync_client_pulls_on_the_remote_host(sync_clients):
-    # The eager pull runs through the host-bound client, so it lands on the remote server.
+    # An opted-in pull runs through the host-bound client, so it lands on the remote server.
     from aimu.models.providers.ollama import OllamaClient
 
-    OllamaClient(OllamaModel.LLAMA_3_2_3B, host=REMOTE)
+    OllamaClient(OllamaModel.LLAMA_3_2_3B, host=REMOTE, pull=True)
     assert sync_clients[0].pulled == [OllamaModel.LLAMA_3_2_3B.value]
 
 
@@ -131,7 +132,7 @@ def test_embedding_client_omits_host_when_unset(sync_clients):
 def test_embedding_client_pulls_and_embeds_through_the_host_bound_client(sync_clients):
     # The regression this closes: module-level `ollama.pull` / `ollama.embed` ignored `host`,
     # so a remote text client silently paired with a localhost embedder.
-    client = OllamaEmbeddingClient(OllamaEmbeddingModel.NOMIC_EMBED_TEXT, host=REMOTE)
+    client = OllamaEmbeddingClient(OllamaEmbeddingModel.NOMIC_EMBED_TEXT, host=REMOTE, pull=True)
     vectors = client.embed(["one", "two"])
 
     fake = sync_clients[0]

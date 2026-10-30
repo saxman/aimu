@@ -256,12 +256,12 @@ def create_real_async_model_client(request):
         time.sleep(2)  # let Ollama free memory from a prior model
         from aimu.aio.providers.ollama import AsyncOllamaClient
 
-        # AsyncOllamaClient doesn't pre-pull (no sync `ollama.pull`); ensure the model
-        # is present locally via the sync `ollama.pull` first if needed.
         import ollama
 
+        import aimu
+
         try:
-            ollama.pull(model.value)
+            aimu.pull(model)
         except ollama.ResponseError as exc:
             # Model can't be pulled in this environment (e.g. a 412 when the local
             # Ollama is too old for the model's manifest format). Skip rather than error.

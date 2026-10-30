@@ -25,8 +25,11 @@ from aimu.models import (
     available_image_clients,
     available_speech_clients,
     available_text_clients,
+    available_text_models,
 )
 from aimu.tools import builtin
+from model_choice import NO_OLLAMA_MODELS, NO_READY_MODEL, default_client_and_model, model_key
+from model_choice import model_options as _model_options
 
 # Avoid torch RuntimeError when using Hugging Face Transformers
 torch.classes.__path__ = []
@@ -45,8 +48,24 @@ IMAGE_CLIENT_CLASSES = available_image_clients()
 AUDIO_CLIENT_CLASSES = available_audio_clients()
 SPEECH_CLIENT_CLASSES = available_speech_clients()
 
-_DEFAULT_CLIENT = OllamaClient if HAS_OLLAMA else MODEL_CLIENTS[0]
-_DEFAULT_MODEL = OllamaModel.QWEN_3_5_9B if HAS_OLLAMA else MODEL_CLIENTS[0].TOOL_MODELS[0]
+
+@st.cache_data(ttl=30, show_spinner=False)
+def _installed_models() -> set[tuple[str, str]]:
+    return {model_key(m) for m in available_text_models(include_hf_cache=False)}
+
+
+def model_options(client_cls):
+    return _model_options(client_cls, _installed_models(), ollama_client=OllamaClient)
+
+
+def _default_client_and_model():
+    return default_client_and_model(
+        MODEL_CLIENTS,
+        _installed_models(),
+        ollama_client=OllamaClient,
+        preferred=OllamaModel.QWEN_3_5_9B if HAS_OLLAMA else None,
+    )
+
 
 SLIDER_DEFAULTS = {"temperature": 0.15, "top_p": 0.9, "repeat_penalty": 1.1}
 
@@ -410,7 +429,11 @@ if "model_client" not in st.session_state:
         st.session_state.speech_model = default_speech_model
         st.session_state.speech_client = speech_c
         st.session_state.speech_client_error = speech_err
-    _rebuild_client(_DEFAULT_CLIENT, _DEFAULT_MODEL, True, 10)
+    default_client, default_model = _default_client_and_model()
+    if default_client is None:
+        st.warning(NO_READY_MODEL)
+        st.stop()
+    _rebuild_client(default_client, default_model, True, 10)
 
     st.session_state.conversation_manager = ConversationManager(
         db_path=str(paths.output / "chat_history.json"),
@@ -423,7 +446,7 @@ with st.sidebar:
     st.write("Example AI Assistant")
 
     # Model/client selectors use base_client since the agentic view doesn't expose TOOL_MODELS.
-    _tool_models = st.session_state.base_client.TOOL_MODELS
+    _tool_models = model_options(type(st.session_state.base_client))
     model = st.selectbox(
         "Model",
         options=_tool_models,
@@ -449,7 +472,11 @@ with st.sidebar:
     # session state keys that are bound to slider widgets without triggering a StreamlitAPIException.
     # Use base_client for isinstance checks; model_client may be an agentic view.
     if not isinstance(st.session_state.base_client, model_client):
-        _rebuild_client(model_client, model_client.TOOL_MODELS[0], agentic_mode, max_iterations)
+        options = model_options(model_client)
+        if not options:
+            st.warning(NO_OLLAMA_MODELS)
+            st.stop()
+        _rebuild_client(model_client, options[0], agentic_mode, max_iterations)
         st.rerun()
     elif st.session_state.model != model:
         _rebuild_client(model_client, model, agentic_mode, max_iterations)

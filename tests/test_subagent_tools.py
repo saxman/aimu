@@ -14,7 +14,7 @@ import pytest
 # Captured at module load, before the autouse fixture below replaces the attribute with a
 # recording fake; importing it fresh inside a test would just re-fetch the fake.
 from aimu.agents.agent import Agent as _RealAgent
-from aimu.models import ContextOverflowError
+from aimu.models import ContextOverflowError, ModelNotInstalledError
 from aimu.tools import ToolGroup
 from aimu.tools.builtin import make_subagent_tool
 from aimu.tools.context import ToolContext
@@ -534,6 +534,38 @@ def test_a_full_child_is_logged_even_though_the_model_gets_a_string(caplog):
     with caplog.at_level(logging.WARNING, logger="aimu.tools.builtin"):
         make_subagent_tool(MODEL, agent_types=TYPES)("writer", "write it up")
     assert any("ran out of context" in r.getMessage() for r in caplog.records)
+
+
+# ---------------------------------------------------------------------------
+# A child whose model is not installed
+# ---------------------------------------------------------------------------
+
+
+def _not_installed() -> ModelNotInstalledError:
+    return ModelNotInstalledError(
+        "Model 'qwen3:8b' is not installed ... construct the client with pull=True.",
+        model="qwen3:8b",
+        endpoint="http://gpu-box:11434",
+    )
+
+
+@pytest.mark.parametrize("typed", [False, True])
+def test_spawn_with_uninstalled_model_returns_tool_result(caplog, typed):
+    """The parent model cannot install a model; told ``pull=True`` it would retry until out of rounds."""
+    _RecordingAgent.raises = _not_installed()
+    with caplog.at_level(logging.WARNING, logger="aimu.tools.builtin"):
+        if typed:
+            result = make_subagent_tool(MODEL, agent_types=TYPES)("researcher", "dig into X")
+        else:
+            result = make_subagent_tool(MODEL)("summarize X")
+    assert "qwen3:8b" in result
+    assert "not installed" in result
+    assert "retrying will not help" in result
+    assert "pull=True" not in result
+    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert "qwen3:8b" in warnings[0]
+    assert "aimu.pull(" in warnings[0]
 
 
 def test_other_child_failures_still_propagate():

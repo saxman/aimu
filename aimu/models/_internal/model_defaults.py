@@ -96,35 +96,56 @@ def _provider_prefix(member: "Model") -> str:
 # --- Raw local-availability scans (return all matching enum members; no selection) -----
 
 
-def _ollama_installed_names() -> set[str]:
-    """Model names pulled on a running Ollama server (empty set if unreachable).
+def _ollama_installed_names(host: Optional[str] = None) -> set[str]:
+    """Model names pulled on a running Ollama server.
 
-    This probes the server the module-level ``ollama.list()`` resolves to: ``OLLAMA_HOST`` if
-    set, else ``127.0.0.1:11434``. A per-client ``host=`` (see :class:`OllamaClient`) is
-    deliberately invisible here -- discovery runs before any client exists, so there is no host
-    to read. Set ``OLLAMA_HOST`` to point discovery at a remote server.
+    With no ``host`` this probes the server the module-level ``ollama.list()`` resolves to:
+    ``OLLAMA_HOST`` if set, else ``127.0.0.1:11434``, and any failure reads as an empty set, since that
+    probe runs implicitly (default-model resolution, name tiebreaking) and a server that is not running
+    is the common case. A client's ``host=`` is invisible here, since discovery runs before any client
+    exists; ``host`` is the per-call way to name a remote server. A host the caller named is not probed
+    silently: a ``/v1`` suffix raises ``ValueError`` and an unreachable server raises the transport
+    error, rather than both looking like a server with nothing installed.
     """
+    from .. import HAS_OLLAMA
+
+    if not HAS_OLLAMA:
+        return set()
+    if host is not None:
+        return _list_ollama_names(host)
     try:
-        from .. import HAS_OLLAMA
-
-        if not HAS_OLLAMA:
-            return set()
-        import ollama
-
-        resp = ollama.list()
-        raw = getattr(resp, "models", None)
-        if raw is None and isinstance(resp, dict):
-            raw = resp.get("models", [])
-        names: set[str] = set()
-        for entry in raw or []:
-            name = getattr(entry, "model", None) or getattr(entry, "name", None)
-            if name is None and isinstance(entry, dict):
-                name = entry.get("model") or entry.get("name")
-            if name:
-                names.add(name)
-        return names
+        return _list_ollama_names(None)
     except Exception:  # server down, lib quirk, etc.
         return set()
+
+
+def _list_ollama_names(host: Optional[str]) -> set[str]:
+    """``ollama list`` as a set of names; raises on any failure.
+
+    Ollama lists an untagged model as ``name:latest`` while catalog ids carry no tag
+    (``nomic-embed-text``), so each ``:latest`` name is also reported without the suffix.
+    """
+    import ollama
+
+    if host is None:
+        resp = ollama.list()
+    else:
+        from ..providers.ollama import _ollama_client_kwargs
+
+        resp = ollama.Client(**_ollama_client_kwargs(host, None)).list()
+    raw = getattr(resp, "models", None)
+    if raw is None and isinstance(resp, dict):
+        raw = resp.get("models", [])
+    names: set[str] = set()
+    for entry in raw or []:
+        name = getattr(entry, "model", None) or getattr(entry, "name", None)
+        if name is None and isinstance(entry, dict):
+            name = entry.get("model") or entry.get("name")
+        if name:
+            names.add(name)
+            if name.endswith(":latest"):
+                names.add(name.removesuffix(":latest"))
+    return names
 
 
 def _hf_cached_repo_ids() -> set[str]:
@@ -150,17 +171,19 @@ def _hf_cached_modality_members(members: list, has_flag: bool) -> list:
     return [m for m in members if m.value in cached] if cached else []
 
 
-def _ollama_members() -> list:
-    """Every ``OllamaModel`` enum member installed on a running Ollama server."""
+def _ollama_members(host: Optional[str] = None) -> list:
+    """Every ``OllamaModel`` enum member installed on a running Ollama server.
+
+    Raises only for an explicit ``host`` (see :func:`_ollama_installed_names`).
+    """
     try:
         from .. import HAS_OLLAMA, OllamaModel
-
-        if not HAS_OLLAMA:
-            return []
-        names = _ollama_installed_names()
-        return [m for m in OllamaModel if m.value in names] if names else []
     except Exception:
         return []
+    if not HAS_OLLAMA:
+        return []
+    names = _ollama_installed_names(host)
+    return [m for m in OllamaModel if m.value in names]
 
 
 def _hf_cached_members() -> list:
@@ -221,7 +244,7 @@ def _openai_compat_served_text_models() -> Optional[str]:
     return f"{_provider_prefix(member)}:{member.value}" if member else None
 
 
-def available_text_models(*, include_hf_cache: bool = True) -> list:
+def available_text_models(*, include_hf_cache: bool = True, ollama_host: Optional[str] = None) -> list:
     """Return locally *available* text models as provider ``Model`` enum members.
 
     Discovery is download-free and cloud-free; it reports only what is loadable right
@@ -235,15 +258,15 @@ def available_text_models(*, include_hf_cache: bool = True) -> list:
 
     **The Ollama probe is env-driven, not client-driven.** It reads ``OLLAMA_HOST`` (else
     ``127.0.0.1:11434``); a remote server reached with a per-client ``OllamaClient(host=...)``
-    does not appear here, and neither do the models on it. Export ``OLLAMA_HOST`` when you want
-    discovery, default-model resolution, and ambiguous-name tiebreaking to consider a remote
-    server. The same applies to the local OpenAI-compatible probes, which try each provider's
+    does not appear here unless you name it with ``ollama_host=``. That covers this call only:
+    export ``OLLAMA_HOST`` when you want default-model resolution and ambiguous-name tiebreaking
+    to consider a remote server too. The same applies to the local OpenAI-compatible probes, which try each provider's
     default ``base_url`` rather than any ``base_url=`` a caller passed a client.
 
     See :func:`resolve_default_text_model_enum` for the single auto-pick, and
     :func:`aimu.resolve_model_enum` to resolve a *named* model to an enum member.
     """
-    members = list(_ollama_members())
+    members = list(_ollama_members(ollama_host))
     if include_hf_cache:
         members += _hf_cached_members()
     members += _openai_compat_members()
@@ -287,17 +310,19 @@ def available_transcription_models() -> list:
     return _hf_cached_modality_members(list(HuggingFaceTranscriptionModel or []), HAS_HF_TRANSCRIPTION)
 
 
-def _ollama_embedding_members() -> list:
-    """Every ``OllamaEmbeddingModel`` member installed on a running Ollama server."""
+def _ollama_embedding_members(host: Optional[str] = None) -> list:
+    """Every ``OllamaEmbeddingModel`` member installed on a running Ollama server.
+
+    Raises only for an explicit ``host`` (see :func:`_ollama_installed_names`).
+    """
     try:
         from .. import HAS_OLLAMA_EMBEDDING, OllamaEmbeddingModel
-
-        if not HAS_OLLAMA_EMBEDDING:
-            return []
-        names = _ollama_installed_names()
-        return [m for m in OllamaEmbeddingModel if m.value in names] if names else []
     except Exception:
         return []
+    if not HAS_OLLAMA_EMBEDDING:
+        return []
+    names = _ollama_installed_names(host)
+    return [m for m in OllamaEmbeddingModel if m.value in names]
 
 
 def _hf_embedding_members() -> list:
@@ -310,9 +335,12 @@ def _hf_embedding_members() -> list:
         return []
 
 
-def available_embedding_models() -> list:
-    """Locally available embedding models (running Ollama → HuggingFace cache), as enum members."""
-    return _ollama_embedding_members() + _hf_embedding_members()
+def available_embedding_models(*, ollama_host: Optional[str] = None) -> list:
+    """Locally available embedding models (running Ollama → HuggingFace cache), as enum members.
+
+    ``ollama_host`` probes that Ollama server instead of ``OLLAMA_HOST`` / ``127.0.0.1:11434``.
+    """
+    return _ollama_embedding_members(ollama_host) + _hf_embedding_members()
 
 
 def _modality_model_string(member) -> str:

@@ -30,6 +30,22 @@ class ContextOverflowError(RuntimeError):
     is ``None`` by design -- do not assume every instance of this error carries one."""
 
 
+class ModelNotInstalledError(RuntimeError):
+    """Raised when the inference server is reachable but does not have the requested model.
+
+    Distinct from :class:`ModelConnectionError` (the server could not be reached) and from a pull
+    failure (the registry has no such model): the model exists, it is just not on *this* server.
+    AIMU does not download models implicitly, so the remedy is an explicit one, which the message
+    names. The provider's own error is preserved on ``__cause__``. Being a distinct type, it composes
+    with :class:`aimu.models.FallbackClient`'s ``retry_on``, to fall back to a model that is installed.
+    """
+
+    def __init__(self, message: str, *, model: str, endpoint: Optional[str]):
+        super().__init__(message)
+        self.model = model
+        self.endpoint = endpoint
+
+
 class ModelRefusalError(RuntimeError):
     """Raised when a model's safety classifiers decline a request rather than answer it.
 

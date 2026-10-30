@@ -46,7 +46,7 @@ client = aimu.client("ollama:qwen3.5:9b", host="gpu-box")
 embedder = aimu.embedding_client("ollama:nomic-embed-text", host="gpu-box")
 ```
 
-`OllamaClient` pulls the model in its constructor, so with `host=` set the pull runs on the remote machine.
+Constructing a client does not download the model. `pull=True` on the client, or `aimu.pull(..., host=...)`, pulls it on the remote machine; see [Download models](download-models.md).
 
 ### Local discovery stays env-driven
 

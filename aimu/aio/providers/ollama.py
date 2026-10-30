@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import AsyncIterator, Optional, Union
 
 import ollama
 
 from aimu.models._internal.image_input import _adapt_messages_for_ollama
-from aimu.models._internal.endpoint import recordable_endpoint
 from aimu.models._internal.thinking import pop_thinking
 from aimu.models._internal.usage import stop_reason_from_ollama, usage_from_ollama
 from aimu.models.base import Model, StreamChunk, StreamingContentType, classproperty
@@ -16,8 +16,11 @@ from aimu.models.providers.ollama import (
     OLLAMA_GENERATE_KWARGS,
     OllamaClient,
     OllamaModel,
+    _PullProgress,
     _ollama_client_kwargs,
+    _ollama_endpoint,
     _raise_if_context_overflowed,
+    _raise_if_model_missing,
 )
 
 from .._base import AsyncBaseModelClient
@@ -25,8 +28,21 @@ from .._base import AsyncBaseModelClient
 logger = logging.getLogger(__name__)
 
 
+async def apull_ollama_model(sdk_client: ollama.AsyncClient, model_id: str) -> None:
+    """Async twin of :func:`aimu.models.providers.ollama.pull_ollama_model`; logs identically."""
+    progress = _PullProgress(model_id, _ollama_endpoint(sdk_client))
+    async for event in await sdk_client.pull(model_id, stream=True):
+        progress.observe(event)
+    progress.finish()
+
+
 class AsyncOllamaClient(AsyncBaseModelClient):
-    """Async Ollama client. Mirrors :class:`OllamaClient` using ``ollama.AsyncClient``."""
+    """Async Ollama client. Mirrors :class:`OllamaClient` using ``ollama.AsyncClient``.
+
+    With ``pull=True`` the model is pulled before the first request rather than in the constructor,
+    which cannot await and where a download would block the event loop. Concurrent first requests
+    share one pull, and a pull that fails is retried by the next request.
+    """
 
     MODELS = OllamaModel
 
@@ -44,6 +60,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         max_retries: Optional[int] = None,
         *,
         host: Optional[str] = None,
+        pull: bool = False,
     ):
         super().__init__(model, None, system_message)
 
@@ -54,18 +71,22 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             )
 
         self.model_keep_alive_seconds = model_keep_alive_seconds
-
-        # Model pull happens lazily on first request; `ollama.AsyncClient` doesn't
-        # expose a separate pull. Users who want eager pull can call
-        # `ollama.Client(host=host).pull(model.value)` themselves -- module-level
-        # `ollama.pull` would target OLLAMA_HOST rather than this client's `host`.
         self._client = ollama.AsyncClient(**_ollama_client_kwargs(host, timeout))
+        self._pull_pending = pull
+        self._pull_lock: Optional[asyncio.Lock] = None
+
+    async def _ensure_pulled(self) -> None:
+        if not self._pull_pending:
+            return
+        if self._pull_lock is None:
+            self._pull_lock = asyncio.Lock()
+        async with self._pull_lock:
+            if self._pull_pending:
+                await apull_ollama_model(self._client, self.model.value)
+                self._pull_pending = False
 
     def _request_endpoint(self) -> Optional[str]:
-        # ollama.Client exposes no public base URL; its wrapped httpx client holds the resolved
-        # host (OLLAMA_HOST included). Private, so read defensively: a missing attribute records
-        # no endpoint rather than failing the request.
-        return recordable_endpoint(getattr(getattr(self._client, "_client", None), "base_url", None))
+        return _ollama_endpoint(self._client)
 
     @classproperty
     def THINKING_MODELS(cls) -> list[Model]:  # noqa: N805
@@ -107,6 +128,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         audio: Optional[list] = None,
         response_format: Optional[dict] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
+        await self._ensure_pulled()
         generate_kwargs = self._resolve_generate_kwargs(generate_kwargs)
         gen_images = OllamaClient._extract_ollama_images(images)
 
@@ -124,7 +146,11 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             "format": response_format,
         }
         self._record_request(payload)
-        response = await self._client.generate(**payload)
+        try:
+            response = await self._client.generate(**payload)
+        except ollama.ResponseError as exc:
+            _raise_if_model_missing(exc, self.model.value, self._request_endpoint())
+            raise
         self.last_usage = usage_from_ollama(response)
         self._record_stop_reason(stop_reason_from_ollama(response))
 
@@ -153,17 +179,22 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             "format": response_format,
         }
         self._record_request(payload)
-        response = await self._client.generate(**payload)
 
         self.last_thinking = ""
         self.last_usage = None
         self._record_stop_reason(None)
         response_part = None
-        async for response_part in response:
-            if response_part.thinking:
-                self.last_thinking += response_part.thinking
-                yield StreamChunk(StreamingContentType.THINKING, response_part.thinking)
-            yield StreamChunk(StreamingContentType.GENERATING, response_part["response"])
+        # The SDK raises when the stream is first advanced, not at the call, so the iteration is
+        # inside the try.
+        try:
+            async for response_part in await self._client.generate(**payload):
+                if response_part.thinking:
+                    self.last_thinking += response_part.thinking
+                    yield StreamChunk(StreamingContentType.THINKING, response_part.thinking)
+                yield StreamChunk(StreamingContentType.GENERATING, response_part["response"])
+        except ollama.ResponseError as exc:
+            _raise_if_model_missing(exc, self.model.value, self._request_endpoint())
+            raise
 
         # The final part (done=true) carries the eval counts.
         if response_part is not None:
@@ -180,6 +211,8 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         audio: Optional[list] = None,
         response_format: Optional[dict] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
+        # Before setup, so a failed pull leaves no user turn behind in the history.
+        await self._ensure_pulled()
         generate_kwargs, tools = await self._chat_setup(
             user_message, generate_kwargs, use_tools, images=images, audio=audio
         )
@@ -202,6 +235,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         try:
             response = await self._client.chat(**payload)
         except ollama.ResponseError as exc:
+            _raise_if_model_missing(exc, self.model.value, self._request_endpoint())
             _raise_if_context_overflowed(exc, messages)
             raise
         self.last_usage = usage_from_ollama(response)
@@ -255,6 +289,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             async for chunk in self._consume_turn(await _open(), turn):
                 yield chunk
         except ollama.ResponseError as exc:
+            _raise_if_model_missing(exc, self.model.value, self._request_endpoint())
             _raise_if_context_overflowed(exc, messages)
             raise
         if turn["last_part"] is not None:

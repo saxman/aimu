@@ -20,6 +20,7 @@ from typing import Any
 import sentence_transformers  # noqa: F401
 
 from ._device import pop_device_hint
+from ._download import HubDownload
 from ...base import BaseEmbeddingClient, EmbeddingModel, HuggingFaceEmbeddingSpec
 
 logger = logging.getLogger(__name__)
@@ -176,6 +177,15 @@ class HuggingFaceEmbeddingClient(BaseEmbeddingClient):
         super().__init__(model=model, model_kwargs=model_kwargs, spec=spec, dimensions=dimensions)
         self._model: Any = None  # lazy
         self._cache_key = _make_cache_key(spec.id, model_kwargs)
+
+    @classmethod
+    def _hub_downloads(cls, spec) -> list[HubDownload]:
+        """Everything this client's loader downloads for ``spec``, for ``aimu.pull``.
+
+        Must change whenever the loader fetches something new; ``tests/test_hf_downloads.py`` fails
+        when they disagree.
+        """
+        return [HubDownload(spec.id)]
 
     def _load_model(self) -> Any:
         from sentence_transformers import SentenceTransformer

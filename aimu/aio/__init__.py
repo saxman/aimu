@@ -48,7 +48,7 @@ from ._model_client import AsyncModelClient, client, chat
 # already behind aimu's lazy `aio` attribute gate -- deferring further here would add
 # indirection with nothing to show for it on the import-weight guard.
 from .context import summarize_messages
-from aimu.models import ContextOverflowError, ModelConnectionError, ModelRefusalError
+from aimu.models import ContextOverflowError, ModelConnectionError, ModelNotInstalledError, ModelRefusalError
 from .fallback import AsyncFallbackClient
 from aimu.agents import DegenerateTurnError, TruncatedTurnError
 from aimu.agents.inbox import Inbox
@@ -59,6 +59,7 @@ from .scheduler import Scheduler
 from .audio import AsyncAudioClient, audio_client, generate_audio
 from .embedding import AsyncEmbeddingClient, embed, embedding_client
 from .image import AsyncImageClient, generate_image, image_client
+from .model_pull import pull
 from .speech import AsyncSpeechClient, speech_client, generate_speech
 from .transcription import AsyncTranscriptionClient, transcription_client, transcribe
 from .skill_agent import SkillAgent
@@ -156,6 +157,7 @@ __all__ = [
     "MCPClient",
     "ModelConnectionError",
     "ContextOverflowError",
+    "ModelNotInstalledError",
     "ModelRefusalError",
     "OrchestratorAgent",
     "Parallel",
@@ -169,6 +171,7 @@ __all__ = [
     "chat",
     "client",
     "embed",
+    "pull",
     "embedding_client",
     "generate_audio",
     "generate_image",

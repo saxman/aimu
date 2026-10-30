@@ -21,6 +21,7 @@ from typing import Any
 import soundfile  # noqa: F401
 
 from ._device import pop_device_hint
+from ._download import HubDownload
 from ...base import BaseTranscriptionClient, HuggingFaceTranscriptionSpec, TranscriptionModel
 
 logger = logging.getLogger(__name__)
@@ -129,6 +130,15 @@ class HuggingFaceTranscriptionClient(BaseTranscriptionClient):
     # ------------------------------------------------------------------
     # Lazy loader
     # ------------------------------------------------------------------
+
+    @classmethod
+    def _hub_downloads(cls, spec) -> list[HubDownload]:
+        """Everything this client's loader downloads for ``spec``, for ``aimu.pull``.
+
+        Must change whenever the loader fetches something new; ``tests/test_hf_downloads.py`` fails
+        when they disagree.
+        """
+        return [HubDownload(spec.id)]
 
     def _load_pipeline(self) -> Any:
         from transformers import pipeline

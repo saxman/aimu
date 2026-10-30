@@ -22,6 +22,32 @@
   Their templates prefill `<think>` when thinking is on and a closed `<think></think>` when it is off. The
   decoder assumed the open form in both cases, so a thinking-off reply, which has no `</think>`, was filed
   as reasoning. The Nemotron-H members above share these templates, so they would have had the same fault.
+- **Change (breaking): Ollama clients no longer pull the model when constructed.** `OllamaClient`,
+  `AsyncOllamaClient`, and `OllamaEmbeddingClient` pulled unconditionally, and Ollama's pull re-checks the
+  registry, so building a client could start a multi-gigabyte download of a newer build of a model that
+  was already installed, with nothing logged, once per sub-agent spawn (#9). Construction now does no
+  network I/O. Code that relied on the implicit pull gets `ModelNotInstalledError` at its first request;
+  pass `pull=True` or call `aimu.pull()` first.
+- **New: `aimu.pull()` and `aimu.aio.pull()`** download a model ahead of use. Ollama models get Ollama's
+  own pull (only missing or changed layers), on `host=` when given. HuggingFace models of every modality
+  get everything their client's loader fetches, including SpeechT5's vocoder and speaker dataset, so the
+  client then builds and runs offline. Other providers are refused with their own mechanism.
+- **New: `pull=True`** on the three Ollama clients, with the same rule. The async client pulls before its
+  first request rather than in its constructor.
+- **New: `ModelNotInstalledError`**, raised when the Ollama server is reachable but lacks the model, with
+  the server's error on `__cause__` and a message naming both remedies. A sub-agent spawned with a
+  missing model returns a tool result telling the parent not to retry, rather than raising into its run.
+- **New: a pull that downloads is logged.** A WARNING when bytes actually start moving, INFO progress,
+  and a completion line. An up-to-date pull logs only at DEBUG.
+- **New: `ollama_host=`** on `available_text_models()` and `available_embedding_models()`, to list a
+  remote Ollama server's models for one call.
+- **Fix: SpeechT5 loads.** Its vocoder was requested as `microsoft/speecht5-hifigan`, a repo that does not
+  exist; the id is `microsoft/speecht5_hifigan`.
+- **Fix: the Streamlit and Gradio example apps no longer start a download on their own.** Their model menus
+  offer installed Ollama models only, and their startup default never falls back to a HuggingFace or
+  llama.cpp client, whose constructor downloads weights.
+- **Fix: `available_embedding_models()` finds installed Ollama embedders.** Ollama lists an untagged
+  model as `nomic-embed-text:latest` and the catalog id has no tag, so none was ever discovered.
 
 ### Notebooks
 
