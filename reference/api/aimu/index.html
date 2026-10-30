@@ -809,6 +809,8 @@
       
         
       
+        
+      
     
     
     
@@ -934,6 +936,34 @@
     
   
     Switch providers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/download-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Download models
   
 
     
@@ -3592,7 +3622,7 @@ print(agent.run("How many r's in strawberry?"))
 
 
 <a href="#aimu.available_text_models" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">available_text_models</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">include_hf_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">available_text_models</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">include_hf_cache</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">ollama_host</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents ">
@@ -3607,9 +3637,9 @@ within each provider.</p>
 wrap an <code>hf:</code> in-process client directly).</p>
 <p><strong>The Ollama probe is env-driven, not client-driven.</strong> It reads <code>OLLAMA_HOST</code> (else
 <code>127.0.0.1:11434</code>); a remote server reached with a per-client <code>OllamaClient(host=...)</code>
-does not appear here, and neither do the models on it. Export <code>OLLAMA_HOST</code> when you want
-discovery, default-model resolution, and ambiguous-name tiebreaking to consider a remote
-server. The same applies to the local OpenAI-compatible probes, which try each provider's
+does not appear here unless you name it with <code>ollama_host=</code>. That covers this call only:
+export <code>OLLAMA_HOST</code> when you want default-model resolution and ambiguous-name tiebreaking
+to consider a remote server too. The same applies to the local OpenAI-compatible probes, which try each provider's
 default <code>base_url</code> rather than any <code>base_url=</code> a caller passed a client.</p>
 <p>See :func:<code>resolve_default_text_model_enum</code> for the single auto-pick, and
 :func:<code>aimu.resolve_model_enum</code> to resolve a <em>named</em> model to an enum member.</p>

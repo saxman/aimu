@@ -809,6 +809,8 @@
       
         
       
+        
+      
     
     
     
@@ -934,6 +936,34 @@
     
   
     Switch providers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-to/download-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Download models
   
 
     
@@ -3906,7 +3936,7 @@ needs its own effort vocabulary.</p>
 <ul>
 <li><strong><code>GeminiClient</code></strong> uses Google's OpenAI-compatible endpoint. Gemini 2.5 thinking models emit <code>&lt;think&gt;</code> tags on this endpoint, so the shared <code>_ThinkingParser</code> works as-is.</li>
 <li><strong><code>OllamaClient</code></strong> (native API) supports vision via the message-level <code>images=</code> field; only inline base64 / data URLs work, http(s) URLs raise <code>ValueError</code>.</li>
-<li><strong><code>OllamaClient</code>, <code>AsyncOllamaClient</code>, and <code>OllamaEmbeddingClient</code></strong> take <code>host=</code> for a remote server, forwarded to the ollama SDK verbatim (bare host, <code>host:port</code>, or <code>scheme://host:port</code> all work). Pass the <strong>server root</strong>, not the <code>/v1</code> OpenAI-compatible path: the native API is served from the root, so a <code>/v1</code> suffix raises <code>ValueError</code> pointing at the <code>ollama-openai</code> provider. <code>OllamaClient</code> pulls the model eagerly in its constructor, so with <code>host=</code> set the pull runs on the remote machine. Give the embedding client the same <code>host=</code> as the text client -- embedding a corpus on one server and querying on another silently mixes vectors from two models.</li>
+<li><strong><code>OllamaClient</code>, <code>AsyncOllamaClient</code>, and <code>OllamaEmbeddingClient</code></strong> take <code>host=</code> for a remote server, forwarded to the ollama SDK verbatim (bare host, <code>host:port</code>, or <code>scheme://host:port</code> all work). Pass the <strong>server root</strong>, not the <code>/v1</code> OpenAI-compatible path: the native API is served from the root, so a <code>/v1</code> suffix raises <code>ValueError</code> pointing at the <code>ollama-openai</code> provider. None of them pull at construction unless <code>pull=True</code> is passed (see <a href="../../how-to/download-models/">Download models</a>); with <code>host=</code> set, that pull runs on the remote machine. Give the embedding client the same <code>host=</code> as the text client -- embedding a corpus on one server and querying on another silently mixes vectors from two models.</li>
 <li><strong><code>LlamaCppClient</code></strong> loads GGUF files in-process. Vision needs an <code>mmproj</code> projector via the <code>chat_handler=</code> kwarg (e.g. <code>Llava15ChatHandler(clip_model_path=...)</code>).</li>
 <li><strong><code>HuggingFaceClient</code></strong> uses <code>AutoProcessor</code> for vision when available (Gemma 3/4, Qwen 3.5/3.6 VL). The model's <code>tool_call_format</code> enum value (<code>XML</code> / <code>JSON_OBJECT</code> / <code>JSON_ARRAY</code> / <code>BRACKETED</code>) tells the client how to parse tool calls.</li>
 <li><strong>MLX on Apple Silicon.</strong> Three providers execute MLX-optimized weights: <code>omlx</code> (a dedicated MLX server), <code>lmstudio</code> (LM Studio's MLX engine, selected automatically for MLX weights), and <code>ollama</code> (0.19+ runs an MLX backend on Apple Silicon for its own model library, transparently — the tags are unchanged, and it wants &gt;32 GB of unified memory). <strong><code>hf</code> and <code>llamacpp</code> are not MLX paths</strong>: <code>HuggingFaceClient</code> is torch/<code>transformers</code> and <code>LlamaCppClient</code> is GGML/GGUF, and neither can load MLX's quantized safetensors layout. mlx-community models are <em>hosted</em> on the HuggingFace Hub but only mlx-lm/mlx-vlm can run them, so there is no in-process MLX client.</li>

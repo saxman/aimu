@@ -811,6 +811,8 @@
       
         
       
+        
+      
     
     
     
@@ -939,6 +941,34 @@
     
   
     Switch providers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../download-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Download models
   
 
     
@@ -3504,12 +3534,13 @@ vector width declared by the model spec.</p>
 <p>The <code>embed()</code> surface is identical across providers; pick one with a
 <code>"provider:model_id"</code> string (or a provider <code>EmbeddingModel</code> enum member).</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">aimu</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="s2">"openai:text-embedding-3-small"</span><span class="p">)</span>  <span class="c1"># cloud, reads OPENAI_API_KEY</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">aimu</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="s2">"ollama:nomic-embed-text"</span><span class="p">)</span>        <span class="c1"># local server (ollama pull first)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">aimu</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="s2">"ollama:nomic-embed-text"</span><span class="p">)</span>        <span class="c1"># local server (pull first)</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">aimu</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="s2">"hf:BAAI/bge-small-en-v1.5"</span><span class="p">)</span>      <span class="c1"># local sentence-transformers ([hf] extra)</span>
 </span></code></pre></div>
 <ul>
 <li><strong>OpenAI</strong> (cloud): reads <code>OPENAI_API_KEY</code>.</li>
-<li><strong>Ollama</strong> (local server): pull the model first, e.g. <code>ollama pull nomic-embed-text</code>.</li>
+<li><strong>Ollama</strong> (local server): pull the model first, with <code>aimu.pull("ollama:nomic-embed-text")</code> or
+  <code>ollama pull nomic-embed-text</code>, or pass <code>pull=True</code>. See <a href="../download-models/">Download models</a>.</li>
 <li><strong>HuggingFace</strong> (local): backed by <code>sentence-transformers</code> (the <code>[hf]</code> extra), so each
   model's own pooling/normalization config is honoured. Weights download on first use and
   are cached; free them with <code>aimu.clear_hf_cache()</code>.</li>

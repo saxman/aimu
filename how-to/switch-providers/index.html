@@ -16,7 +16,7 @@
         <link rel="prev" href="../observe-a-run/">
       
       
-        <link rel="next" href="../add-custom-tool/">
+        <link rel="next" href="../download-models/">
       
       
         
@@ -811,6 +811,8 @@
       
         
       
+        
+      
     
     
     
@@ -1176,6 +1178,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../download-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Download models
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -3645,7 +3675,7 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3.5:9b"</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="s2">"gpu-box"</span><span class="p">)</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">embedder</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">embedding_client</span><span class="p">(</span><span class="s2">"ollama:nomic-embed-text"</span><span class="p">,</span> <span class="n">host</span><span class="o">=</span><span class="s2">"gpu-box"</span><span class="p">)</span>
 </span></code></pre></div>
-<p><code>OllamaClient</code> pulls the model in its constructor, so with <code>host=</code> set the pull runs on the remote machine.</p>
+<p>Constructing a client does not download the model. <code>pull=True</code> on the client, or <code>aimu.pull(..., host=...)</code>, pulls it on the remote machine; see <a href="../download-models/">Download models</a>.</p>
 <h3 id="local-discovery-stays-env-driven">Local discovery stays env-driven<a class="headerlink" href="#local-discovery-stays-env-driven" title="Permanent link">&para;</a></h3>
 <p><code>host=</code> and <code>base_url=</code> configure <em>one client</em>. They are invisible to the local-availability probes behind <a href="../../reference/provider-matrix/"><code>aimu.available_text_models()</code></a>, the omitted-<code>model</code> default, and ambiguous bare-name resolution — those run before any client exists, so they read <code>OLLAMA_HOST</code> (else <code>127.0.0.1:11434</code>) for Ollama and each OpenAI-compatible provider's <em>default</em> <code>base_url</code> for the local servers. Export <code>OLLAMA_HOST</code> when you want discovery to see a remote server too:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">OLLAMA_HOST</span><span class="o">=</span>http://gpu-box:11434

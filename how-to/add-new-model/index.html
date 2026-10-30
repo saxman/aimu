@@ -811,6 +811,8 @@
       
         
       
+        
+      
     
     
     
@@ -939,6 +941,34 @@
     
   
     Switch providers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../download-models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Download models
   
 
     
@@ -3787,7 +3817,7 @@ and <a href="../add-new-provider/">Add or update a provider</a> for the reserved
 <p>Then run the model-client tests against the new entry:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>pytest<span class="w"> </span>tests/test_models.py<span class="w"> </span>--client<span class="o">=</span>anthropic<span class="w"> </span>--model<span class="o">=</span>CLAUDE_OPUS_5
 </span></code></pre></div>
-<p>The model client is auto-pulled (Ollama, HuggingFace) or hits the cloud API on first use.</p>
+<p>The live tests pull Ollama models themselves; HuggingFace weights download on first use; cloud models just hit the API. To download a model yourself, see <a href="../download-models/">Download models</a>.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../reference/api/models/#aimu.models.ModelSpec"><code>aimu.models.ModelSpec</code></a>: the dataclass fields</li>
