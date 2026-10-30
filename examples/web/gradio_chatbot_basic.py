@@ -57,6 +57,10 @@ def on_load(client, manager):
 
 
 def respond(message, history, client, manager):
+    if client is None:
+        gr.Warning(NO_OLLAMA_MODELS)
+        yield history, message
+        return
     history = list(history)
     history.append({"role": "user", "content": message})
     history.append({"role": "assistant", "content": ""})
@@ -68,10 +72,32 @@ def respond(message, history, client, manager):
     manager.update_conversation(client.messages)
 
 
-from aimu.models import OllamaClient, OllamaModel  # noqa: E402
+from aimu.models import OllamaClient, OllamaModel, available_text_models  # noqa: E402
 
-_default_cls = OllamaClient
-_default_model = OllamaModel.QWEN_3_5_9B
+NO_OLLAMA_MODELS = (
+    'No Ollama models are installed. Install one with `ollama pull qwen3.5:9b` or `aimu.pull("ollama:qwen3.5:9b")`, '
+    "then restart."
+)
+
+
+def _model_options(cls):
+    """Ollama clients no longer download a model on construction, so offer only installed ones."""
+    if cls is not OllamaClient:
+        return cls.TOOL_MODELS
+    installed = set(available_text_models(include_hf_cache=False))
+    return [m for m in cls.TOOL_MODELS if m in installed]
+
+
+def _default_client_and_model():
+    """Qwen 3.5 9B on Ollama when installed, else the first installed Ollama model, else another provider."""
+    for cls in sorted(_all_clients, key=lambda c: c is not OllamaClient):
+        options = _model_options(cls)
+        if options:
+            return cls, OllamaModel.QWEN_3_5_9B if OllamaModel.QWEN_3_5_9B in options else options[0]
+    raise SystemExit(NO_OLLAMA_MODELS)
+
+
+_default_cls, _default_model = _default_client_and_model()
 _init_client = _new_client(_default_cls, _default_model)
 _init_manager = _new_manager(use_last_conversation=True)
 _init_client.messages = _init_manager.messages
@@ -91,7 +117,7 @@ with gr.Blocks(title="AIMU Chatbot") as demo:
             )
             model_dropdown = gr.Dropdown(
                 label="Model",
-                choices=[m.name for m in _default_cls.TOOL_MODELS],
+                choices=[m.name for m in _model_options(_default_cls)],
                 value=_default_model.name,
             )
             reset_btn = gr.Button("Reset chat")
@@ -107,15 +133,21 @@ with gr.Blocks(title="AIMU Chatbot") as demo:
 
     def on_client_change(client_name):
         cls = next(c for c in _all_clients if c.__name__ == client_name)
-        model = cls.TOOL_MODELS[0]
+        options = _model_options(cls)
+        if not options:
+            gr.Warning(NO_OLLAMA_MODELS)
+            return gr.update(choices=[], value=None), None, _new_manager(), []
+        model = options[0]
         return (
-            gr.update(choices=[m.name for m in cls.TOOL_MODELS], value=model.name),
+            gr.update(choices=[m.name for m in options], value=model.name),
             _new_client(cls, model),
             _new_manager(),
             [],
         )
 
     def on_model_change(client_name, model_name):
+        if model_name is None:
+            return None, _new_manager(), []
         cls = next(c for c in _all_clients if c.__name__ == client_name)
         return _new_client(cls, _resolve_model(cls, model_name)), _new_manager(), []
 
@@ -123,6 +155,8 @@ with gr.Blocks(title="AIMU Chatbot") as demo:
         cls = next(c for c in _all_clients if c.__name__ == client_name)
         mgr = _new_manager()
         mgr.create_new_conversation()
+        if model_name is None:
+            return None, mgr, []
         return _new_client(cls, _resolve_model(cls, model_name)), mgr, []
 
     client_dropdown.change(
