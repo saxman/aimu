@@ -178,5 +178,6 @@ nav:
       - A2A vs MCP: explanation/a2a-vs-mcp.md
       - Async design: explanation/async-design.md
       - Thinking and context: explanation/thinking-and-context.md
+      - Context management: explanation/context-management.md
   - Changelog: changelog.md
   - Contributing: contributing.md
