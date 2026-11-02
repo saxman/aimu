@@ -8,6 +8,10 @@ them automatically before every model turn. Nothing here is a hidden policy appl
 client: it's the same "plain data, plain functions" shape as `aimu.rag`, so what gets dropped and
 why is always something you can print.
 
+For what each strategy costs the model (trimming a tool call erases the record that it ran, and
+the oldest message dropped is usually the task itself), see
+[Context management](../explanation/context-management.md).
+
 ## Count tokens
 
 `count_tokens` estimates a message list's size. The default counter is `len(text) // 4` over each
@@ -211,6 +215,8 @@ supports a larger one.
 
 ## See also
 
+- [Context management](../explanation/context-management.md): the *why*, including what each
+  strategy costs the model and why compacting at the budget compacts every turn.
 - [Observe a run](observe-a-run.md) — `ContextCompacted` and every other event `compaction=` and
   the rest of a run can emit.
 - [Set the context length](set-context-length.md) — the other side of the same problem: making the

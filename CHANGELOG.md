@@ -67,6 +67,19 @@
   that exited early raised `BrokenPipeError`, and an interrupt during the write surfaced as
   `BrokenPipeError` instead of `KeyboardInterrupt`. `run_command` sends no stdin and was unaffected.
 
+### Documentation
+
+- **New: [docs/explanation/context-management.md](docs/explanation/context-management.md).** The
+  how-to covered what `trim_messages`, `summarize_messages`, and `compaction=` do, but not what they
+  cost the model. Three of those costs read as model faults rather than errors. Trimming drops a tool
+  call along with its result, so the model loses the record that it acted and may repeat the call.
+  Trimming drops oldest-first, so the first message to go in an agent run is usually the task itself.
+  And because `trim_messages` stops as soon as the conversation fits, compacting at the budget
+  compacts on every turn, which defeats any cached prefix. The page also documents a reporting quirk:
+  a compaction that *shortens* a message (stubbing an old tool result, say) shows up in
+  `ContextCompacted.dropped` and in the warning's count, though a shorter version is still in the
+  conversation.
+
 ## v0.38.0 (2026-10-21): `calculate` evaluates arithmetic and nothing else, and a delegator hears when its worker ran out of rounds
 
 ### Tools
