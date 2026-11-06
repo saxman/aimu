@@ -113,6 +113,7 @@ nav:
       - Gate tool calls: how-to/gate-tool-calls.md
       - Defer tools until needed: how-to/defer-tools.md
       - Fetch HTML and submit web forms: how-to/browse-and-submit-forms.md
+      - Read long web pages: how-to/read-web-pages.md
       - Cancel a run: how-to/cancel-a-run.md
       - Use skills: how-to/use-skills.md
       - Stream output: how-to/stream-output.md

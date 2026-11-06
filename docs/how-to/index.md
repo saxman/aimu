@@ -32,6 +32,7 @@ If you're new to AIMU, start with the [tutorials](../tutorials/index.md) instead
 - [Use MCP tools](use-mcp-tools.md): cross-process tools via FastMCP
 - [Gate tool calls](gate-tool-calls.md): an approval hook to confirm or block risky tool calls
 - [Fetch HTML and submit web forms](browse-and-submit-forms.md): raw HTML, form discovery, GET/POST with a shared session
+- [Read long web pages](read-web-pages.md): fetch a page once and let only the passages that answer the question into context
 - [Cancel a run](cancel-a-run.md): stop an in-flight async run with `RunHandle` and resume from partial state
 
 ## Agents and workflows
