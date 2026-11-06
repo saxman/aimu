@@ -2933,6 +2933,8 @@
       
         
       
+        
+      
     
     
     
@@ -3239,6 +3241,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../explanation/context-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Context management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -3420,6 +3450,9 @@ context window. <code>aimu.context</code> is three plain functions over that lis
 them automatically before every model turn. Nothing here is a hidden policy applied inside a
 client: it's the same "plain data, plain functions" shape as <code>aimu.rag</code>, so what gets dropped and
 why is always something you can print.</p>
+<p>For what each strategy costs the model (trimming a tool call erases the record that it ran, and
+the oldest message dropped is usually the task itself), see
+<a href="../../explanation/context-management/">Context management</a>.</p>
 <h2 id="count-tokens">Count tokens<a class="headerlink" href="#count-tokens" title="Permanent link">&para;</a></h2>
 <p><code>count_tokens</code> estimates a message list's size. The default counter is <code>len(text) // 4</code> over each
 message JSON-serialized (AIMU's own inert bookkeeping keys — <code>timestamp</code>, <code>thinking</code>,
@@ -3599,6 +3632,8 @@ design.</p>
 supports a larger one.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
+<li><a href="../../explanation/context-management/">Context management</a>: the <em>why</em>, including what each
+  strategy costs the model and why compacting at the budget compacts every turn.</li>
 <li><a href="../observe-a-run/">Observe a run</a> — <code>ContextCompacted</code> and every other event <code>compaction=</code> and
   the rest of a run can emit.</li>
 <li><a href="../set-context-length/">Set the context length</a> — the other side of the same problem: making the
