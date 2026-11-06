@@ -31,6 +31,7 @@ import requests
 from dotenv import load_dotenv
 
 from aimu._window import past_end, window, window_complaint
+from aimu.rag.bm25 import bm25_scores
 from aimu.events import EventSink, RunFinished
 
 # The leaf module rather than `aimu.models`, whose package __init__ reaches back into `aimu.tools`.
@@ -50,6 +51,7 @@ from aimu.tools.context import ToolContext
 
 from . import _execute_python_worker
 from ._documents import DocumentConversionError, html_to_markdown, pdf_to_markdown
+from ._pages import OUTLINE_LIMIT, PageStore, chunks, outline
 from .decorator import tool
 
 _logger = logging.getLogger(__name__)
@@ -3160,6 +3162,188 @@ def make_web_tools(
         return _format_response(response, max_content_chars, note)
 
     return [find_forms, submit_form, submit_json]
+
+
+# Lines longer than this are clipped around the match in find_in_page, so one minified line
+# cannot flood the result.
+_FIND_LINE_CHARS = 300
+
+
+def make_page_tools(
+    *,
+    directory: Optional[Path | str] = None,
+    ranker: Optional[Callable[[str, list[str]], list[float]]] = None,
+    top_k: int = 5,
+    chunk_chars: int = 1200,
+    opening_chars: int = 6000,
+) -> list[Callable]:
+    """Build ``fetch_page``, ``read_page``, and ``find_in_page`` over one page store.
+
+    An agent reading several pages one after another fills its context with whole pages when
+    each fetch returns the page. ``fetch_page`` stores the page instead and returns an outline
+    plus the passages that best match the agent's question, verbatim, with their character
+    offsets. ``read_page`` and ``find_in_page`` reach the rest of a stored page by its handle,
+    without fetching it again::
+
+        agent = Agent(client, tools=[builtin.web_search, *make_page_tools()])
+
+    Args:
+        directory: Keep pages as plain files here (``<handle>.md`` plus ``<handle>.json``),
+            surviving the process. ``None`` keeps them in memory for the life of these tools.
+            Nothing is evicted; a directory is the caller's to prune.
+        ranker: Scores passages against a question: ``(question, passages) -> scores``, one
+            score per passage, higher is more relevant, 0 for no match. Defaults to
+            :func:`aimu.rag.bm25_scores`. An embedding model ranks paraphrases that share no
+            words with the question, which BM25 cannot.
+        top_k: The most passages ``fetch_page`` returns.
+        chunk_chars: The longest passage, in characters.
+        opening_chars: How much of the page ``fetch_page`` returns when there is no question,
+            or when no passage matches it.
+
+    Raises:
+        ValueError: if ``top_k``, ``chunk_chars``, or ``opening_chars`` is less than 1.
+    """
+    for name, value in (("top_k", top_k), ("chunk_chars", chunk_chars), ("opening_chars", opening_chars)):
+        if value < 1:
+            raise ValueError(f"{name} must be 1 or greater, got {value}")
+    store = PageStore(Path(directory) if directory is not None else None)
+    score = ranker or bm25_scores
+
+    def unknown(handle: str) -> str:
+        return f"No page with handle {handle!r}. Handles look like page-0123456789ab and come from fetch_page."
+
+    def render_outline(text: str) -> str:
+        headings = outline(text)
+        if not headings:
+            return "Outline: none (the page has no headings)."
+        lines = ["Outline:"]
+        lines += [
+            f"- {'#' * heading.level} {heading.title} (offset {heading.offset}, {heading.size} chars)"
+            for heading in headings[:OUTLINE_LIMIT]
+        ]
+        if len(headings) > OUTLINE_LIMIT:
+            lines.append(f"- ... and {len(headings) - OUTLINE_LIMIT} more headings")
+        return "\n".join(lines)
+
+    def render_passages(text: str, question: str) -> Optional[str]:
+        passages = chunks(text, size=chunk_chars)
+        scores = score(question, [passage.text for passage in passages])
+        if len(scores) != len(passages):
+            raise ValueError(f"ranker returned {len(scores)} scores for {len(passages)} passages")
+        best = sorted(range(len(passages)), key=lambda index: scores[index], reverse=True)[:top_k]
+        chosen = sorted(index for index in best if scores[index] > 0)
+        if not chosen:
+            return None
+        lines = [f"Passages most relevant to the question ({len(chosen)} of {len(passages)}, in page order):"]
+        for index in chosen:
+            passage = passages[index]
+            where = (
+                f'[offset {passage.offset}, under "{passage.heading}"]'
+                if passage.heading
+                else f"[offset {passage.offset}]"
+            )
+            lines.append(f"{where}\n{passage.text.rstrip()}")
+        return "\n\n".join(lines)
+
+    @tool
+    def fetch_page(url: str, question: str = "") -> str:
+        """Fetch a web page or document and return the passages relevant to your question.
+
+        Pass the question you are trying to answer, so that only the passages that match it come
+        back rather than the whole page. Passages are verbatim, each with the character offset
+        it starts at, and come with an outline of the page's headings. If they do not answer the
+        question, read more with read_page at an offset from the outline, or search with
+        find_in_page, before concluding the page does not say something: ranking matches words,
+        so a passage that answers the question in other words can be missed.
+
+        Args:
+            url: The URL to fetch.
+            question: What you want to find out from this page. Leave empty to get the opening
+                of the page instead.
+        """
+        try:
+            text = _fetch_document(url)
+        except _FetchRefused as e:
+            return str(e)
+        page = store.put(url, text)
+        header = f"Page {page.handle} ({url}): {len(text)} characters."
+        first_line = text.split("\n", 1)[0]
+        if first_line.startswith("Published:"):
+            header += f"\n{first_line}"
+        opening = _window(text, offset=1, limit=opening_chars, unit="character", tool="read_page")
+        if question.strip():
+            body = render_passages(text, question)
+            if body is None:
+                body = f"No passage matched the question's terms; showing the opening instead.\n\n{opening}"
+        else:
+            body = opening
+        footer = (
+            f'Read more with read_page("{page.handle}", offset=N); search with find_in_page("{page.handle}", "text").'
+        )
+        return "\n\n".join([header, render_outline(text), body, footer])
+
+    @tool
+    def read_page(handle: str, offset: int = 1, max_chars: int = 8000) -> str:
+        """Read part of a page fetch_page already fetched, starting at a character offset.
+
+        Args:
+            handle: The page's handle from fetch_page, e.g. page-0123456789ab.
+            offset: 1-indexed character to start reading from, e.g. a passage or outline offset.
+            max_chars: Maximum characters to return (default 8000).
+        """
+        complaint = _window_complaint(offset=offset, limit=max_chars, limit_name="max_chars", unit="character")
+        if complaint:
+            return complaint
+        page = store.get(handle)
+        if page is None:
+            return unknown(handle)
+        if offset > len(page.text) and offset > 1:
+            return _past_end(offset=offset, total=len(page.text), unit="character", describe=f"page {handle}")
+        return _window(page.text, offset=offset, limit=max_chars, unit="character", tool="read_page")
+
+    @tool
+    def find_in_page(handle: str, text: str, max_matches: int = 20) -> str:
+        """List the lines of a fetched page that contain some text, with each line's offset.
+
+        Matching is literal and case-insensitive, not a regular expression. Read around a match
+        with read_page at its offset.
+
+        Args:
+            handle: The page's handle from fetch_page, e.g. page-0123456789ab.
+            text: The text to look for.
+            max_matches: Maximum matching lines to list (default 20).
+        """
+        if not text.strip():
+            return "text must not be empty: pass the words to look for."
+        if max_matches < 1:
+            return f"max_matches must be 1 or greater, got {max_matches}"
+        page = store.get(handle)
+        if page is None:
+            return unknown(handle)
+        needle = text.lower()
+        matches = []
+        position = 0
+        for line in page.text.splitlines(keepends=True):
+            content = line.rstrip("\r\n")
+            if needle in content.lower():
+                matches.append((position + 1, content))
+            position += len(line)
+        if not matches:
+            return f'No line in {handle} contains "{text}".'
+        heading = f'{len(matches)} lines match "{text}"'
+        if len(matches) > max_matches:
+            heading += f"; showing the first {max_matches}"
+        lines = [heading]
+        for line_offset, content in matches[:max_matches]:
+            if len(content) > _FIND_LINE_CHARS:
+                center = content.lower().find(needle) + len(needle) // 2
+                start = max(0, min(center - _FIND_LINE_CHARS // 2, len(content) - _FIND_LINE_CHARS))
+                end = start + _FIND_LINE_CHARS
+                content = ("..." if start else "") + content[start:end] + ("..." if end < len(content) else "")
+            lines.append(f"- offset {line_offset}: {content}")
+        return "\n".join(lines)
+
+    return [fetch_page, read_page, find_in_page]
 
 
 # Curated subsets: pass one of these to ``tools=`` instead of importing every function.

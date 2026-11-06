@@ -29,6 +29,7 @@ from aimu.tools.builtin import (  # noqa: F401 (re-exports)
     make_command_tool,
     make_document_tools,
     make_memory_tools,
+    make_page_tools,
     make_retrieval_tool,
     make_web_tools,
     misc,
