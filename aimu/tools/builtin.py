@@ -1394,6 +1394,80 @@ def _format_forms(forms: list[dict]) -> str:
     return "\n".join(lines)
 
 
+class _FetchRefused(Exception):
+    """A fetch that produced no document; ``str()`` is the sentence a tool returns to the model.
+
+    Raised rather than returned so ``get_web_content`` and the page tools share one fetch and
+    one set of refusals, each tool then deciding only what to do with a document it did get.
+    """
+
+
+def _fetch_document(url: str) -> str:
+    """Fetch *url* and return all of it as Markdown or text, with no window applied.
+
+    Raises:
+        _FetchRefused: for a transport error, an oversized body, an unreadable media type, a PDF
+            that will not convert, or a page with no text once its markup is stripped.
+    """
+    try:
+        response = _fetch_html(url, stream=True)
+        body = _read_capped_body(response)
+    except requests.RequestException as e:
+        raise _FetchRefused(f"Error fetching page: {e}") from e
+    except _BodyTooLarge as e:
+        raise _FetchRefused(
+            f"This resource is too large to fetch: {e.size}, and the limit is {e.limit} bytes. "
+            "Find a smaller version, or a page that summarizes it."
+        )
+
+    kind = _classify(response, body)
+    if kind == "unsupported":
+        media_type = response.headers.get("content-type", "").split(";")[0].strip()
+        size = _declared_size(response, body)
+        if not media_type:
+            raise _FetchRefused(
+                f"This URL's response declared no content type ({size}), so it cannot be read as "
+                "text. Only HTML pages, PDFs, and textual content (plain text, JSON, or XML) are supported."
+            )
+        raise _FetchRefused(
+            f"This URL returned {media_type} ({size}), which is not a web page or a document this "
+            "tool can read as text. Only HTML pages, PDFs, and textual content (plain text, JSON, or XML) "
+            "are supported."
+        )
+
+    if kind == "pdf":
+        try:
+            content = pdf_to_markdown(body)
+        except DocumentConversionError as e:
+            raise _FetchRefused(str(e)) from e
+        return content
+
+    # Decoded here rather than read from ``response.text``, which raises once
+    # ``iter_content`` has consumed a streamed response. We prefer the charset the server
+    # declared, and fall back to UTF-8 both when it declared none, when it declared one
+    # Python does not recognize (bogus labels like "utf8mb4" are common in the wild, which
+    # raises LookupError), and when the declared value is not a usable codec name at all
+    # (TypeError); either way ``errors="replace"`` means a mislabeled page degrades instead
+    # of failing outright.
+    try:
+        text = body.decode(response.encoding or "utf-8", errors="replace")
+    except (LookupError, TypeError):
+        text = body.decode("utf-8", errors="replace")
+    if kind == "text":
+        return text
+
+    content = html_to_markdown(text)
+    if not content.strip():
+        raise _FetchRefused(
+            "This page has no readable text once its markup is stripped, which usually means it is "
+            "JavaScript-rendered rather than server-rendered. Try get_webpage_html to see the raw markup."
+        )
+    published = _extract_publish_date(text)
+    if published:
+        content = f"Published: {published}\n\n{content}"
+    return content
+
+
 @tool
 def get_web_content(url: str, max_chars: int = 20000, offset: int = 1) -> str:
     """Fetches a URL and returns its content as Markdown, for a web page or a document.
@@ -1430,61 +1504,9 @@ def get_web_content(url: str, max_chars: int = 20000, offset: int = 1) -> str:
         return _window(content, offset=offset, limit=max_chars, unit="character", tool="get_web_content")
 
     try:
-        response = _fetch_html(url, stream=True)
-        body = _read_capped_body(response)
-    except requests.RequestException as e:
-        return f"Error fetching page: {e}"
-    except _BodyTooLarge as e:
-        return (
-            f"This resource is too large to fetch: {e.size}, and the limit is {e.limit} bytes. "
-            "Find a smaller version, or a page that summarizes it."
-        )
-
-    kind = _classify(response, body)
-    if kind == "unsupported":
-        media_type = response.headers.get("content-type", "").split(";")[0].strip()
-        size = _declared_size(response, body)
-        if not media_type:
-            return (
-                f"This URL's response declared no content type ({size}), so it cannot be read as "
-                "text. Only HTML pages, PDFs, and textual content (plain text, JSON, or XML) are supported."
-            )
-        return (
-            f"This URL returned {media_type} ({size}), which is not a web page or a document this "
-            "tool can read as text. Only HTML pages, PDFs, and textual content (plain text, JSON, or XML) "
-            "are supported."
-        )
-
-    if kind == "pdf":
-        try:
-            content = pdf_to_markdown(body)
-        except DocumentConversionError as e:
-            return str(e)
-        return windowed(content)
-
-    # Decoded here rather than read from ``response.text``, which raises once
-    # ``iter_content`` has consumed a streamed response. We prefer the charset the server
-    # declared, and fall back to UTF-8 both when it declared none, when it declared one
-    # Python does not recognize (bogus labels like "utf8mb4" are common in the wild, which
-    # raises LookupError), and when the declared value is not a usable codec name at all
-    # (TypeError); either way ``errors="replace"`` means a mislabeled page degrades instead
-    # of failing outright.
-    try:
-        text = body.decode(response.encoding or "utf-8", errors="replace")
-    except (LookupError, TypeError):
-        text = body.decode("utf-8", errors="replace")
-    if kind == "text":
-        return windowed(text)
-
-    content = html_to_markdown(text)
-    if not content.strip():
-        return (
-            "This page has no readable text once its markup is stripped, which usually means it is "
-            "JavaScript-rendered rather than server-rendered. Try get_webpage_html to see the raw markup."
-        )
-    published = _extract_publish_date(text)
-    if published:
-        content = f"Published: {published}\n\n{content}"
+        content = _fetch_document(url)
+    except _FetchRefused as e:
+        return str(e)
     return windowed(content)
 
 

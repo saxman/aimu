@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
+import pytest
+import requests
+
 from aimu.tools._pages import PageStore, chunks, outline
 
 DOC = "# Title\n\nIntro para.\n\n## Methods\n\nWe measured.\n\n```\n# not a heading\n```\n\n## Results\n\nIt worked."
@@ -67,3 +72,25 @@ def test_chunks_hard_split_an_oversized_paragraph():
     parts = chunks(text, size=1000)
     assert [len(c.text) for c in parts] == [1000, 1000, 500]
     assert [c.offset for c in parts] == [1, 1001, 2001]
+
+
+def _mock_web_response(body: bytes, content_type: str):
+    """A response the streamed fetch can read (see tests/test_tools.py)."""
+    mock = MagicMock()
+    mock.status_code = 200
+    mock.raise_for_status = MagicMock()
+    mock.headers = {"content-type": content_type}
+    mock.encoding = "utf-8"
+    mock.iter_content = lambda chunk_size=1: iter([body])
+    return mock
+
+
+def test_fetch_document_returns_whole_markdown_and_refuses_with_model_text():
+    from aimu.tools.builtin import _fetch_document, _FetchRefused
+
+    html = b"<html><body><h1>Hello</h1><p>World</p></body></html>"
+    with patch("aimu.tools.builtin.requests.request", return_value=_mock_web_response(html, "text/html")):
+        assert "# Hello" in _fetch_document("https://example.com")
+    with patch("aimu.tools.builtin.requests.request", side_effect=requests.RequestException("refused")):
+        with pytest.raises(_FetchRefused, match="Error fetching page"):
+            _fetch_document("https://example.com")
