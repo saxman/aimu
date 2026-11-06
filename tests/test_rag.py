@@ -218,3 +218,16 @@ def test_bm25_rare_term_outweighs_common_term():
     docs = ["alpha common", "beta common", "gamma common"]
     scores = bm25_scores("alpha common", docs)
     assert scores[0] > scores[1] and scores[1] == scores[2] and scores[1] >= 0
+
+
+def test_bm25_ignores_stopwords_in_the_query():
+    from aimu.rag import bm25_scores
+
+    assert bm25_scores("what is the refund policy", ["the dog is here", "a refund"])[0] == 0.0
+    assert bm25_scores("what is the refund policy", ["the dog is here", "a refund"])[1] > 0
+
+
+def test_bm25_stopwords_can_be_disabled():
+    from aimu.rag import bm25_scores
+
+    assert bm25_scores("the", ["the dog"], stopwords=frozenset())[0] > 0

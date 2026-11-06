@@ -42,17 +42,17 @@ Outline:
 
 Passages most relevant to the question (2 of 4, in page order):
 
+[offset 1, under "Field guide to tide pools"]
+# Field guide to tide pools
+
+Tide pools form where rock holds seawater as the tide goes out.
+
 [offset 264, under "Residents"]
 ## Residents
 
 Sea anemones close up when exposed to air to keep from drying out.
 
 Ochre sea stars prey on mussels and can survive several hours out of water.
-
-[offset 423, under "Visiting"]
-## Visiting
-
-Visit within an hour of low tide, and step only on bare rock.
 
 Read more with read_page("page-29b5c273cc20", offset=N); search with find_in_page("page-29b5c273cc20", "text").
 ```
@@ -61,17 +61,18 @@ Four things to notice:
 
 - **Everything after the header is the page's own text.** Nothing was summarized or reworded, so
   whatever the agent quotes, the page said.
-- **The second passage matched on the word "of" alone.** The default ranker is BM25, which scores
-  shared words and knows nothing about meaning. On a real page with dozens of passages, a
-  common-word match ranks below one that shares the question's distinctive words; on a page this
-  small there was nothing better to fill the second slot.
+- **The first passage matched on the word "out" alone.** The default ranker is BM25, which scores
+  shared words and knows nothing about meaning. It ignores common English words ("the", "is",
+  "of"; the list is `aimu.rag.bm25.STOPWORDS`), so a passage sharing only those with the question
+  is never shown, but any other shared word counts. Passages appear in page order, not score order,
+  so the strong match here is the second one.
 - **The outline and offsets say what was left out.** The *Zones* section did not come back, and the
   outline shows where it is and how long it is.
 - **The handle names this copy of the page.** It is a digest of the URL and the text, so fetching
   the same page again returns the same handle, and a page that changed in between gets a new one
   rather than overwriting the copy an earlier answer came from.
 
-Without a `question`, or when no passage shares a word with it, `fetch_page` returns the opening of the
+Without a `question`, or when no passage shares a word with it (common words aside), `fetch_page` returns the opening of the
 page instead (6,000 characters by default) and says which of the two happened.
 
 ## Reading past the passages
@@ -87,10 +88,12 @@ find_in_page("page-29b5c273cc20", "low tide")              # every line that men
 
 ```text
 1 lines match "low tide"
-- offset 436: Visit within an hour of low tide, and step only on bare rock.
+- offset 460: Visit within an hour of low tide, and step only on bare rock.
 ```
 
-`find_in_page` matches literally and ignores case; it does not take regular expressions.
+Each offset is where the match itself starts, so `read_page` at that offset begins at the match even
+on a page that is one long line. `find_in_page` matches literally and ignores case; it does not take
+regular expressions.
 
 !!! note "Small models and navigation"
     Whether an agent uses `read_page` and `find_in_page` well depends on the model. On the

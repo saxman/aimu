@@ -3303,10 +3303,10 @@ def make_page_tools(
 
     @tool
     def find_in_page(handle: str, text: str, max_matches: int = 20) -> str:
-        """List the lines of a fetched page that contain some text, with each line's offset.
+        """List the lines of a fetched page that contain some text, with the offset of each match.
 
-        Matching is literal and case-insensitive, not a regular expression. Read around a match
-        with read_page at its offset.
+        Matching is literal and case-insensitive, not a regular expression. Read from a match with
+        read_page at its offset.
 
         Args:
             handle: The page's handle from fetch_page, e.g. page-0123456789ab.
@@ -3325,8 +3325,11 @@ def make_page_tools(
         position = 0
         for line in page.text.splitlines(keepends=True):
             content = line.rstrip("\r\n")
-            if needle in content.lower():
-                matches.append((position + 1, content))
+            column = content.lower().find(needle)
+            if column >= 0:
+                # The match's own offset rather than its line's: on a long line (minified JSON, a PDF
+                # paragraph extracted as one line) read_page at the line's start cannot reach it.
+                matches.append((position + column + 1, column, content))
             position += len(line)
         if not matches:
             return f'No line in {handle} contains "{text}".'
@@ -3334,13 +3337,13 @@ def make_page_tools(
         if len(matches) > max_matches:
             heading += f"; showing the first {max_matches}"
         lines = [heading]
-        for line_offset, content in matches[:max_matches]:
+        for match_offset, column, content in matches[:max_matches]:
             if len(content) > _FIND_LINE_CHARS:
-                center = content.lower().find(needle) + len(needle) // 2
+                center = column + len(needle) // 2
                 start = max(0, min(center - _FIND_LINE_CHARS // 2, len(content) - _FIND_LINE_CHARS))
                 end = start + _FIND_LINE_CHARS
                 content = ("..." if start else "") + content[start:end] + ("..." if end < len(content) else "")
-            lines.append(f"- offset {line_offset}: {content}")
+            lines.append(f"- offset {match_offset}: {content}")
         return "\n".join(lines)
 
     return [fetch_page, read_page, find_in_page]

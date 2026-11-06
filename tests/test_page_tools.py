@@ -99,7 +99,7 @@ def test_find_in_page_lists_matching_lines_with_offsets():
     out = find_in_page(handle, "ENTERPRISE")
     assert out.startswith('1 lines match "ENTERPRISE"')
     offset = int(re.search(r"offset (\d+)", out).group(1))
-    assert LONG[offset - 1 :].startswith("The enterprise plan")
+    assert LONG[offset - 1 :].startswith("enterprise plan")
 
 
 def test_find_in_page_caps_matches_and_reports_none():
@@ -173,3 +173,24 @@ def test_page_tools_are_reexported_on_aio():
     from aimu.aio.tools.builtin import make_page_tools as aio_make_page_tools
 
     assert aio_make_page_tools is make_page_tools
+
+
+def test_a_question_matching_only_common_words_falls_back_to_the_opening():
+    page = (
+        "# Store\n\n## Shipping\n\nOrders ship in two days and the cost is included.\n\n"
+        "## Returns\n\nSend items back within 30 days for your money.\n\n"
+        "## About\n\nThe shop is family run.\n"
+    )
+    fetch_page, _, _ = make_page_tools()
+    with _serving(page):
+        out = fetch_page("https://example.com", question="What is the refund policy?")
+    assert "No passage matched" in out and "Passages most relevant" not in out
+
+
+def test_find_in_page_offset_reaches_a_match_on_a_long_line():
+    body = "x" * 100_000 + " needle " + "y" * 100
+    fetch_page, read_page, find_in_page = make_page_tools()
+    with _serving(body):
+        handle = _handle(fetch_page("https://example.com"))
+    offset = int(re.search(r"offset (\d+)", find_in_page(handle, "needle")).group(1))
+    assert read_page(handle, offset=offset, max_chars=20).startswith("needle")

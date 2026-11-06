@@ -13,15 +13,32 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
+from typing import Collection
 
 _TOKEN = re.compile(r"\w+")
+
+#: English function words dropped from a query before scoring. BM25's IDF stays positive, so without
+#: this every passage sharing "the" or "is" with a natural-language question scores above zero, and
+#: a caller that treats 0 as "no match" (``make_page_tools``) would never see one.
+STOPWORDS = frozenset(
+    "a an and are as at be but by can could did do does for from had has have how i if in into is it its "
+    "me my of on or our should so than that the their them then there these they this those to us was "
+    "we were what when where which who whom why will with would you your".split()
+)
 
 
 def _tokens(text: str) -> list[str]:
     return _TOKEN.findall(text.lower())
 
 
-def bm25_scores(query: str, documents: list[str], *, k1: float = 1.5, b: float = 0.75) -> list[float]:
+def bm25_scores(
+    query: str,
+    documents: list[str],
+    *,
+    k1: float = 1.5,
+    b: float = 0.75,
+    stopwords: Collection[str] = STOPWORDS,
+) -> list[float]:
     """Score each document's relevance to *query* with Okapi BM25.
 
     Args:
@@ -29,6 +46,8 @@ def bm25_scores(query: str, documents: list[str], *, k1: float = 1.5, b: float =
         documents: The candidates, scored as a collection (term rarity is measured across them).
         k1: Term-frequency saturation.
         b: Length normalization, from 0 (none) to 1 (full).
+        stopwords: Query words to ignore. Defaults to :data:`STOPWORDS`, which is English; pass
+            ``frozenset()`` to score every word.
 
     Returns:
         One score per document, in input order; 0.0 for a document sharing no term with the
@@ -37,7 +56,7 @@ def bm25_scores(query: str, documents: list[str], *, k1: float = 1.5, b: float =
     tokenized = [_tokens(document) for document in documents]
     if not tokenized:
         return []
-    query_terms = set(_tokens(query))
+    query_terms = set(_tokens(query)) - set(stopwords)
     count = len(tokenized)
     average_length = sum(len(tokens) for tokens in tokenized) / count or 1.0
     frequency = Counter(term for tokens in tokenized for term in set(tokens) if term in query_terms)

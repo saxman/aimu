@@ -71,7 +71,9 @@
   Passages are ranked with BM25 by default; `ranker=` takes any scoring function, such as one over an
   embedding client. `directory=` keeps pages as plain files. `get_web_content` is unchanged.
 - **New: `aimu.rag.bm25_scores`.** Scores documents against a query with Okapi BM25, in pure Python, so
-  text can be ranked with no model and no new dependency. It is `make_page_tools`' default ranker.
+  text can be ranked with no model and no new dependency. Common English words in the query are ignored
+  (`stopwords=`, default `aimu.rag.bm25.STOPWORDS`), so a passage sharing only "the" or "is" with a
+  question scores 0. It is `make_page_tools`' default ranker.
 - **Fix: `execute_python` returns the child's output when the child exits without reading its input.**
   The supervisor caught `BrokenPipeError` around the write to the child's stdin, but stdin is buffered, so
   a payload smaller than the buffer only reached the pipe at `close()`, outside that guard. On Python 3.14,
