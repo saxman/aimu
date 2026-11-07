@@ -811,6 +811,8 @@
       
         
       
+        
+      
     
     
     
@@ -1160,6 +1162,34 @@
     
   
     Fetch HTML and submit web forms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/read-web-pages/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Read long web pages
   
 
     
@@ -2828,6 +2858,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.make_page_tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_page_tools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#aimu.tools.builtin.make_retrieval_tool" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4126,6 +4167,17 @@
     <span class="md-ellipsis">
       
         make_memory_tools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.make_page_tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_page_tools
       
     </span>
   </a>
@@ -5791,6 +5843,157 @@ agent = Agent(client, tools=make_memory_tools(store) + builtin.web)
 </code></pre></div>
 <p>For cross-process or multi-agent memory, use the FastMCP servers in
 <code>aimu.memory.mcp</code> / <code>aimu.memory.document_mcp</code> instead.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.tools.builtin.make_page_tools" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.tools.builtin.make_page_tools</span>
+
+
+<a href="#aimu.tools.builtin.make_page_tools" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_page_tools</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">directory</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">ranker</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">top_k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">chunk_chars</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1200</span><span class="p">,</span> <span class="n">opening_chars</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">6000</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Callable</span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Build <code>fetch_page</code>, <code>read_page</code>, and <code>find_in_page</code> over one page store.</p>
+<p>An agent reading several pages one after another fills its context with whole pages when
+each fetch returns the page. <code>fetch_page</code> stores the page instead and returns an outline
+plus the passages that best match the agent's question, verbatim, with their character
+offsets. <code>read_page</code> and <code>find_in_page</code> reach the rest of a stored page by its handle,
+without fetching it again::</p>
+<div class="language-text highlight"><pre><span></span><code>agent = Agent(client, tools=[builtin.web_search, *make_page_tools()])
+</code></pre></div>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>directory</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="pathlib.Path">Path</span> | <span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Keep pages as plain files here (<code>&lt;handle&gt;.md</code> plus <code>&lt;handle&gt;.json</code>),
+surviving the process. <code>None</code> keeps them in memory for the life of these tools.
+Nothing is evicted; a directory is the caller's to prune.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>ranker</code>
+            </td>
+            <td>
+                  <code><span title="typing.Optional">Optional</span>[<span title="typing.Callable">Callable</span>[[<span title="str">str</span>, <span title="list">list</span>[<span title="str">str</span>]], <span title="list">list</span>[<span title="float">float</span>]]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Scores passages against a question: <code>(question, passages) -&gt; scores</code>, one
+score per passage, higher is more relevant, 0 for no match. Defaults to
+:func:<code>aimu.rag.bm25_scores</code>. An embedding model ranks paraphrases that share no
+words with the question, which BM25 cannot.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>top_k</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The most passages <code>fetch_page</code> returns.</p>
+              </div>
+            </td>
+            <td>
+                  <code>5</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>chunk_chars</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The longest passage, in characters.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1200</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>opening_chars</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>How much of the page <code>fetch_page</code> returns when there is no question,
+or when no passage matches it.</p>
+              </div>
+            </td>
+            <td>
+                  <code>6000</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>if <code>top_k</code>, <code>chunk_chars</code>, or <code>opening_chars</code> is less than 1.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
     </div>

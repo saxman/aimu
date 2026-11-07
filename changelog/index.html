@@ -811,6 +811,8 @@
       
         
       
+        
+      
     
     
     
@@ -1160,6 +1162,34 @@
     
   
     Fetch HTML and submit web forms
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../how-to/read-web-pages/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Read long web pages
   
 
     
@@ -8101,6 +8131,20 @@ not this stub.
 </ul>
 <h3 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h3>
 <ul>
+<li><strong>New: <code>make_page_tools()</code>, which lets only the passages that answer a question into context (#13).</strong>
+  <code>get_web_content</code> returns a page's first 20,000 characters whatever the agent is looking for, so an
+  agent reading several pages fills its window with whole pages. <code>make_page_tools()</code> returns
+  <code>fetch_page(url, question)</code>, <code>read_page(handle, offset)</code>, and <code>find_in_page(handle, text)</code>.
+  <code>fetch_page</code> stores the page under a handle and returns its outline plus the passages that best match
+  the question, verbatim and with their character offsets; the other two reach the rest of the stored
+  page without fetching it again. The handle is a digest of the URL and the text, so a page that changed
+  between two fetches gets a new handle instead of overwriting the copy an earlier answer came from.
+  Passages are ranked with BM25 by default; <code>ranker=</code> takes any scoring function, such as one over an
+  embedding client. <code>directory=</code> keeps pages as plain files. <code>get_web_content</code> is unchanged.</li>
+<li><strong>New: <code>aimu.rag.bm25_scores</code>.</strong> Scores documents against a query with Okapi BM25, in pure Python, so
+  text can be ranked with no model and no new dependency. Common English words in the query are ignored
+  (<code>stopwords=</code>, default <code>aimu.rag.bm25.STOPWORDS</code>), so a passage sharing only "the" or "is" with a
+  question scores 0. It is <code>make_page_tools</code>' default ranker.</li>
 <li><strong>Fix: <code>execute_python</code> returns the child's output when the child exits without reading its input.</strong>
   The supervisor caught <code>BrokenPipeError</code> around the write to the child's stdin, but stdin is buffered, so
   a payload smaller than the buffer only reached the pipe at <code>close()</code>, outside that guard. On Python 3.14,
