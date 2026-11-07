@@ -183,3 +183,51 @@ def test_make_retrieval_tool_spec_and_output():
     assert out.startswith("[1] ")  # numbered context
 
     assert tool("no-such-topic") == "No relevant context found."
+
+
+# ---------------------------------------------------------------------------
+# bm25_scores
+# ---------------------------------------------------------------------------
+
+
+def test_bm25_scores_rank_the_matching_document_first():
+    from aimu.rag import bm25_scores
+
+    docs = ["the cat sat on the mat", "dogs chase cars", "a cat and a dog"]
+    scores = bm25_scores("cat mat", docs)
+    assert len(scores) == 3
+    assert scores[0] > scores[2] > scores[1] == 0.0
+
+
+def test_bm25_scores_are_case_and_punctuation_insensitive():
+    from aimu.rag import bm25_scores
+
+    assert bm25_scores("CAT!", ["the cat."])[0] > 0
+
+
+def test_bm25_scores_empty_inputs():
+    from aimu.rag import bm25_scores
+
+    assert bm25_scores("cat", []) == []
+    assert bm25_scores("", ["the cat"]) == [0.0]
+
+
+def test_bm25_rare_term_outweighs_common_term():
+    from aimu.rag import bm25_scores
+
+    docs = ["alpha common", "beta common", "gamma common"]
+    scores = bm25_scores("alpha common", docs)
+    assert scores[0] > scores[1] and scores[1] == scores[2] and scores[1] >= 0
+
+
+def test_bm25_ignores_stopwords_in_the_query():
+    from aimu.rag import bm25_scores
+
+    assert bm25_scores("what is the refund policy", ["the dog is here", "a refund"])[0] == 0.0
+    assert bm25_scores("what is the refund policy", ["the dog is here", "a refund"])[1] > 0
+
+
+def test_bm25_stopwords_can_be_disabled():
+    from aimu.rag import bm25_scores
+
+    assert bm25_scores("the", ["the dog"], stopwords=frozenset())[0] > 0

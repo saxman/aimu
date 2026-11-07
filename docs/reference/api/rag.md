@@ -15,6 +15,10 @@ Retrieval-augmented generation primitives: plain functions over the
 
 ::: aimu.rag.format_context
 
+## Ranking
+
+::: aimu.rag.bm25_scores
+
 ## Reranking
 
 ::: aimu.rag.rerank

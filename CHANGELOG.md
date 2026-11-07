@@ -60,6 +60,20 @@
 
 ### Tools
 
+- **New: `make_page_tools()`, which lets only the passages that answer a question into context (#13).**
+  `get_web_content` returns a page's first 20,000 characters whatever the agent is looking for, so an
+  agent reading several pages fills its window with whole pages. `make_page_tools()` returns
+  `fetch_page(url, question)`, `read_page(handle, offset)`, and `find_in_page(handle, text)`.
+  `fetch_page` stores the page under a handle and returns its outline plus the passages that best match
+  the question, verbatim and with their character offsets; the other two reach the rest of the stored
+  page without fetching it again. The handle is a digest of the URL and the text, so a page that changed
+  between two fetches gets a new handle instead of overwriting the copy an earlier answer came from.
+  Passages are ranked with BM25 by default; `ranker=` takes any scoring function, such as one over an
+  embedding client. `directory=` keeps pages as plain files. `get_web_content` is unchanged.
+- **New: `aimu.rag.bm25_scores`.** Scores documents against a query with Okapi BM25, in pure Python, so
+  text can be ranked with no model and no new dependency. Common English words in the query are ignored
+  (`stopwords=`, default `aimu.rag.bm25.STOPWORDS`), so a passage sharing only "the" or "is" with a
+  question scores 0. It is `make_page_tools`' default ranker.
 - **Fix: `execute_python` returns the child's output when the child exits without reading its input.**
   The supervisor caught `BrokenPipeError` around the write to the child's stdin, but stdin is buffered, so
   a payload smaller than the buffer only reached the pipe at `close()`, outside that guard. On Python 3.14,
