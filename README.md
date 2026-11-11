@@ -290,7 +290,7 @@ person = aimu.client("openai:gpt-4.1").chat("Extract: Ada Lovelace, 36", schema=
 # Person(name="Ada Lovelace", age=36)
 ```
 
-`schema=` also combines with `stream=True`: thinking / generation stream live, then a terminal `DONE` chunk carries `{"result": <object>}` (also on `client.last_structured`). Anthropic streams the JSON but not thinking (its structured mode is a forced tool).
+`schema=` also combines with `stream=True`: thinking / generation stream live, then a terminal `DONE` chunk carries `{"result": <object>}` (also on `client.last_structured`). On most Anthropic models the stream carries the JSON but not thinking (their structured mode is a forced tool); Fable 5.1/5.2, Opus 5.5, and Sonnet 5.5 use native JSON outputs and stream thinking too.
 
 ### Embeddings and RAG
 

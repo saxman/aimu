@@ -32,6 +32,7 @@ from ._base.shared import (
     ContextOverflowError,
     ModelNotInstalledError,
     ModelRefusalError,
+    ModelDeprecatedError,
     ModelConnectionError,
     StreamChunk,
     StreamingContentType,
@@ -61,6 +62,7 @@ __all__ = [
     "ContextOverflowError",
     "ModelNotInstalledError",
     "ModelRefusalError",
+    "ModelDeprecatedError",
     "classproperty",
     # text
     "ModelSpec",

@@ -127,16 +127,22 @@ client.chat("...", generate_kwargs={"output_config": {"effort": "max"}})
 
 A value you pass this way outranks one derived from `thinking=`, and is merged into any
 `output_config` already present rather than replacing it. One combination is refused by the API:
-Opus 5 rejects disabled thinking above `high` effort, so `thinking=False` alongside an explicit
-`xhigh`/`max` lowers the effort to `high` and warns, rather than quietly re-enabling the reasoning
-you turned off.
+Opus 5 and Haiku 5.5 reject disabled thinking above `high` effort, so `thinking=False` alongside an
+explicit `xhigh`/`max` lowers the effort to `high` and warns, rather than quietly re-enabling the
+reasoning you turned off.
 
 Turning thinking off is where the two styles differ on the wire. On the `ENABLED`-style models
 (Haiku 4.5 alone, now) an absent `thinking` parameter *is* off, so `thinking=False` sends
 nothing. The adaptive models reason by default when the parameter is absent, so AIMU sends an
-explicit `{"type": "disabled"}` there instead. `CLAUDE_FABLE_5` is the one member that cannot
-be turned off at all (it declares `thinking_optional=False`): `thinking=False` warns and the call
-proceeds with reasoning on, as it does for any model that cannot honour the request.
+explicit `{"type": "disabled"}` there instead. Two exceptions:
+
+- `CLAUDE_SONNET_5_5` rejects `disabled`. Its lowest setting is `{"type": "between_tools"}`,
+  which skips up-front thinking but can still think between tool calls. `thinking=False` sends
+  that and warns once that reasoning is reduced, not off. It shares the `high` effort ceiling above.
+- `CLAUDE_FABLE_5_2`, `CLAUDE_FABLE_5_1`, `CLAUDE_FABLE_5`, and `CLAUDE_OPUS_5_5` cannot be
+  turned off at all (they declare `thinking_optional=False`). `thinking=False` warns and the call
+  proceeds with reasoning on, as it does for any model that cannot honour the request. Lower the
+  effort with `thinking="low"` instead.
 
 The adaptive models also reject `temperature`, `top_p`, and `top_k` outright, thinking or not, so
 those keys are dropped from every request to them -- including the `temperature` the Anthropic

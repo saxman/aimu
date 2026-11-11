@@ -8,6 +8,7 @@ factories, and/or both the sync and async surfaces:
 - ``streaming``     -- stream-chunk filtering (``resolve_include`` / ``filter_chunks``)
 - ``json``          -- structured-output extraction from model responses
 - ``model_defaults``-- default-model resolution when ``model=`` is omitted
+- ``deprecations``  -- deprecated/retired models per catalog, raised as ``ModelDeprecatedError``
 - ``image_input``   -- vision-input normalization (paired with ``image_output``)
 - ``image_output``  -- diffusion-output encoding (``encode_image``)
 - ``audio_output``  -- audio/speech-output encoding (``encode_audio``)

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Iterator, Optional, Union
 
 from .base import AdHocModel, BaseModelClient, Model, ModelSpec, StreamChunk
+from ._internal.deprecations import raise_if_deprecated
 from ._internal.factory import ProviderEntry, installed
 from ._internal.model_defaults import (
     available_text_models,
@@ -93,6 +94,7 @@ def resolve_model_string(model_str: str) -> Model:
     for member in model_enum:
         if member.value == model_id:
             return member
+    raise_if_deprecated(model_enum, model_id=model_id)
     available = sorted(m.value for m in model_enum)
     raise ValueError(f"Provider {provider!r} has no model id {model_id!r}. Available: {available}")
 
@@ -185,6 +187,7 @@ def resolve_model(model_str: str) -> ResolvedModel:
             )
         return ResolvedModel(match, provider, base_url)
 
+    raise_if_deprecated(enum_cls, model_id=model_id)
     if provider not in _ADHOC_PROVIDERS:
         available = sorted(member.value for member in enum_cls)
         raise ValueError(f"Provider {provider!r} has no model id {model_id!r}. Available: {available}")
@@ -271,6 +274,8 @@ def resolve_model_enum(model: Union[Model, str]) -> Model:
     if len(matches) == 1:
         return matches[0][1]
     if not matches:
+        for _prefix, (enum_cls, _client) in registry.items():
+            raise_if_deprecated(enum_cls, name=model)
         names = sorted({name for _, (enum_cls, _client) in registry.items() for name in enum_cls.__members__})
         raise ValueError(f"Unknown model name {model!r}. Pass a 'provider:model_id' string or one of: {names}")
 

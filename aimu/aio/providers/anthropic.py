@@ -23,6 +23,7 @@ from aimu.models.providers.anthropic import (
     AnthropicModel,
     _raise_for_request_too_large,
     _raise_if_context_overflowed,
+    _structured_tools_conflict,
 )
 from aimu.models._internal.sdk_config import sdk_client_kwargs
 from aimu.models._internal.endpoint import recordable_endpoint
@@ -91,26 +92,18 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
     def STRUCTURED_MODELS(cls) -> list[Model]:  # noqa: N805
         return [m for m in cls.MODELS if m.supports_structured_output]
 
-    # Pure helper reused from the sync client; no I/O involved.
+    # Pure helpers reused from the sync client; no I/O involved.
     _strip_thinking_for_structured = _SyncAnthropicClient._strip_thinking_for_structured
+    _structured_payload = _SyncAnthropicClient._structured_payload
+    _structured_text = _SyncAnthropicClient._structured_text
+    _structured_stream_chunk = _SyncAnthropicClient._structured_stream_chunk
 
     async def _structured_call(
         self, system_str, ant_messages: list, generate_kwargs: dict, response_format: dict
     ) -> str:
-        """Async forced-tool structured output (see sync ``AnthropicClient._structured_call``)."""
-        import re
-
-        generate_kwargs = self._strip_thinking_for_structured(generate_kwargs)
-        name = re.sub(r"[^a-zA-Z0-9_-]", "_", str(response_format.get("title", "Response")))[:64] or "Response"
-        tool = {"name": name, "description": f"Emit the answer as a {name} object.", "input_schema": response_format}
-        payload = {
-            **generate_kwargs,
-            "model": self.model.value,
-            "system": system_str,
-            "messages": ant_messages,
-            "tools": [tool],
-            "tool_choice": {"type": "tool", "name": name},
-        }
+        """Async structured-output turn (see sync ``AnthropicClient._structured_call``)."""
+        self.last_thinking = ""
+        payload = self._structured_payload(system_str, ant_messages, generate_kwargs, response_format)
         self._record_request(payload)
         try:
             response = await self._client.messages.create(**payload)
@@ -120,10 +113,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
             _raise_if_context_overflowed(exc)
             raise
         self._record_response(response)
-        for block in response.content:
-            if block.type == "tool_use":
-                return json.dumps(block.input)
-        return "{}"
+        return self._structured_text(response)
 
     async def _structured_call_streamed(
         self,
@@ -134,31 +124,17 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         *,
         append_message: bool,
     ) -> AsyncIterator[StreamChunk]:
-        """Async streamed forced-tool structured output (see sync ``_structured_call_streamed``).
-
-        Streams the tool-input JSON (``GENERATING`` from ``input_json_delta``); no ``THINKING``.
-        """
-        import re
-
+        """Async streamed structured-output turn (see sync ``_structured_call_streamed``)."""
         self.last_thinking = ""
         self.last_usage = None
-        generate_kwargs = self._strip_thinking_for_structured(generate_kwargs)
-        name = re.sub(r"[^a-zA-Z0-9_-]", "_", str(response_format.get("title", "Response")))[:64] or "Response"
-        tool = {"name": name, "description": f"Emit the answer as a {name} object.", "input_schema": response_format}
-        payload = {
-            **generate_kwargs,
-            "model": self.model.value,
-            "system": system_str,
-            "messages": ant_messages,
-            "tools": [tool],
-            "tool_choice": {"type": "tool", "name": name},
-        }
+        payload = self._structured_payload(system_str, ant_messages, generate_kwargs, response_format)
         self._record_request(payload)
         try:
             async with self._client.messages.stream(**payload) as stream:
                 async for event in stream:
-                    if event.type == "content_block_delta" and event.delta.type == "input_json_delta":
-                        yield StreamChunk(StreamingContentType.GENERATING, event.delta.partial_json)
+                    chunk = self._structured_stream_chunk(event)
+                    if chunk is not None:
+                        yield chunk
                 final = await stream.get_final_message()
         except anthropic.RequestTooLargeError as exc:
             _raise_for_request_too_large(exc)
@@ -166,11 +142,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
             _raise_if_context_overflowed(exc)
             raise
         self._record_response(final)
-        text = "{}"
-        for block in final.content:
-            if block.type == "tool_use":
-                text = json.dumps(block.input)
-                break
+        text = self._structured_text(final)
         if append_message:
             self._append_message({"role": "assistant", "content": text})
 
@@ -284,11 +256,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         response_format: Optional[dict] = None,
     ) -> Union[str, AsyncIterator[StreamChunk]]:
         if response_format is not None and use_tools and self.tools:
-            raise ValueError(
-                "Anthropic structured output uses a forced tool, which is incompatible with active "
-                "action tools. Drop tools (or use_tools=False), or use a provider whose response_format "
-                "composes with tools (e.g. OpenAI)."
-            )
+            raise ValueError(_structured_tools_conflict(self.model.value))
 
         generate_kwargs, tools = await self._chat_setup(
             user_message, generate_kwargs, use_tools, images=images, audio=audio

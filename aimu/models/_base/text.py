@@ -10,11 +10,12 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import Enum, EnumType
 from typing import TYPE_CHECKING, Any, Iterable, Iterator, Optional, Union
 
 from ...events import EventSink, ModelTurnFinished, ModelTurnStarted, RequestPrepared, emit
 from .._internal.chat_state import _ChatStateMixin, _effective_sink
+from .._internal.deprecations import raise_if_deprecated
 from .._internal.generate_kwargs import _GenerateKwargsMixin
 from .._internal.json_safe import json_safe
 from .._internal.streaming import filter_chunks as _filter_chunks_fn
@@ -88,14 +89,46 @@ class ModelSpec:
             )
 
 
-class Model(Enum):
+class _CatalogType(EnumType):
+    """Metaclass for model catalogs: a deprecated member name raises ``ModelDeprecatedError``.
+
+    Without it, ``AnthropicModel.CLAUDE_SONNET_4_5`` (and ``AnthropicModel["CLAUDE_SONNET_4_5"]``)
+    would raise ``AttributeError`` / ``KeyError``, which reads as a typo, after the member was
+    removed for being deprecated. ``__getattr__`` runs only when ordinary lookup fails, so live
+    members and every other attribute are unaffected.
+    """
+
+    def __getattr__(cls, name: str):
+        if not name.startswith("_"):
+            raise_if_deprecated(cls, name=name)
+        raise AttributeError(f"type object {cls.__name__!r} has no attribute {name!r}")
+
+    def __getitem__(cls, name: str):
+        try:
+            return super().__getitem__(name)
+        except KeyError:
+            raise_if_deprecated(cls, name=name)
+            raise
+
+
+class Model(Enum, metaclass=_CatalogType):
     """Base enum for provider model catalogs.
 
     Each member's value is a ``ModelSpec``; capability flags are mirrored as plain
     attributes (``supports_tools``, ``supports_thinking``, ``supports_vision``,
     ``generation_kwargs``) for direct read access. ``.value`` returns the provider id
     string so code can call e.g. ``ollama.pull(model.value)``.
+
+    Naming a model the catalog dropped as deprecated, whether by attribute, subscript, or value,
+    raises ``ModelDeprecatedError`` (see ``aimu/models/_internal/deprecations.py``).
     """
+
+    @classmethod
+    def _missing_(cls, value):
+        # Enum re-raises a ValueError from _missing_ as-is, and ModelDeprecatedError is one.
+        if isinstance(value, str):
+            raise_if_deprecated(cls, model_id=value)
+        return None
 
     def __init__(self, spec: "ModelSpec | Wire"):
         # A catalog may assign a `Wire` (aimu/models/_catalog.py) instead of a bare `ModelSpec`,

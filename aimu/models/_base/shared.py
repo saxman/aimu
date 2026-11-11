@@ -7,6 +7,7 @@ capability classproperties (``TOOL_MODELS`` etc.).
 """
 
 import logging
+from datetime import date
 from enum import Enum
 from typing import NamedTuple, Optional, Union
 
@@ -64,6 +65,35 @@ class ModelRefusalError(RuntimeError):
         super().__init__(message)
         self.category = category
         self.explanation = explanation
+
+
+class ModelDeprecatedError(ValueError):
+    """Raised when code names a model its provider has deprecated or retired.
+
+    AIMU drops such a model from its catalog rather than keep sending requests that the provider
+    will soon refuse (or already refuses). Without this error, the name would fall through to a
+    generic "unknown model" message that suggests a typo, when the actual remedy is a migration.
+    The message names the replacement and the retirement date.
+
+    A ``ValueError`` subclass, because before the model was catalogued out the same call raised
+    ``ValueError`` for an unknown id, and an existing ``except ValueError`` should stay correct.
+    ``retires_on`` is ``None`` when the provider has not announced a retirement date.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        model: str,
+        replacement: str,
+        deprecated_on: date,
+        retires_on: Optional[date],
+    ):
+        super().__init__(message)
+        self.model = model
+        self.replacement = replacement
+        self.deprecated_on = deprecated_on
+        self.retires_on = retires_on
 
 
 class StreamingContentType(str, Enum):

@@ -4,6 +4,31 @@
 
 ### Models
 
+- **New: Claude Fable 5.2, Fable 5.1, Opus 5.5, Sonnet 5.5, and Haiku 5.5.** `AnthropicModel`
+  gains `CLAUDE_FABLE_5_2`, `CLAUDE_FABLE_5_1`, `CLAUDE_OPUS_5_5`, `CLAUDE_SONNET_5_5`, and
+  `CLAUDE_HAIKU_5_5`. All five are adaptive-thinking models with the full effort ladder, and all reject
+  `temperature` / `top_p` / `top_k`, which are dropped. Fable 5.x and Opus 5.5 cannot turn thinking off,
+  so `thinking=False` warns and continues. Sonnet 5.5 rejects `{"type": "disabled"}`, so `thinking=False`
+  sends its lowest setting, `{"type": "between_tools"}`, and warns that it can still think between tool
+  calls. Haiku 5.5 is adaptive, unlike Haiku 4.5. Every model Anthropic lists as Active stays in the
+  catalog; the verification-gated Mythos models are not added.
+- **Change: structured output on Fable 5.1/5.2, Opus 5.5, and Sonnet 5.5 uses native JSON outputs.**
+  These models return a 400 on a forced `tool_choice`, which is how `schema=` works on the rest of the
+  Anthropic catalog. They send `output_config.format` instead, which keeps thinking (and a `thinking=`
+  level) and streams `THINKING` chunks. Native mode needs `additionalProperties: false` on every object,
+  which AIMU adds where a schema leaves it unset. It rejects some schema features the forced tool
+  accepted, such as `minimum` or `maxLength` on a Pydantic `Field`, and the API's 400 names them. The
+  other Anthropic models keep the forced tool.
+- **New: `ModelDeprecatedError` for deprecated and retired models.** Naming a model its provider has
+  deprecated or retired now raises `ModelDeprecatedError` (a `ValueError` subclass, exported from `aimu`,
+  `aimu.models`, and `aimu.aio`), naming the replacement and the retirement date. Previously it raised
+  the generic unknown-id error. This applies to a model string (`"anthropic:claude-sonnet-4-5"`), an enum
+  attribute or subscript (`AnthropicModel.CLAUDE_SONNET_4_5`), a value lookup, and a bare name passed to
+  `resolve_model_enum`. The Anthropic table covers Sonnet 4.5 (deprecated, retires 2026-11-30) and every
+  retired model back to Claude 3 Opus. None of these were in the catalog, so no working code breaks.
+  Retiring a catalogued model is now: delete the member and add a `DeprecatedModel` entry (see
+  `docs/how-to/add-new-model.md`).
+
 - **New: Nemotron 3.5 Lightning, Bolt E4B, Bolt 74B, and Super VL.** `NEMOTRON_3_5_LIGHTNING_30B`
   (30B-A3B, the successor to Nemotron 3 Nano), `NEMOTRON_3_5_BOLT_E4B` (8B, post-trained from Gemma 4
   E4B), `NEMOTRON_3_5_BOLT_74B` (74B-A9B, vision), and `NEMOTRON_3_5_SUPER_120B` (120B-A12B, vision),
