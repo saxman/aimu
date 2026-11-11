@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -3558,7 +3558,7 @@ a string. <code>schema</code> may be a <strong>dataclass</strong> (dependency-fr
 <ul>
 <li><strong>Native enforcement</strong> when the model has <code>supports_structured_output=True</code>: the provider
   constrains generation to the schema (OpenAI <code>response_format</code>, Ollama <code>format=</code>, Anthropic
-  forced-tool). Check it with <code>client.supports_structured_output</code>.</li>
+  forced-tool, or Anthropic <code>output_config.format</code> on the models that reject a forced tool). Check it with <code>client.supports_structured_output</code>.</li>
 <li><strong>Prompt-and-parse</strong> otherwise: the schema is appended to the prompt and the response is
   parsed.</li>
 </ul>
@@ -3591,10 +3591,16 @@ provider failure surfaces rather than silently downgrading.</p>
 <h2 id="with-tools">With tools<a class="headerlink" href="#with-tools" title="Permanent link">&para;</a></h2>
 <p><code>schema=</code> composes with tool calling on OpenAI-compatible and parse-path providers: tools
 run in the loop, and the final answer obeys the schema.</p>
-<p><strong>Anthropic is the exception.</strong> Its native structured output <em>is</em> a forced tool, which
-conflicts with offering action tools, so combining <code>schema=</code> with active <code>tools=</code> raises a
-<code>ValueError</code>. Drop the tools (or <code>use_tools=False</code>), or use a provider whose <code>response_format</code>
-composes with tools.</p>
+<p><strong>Anthropic is the exception.</strong> On most of its catalog the native structured output <em>is</em> a
+forced tool, which conflicts with offering action tools. Fable 5.1/5.2, Opus 5.5, and Sonnet 5.5
+reject a forced tool, so they use native JSON outputs (<code>output_config.format</code>) instead, but AIMU's
+structured turn on them still advertises no tools. Either way, combining <code>schema=</code> with active
+<code>tools=</code> raises a <code>ValueError</code>. Drop the tools (or <code>use_tools=False</code>), or use a provider whose
+<code>response_format</code> composes with tools.</p>
+<p>Native JSON outputs are stricter about the schema than the forced tool. AIMU adds
+<code>additionalProperties: false</code> to every object that leaves it unset, as the API requires. It does
+not remove constraints the API rejects, such as <code>minimum</code> or <code>maxLength</code> on a Pydantic <code>Field</code>;
+the API's 400 names them.</p>
 <h2 id="streaming-structured-output">Streaming structured output<a class="headerlink" href="#streaming-structured-output" title="Permanent link">&para;</a></h2>
 <p><code>schema=</code> combines with <code>stream=True</code>. The call returns an iterator of <code>StreamChunk</code>s so you can
 show thinking / generation live, and the validated object is delivered two ways:</p>
@@ -3611,11 +3617,12 @@ show thinking / generation live, and the validated object is delivered two ways:
 </span></code></pre></div>
 <p>An <code>include=</code> filter still applies to the thinking/generation phases, but the terminal result chunk
 is <strong>always</strong> emitted so the payload is never filtered away.</p>
-<p><strong>Anthropic streams the JSON, not thinking.</strong> Its structured mode is a forced tool, which the API
-forbids alongside extended thinking, so an Anthropic structured stream yields the answer JSON as it
-is built (GENERATING chunks) with no THINKING. Ollama and OpenAI-compatible thinking models stream
-thinking normally. This matches the non-streaming behavior (Anthropic structured output has never
-produced thinking).</p>
+<p><strong>Anthropic usually streams the JSON, not thinking.</strong> On most of its catalog the structured mode
+is a forced tool, which the API forbids alongside extended thinking, so the stream yields the answer
+JSON as it is built (GENERATING chunks) with no THINKING, and a <code>thinking=</code> level is warned about and
+dropped. The models on native JSON outputs (Fable 5.1/5.2, Opus 5.5, Sonnet 5.5) keep thinking,
+stream it, and honour <code>thinking=</code>. Ollama and OpenAI-compatible thinking models stream thinking
+normally.</p>
 <h2 id="constraints">Constraints<a class="headerlink" href="#constraints" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong><code>self.messages</code> stays plain.</strong> The typed object is a return value only; the assistant turn
@@ -3724,7 +3731,7 @@ llama-cpp use the prompt-and-parse path. See <a href="../../reference/api/aimu/"
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.indexes", "content.code.copy", "content.code.annotate", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>

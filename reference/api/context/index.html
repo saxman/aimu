@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -3476,7 +3476,7 @@ module docstring for the full rationale.</p>
 
 
 <a href="#aimu.context.trim_messages" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">trim_messages</span><span class="p">(</span><span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="n">max_tokens</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">keep_system</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">keep_last</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">counter</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">trim_messages</span><span class="p">(</span><span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="n">max_tokens</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">keep_system</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">keep_first</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">keep_last</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">counter</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">],</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -3490,6 +3490,10 @@ time (see :func:<code>_group_messages</code>): an <code>assistant</code> message
 always dropped together with every <code>tool</code> message answering it, never separately. This
 is the invariant that justifies this function over a hand-written <code>messages[-n:]</code>
 slice, which produces exactly that illegal shape.</p>
+<p>The first non-system message is kept by default (<code>keep_first=1</code>). In an agent run it is
+the task, the user message <code>agent.run(task)</code> appended, and oldest-first dropping would
+otherwise remove it before anything else, leaving the agent working without knowing what
+it was asked. That failure raises nothing: the run still returns a plausible answer.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3559,6 +3563,25 @@ messages are ordinary droppable messages like any other and order is preserved.<
           </tr>
           <tr class="doc-section-item">
             <td>
+                <code>keep_first</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The number of leading <strong>messages</strong> to always protect from dropping,
+counted after the system messages when <code>keep_system</code> is <code>True</code> and from the
+very first message otherwise. Extended outward to whole tool-call groups, like
+<code>keep_last</code>. Pass <code>0</code> for plain oldest-first dropping.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>keep_last</code>
             </td>
             <td>
@@ -3607,29 +3630,39 @@ groups when the raw count would otherwise split one.</p>
 
 
 <a href="#aimu.context.summarize_messages" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">summarize_messages</span><span class="p">(</span><span class="n">client</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">keep_last</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">prompt</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">summarize_messages</span><span class="p">(</span><span class="n">client</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">messages</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">keep_first</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">keep_last</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">prompt</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
 
-        <p>Replace the older part of a conversation with a one-message LLM summary.</p>
+        <p>Replace the middle of a conversation with a one-message LLM summary.</p>
 <p>Any <code>{"role": "system"}</code> messages are always preserved unchanged, and are returned at
 the front (a mid-conversation system message is hoisted, the same reordering
-:func:<code>trim_messages</code> does under <code>keep_system=True</code>). Of the rest, the
-last <code>keep_last</code> <strong>messages</strong> (see the module docstring on why messages, not
-exchanges; extended outward to whole tool-call groups per :func:<code>_group_messages</code>, the
-same invariant :func:<code>trim_messages</code> enforces) are kept verbatim as the tail. Everything
-older than that (the "prefix") is rendered to a plain transcript, summarized by one
-<code>client.generate()</code> call, and replaced with a single <code>{"role": "system", ...}</code>
-message carrying the summary text -- system, rather than user or assistant, because it
-is out-of-band context neither party actually said, not a real conversational turn.</p>
+:func:<code>trim_messages</code> does under <code>keep_system=True</code>). Of the rest, the first
+<code>keep_first</code> and the last <code>keep_last</code> <strong>messages</strong> (see the module docstring on why
+messages, not exchanges; each extended outward to whole tool-call groups per
+:func:<code>_group_messages</code>, the same invariant :func:<code>trim_messages</code> enforces) are kept
+verbatim. Everything between them (the "prefix") is rendered to a plain transcript,
+summarized by one <code>client.generate()</code> call, and replaced with a single
+<code>{"role": "system", ...}</code> message carrying the summary text -- system, rather than user
+or assistant, because it is out-of-band context neither party actually said, not a real
+conversational turn.</p>
+<p><code>keep_first=1</code> is the default for the reason it is on :func:<code>trim_messages</code>: in an agent
+run the first non-system message is the task, and a summarizer may paraphrase it or leave
+it out. The kept first messages are still shown to the summarizer, labeled as background
+it should not summarize, because the instruction asks for what a continuation will need
+and the task is what that need is relative to. Models tend to restate the task in the
+summary anyway, a small duplication. The returned order is system messages, then the
+summary, then the kept first messages, then the tail. The summary goes ahead of the kept first messages, though it
+describes what came after them, because several local chat templates reject a system
+message anywhere but the start of the conversation.</p>
 <p><code>client</code> is any object exposing <code>generate(prompt: str) -&gt; str</code> (a plain
 :class:<code>~aimu.models.BaseModelClient</code>, or a :class:<code>~aimu.agents.Agent</code> via
 <code>agent.as_model_client()</code>); this function takes it as an argument rather than
 constructing one itself, so it stays free of any provider dependency.</p>
-<p>When there is nothing older than the protected tail (the whole conversation already
-fits in <code>keep_last</code>), no summarization call is made and the conversation is returned
-unchanged (a new list; <em>messages</em> is never mutated).</p>
+<p>When nothing lies between the kept first and last messages, no summarization call is
+made and the conversation is returned unchanged (a new list; <em>messages</em> is never
+mutated).</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -3673,6 +3706,23 @@ unchanged (a new list; <em>messages</em> is never mutated).</p>
             </td>
             <td>
                 <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>keep_first</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Leading non-system messages to keep verbatim; <code>0</code> summarizes from the
+first one.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -3822,7 +3872,7 @@ unchanged (a new list; <em>messages</em> is never mutated).</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.indexes", "content.code.copy", "content.code.annotate", "search.highlight", "search.suggest"], "search": "../../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>

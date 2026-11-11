@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -5273,6 +5273,8 @@ enum value even when <code>generation_kwargs</code> is a dict.</p>
 attributes (<code>supports_tools</code>, <code>supports_thinking</code>, <code>supports_vision</code>,
 <code>generation_kwargs</code>) for direct read access. <code>.value</code> returns the provider id
 string so code can call e.g. <code>ollama.pull(model.value)</code>.</p>
+<p>Naming a model the catalog dropped as deprecated, whether by attribute, subscript, or value,
+raises <code>ModelDeprecatedError</code> (see <code>aimu/models/_internal/deprecations.py</code>).</p>
 
 
 
@@ -7042,7 +7044,7 @@ consulted, so the spec is the one place that text comes from.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.indexes", "content.code.copy", "content.code.annotate", "search.highlight", "search.suggest"], "search": "../../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>

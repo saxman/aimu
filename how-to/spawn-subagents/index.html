@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -3635,6 +3635,7 @@
 </span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">compaction</span><span class="o">=</span><span class="k">lambda</span> <span class="n">messages</span><span class="p">:</span> <span class="n">trim_messages</span><span class="p">(</span><span class="n">messages</span><span class="p">,</span> <span class="n">max_tokens</span><span class="o">=</span><span class="mi">100_000</span><span class="p">),</span>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="p">)</span>
 </span></code></pre></div>
+<p>The worker's task is the first message after its system prompt, so <code>trim_messages</code>' default <code>keep_first=1</code> keeps it however much is trimmed. Before that default, the task was the first message dropped, and a worker carried on without knowing what it had been asked.</p>
 <p>That bounds growth <strong>spread over many rounds</strong>, which is the common shape. It cannot save a worker from a <em>single</em> tool result too large for the window: <code>trim_messages</code> will not drop the most recent group without orphaning the call it answers, so a tool that can return megabytes has to cap itself. The built-in <code>get_web_content</code> and <code>read_file</code> both cap what one call returns for this reason. Their <code>offset</code> is a separate thing and does not help here: it lets a model read past the cap deliberately, so a tool's own advice about paging is what has to stay honest about cost.</p>
 <p><strong>A child that overflows anyway comes back as a tool result, not an exception</strong>, and the result names the sub-agent's own window as the one that filled. This is not cosmetic. Every provider composes <code>ContextOverflowError</code> for whoever built the client, so the message ends "shorten the conversation, advertise fewer tools, or compact history first". Uncaught, the tool loop hands that to the <strong>parent</strong> model verbatim as <code>Tool 'spawn_subagent' raised an error: ...</code>, where "the conversation" reads as the parent's own. A delegating assistant that read it that way told its user the conversation had grown too long to spawn another worker and stopped delegating, while the real cause was one oversized tool result inside one child. The provider's sentence is still included as evidence, and explicitly disclaimed.</p>
 <p>Only <code>ContextOverflowError</code> is converted. Any other failure inside a spawn still propagates to the caller. With an <code>observer</code> attached (async, see below), the observer's <code>finished</code> callback still receives the exception, so a front end's spawn card is still marked failed: display keeps the error, and only the model gets the explanation.</p>
@@ -3790,7 +3791,7 @@
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.indexes", "content.code.copy", "content.code.annotate", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>

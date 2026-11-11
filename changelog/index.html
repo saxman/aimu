@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -3255,15 +3255,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#unreleased" class="md-nav__link">
+  <a href="#v0390-2026-11-11-claude-55-models-nemotron-35-opt-in-ollama-pulling-and-aimupull-make_page_tools-and-compaction-that-keeps-the-task" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Unreleased
+        v0.39.0 (2026-11-11): Claude 5.5 models, Nemotron 3.5, opt-in Ollama pulling and aimu.pull(), make_page_tools, and compaction that keeps the task
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Unreleased">
+    <nav class="md-nav" aria-label="v0.39.0 (2026-11-11): Claude 5.5 models, Nemotron 3.5, opt-in Ollama pulling and aimu.pull(), make_page_tools, and compaction that keeps the task">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -3293,6 +3293,17 @@
     <span class="md-ellipsis">
       
         Tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
       
     </span>
   </a>
@@ -5681,15 +5692,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#unreleased" class="md-nav__link">
+  <a href="#v0390-2026-11-11-claude-55-models-nemotron-35-opt-in-ollama-pulling-and-aimupull-make_page_tools-and-compaction-that-keeps-the-task" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Unreleased
+        v0.39.0 (2026-11-11): Claude 5.5 models, Nemotron 3.5, opt-in Ollama pulling and aimu.pull(), make_page_tools, and compaction that keeps the task
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Unreleased">
+    <nav class="md-nav" aria-label="v0.39.0 (2026-11-11): Claude 5.5 models, Nemotron 3.5, opt-in Ollama pulling and aimu.pull(), make_page_tools, and compaction that keeps the task">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
@@ -5719,6 +5730,17 @@
     <span class="md-ellipsis">
       
         Tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
       
     </span>
   </a>
@@ -8072,10 +8094,37 @@ not this stub.
 -->
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
-<h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h2 id="v0390-2026-11-11-claude-55-models-nemotron-35-opt-in-ollama-pulling-and-aimupull-make_page_tools-and-compaction-that-keeps-the-task">v0.39.0 (2026-11-11): Claude 5.5 models, Nemotron 3.5, opt-in Ollama pulling and <code>aimu.pull()</code>, <code>make_page_tools</code>, and compaction that keeps the task<a class="headerlink" href="#v0390-2026-11-11-claude-55-models-nemotron-35-opt-in-ollama-pulling-and-aimupull-make_page_tools-and-compaction-that-keeps-the-task" title="Permanent link">&para;</a></h2>
 <h3 id="models">Models<a class="headerlink" href="#models" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>New: Nemotron 3.5 Lightning, Bolt E4B, Bolt 74B, and Super VL.</strong> <code>NEMOTRON_3_5_LIGHTNING_30B</code>
+<li><strong>New: Claude Fable 5.2, Fable 5.1, Opus 5.5, Sonnet 5.5, and Haiku 5.5.</strong> <code>AnthropicModel</code>
+  gains <code>CLAUDE_FABLE_5_2</code>, <code>CLAUDE_FABLE_5_1</code>, <code>CLAUDE_OPUS_5_5</code>, <code>CLAUDE_SONNET_5_5</code>, and
+  <code>CLAUDE_HAIKU_5_5</code>. All five are adaptive-thinking models with the full effort ladder, and all reject
+  <code>temperature</code> / <code>top_p</code> / <code>top_k</code>, which are dropped. Fable 5.x and Opus 5.5 cannot turn thinking off,
+  so <code>thinking=False</code> warns and continues. Sonnet 5.5 rejects <code>{"type": "disabled"}</code>, so <code>thinking=False</code>
+  sends its lowest setting, <code>{"type": "between_tools"}</code>, and warns that it can still think between tool
+  calls. Haiku 5.5 is adaptive, unlike Haiku 4.5. Every model Anthropic lists as Active stays in the
+  catalog; the verification-gated Mythos models are not added.</li>
+<li><strong>Change: structured output on Fable 5.1/5.2, Opus 5.5, and Sonnet 5.5 uses native JSON outputs.</strong>
+  These models return a 400 on a forced <code>tool_choice</code>, which is how <code>schema=</code> works on the rest of the
+  Anthropic catalog. They send <code>output_config.format</code> instead, which keeps thinking (and a <code>thinking=</code>
+  level) and streams <code>THINKING</code> chunks. Native mode needs <code>additionalProperties: false</code> on every object,
+  which AIMU adds where a schema leaves it unset. It rejects some schema features the forced tool
+  accepted, such as <code>minimum</code> or <code>maxLength</code> on a Pydantic <code>Field</code>, and the API's 400 names them. The
+  other Anthropic models keep the forced tool.</li>
+<li>
+<p><strong>New: <code>ModelDeprecatedError</code> for deprecated and retired models.</strong> Naming a model its provider has
+  deprecated or retired now raises <code>ModelDeprecatedError</code> (a <code>ValueError</code> subclass, exported from <code>aimu</code>,
+  <code>aimu.models</code>, and <code>aimu.aio</code>), naming the replacement and the retirement date. Previously it raised
+  the generic unknown-id error. This applies to a model string (<code>"anthropic:claude-sonnet-4-5"</code>), an enum
+  attribute or subscript (<code>AnthropicModel.CLAUDE_SONNET_4_5</code>), a value lookup, and a bare name passed to
+  <code>resolve_model_enum</code>. The Anthropic table covers Sonnet 4.5 (deprecated, retires 2026-11-30) and every
+  retired model back to Claude 3 Opus. None of these were in the catalog, so no working code breaks.
+  Retiring a catalogued model is now: delete the member and add a <code>DeprecatedModel</code> entry (see
+  <code>docs/how-to/add-new-model.md</code>).</p>
+</li>
+<li>
+<p><strong>New: Nemotron 3.5 Lightning, Bolt E4B, Bolt 74B, and Super VL.</strong> <code>NEMOTRON_3_5_LIGHTNING_30B</code>
   (30B-A3B, the successor to Nemotron 3 Nano), <code>NEMOTRON_3_5_BOLT_E4B</code> (8B, post-trained from Gemma 4
   E4B), <code>NEMOTRON_3_5_BOLT_74B</code> (74B-A9B, vision), and <code>NEMOTRON_3_5_SUPER_120B</code> (120B-A12B, vision),
   all with tools and thinking. Each is in the Ollama, <code>ollama-openai</code>, LM Studio, vLLM, HF Serve,
@@ -8086,7 +8135,8 @@ not this stub.
   vision and audio. On the GGUF paths (LM Studio, llama-server, llama.cpp) Bolt 74B and Super VL drop
   vision, as Gemma 4 does there, since no mmproj projector is loaded. Every card gives one sampling
   profile, temperature 1.0 and top_p 0.95, in both thinking modes. Super VL's "medium effort" switch is
-  not mapped to <code>thinking=</code> levels: it is a boolean, not a low/medium/high scale.</li>
+  not mapped to <code>thinking=</code> levels: it is a boolean, not a low/medium/high scale.</p>
+</li>
 <li><strong>New: <code>HuggingFaceModel.NEMOTRON_3_NANO_30B</code>.</strong> Nemotron 3 Nano was in every other local catalog but
   not the in-process one. transformers serves Nemotron-H natively, so no <code>trust_remote_code</code> is needed.</li>
 <li><strong>Fix: <code>thinking=False</code> no longer returns an empty answer on HuggingFace for Qwen 3.5, 3.6, and 3.8.</strong>
@@ -8151,6 +8201,32 @@ not this stub.
   whose default buffer grew from 8 KiB to 128 KiB, that covered every <code>execute_python</code> payload: a child
   that exited early raised <code>BrokenPipeError</code>, and an interrupt during the write surfaced as
   <code>BrokenPipeError</code> instead of <code>KeyboardInterrupt</code>. <code>run_command</code> sends no stdin and was unaffected.</li>
+</ul>
+<h3 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Change (breaking): <code>trim_messages</code> keeps the first message after the system messages, by
+  default.</strong> New <code>keep_first</code> parameter, default <code>1</code>, the head-side mirror of <code>keep_last</code>, extended
+  outward to a whole tool-call group the same way. In an agent run the first non-system message is
+  the task (the user message <code>agent.run(task)</code> appended), and plain oldest-first dropping removed it
+  before anything else: a worker under <code>compaction=</code> carried on with its system prompt and recent
+  tool traffic, answering a question it could no longer see, with nothing raised. Every
+  <code>compaction=lambda m: trim_messages(m, ...)</code> already in use gets the protection without changing.
+  What a trim returns does change: the first message now survives, so a trim drops something else
+  in its place. <code>keep_first=0</code> restores the old behavior. Two limits: it pins the conversation's
+  first message, which is the current task only when the conversation starts with it (true of a
+  spawned sub-agent and of an <code>Agent</code> that resets each run, not of a conversation spanning several
+  runs); and in a multi-turn chat the pinned first question can outlive its answer.</li>
+<li><strong>Change (breaking): <code>summarize_messages</code> keeps the first message verbatim, by default.</strong> The
+  same <code>keep_first</code> parameter and default, on both surfaces, for the same reason: a summarizer may
+  paraphrase the task or leave it out. Only the messages between the kept first and last ones are
+  summarized, and the result is ordered system, summary, kept first messages, tail. The summary
+  goes ahead of the task it postdates because several local chat templates reject a system message
+  anywhere but the start of the conversation. The kept first message is still shown to the
+  summarizer, labeled as background not to summarize, since "keep what a continuation will need"
+  is relative to the task. Without it, a summary listed "the location" as an open question because
+  the city was named only in the task. Summaries tend to restate the task briefly despite the
+  label. <code>prompt=</code> still replaces only the instruction. <code>keep_first=0</code> restores the old behavior,
+  prompt included.</li>
 </ul>
 <h3 id="documentation">Documentation<a class="headerlink" href="#documentation" title="Permanent link">&para;</a></h3>
 <ul>
@@ -10531,7 +10607,7 @@ release. Breaking changes are free before 1.0 and expensive after, so it ships n
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.indexes", "content.code.copy", "content.code.annotate", "search.highlight", "search.suggest"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>

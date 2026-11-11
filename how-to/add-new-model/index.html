@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -1172,6 +1172,17 @@
     <span class="md-ellipsis">
       
         Anthropic provider-specific extras
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#retiring-a-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Retiring a model
       
     </span>
   </a>
@@ -3565,6 +3576,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#retiring-a-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Retiring a model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#image-audio-and-speech-models" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3668,7 +3690,7 @@
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">CLAUDE_OPUS_5</span> <span class="o">=</span> <span class="n">ModelSpec</span><span class="p">(</span><span class="s2">"claude-opus-5"</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">thinking</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">vision</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div>
 <p>That's it. The model id (<code>"claude-opus-5"</code>) is what gets sent to the provider; the capability flags drive <code>is_tool_using_model</code>, <code>is_thinking_model</code>, <code>is_vision_model</code>, and the derived <code>TOOL_MODELS</code> / <code>THINKING_MODELS</code> / <code>VISION_MODELS</code> classproperties.</p>
-<p>A bare <code>ModelSpec</code> defaults the Anthropic reasoning request to <code>ThinkingStyle.ENABLED</code> (<code>budget_tokens</code>). New Claude reasoning models (Opus 4.7+ and Fable 5) require the adaptive request shape and <strong>400 on the <code>enabled</code> form</strong>, so define those with a <code>ThinkingStyle.ADAPTIVE</code> extra (see <a href="#anthropic-provider-specific-extras">Anthropic provider-specific extras</a> below).</p>
+<p>A bare <code>ModelSpec</code> defaults the Anthropic reasoning request to <code>ThinkingStyle.ENABLED</code> (<code>budget_tokens</code>). New Claude reasoning models (everything since Opus 4.7, and the 5.x line) require the adaptive request shape and <strong>400 on the <code>enabled</code> form</strong>, so define those with a <code>ThinkingStyle.ADAPTIVE</code> extra (see <a href="#anthropic-provider-specific-extras">Anthropic provider-specific extras</a> below).</p>
 <h2 id="local-runtime-catalogs">Local-runtime catalogs<a class="headerlink" href="#local-runtime-catalogs" title="Permanent link">&para;</a></h2>
 <p><code>OllamaModel</code>, <code>HuggingFaceModel</code>, <code>LlamaCppModel</code>, and the seven <code>*OpenAIModel</code> local-server catalogs (<code>OllamaOpenAIModel</code>, <code>LMStudioOpenAIModel</code>, <code>VLLMOpenAIModel</code>, <code>SGLangOpenAIModel</code>, <code>HFOpenAIModel</code>, <code>LlamaServerOpenAIModel</code>, <code>OMLXOpenAIModel</code>) don't carry a <code>ModelSpec</code> directly. Instead, each member is a <code>Wire(id)</code> that resolves against the shared <code>MODEL_FACTS</code> table (<code>aimu/models/_catalog.py</code>), keyed on the cross-provider enum-member name. Adding a model to one of these catalogs is a two-step process:</p>
 <p><strong>1. Add the model's intrinsic facts to <code>MODEL_FACTS</code>, once</strong> -- skip this step if another local-runtime catalog already carries the same enum-member name (the facts already exist):</p>
@@ -3816,39 +3838,63 @@ and <a href="../add-new-provider/">Add or update a provider</a> for the reserved
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># aimu/models/providers/anthropic.py</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">AnthropicModel</span><span class="p">(</span><span class="n">Model</span><span class="p">):</span>
 </span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="c1"># Adaptive: thinking={"type": "adaptive", "display": "summarized"}; sampling params dropped.</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="c1"># Required by Opus 4.7+ and Fable 5 (the enabled form 400s here).</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="c1"># Required from Opus 4.7 on (the enabled form 400s there).</span>
 </span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>    <span class="n">CLAUDE_OPUS_4_8</span> <span class="o">=</span> <span class="p">(</span><span class="n">ModelSpec</span><span class="p">(</span><span class="s2">"claude-opus-4-8"</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">thinking</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">vision</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span> <span class="n">ThinkingStyle</span><span class="o">.</span><span class="n">ADAPTIVE</span><span class="p">)</span>
 </span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>    <span class="c1"># Enabled (default): thinking={"type": "enabled", "budget_tokens": N}; the model always thinks.</span>
 </span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">CLAUDE_HAIKU_4_5</span> <span class="o">=</span> <span class="n">ModelSpec</span><span class="p">(</span><span class="s2">"claude-haiku-4-5"</span><span class="p">,</span> <span class="n">tools</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">thinking</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">vision</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span></code></pre></div>
-<p>Rule of thumb: Opus 4.7 and later, and Fable 5, are adaptive-only; Opus 4.6, Sonnet 4.6, and Haiku 4.5 use the budget form. Confirm a new model's support with the Models API (<code>client.models.retrieve(id).capabilities["thinking"]["types"]</code>); <code>adaptive.supported</code> / <code>enabled.supported</code> tell you which shape to pick.</p>
+<p>Rule of thumb: every member except Haiku 4.5 is adaptive (Opus 4.7 and later require it; the 4.6 line uses it because Anthropic deprecated the budget form there). Confirm a new model's support with the Models API (<code>client.models.retrieve(id).capabilities["thinking"]["types"]</code>); <code>adaptive.supported</code> / <code>enabled.supported</code> tell you which shape to pick.</p>
+<p>Three request quirks are per-model facts that no <code>ModelSpec</code> flag expresses, so they live in provider-local sets in the same module, keyed by model id. Add a new model's id to each one that applies:</p>
+<ul>
+<li><code>_REJECTS_SAMPLING</code>: the model 400s on <code>temperature</code> / <code>top_p</code> / <code>top_k</code> (Opus 4.7 and later, every 5.x model).</li>
+<li><code>_REJECTS_FORCED_TOOL_CHOICE</code>: the model 400s on <code>tool_choice</code> <code>"any"</code> / <code>"tool"</code>, so structured output uses native JSON outputs (<code>output_config.format</code>) instead of a forced tool (Fable 5.1/5.2, Opus 5.5, Sonnet 5.5).</li>
+<li><code>_DISABLES_THINKING_BETWEEN_TOOLS</code>: the model 400s on <code>{"type": "disabled"}</code> and takes <code>{"type": "between_tools"}</code> as its lowest setting (Sonnet 5.5).</li>
+</ul>
+<p>A model that cannot turn thinking off at all declares <code>thinking_optional=False</code> on its <code>ModelSpec</code> instead. <code>tests/test_anthropic_sdk_contract.py</code> fails if a set names an id that is not in the catalog.</p>
+<h2 id="retiring-a-model">Retiring a model<a class="headerlink" href="#retiring-a-model" title="Permanent link">&para;</a></h2>
+<p>When a provider deprecates a catalogued model, delete the enum member and record it with <code>register_deprecated</code> next to the catalog, naming the provider's recommended replacement:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># aimu/models/providers/anthropic.py, after the AnthropicModel class</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">register_deprecated</span><span class="p">(</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">AnthropicModel</span><span class="p">,</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="p">(</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>        <span class="n">DeprecatedModel</span><span class="p">(</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>            <span class="s2">"CLAUDE_SONNET_4_5"</span><span class="p">,</span>                                   <span class="c1"># the enum-member name</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>            <span class="p">(</span><span class="s2">"claude-sonnet-4-5"</span><span class="p">,</span> <span class="s2">"claude-sonnet-4-5-20250929"</span><span class="p">),</span>   <span class="c1"># every id that names it</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>            <span class="s2">"CLAUDE_SONNET_5_5"</span><span class="p">,</span>                                   <span class="c1"># replacement, a live member</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>            <span class="n">deprecated_on</span><span class="o">=</span><span class="n">date</span><span class="p">(</span><span class="mi">2026</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">30</span><span class="p">),</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>            <span class="n">retires_on</span><span class="o">=</span><span class="n">date</span><span class="p">(</span><span class="mi">2026</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">30</span><span class="p">),</span>                         <span class="c1"># omit when not yet announced</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>        <span class="p">),</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    <span class="p">),</span>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>After that, every way of naming the model raises <code>ModelDeprecatedError</code> (a <code>ValueError</code>) with the replacement and the retirement date: the model string, <code>AnthropicModel.CLAUDE_SONNET_4_5</code>, <code>AnthropicModel["CLAUDE_SONNET_4_5"]</code>, <code>AnthropicModel("claude-sonnet-4-5")</code>, and the bare name passed to <code>aimu.resolve_model_enum</code>. It raises whether the model is deprecated or already retired, since AIMU no longer catalogs either. Registration fails at import if the replacement is not a live member, or if the entry is still in the catalog.</p>
 <h2 id="image-audio-and-speech-models">Image, audio, and speech models<a class="headerlink" href="#image-audio-and-speech-models" title="Permanent link">&para;</a></h2>
 <p>The non-text modalities follow the same pattern with their own spec type and enum. Add a member to the provider enum in the relevant client module:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># aimu/models/providers/hf/image.py: diffusers text-to-image</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">HuggingFaceImageModel</span><span class="p">(</span><span class="n">ImageModel</span><span class="p">):</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">SD_1_5</span> <span class="o">=</span> <span class="n">HuggingFaceImageSpec</span><span class="p">(</span><span class="s2">"runwayml/stable-diffusion-v1-5"</span><span class="p">,</span> <span class="n">max_prompt_tokens</span><span class="o">=</span><span class="mi">77</span><span class="p">)</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">FLUX_2_KLEIN_4B</span> <span class="o">=</span> <span class="n">HuggingFaceImageSpec</span><span class="p">(</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>        <span class="s2">"black-forest-labs/FLUX.2-klein-4B"</span><span class="p">,</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>        <span class="n">pipeline_class</span><span class="o">=</span><span class="s2">"Flux2KleinPipeline"</span><span class="p">,</span>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>        <span class="n">img2img_pipeline_class</span><span class="o">=</span><span class="s2">"Flux2KleinPipeline"</span><span class="p">,</span>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>        <span class="n">img2img_uses_strength</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>        <span class="c1"># unified pipeline conditions on the image directly</span>
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>        <span class="n">supports_negative_prompt</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>     <span class="c1"># Flux2KleinPipeline.__call__ has no negative_prompt param</span>
-</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>        <span class="n">default_steps</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
-</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>        <span class="n">max_prompt_tokens</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span>              <span class="c1"># T5-XXL encoder</span>
-</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    <span class="p">)</span>
-</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>
-</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="c1"># aimu/models/providers/gemini/image.py: Gemini Nano Banana (cloud)</span>
-</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="k">class</span><span class="w"> </span><span class="nc">GeminiImageModel</span><span class="p">(</span><span class="n">ImageModel</span><span class="p">):</span>
-</span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>    <span class="n">NANO_BANANA</span> <span class="o">=</span> <span class="n">GeminiImageSpec</span><span class="p">(</span><span class="s2">"gemini-2.5-flash-image"</span><span class="p">)</span>   <span class="c1"># supports_negative_prompt defaults False</span>
-</span><span id="__span-8-17"><a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>
-</span><span id="__span-8-18"><a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="c1"># aimu/models/providers/hf/audio.py: music / sound generation</span>
-</span><span id="__span-8-19"><a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a><span class="k">class</span><span class="w"> </span><span class="nc">HuggingFaceAudioModel</span><span class="p">(</span><span class="n">AudioModel</span><span class="p">):</span>
-</span><span id="__span-8-20"><a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a>    <span class="n">MUSICGEN_SMALL</span> <span class="o">=</span> <span class="n">HuggingFaceAudioSpec</span><span class="p">(</span><span class="s2">"facebook/musicgen-small"</span><span class="p">,</span> <span class="n">pipeline_type</span><span class="o">=</span><span class="s2">"musicgen"</span><span class="p">)</span>
-</span><span id="__span-8-21"><a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a>    <span class="n">AUDIOLDM2</span> <span class="o">=</span> <span class="n">HuggingFaceAudioSpec</span><span class="p">(</span><span class="s2">"cvssp/audioldm2"</span><span class="p">,</span> <span class="n">pipeline_type</span><span class="o">=</span><span class="s2">"audioldm2"</span><span class="p">,</span> <span class="n">default_steps</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
-</span><span id="__span-8-22"><a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a>
-</span><span id="__span-8-23"><a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="c1"># aimu/models/providers/hf/speech.py: text-to-speech</span>
-</span><span id="__span-8-24"><a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a><span class="k">class</span><span class="w"> </span><span class="nc">HuggingFaceSpeechModel</span><span class="p">(</span><span class="n">SpeechModel</span><span class="p">):</span>
-</span><span id="__span-8-25"><a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a>    <span class="n">BARK</span> <span class="o">=</span> <span class="n">HuggingFaceSpeechSpec</span><span class="p">(</span><span class="s2">"suno/bark"</span><span class="p">,</span> <span class="n">pipeline_type</span><span class="o">=</span><span class="s2">"bark"</span><span class="p">,</span> <span class="n">default_voice</span><span class="o">=</span><span class="s2">"v2/en_speaker_6"</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># aimu/models/providers/hf/image.py: diffusers text-to-image</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">HuggingFaceImageModel</span><span class="p">(</span><span class="n">ImageModel</span><span class="p">):</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="n">SD_1_5</span> <span class="o">=</span> <span class="n">HuggingFaceImageSpec</span><span class="p">(</span><span class="s2">"runwayml/stable-diffusion-v1-5"</span><span class="p">,</span> <span class="n">max_prompt_tokens</span><span class="o">=</span><span class="mi">77</span><span class="p">)</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">FLUX_2_KLEIN_4B</span> <span class="o">=</span> <span class="n">HuggingFaceImageSpec</span><span class="p">(</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>        <span class="s2">"black-forest-labs/FLUX.2-klein-4B"</span><span class="p">,</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>        <span class="n">pipeline_class</span><span class="o">=</span><span class="s2">"Flux2KleinPipeline"</span><span class="p">,</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>        <span class="n">img2img_pipeline_class</span><span class="o">=</span><span class="s2">"Flux2KleinPipeline"</span><span class="p">,</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>        <span class="n">img2img_uses_strength</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>        <span class="c1"># unified pipeline conditions on the image directly</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>        <span class="n">supports_negative_prompt</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>     <span class="c1"># Flux2KleinPipeline.__call__ has no negative_prompt param</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>        <span class="n">default_steps</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>        <span class="n">max_prompt_tokens</span><span class="o">=</span><span class="mi">512</span><span class="p">,</span>              <span class="c1"># T5-XXL encoder</span>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>    <span class="p">)</span>
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>
+</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="c1"># aimu/models/providers/gemini/image.py: Gemini Nano Banana (cloud)</span>
+</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a><span class="k">class</span><span class="w"> </span><span class="nc">GeminiImageModel</span><span class="p">(</span><span class="n">ImageModel</span><span class="p">):</span>
+</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>    <span class="n">NANO_BANANA</span> <span class="o">=</span> <span class="n">GeminiImageSpec</span><span class="p">(</span><span class="s2">"gemini-2.5-flash-image"</span><span class="p">)</span>   <span class="c1"># supports_negative_prompt defaults False</span>
+</span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>
+</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a><span class="c1"># aimu/models/providers/hf/audio.py: music / sound generation</span>
+</span><span id="__span-9-19"><a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="k">class</span><span class="w"> </span><span class="nc">HuggingFaceAudioModel</span><span class="p">(</span><span class="n">AudioModel</span><span class="p">):</span>
+</span><span id="__span-9-20"><a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a>    <span class="n">MUSICGEN_SMALL</span> <span class="o">=</span> <span class="n">HuggingFaceAudioSpec</span><span class="p">(</span><span class="s2">"facebook/musicgen-small"</span><span class="p">,</span> <span class="n">pipeline_type</span><span class="o">=</span><span class="s2">"musicgen"</span><span class="p">)</span>
+</span><span id="__span-9-21"><a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a>    <span class="n">AUDIOLDM2</span> <span class="o">=</span> <span class="n">HuggingFaceAudioSpec</span><span class="p">(</span><span class="s2">"cvssp/audioldm2"</span><span class="p">,</span> <span class="n">pipeline_type</span><span class="o">=</span><span class="s2">"audioldm2"</span><span class="p">,</span> <span class="n">default_steps</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+</span><span id="__span-9-22"><a id="__codelineno-9-22" name="__codelineno-9-22" href="#__codelineno-9-22"></a>
+</span><span id="__span-9-23"><a id="__codelineno-9-23" name="__codelineno-9-23" href="#__codelineno-9-23"></a><span class="c1"># aimu/models/providers/hf/speech.py: text-to-speech</span>
+</span><span id="__span-9-24"><a id="__codelineno-9-24" name="__codelineno-9-24" href="#__codelineno-9-24"></a><span class="k">class</span><span class="w"> </span><span class="nc">HuggingFaceSpeechModel</span><span class="p">(</span><span class="n">SpeechModel</span><span class="p">):</span>
+</span><span id="__span-9-25"><a id="__codelineno-9-25" name="__codelineno-9-25" href="#__codelineno-9-25"></a>    <span class="n">BARK</span> <span class="o">=</span> <span class="n">HuggingFaceSpeechSpec</span><span class="p">(</span><span class="s2">"suno/bark"</span><span class="p">,</span> <span class="n">pipeline_type</span><span class="o">=</span><span class="s2">"bark"</span><span class="p">,</span> <span class="n">default_voice</span><span class="o">=</span><span class="s2">"v2/en_speaker_6"</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Capability fields differ per modality; set the ones that matter for the model:</p>
 <ul>
@@ -3860,22 +3906,22 @@ and <a href="../add-new-provider/">Add or update a provider</a> for the reserved
 <p>Because these specs carry behaviour the runtime depends on (e.g. <code>pipeline_class</code>, <code>supports_negative_prompt</code>), the enum is the single source of truth: the string form (<code>"hf:&lt;repo&gt;"</code>, <code>"gemini:&lt;id&gt;"</code>) resolves to the <strong>same</strong> spec object as the enum member, and an unknown id raises.</p>
 <h2 id="custom-models">Custom models<a class="headerlink" href="#custom-models" title="Permanent link">&para;</a></h2>
 <p>For a one-off model not worth adding to the catalog, construct the spec yourself and pass the object (not a string) to the client. This is an explicit, deliberate escape hatch where you supply every capability flag:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ImageClient</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">HuggingFaceImageSpec</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">spec</span> <span class="o">=</span> <span class="n">HuggingFaceImageSpec</span><span class="p">(</span><span class="s2">"my-org/my-diffusion-model"</span><span class="p">,</span> <span class="n">pipeline_class</span><span class="o">=</span><span class="s2">"StableDiffusionPipeline"</span><span class="p">)</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="n">client</span> <span class="o">=</span> <span class="n">ImageClient</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span>   <span class="c1"># accepted: you've stated the capabilities explicitly</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ImageClient</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models.base</span><span class="w"> </span><span class="kn">import</span> <span class="n">HuggingFaceImageSpec</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="n">spec</span> <span class="o">=</span> <span class="n">HuggingFaceImageSpec</span><span class="p">(</span><span class="s2">"my-org/my-diffusion-model"</span><span class="p">,</span> <span class="n">pipeline_class</span><span class="o">=</span><span class="s2">"StableDiffusionPipeline"</span><span class="p">)</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">client</span> <span class="o">=</span> <span class="n">ImageClient</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span>   <span class="c1"># accepted: you've stated the capabilities explicitly</span>
 </span></code></pre></div>
 <p>If the model is genuinely best-of-class, prefer adding it to the enum so everyone benefits.</p>
 <h2 id="verify">Verify<a class="headerlink" href="#verify" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnthropicModel</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="k">assert</span> <span class="n">AnthropicModel</span><span class="o">.</span><span class="n">CLAUDE_OPUS_5</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">"claude-opus-5"</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="k">assert</span> <span class="n">AnthropicModel</span><span class="o">.</span><span class="n">CLAUDE_OPUS_5</span><span class="o">.</span><span class="n">supports_tools</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="k">assert</span> <span class="n">AnthropicModel</span><span class="o">.</span><span class="n">CLAUDE_OPUS_5</span> <span class="ow">in</span> <span class="n">AnthropicModel</span><span class="o">.</span><span class="n">TOOL_MODELS</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnthropicModel</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="k">assert</span> <span class="n">AnthropicModel</span><span class="o">.</span><span class="n">CLAUDE_OPUS_5</span><span class="o">.</span><span class="n">value</span> <span class="o">==</span> <span class="s2">"claude-opus-5"</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="k">assert</span> <span class="n">AnthropicModel</span><span class="o">.</span><span class="n">CLAUDE_OPUS_5</span><span class="o">.</span><span class="n">supports_tools</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="k">assert</span> <span class="n">AnthropicModel</span><span class="o">.</span><span class="n">CLAUDE_OPUS_5</span> <span class="ow">in</span> <span class="n">AnthropicModel</span><span class="o">.</span><span class="n">TOOL_MODELS</span>
 </span></code></pre></div>
 <p>Then run the model-client tests against the new entry:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>pytest<span class="w"> </span>tests/test_models.py<span class="w"> </span>--client<span class="o">=</span>anthropic<span class="w"> </span>--model<span class="o">=</span>CLAUDE_OPUS_5
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>pytest<span class="w"> </span>tests/test_models.py<span class="w"> </span>--client<span class="o">=</span>anthropic<span class="w"> </span>--model<span class="o">=</span>CLAUDE_OPUS_5
 </span></code></pre></div>
 <p>The live tests pull Ollama models themselves; HuggingFace weights download on first use; cloud models just hit the API. To download a model yourself, see <a href="../download-models/">Download models</a>.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
@@ -3968,7 +4014,7 @@ and <a href="../add-new-provider/">Add or update a provider</a> for the reserved
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.indexes", "content.code.copy", "content.code.annotate", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>

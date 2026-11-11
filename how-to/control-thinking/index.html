@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -3668,15 +3668,22 @@ you want it, which also works for any effort value on any model:</p>
 </span></code></pre></div>
 <p>A value you pass this way outranks one derived from <code>thinking=</code>, and is merged into any
 <code>output_config</code> already present rather than replacing it. One combination is refused by the API:
-Opus 5 rejects disabled thinking above <code>high</code> effort, so <code>thinking=False</code> alongside an explicit
-<code>xhigh</code>/<code>max</code> lowers the effort to <code>high</code> and warns, rather than quietly re-enabling the reasoning
-you turned off.</p>
+Opus 5 and Haiku 5.5 reject disabled thinking above <code>high</code> effort, so <code>thinking=False</code> alongside an
+explicit <code>xhigh</code>/<code>max</code> lowers the effort to <code>high</code> and warns, rather than quietly re-enabling the
+reasoning you turned off.</p>
 <p>Turning thinking off is where the two styles differ on the wire. On the <code>ENABLED</code>-style models
 (Haiku 4.5 alone, now) an absent <code>thinking</code> parameter <em>is</em> off, so <code>thinking=False</code> sends
 nothing. The adaptive models reason by default when the parameter is absent, so AIMU sends an
-explicit <code>{"type": "disabled"}</code> there instead. <code>CLAUDE_FABLE_5</code> is the one member that cannot
-be turned off at all (it declares <code>thinking_optional=False</code>): <code>thinking=False</code> warns and the call
-proceeds with reasoning on, as it does for any model that cannot honour the request.</p>
+explicit <code>{"type": "disabled"}</code> there instead. Two exceptions:</p>
+<ul>
+<li><code>CLAUDE_SONNET_5_5</code> rejects <code>disabled</code>. Its lowest setting is <code>{"type": "between_tools"}</code>,
+  which skips up-front thinking but can still think between tool calls. <code>thinking=False</code> sends
+  that and warns once that reasoning is reduced, not off. It shares the <code>high</code> effort ceiling above.</li>
+<li><code>CLAUDE_FABLE_5_2</code>, <code>CLAUDE_FABLE_5_1</code>, <code>CLAUDE_FABLE_5</code>, and <code>CLAUDE_OPUS_5_5</code> cannot be
+  turned off at all (they declare <code>thinking_optional=False</code>). <code>thinking=False</code> warns and the call
+  proceeds with reasoning on, as it does for any model that cannot honour the request. Lower the
+  effort with <code>thinking="low"</code> instead.</li>
+</ul>
 <p>The adaptive models also reject <code>temperature</code>, <code>top_p</code>, and <code>top_k</code> outright, thinking or not, so
 those keys are dropped from every request to them -- including the <code>temperature</code> the Anthropic
 client's own defaults supply.</p>
@@ -3832,7 +3839,7 @@ turns the view drives. Set the field to <code>None</code> if the view's callers 
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.indexes", "content.code.copy", "content.code.annotate", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>

@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
     
     
       
@@ -3514,18 +3514,23 @@ following a real call (see <a href="../compare-models/#3-what-did-each-one-cost"
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">trimmed</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">trim_messages</span><span class="p">(</span><span class="n">messages</span><span class="p">,</span> <span class="n">max_tokens</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">keep_last</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">aimu</span><span class="o">.</span><span class="n">count_tokens</span><span class="p">(</span><span class="n">trimmed</span><span class="p">)</span>                                   <span class="c1"># 78</span>
 </span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="p">[</span><span class="n">m</span><span class="p">[</span><span class="s2">"role"</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">trimmed</span><span class="p">]</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="c1"># ['system', 'assistant', 'user', 'assistant']</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="c1"># ['system', 'user', 'user', 'assistant']</span>
 </span></code></pre></div>
-<p>That's four messages kept, not the two <code>keep_last=2</code> might suggest. <code>keep_last</code> is a <em>floor</em>,
-not a target: with no tool calls in this conversation, every message is its own group (see the
-invariant below), and <code>trim_messages</code> drops the oldest groups one at a time, stopping the moment
-the conversation fits <code>max_tokens</code> — it doesn't keep going down to exactly the protected tail.
-Here <code>keep_last=2</code> protects <code>user 5</code>/<code>assistant 5</code>, leaving ten older messages (<code>user 0</code> through
-<code>assistant 4</code>) droppable. Dropping the oldest nine of those ten already gets to 78 tokens, under
-the 80 budget, so the tenth (<code>assistant 4</code>) survives too — dropping it as well would reach 56, work
-the loop doesn't need to do. A tighter <code>max_tokens</code> (say, 60) would drop it.</p>
-<p>System messages (<code>keep_system=True</code>, the default) are always kept regardless of budget.
-<code>keep_last</code> protects the trailing <strong>messages</strong>, not exchanges — a plain back-and-forth is 2
+<p>Three things are protected, and everything between them is droppable:</p>
+<ul>
+<li><strong>System messages</strong> (<code>keep_system=True</code>, the default) are always kept, whatever the budget.</li>
+<li><strong>The first message after them</strong> (<code>keep_first=1</code>, the default): here <code>user 0</code>. In an agent run
+  this is the task, and dropping it leaves the agent working without knowing what it was asked
+  (see <a href="../../explanation/context-management/#trimming-forgets-that-the-model-acted">Context management</a>).
+  Pass <code>keep_first=0</code> for plain oldest-first dropping.</li>
+<li><strong>The last <code>keep_last</code> messages</strong>: here <code>user 5</code> and <code>assistant 5</code>.</li>
+</ul>
+<p>That leaves nine droppable messages, <code>assistant 0</code> through <code>assistant 4</code>. <code>trim_messages</code> drops
+them oldest-first and stops the moment the conversation fits <code>max_tokens</code>, so the protected
+counts are floors, not targets. Here all nine have to go to get under the 80-token budget. Pass
+<code>keep_first=0</code> and <code>user 0</code> becomes droppable too, which leaves room for <code>assistant 4</code> to stay
+instead: <code>['system', 'assistant', 'user', 'assistant']</code>.</p>
+<p><code>keep_first</code> and <code>keep_last</code> count <strong>messages</strong>, not exchanges. A plain back-and-forth is 2
 messages per exchange, but an agentic turn can be 5+ (user, assistant-with-tool_calls, one or more
 tool results, final assistant answer). <code>keep_last=2</code> on a tool-using conversation protects only
 the last 2 messages, which is likely mid-turn; pass more if you want whole exchanges kept.</p>
@@ -3540,40 +3545,56 @@ two-turn tool-using conversation:</p>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">trimmed</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">trim_messages</span><span class="p">(</span><span class="n">client</span><span class="o">.</span><span class="n">messages</span><span class="p">,</span> <span class="n">max_tokens</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">keep_last</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">[</span><span class="n">m</span><span class="p">[</span><span class="s2">"role"</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">trimmed</span><span class="p">]</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="c1"># ['system', 'assistant', 'user', 'assistant', 'tool', 'assistant']</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="c1"># ['system', 'user', 'assistant', 'user', 'assistant', 'tool', 'assistant']</span>
 </span></code></pre></div>
-<p>The oldest user turn and the tool-call group answering <em>it</em> were dropped together; the later
-tool-call group (index 6-7 in the original list) survived intact even though it wasn't part of
-the protected tail — the boundary was pushed outward to the group's edge rather than splitting it.</p>
+<p>The first user turn is pinned by <code>keep_first</code>, so the first thing dropped is the tool-call group
+answering it: the <code>assistant</code> carrying <code>tool_calls</code> and its <code>tool</code> result go together. The later
+tool-call group (index 6-7 in the original list) survived intact even though only its final
+<code>assistant</code> reply was inside the protected tail: the boundary was pushed outward to the group's
+edge rather than splitting it. <code>keep_first</code> follows the same rule, so a first message that opens a
+tool-call group keeps its whole group.</p>
 <h2 id="summarize-instead-of-dropping">Summarize instead of dropping<a class="headerlink" href="#summarize-instead-of-dropping" title="Permanent link">&para;</a></h2>
 <p><code>trim_messages</code> discards the oldest turns outright. <code>summarize_messages</code> replaces them with one
 LLM-generated summary instead, so the conversation keeps <em>some</em> memory of what came before rather
 than none:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3:8b"</span><span class="p">)</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">messages</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"My favorite color is blue."</span><span class="p">},</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Got it, blue is a great color."</span><span class="p">},</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"What is 2+2?"</span><span class="p">},</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"4"</span><span class="p">},</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="p">]</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">summarized</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">summarize_messages</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">messages</span><span class="p">,</span> <span class="n">keep_last</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">summarized</span><span class="p">:</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="s2">"role"</span><span class="p">],</span> <span class="s2">":"</span><span class="p">,</span> <span class="n">m</span><span class="p">[</span><span class="s2">"content"</span><span class="p">])</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Help me plan a weekend in Lisbon."</span><span class="p">},</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Happy to. What do you enjoy most when you travel?"</span><span class="p">},</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Tile art and seafood, and I'd rather walk than take taxis."</span><span class="p">},</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Noted: tiles, seafood, and a walkable route."</span><span class="p">},</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Which museum should I start with?"</span><span class="p">},</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"The National Tile Museum."</span><span class="p">},</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="p">]</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">summarized</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">summarize_messages</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">messages</span><span class="p">,</span> <span class="n">keep_last</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">summarized</span><span class="p">:</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="s2">"role"</span><span class="p">],</span> <span class="s2">":"</span><span class="p">,</span> <span class="n">m</span><span class="p">[</span><span class="s2">"content"</span><span class="p">])</span>
 </span></code></pre></div>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>system : Summary of earlier conversation:
 </span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>&lt;generated summary text — varies by run and model&gt;
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>user : What is 2+2?
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>assistant : 4
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>user : Help me plan a weekend in Lisbon.
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>user : Which museum should I start with?
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>assistant : The National Tile Museum.
 </span></code></pre></div>
 <p>The <code>"Summary of earlier conversation:\n"</code> prefix is a fixed template (see
-<code>summarize_messages</code>'s source), and the tail (<code>user</code>/<code>assistant</code> here) is the original messages
-kept verbatim, unchanged by the call — only the summary sentence itself is generated text, and it
-will read differently on your machine.</p>
+<code>summarize_messages</code>'s source). Only the summary itself is generated text, and it will read
+differently on your machine. The rest is the original messages kept verbatim: the first one
+(<code>keep_first=1</code>, the default, which protects an agent's task from being paraphrased away) and
+the last two (<code>keep_last=2</code>). The three messages between them are what got summarized.</p>
+<p>Two details of that layout. The summary comes <em>before</em> the kept first message, though it
+describes what came after it, because several local chat templates reject a system message
+anywhere but the start of the conversation. And the summarizer is shown the kept first message
+as background, labeled "kept as written; do not summarize". The instruction asks it to keep what
+a continuation will need, and the task is what decides that. Before this, the summarizer saw
+only the middle, and a run listed "the location" as an open question because "Lisbon" was only
+in the task. Expect the summary to restate the task briefly anyway: models tend to, despite the
+label. <code>keep_first=0</code> summarizes from the first message with no background block.</p>
 <p><code>client</code> is anything with a <code>generate(prompt: str) -&gt; str</code> method — a plain <code>BaseModelClient</code>, or
 <code>agent.as_model_client()</code> — passed in rather than constructed internally, so this function stays
 free of any provider dependency. It applies the same group-protection invariant as
-<code>trim_messages</code> when carving out the tail, and the same "system messages always survive" rule.
-When the whole conversation already fits in <code>keep_last</code>, no summarization call is made.</p>
+<code>trim_messages</code> when carving out the kept first and last messages, and the same "system messages
+always survive" rule. When nothing lies between the kept first and last messages, no
+summarization call is made.</p>
 <h2 id="automate-it-agentcompaction">Automate it: <code>Agent(compaction=...)</code><a class="headerlink" href="#automate-it-agentcompaction" title="Permanent link">&para;</a></h2>
 <p>Both functions above are things you call by hand. <code>Agent(compaction=...)</code> (and the per-run
 <code>agent.run(compaction=...)</code> override) runs a callable of your choice — <code>list[dict] -&gt; list[dict]</code>
@@ -3599,12 +3620,14 @@ identity check). When that happens, two things fire together: a
 <a href="../observe-a-run/"><code>ContextCompacted</code></a> event for a sink attached via <code>events=</code>, and an
 unconditional <code>WARNING</code> log — so a caller with no sink still learns their conversation was
 rewritten:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>WARNING Compacted conversation for agent '&lt;agent name&gt;': dropped 2 message(s) (~&lt;N&gt; -&gt; ~&lt;M&gt; tokens, AIMU's own estimate).
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>WARNING Compacted conversation for agent '&lt;agent name&gt;': dropped 1 message(s) (~&lt;N&gt; -&gt; ~&lt;M&gt; tokens, AIMU's own estimate).
 </span></code></pre></div>
-<p>The agent name and the two token counts vary by run — the counts depend on how much the model
-actually reasoned in the turns leading up to compaction, which is sampled, not fixed. "dropped 2
-message(s)" is stable here: with <code>keep_last=2</code> and one exchange (user + assistant) accumulating
-past the 60-token budget each time, one full exchange is what gets dropped on schedule.</p>
+<p>The agent name, the token counts, and how many messages go all vary by run, because they depend on
+how long the model's sampled replies were. In the run shown, the one message dropped was the reply
+to the moon question. The question itself is the first message after the system prompt, so
+<code>keep_first=1</code> pinned it, and it stays in the conversation without its answer, followed directly by
+the next question. That is the price of protecting the first message in a multi-turn chat; in a
+single-task agent run, the pinned message is the task and is exactly what should survive.</p>
 <p>A compaction call that returns the conversation unchanged (the common case early in a
 conversation, before the budget is actually exceeded) is a no-op and announces nothing. The
 event's <code>before_tokens</code>/<code>after_tokens</code> are AIMU's own default estimate — not a measurement of
@@ -3756,7 +3779,7 @@ supports a larger one.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.indexes", "content.code.copy", "content.code.annotate", "search.highlight", "search.suggest"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>
