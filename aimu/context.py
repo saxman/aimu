@@ -181,11 +181,28 @@ def _protect_tail(groups: list[list[dict]], keep_last: int) -> tuple[list[list[d
     return groups[:index], protected
 
 
+def _protect_head(groups: list[list[dict]], keep_first: int) -> tuple[list[list[dict]], list[list[dict]]]:
+    """Split *groups* into ``(protected, rest)`` from the start.
+
+    The mirror of :func:`_protect_tail`: takes whole groups until at least *keep_first*
+    messages are covered, so a protected head can never split a tool-call group either.
+    """
+    protected: list[list[dict]] = []
+    covered = 0
+    index = 0
+    while index < len(groups) and covered < keep_first:
+        protected.append(groups[index])
+        covered += len(groups[index])
+        index += 1
+    return protected, groups[index:]
+
+
 def trim_messages(
     messages: list[dict],
     max_tokens: int,
     *,
     keep_system: bool = True,
+    keep_first: int = 1,
     keep_last: int = 2,
     counter: Optional[Callable[[str], int]] = None,
 ) -> list[dict]:
@@ -201,6 +218,11 @@ def trim_messages(
     is the invariant that justifies this function over a hand-written ``messages[-n:]``
     slice, which produces exactly that illegal shape.
 
+    The first non-system message is kept by default (``keep_first=1``). In an agent run it is
+    the task, the user message ``agent.run(task)`` appended, and oldest-first dropping would
+    otherwise remove it before anything else, leaving the agent working without knowing what
+    it was asked. That failure raises nothing: the run still returns a plausible answer.
+
     Args:
         messages: The conversation, OpenAI message-dict format.
         max_tokens: The token budget to trim down to, per ``counter`` (or the default
@@ -211,6 +233,10 @@ def trim_messages(
             sat mid-conversation (an earlier summary inserted by :func:`summarize_messages`,
             say) comes back ahead of the turns it originally followed. When ``False``, system
             messages are ordinary droppable messages like any other and order is preserved.
+        keep_first: The number of leading **messages** to always protect from dropping,
+            counted after the system messages when ``keep_system`` is ``True`` and from the
+            very first message otherwise. Extended outward to whole tool-call groups, like
+            ``keep_last``. Pass ``0`` for plain oldest-first dropping.
         keep_last: The number of trailing **messages** (not exchanges -- see the module
             docstring) to always protect from dropping, extended outward to whole tool-call
             groups when the raw count would otherwise split one.
@@ -227,15 +253,14 @@ def trim_messages(
         kept_system = []
         rest = list(messages)
 
-    droppable, protected = _protect_tail(_group_messages(rest), keep_last)
+    head, remainder = _protect_head(_group_messages(rest), keep_first)
+    droppable, tail = _protect_tail(remainder, keep_last)
+    kept_head = kept_system + _flatten(head)
 
-    while (
-        droppable
-        and count_tokens(kept_system + _flatten(droppable) + _flatten(protected), counter=counter) > max_tokens
-    ):
+    while droppable and count_tokens(kept_head + _flatten(droppable) + _flatten(tail), counter=counter) > max_tokens:
         droppable.pop(0)
 
-    return kept_system + _flatten(droppable) + _flatten(protected)
+    return kept_head + _flatten(droppable) + _flatten(tail)
 
 
 def _render_transcript(messages: list[dict]) -> str:

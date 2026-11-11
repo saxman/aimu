@@ -53,20 +53,25 @@ aimu.count_tokens(messages)                                  # 274 (estimate)
 trimmed = aimu.trim_messages(messages, max_tokens=80, keep_last=2)
 aimu.count_tokens(trimmed)                                   # 78
 [m["role"] for m in trimmed]
-# ['system', 'assistant', 'user', 'assistant']
+# ['system', 'user', 'user', 'assistant']
 ```
 
-That's four messages kept, not the two `keep_last=2` might suggest. `keep_last` is a *floor*,
-not a target: with no tool calls in this conversation, every message is its own group (see the
-invariant below), and `trim_messages` drops the oldest groups one at a time, stopping the moment
-the conversation fits `max_tokens` — it doesn't keep going down to exactly the protected tail.
-Here `keep_last=2` protects `user 5`/`assistant 5`, leaving ten older messages (`user 0` through
-`assistant 4`) droppable. Dropping the oldest nine of those ten already gets to 78 tokens, under
-the 80 budget, so the tenth (`assistant 4`) survives too — dropping it as well would reach 56, work
-the loop doesn't need to do. A tighter `max_tokens` (say, 60) would drop it.
+Three things are protected, and everything between them is droppable:
 
-System messages (`keep_system=True`, the default) are always kept regardless of budget.
-`keep_last` protects the trailing **messages**, not exchanges — a plain back-and-forth is 2
+- **System messages** (`keep_system=True`, the default) are always kept, whatever the budget.
+- **The first message after them** (`keep_first=1`, the default): here `user 0`. In an agent run
+  this is the task, and dropping it leaves the agent working without knowing what it was asked
+  (see [Context management](../explanation/context-management.md#trimming-forgets-that-the-model-acted)).
+  Pass `keep_first=0` for plain oldest-first dropping.
+- **The last `keep_last` messages**: here `user 5` and `assistant 5`.
+
+That leaves nine droppable messages, `assistant 0` through `assistant 4`. `trim_messages` drops
+them oldest-first and stops the moment the conversation fits `max_tokens`, so the protected
+counts are floors, not targets. Here all nine have to go to get under the 80-token budget. Pass
+`keep_first=0` and `user 0` becomes droppable too, which leaves room for `assistant 4` to stay
+instead: `['system', 'assistant', 'user', 'assistant']`.
+
+`keep_first` and `keep_last` count **messages**, not exchanges. A plain back-and-forth is 2
 messages per exchange, but an agentic turn can be 5+ (user, assistant-with-tool_calls, one or more
 tool results, final assistant answer). `keep_last=2` on a tool-using conversation protects only
 the last 2 messages, which is likely mid-turn; pass more if you want whole exchanges kept.
@@ -84,12 +89,15 @@ two-turn tool-using conversation:
 
 trimmed = aimu.trim_messages(client.messages, max_tokens=150, keep_last=1)
 [m["role"] for m in trimmed]
-# ['system', 'assistant', 'user', 'assistant', 'tool', 'assistant']
+# ['system', 'user', 'assistant', 'user', 'assistant', 'tool', 'assistant']
 ```
 
-The oldest user turn and the tool-call group answering *it* were dropped together; the later
-tool-call group (index 6-7 in the original list) survived intact even though it wasn't part of
-the protected tail — the boundary was pushed outward to the group's edge rather than splitting it.
+The first user turn is pinned by `keep_first`, so the first thing dropped is the tool-call group
+answering it: the `assistant` carrying `tool_calls` and its `tool` result go together. The later
+tool-call group (index 6-7 in the original list) survived intact even though only its final
+`assistant` reply was inside the protected tail: the boundary was pushed outward to the group's
+edge rather than splitting it. `keep_first` follows the same rule, so a first message that opens a
+tool-call group keeps its whole group.
 
 ## Summarize instead of dropping
 
@@ -160,13 +168,15 @@ unconditional `WARNING` log — so a caller with no sink still learns their conv
 rewritten:
 
 ```
-WARNING Compacted conversation for agent '<agent name>': dropped 2 message(s) (~<N> -> ~<M> tokens, AIMU's own estimate).
+WARNING Compacted conversation for agent '<agent name>': dropped 1 message(s) (~<N> -> ~<M> tokens, AIMU's own estimate).
 ```
 
-The agent name and the two token counts vary by run — the counts depend on how much the model
-actually reasoned in the turns leading up to compaction, which is sampled, not fixed. "dropped 2
-message(s)" is stable here: with `keep_last=2` and one exchange (user + assistant) accumulating
-past the 60-token budget each time, one full exchange is what gets dropped on schedule.
+The agent name, the token counts, and how many messages go all vary by run, because they depend on
+how long the model's sampled replies were. In the run shown, the one message dropped was the reply
+to the moon question. The question itself is the first message after the system prompt, so
+`keep_first=1` pinned it, and it stays in the conversation without its answer, followed directly by
+the next question. That is the price of protecting the first message in a multi-turn chat; in a
+single-task agent run, the pinned message is the task and is exactly what should survive.
 
 A compaction call that returns the conversation unchanged (the common case early in a
 conversation, before the budget is actually exceeded) is a no-op and announces nothing. The

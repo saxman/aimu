@@ -63,7 +63,7 @@ def test_trim_can_drop_the_system_message_when_asked():
     messages = [{"role": "system", "content": "sys " * 50}, {"role": "user", "content": "q1"}]
     # max_tokens=-1 is unsatisfiable by any non-empty remainder, forcing every droppable
     # group -- including the system message, since keep_system=False -- to be dropped.
-    trimmed = trim_messages(messages, max_tokens=-1, keep_system=False, keep_last=0)
+    trimmed = trim_messages(messages, max_tokens=-1, keep_system=False, keep_first=0, keep_last=0)
     assert trimmed == []
 
 
@@ -72,7 +72,7 @@ def test_trim_keeps_the_last_n_turns():
     for i in range(10):
         messages.append({"role": "user", "content": f"question {i} " * 20})
         messages.append({"role": "assistant", "content": f"answer {i} " * 20})
-    trimmed = trim_messages(messages, max_tokens=1, keep_last=4)
+    trimmed = trim_messages(messages, max_tokens=1, keep_first=0, keep_last=4)
     # keep_last counts messages, not exchanges: exactly the last 4 messages survive
     # (plus the always-kept system message).
     non_system = [m for m in trimmed if m.get("role") != "system"]
@@ -241,7 +241,7 @@ def test_keep_last_counts_messages_not_groups():
         *group,
     ]
 
-    result = trim_messages(messages, max_tokens=1, keep_last=2)
+    result = trim_messages(messages, max_tokens=1, keep_first=0, keep_last=2)
 
     assert result == group, "protected tail should be exactly the one three-message group"
 
@@ -257,9 +257,74 @@ def test_trim_drops_oldest_first_not_newest_first():
     messages = [oldest, middle, newest]
 
     budget = count_tokens([newest])  # exactly enough for the single newest message
-    trimmed = trim_messages(messages, max_tokens=budget, keep_last=0)
+    trimmed = trim_messages(messages, max_tokens=budget, keep_first=0, keep_last=0)
 
     assert trimmed == [newest]
+
+
+def _tool_round(index: int) -> list[dict]:
+    call_id = f"c{index}"
+    return [
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [{"id": call_id, "type": "function", "function": {"name": "fetch", "arguments": "{}"}}],
+        },
+        {"role": "tool", "tool_call_id": call_id, "content": f"page {index} " * 50},
+    ]
+
+
+def test_trim_keeps_the_task_by_default():
+    """In an agent run the oldest non-system message is the task itself. Dropping it first
+    leaves the agent answering a question it can no longer see, so the default protects it.
+    """
+    task = {"role": "user", "content": "Summarize the three pages."}
+    messages = [{"role": "system", "content": "You are a researcher."}, task]
+    for index in range(5):
+        messages += _tool_round(index)
+
+    trimmed = trim_messages(messages, max_tokens=1)
+
+    assert task in trimmed
+
+
+def test_keep_first_zero_drops_the_oldest_message_first():
+    task = {"role": "user", "content": "Summarize the three pages."}
+    messages = [{"role": "system", "content": "You are a researcher."}, task]
+    for index in range(5):
+        messages += _tool_round(index)
+
+    trimmed = trim_messages(messages, max_tokens=1, keep_first=0)
+
+    assert task not in trimmed
+
+
+def test_keep_first_counts_messages_after_the_system_messages():
+    system = {"role": "system", "content": "sys"}
+    first, second = {"role": "user", "content": "first"}, {"role": "assistant", "content": "second"}
+    messages = [system, first, second] + [{"role": "user", "content": f"later {i} " * 20} for i in range(5)]
+
+    trimmed = trim_messages(messages, max_tokens=1, keep_first=2, keep_last=0)
+
+    assert trimmed == [system, first, second]
+
+
+def test_keep_first_extends_to_a_whole_tool_call_group():
+    """A head boundary that would split a tool-call group is pushed outward, as the tail's is."""
+    first_round = _tool_round(0)
+    messages = first_round + _tool_round(1) + _tool_round(2)
+
+    trimmed = trim_messages(messages, max_tokens=1, keep_first=1, keep_last=0)
+
+    assert trimmed == first_round
+
+
+def test_overlapping_head_and_tail_keep_each_message_once():
+    messages = [{"role": "user", "content": f"message {i} " * 20} for i in range(3)]
+
+    trimmed = trim_messages(messages, max_tokens=1, keep_first=2, keep_last=2)
+
+    assert trimmed == messages
 
 
 # ---------------------------------------------------------------------------
@@ -301,7 +366,7 @@ def test_compaction_emits_ContextCompacted_carrying_the_dropped_messages():
     agent = Agent(
         client,
         events=seen.append,
-        compaction=lambda msgs: trim_messages(msgs, max_tokens=budget, keep_last=0),
+        compaction=lambda msgs: trim_messages(msgs, max_tokens=budget, keep_first=0, keep_last=0),
     )
     result = agent.run("new question")
 

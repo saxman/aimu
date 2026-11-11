@@ -39,7 +39,7 @@ async def test_async_compaction_emits_ContextCompacted_carrying_the_dropped_mess
     agent = Agent(
         client,
         events=seen.append,
-        compaction=lambda msgs: trim_messages(msgs, max_tokens=budget, keep_last=0),
+        compaction=lambda msgs: trim_messages(msgs, max_tokens=budget, keep_first=0, keep_last=0),
     )
     result = await agent.run("new question")
 

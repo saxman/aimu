@@ -84,10 +84,25 @@ print([m["role"] for m in trimmed])
 ```
 274
 78
+['system', 'user', 'user', 'assistant']
+```
+
+Three things survive any trim: the system message (`keep_system=True`), the first message after
+it (`keep_first=1`, here `user 0`), and the last `keep_last` messages (here `user 5` and
+`assistant 5`). Everything between is droppable, oldest first. The first message is protected by
+default because in an agent run it is the task: dropping it leaves the agent working without
+knowing what it was asked. `keep_first=0` restores plain oldest-first dropping:
+
+```{python}
+print([m["role"] for m in aimu.trim_messages(budget_messages, max_tokens=80, keep_first=0, keep_last=2)])
+```
+
+```
 ['system', 'assistant', 'user', 'assistant']
 ```
 
-Four messages kept, not the two `keep_last=2` might suggest — see section C for why.
+With `user 0` droppable, the budget is met one message earlier, so `assistant 4` survives
+instead. Section C explains why `keep_last` counts messages rather than exchanges.
 
 **The invariant that justifies this over a hand-written `messages[-n:]` slice**: trimming
 never orphans a `tool` message from the `assistant` message carrying the `tool_calls` it's
@@ -123,13 +138,13 @@ print([m["role"] for m in tool_trimmed])
 
 ```
 ['system', 'user', 'assistant', 'tool', 'assistant', 'user', 'assistant', 'tool', 'assistant']
-['system', 'assistant', 'user', 'assistant', 'tool', 'assistant']
+['system', 'user', 'assistant', 'user', 'assistant', 'tool', 'assistant']
 ```
 
-Reading the trimmed list against the original: the first exchange's `user` question *and*
-the `assistant`-with-`tool_calls`/`tool` pair answering it were dropped together (the whole
-group, never split), while the first exchange's own **final** `assistant` reply (no
-`tool_calls`, so nothing to orphan) survived on its own, right after `system`. The second
+Reading the trimmed list against the original: the first exchange's `user` question is pinned by
+`keep_first=1`, so the first thing dropped is the `assistant`-with-`tool_calls`/`tool` pair
+answering it, removed together (the whole group, never split). The first exchange's own **final**
+`assistant` reply (no `tool_calls`, so nothing to orphan) survived on its own. The second
 exchange's `assistant`-with-`tool_calls`/`tool` pair was kept intact even though only its
 trailing `assistant` message was technically inside the protected `keep_last=1` tail — the
 boundary was pushed outward to the group's edge rather than splitting it. (Which messages
@@ -225,9 +240,9 @@ for e in compacted:
 ```
 
 ```
-WARNING Compacted conversation for agent 'agent-775fd0': dropped 2 message(s) (~106 -> ~62 tokens, AIMU's own estimate).
+WARNING Compacted conversation for agent 'agent-08b750': dropped 1 message(s) (~100 -> ~71 tokens, AIMU's own estimate).
 ContextCompacted events: 1
-dropped roles: ['user', 'assistant'] | before: 106 | after: 62
+dropped roles: ['assistant'] | before: 100 | after: 71
 ```
 
 **An applied compaction is never silent.** "Applied" means it actually dropped something
@@ -235,10 +250,12 @@ dropped roles: ['user', 'assistant'] | before: 106 | after: 62
 objects). When that happens, two things fire together: a `ContextCompacted` event for a
 sink attached via `events=` (see [notebook 27](27-observing-runs.qmd)), and an unconditional
 `WARNING` log — so a caller with no sink still learns their conversation was rewritten. The
-agent id and the two token counts vary by run (they depend on how much the model reasoned in
-the turns leading up to compaction); "dropped 2 message(s)" is stable here, since
-`keep_last=2` with one exchange (user + assistant) accumulating past the 60-token budget
-each time drops exactly one full exchange on schedule.
+agent id, the token counts, and how many messages go all vary by run (they depend on how long
+the model's sampled replies were). In this run the one message dropped was the reply to the
+moon question. The question itself is pinned by `keep_first=1`, so it stays without its answer,
+followed directly by the next question: the price of protecting the first message in a
+multi-turn chat. In a single-task agent run the pinned message is the task, which is exactly
+what should survive.
 
 A compaction call that returns the conversation unchanged (the common case early on, before
 the budget is actually exceeded) is a no-op and announces nothing. `ContextCompacted`'s
