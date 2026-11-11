@@ -459,9 +459,9 @@ def test_plain_tool_still_works_via_streamed_dispatch():
     _stage_one(client, "echo", {"x": "hi"})
 
     chunks = list(_ToolLoop(client, [echo])._dispatch_streamed(0))
-    assert len(chunks) == 1  # only TOOL_CALLING, no progress chunks
-    assert chunks[0].phase == StreamingContentType.TOOL_CALLING
-    assert chunks[0].content["response"] == "HI"
+    # The call's announcement and its result, no progress chunks between them.
+    assert [c.phase for c in chunks] == [StreamingContentType.TOOL_REQUESTED, StreamingContentType.TOOL_CALLING]
+    assert chunks[1].content["response"] == "HI"
 
 
 def test_streaming_tool_rejected_by_non_streaming_dispatch():

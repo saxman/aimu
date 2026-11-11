@@ -74,14 +74,15 @@ The same distinction decides two things downstream, which is how you can tell it
 | Phase | When | `content` |
 |---|---|---|
 | `THINKING` | Reasoning model emits internal-monologue tokens | `str` (token) |
-| `TOOL_CALLING` | A tool call has just been dispatched and its result is back | `dict {"name": str, "arguments": dict, "response": str}` |
+| `TOOL_REQUESTED` | The model asked for a tool call, and it has not run yet | `dict {"name": str, "arguments": dict, "id": str}` |
+| `TOOL_CALLING` | A tool call has just been dispatched and its result is back | `dict {"name": str, "arguments": dict, "response": str, "id": str}` |
 | `GENERATING` | The final response stream | `str` (token) |
 | `IMAGE_GENERATING` | Per-step progress from an image generator (HF diffusers callback, Gemini coarse start/done) | `dict {"step": int, "total_steps": int, "image": PIL.Image \| None, "final": bool, "result": str \| bytes \| None}` |
 | `CONTINUING` | A streamed agent loop is about to open a round it injected itself | `dict {"kind": str, "prompt": str}` |
 | `INBOX` | A streamed agent loop is about to open a round that delivers a message the host handed the run | `dict {"text": str}` |
 | `DONE` | Terminal marker (rarely yielded by providers; reserved) | `str` (usually empty) |
 
-For thinking models, you typically see THINKING chunks first, then GENERATING. For tool-using models, you may see THINKING → TOOL_CALLING (one per tool used) → GENERATING. For image generation, you see `IMAGE_GENERATING` chunks per denoising step (or coarse start/done pair on Gemini); the last one of each image has `final=True` and carries the encoded `result`. [Reference: stream phases](../reference/stream-phases.md) is the complete list, including the audio and speech phases this table leaves out.
+For thinking models, you typically see THINKING chunks first, then GENERATING. For tool-using models, you may see THINKING → TOOL_REQUESTED (one per call the round asked for) → TOOL_CALLING (one per call, as each returns) → GENERATING. For image generation, you see `IMAGE_GENERATING` chunks per denoising step (or coarse start/done pair on Gemini); the last one of each image has `final=True` and carries the encoded `result`. [Reference: stream phases](../reference/stream-phases.md) is the complete list, including the audio and speech phases this table leaves out.
 
 ## Streaming tools: a unified surface
 

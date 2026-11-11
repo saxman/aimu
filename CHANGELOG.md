@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Agents
+
+- **New: a `TOOL_REQUESTED` stream phase announces each tool call before it runs.** A streamed agent
+  loop used to yield a tool call only as `TOOL_CALLING`, once the call had returned, so a tool that takes
+  a minute (an image generation, a long command) left a streamed caller showing nothing for that minute.
+  Both drivers now yield one `TOOL_REQUESTED` chunk per call, `{"name", "arguments", "id"}`, every call
+  in the round announced before any of them is approved or run. `TOOL_CALLING` content gains the same
+  `id`, the provider's tool-call id, so a consumer pairs a result with its announcement exactly rather
+  than by position. `StreamChunk.is_tool_request()` is the predicate. The bundled channels and
+  `print_stream` ignore the phase, so their output is unchanged; a consumer that dispatches on phase
+  with an `else` branch will now see it there.
+
 ## v0.39.0 (2026-11-11): Claude 5.5 models, Nemotron 3.5, opt-in Ollama pulling and `aimu.pull()`, `make_page_tools`, and compaction that keeps the task
 
 ### Models

@@ -336,10 +336,19 @@ class _AsyncToolLoop(_BaseToolLoop):
         by_name = {fn.__name__: fn for fn in self._current_tools()}
         has_streaming_tool = any(getattr(by_name.get(tc["name"]), "__tool_is_streaming__", False) for tc, _ in prepared)
 
-        def _tool_chunk(tc: dict, response: str) -> StreamChunk:
+        def _tool_chunk(tc: dict, tc_id: str, response: str) -> StreamChunk:
             return StreamChunk(
                 StreamingContentType.TOOL_CALLING,
-                {"name": tc["name"], "arguments": tc["arguments"], "response": response},
+                {"name": tc["name"], "arguments": tc["arguments"], "response": response, "id": tc_id},
+                iteration=iteration,
+            )
+
+        # Every call is announced before any of them is approved or run, on every path below, so a
+        # streamed caller can show a slow tool while it works instead of only once it returns.
+        for tc, tc_id in prepared:
+            yield StreamChunk(
+                StreamingContentType.TOOL_REQUESTED,
+                {"name": tc["name"], "arguments": tc["arguments"], "id": tc_id},
                 iteration=iteration,
             )
 
@@ -347,9 +356,9 @@ class _AsyncToolLoop(_BaseToolLoop):
             async with asyncio.TaskGroup() as tg:
                 tasks = [tg.create_task(self._call_plain_tool(tc, tc_id, iteration)) for tc, tc_id in prepared]
             results = [t.result() for t in tasks]
-            for (tc, _tc_id), result_msg in zip(prepared, results):
+            for (tc, tc_id), result_msg in zip(prepared, results):
                 self._client._append_message(result_msg)
-                yield _tool_chunk(tc, result_msg["content"])
+                yield _tool_chunk(tc, tc_id, result_msg["content"])
             return
 
         for tc, tc_id in prepared:
@@ -359,7 +368,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                 if not verdict:
                     result_msg = self._not_approved(tc, tc_id, iteration, reason=getattr(verdict, "reason", ""))
                     self._client._append_message(result_msg)
-                    yield _tool_chunk(tc, result_msg["content"])
+                    yield _tool_chunk(tc, tc_id, result_msg["content"])
                     continue
                 started = time.monotonic()
                 error_str: Optional[str] = None
@@ -420,7 +429,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                 result_msg = await self._call_plain_tool(tc, tc_id, iteration)
 
             self._client._append_message(result_msg)
-            yield _tool_chunk(tc, result_msg["content"])
+            yield _tool_chunk(tc, tc_id, result_msg["content"])
 
     async def _call_plain_tool(self, tc: dict, tc_id: str, iteration: int = 0) -> dict:
         from aimu.tools.decorator import ToolArgumentError

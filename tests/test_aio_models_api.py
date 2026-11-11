@@ -150,8 +150,9 @@ async def test_async_streaming_tool_yields_forward_through_dispatch():
 
     chunks = [c async for c in _AsyncToolLoop(client, [slow_tool])._dispatch_streamed(0)]
 
-    # 2 progress chunks + 1 final TOOL_CALLING chunk.
-    progress = [c for c in chunks if c.phase != StreamingContentType.TOOL_CALLING]
+    # 1 announcement + 2 progress chunks + 1 final TOOL_CALLING chunk.
+    tool_phases = (StreamingContentType.TOOL_REQUESTED, StreamingContentType.TOOL_CALLING)
+    progress = [c for c in chunks if c.phase not in tool_phases]
     tool_calls = [c for c in chunks if c.phase == StreamingContentType.TOOL_CALLING]
     assert len(progress) == 2
     assert len(tool_calls) == 1
@@ -194,9 +195,9 @@ async def test_async_plain_tool_still_works_via_streamed_dispatch():
     _stage_one(client, "echo", {"x": "hi"})
 
     chunks = [c async for c in _AsyncToolLoop(client, [echo])._dispatch_streamed(0)]
-    assert len(chunks) == 1
-    assert chunks[0].phase == StreamingContentType.TOOL_CALLING
-    assert chunks[0].content["response"] == "HI"
+    # The call's announcement and its result, no progress chunks between them.
+    assert [c.phase for c in chunks] == [StreamingContentType.TOOL_REQUESTED, StreamingContentType.TOOL_CALLING]
+    assert chunks[1].content["response"] == "HI"
 
 
 # ---------------------------------------------------------------------------
