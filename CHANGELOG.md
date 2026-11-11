@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.39.0 (2026-11-11): Claude 5.5 models, Nemotron 3.5, opt-in Ollama pulling and `aimu.pull()`, `make_page_tools`, and compaction that keeps the task
 
 ### Models
 
