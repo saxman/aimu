@@ -1,11 +1,12 @@
 # Stream phases
 
-`StreamingContentType` is a string enum with nine values, attached to every `StreamChunk` via `chunk.phase`.
+`StreamingContentType` is a string enum with ten values, attached to every `StreamChunk` via `chunk.phase`.
 
 | Phase | Value | Emitted when | `chunk.content` type |
 |---|---|---|---|
 | `THINKING` | `"thinking"` | Reasoning model emits internal-monologue tokens | `str` (token) |
-| `TOOL_CALLING` | `"tool_calling"` | A tool call has just been dispatched and its result is available | `dict {"name": str, "arguments": dict, "response": str}` |
+| `TOOL_REQUESTED` | `"tool_requested"` | A streamed agent-loop driver is about to dispatch a round's tool calls: one per call, every call in the round announced before any of them is approved or run | `dict {"name": str, "arguments": dict, "id": str}` |
+| `TOOL_CALLING` | `"tool_calling"` | A tool call has just been dispatched and its result is available; `id` matches the call's `TOOL_REQUESTED` | `dict {"name": str, "arguments": dict, "response": str, "id": str}` |
 | `CONTINUING` | `"continuing"` | A streamed agent-loop driver is about to inject a round of its own (a nudge after an empty turn, or the forced tools-disabled wrap-up at the round cap); emitted once per injected round, immediately before that round's own chunks | `dict {"kind": "continuation" \| "final_answer", "prompt": str}`, where `kind` matches the provenance tag written onto the injected message |
 | `INBOX` | `"inbox"` | A streamed agent-loop driver is about to open a round that delivers an inbox message: an `Inbox` source had a message pending at a round boundary, and the round that follows is the model reading it. Distinct from `CONTINUING`, which names a prompt the loop composed for itself: this one is the user's | `dict {"text": str}` |
 | `GENERATING` | `"generating"` | The final response stream | `str` (token) |
@@ -20,6 +21,7 @@ The enum inherits from `str`, so members compare equal to their string values, s
 
 ```python
 chunk.is_text()             # True for THINKING and GENERATING
+chunk.is_tool_request()     # True for TOOL_REQUESTED (a call announced, not yet run)
 chunk.is_tool_call()        # True for TOOL_CALLING
 chunk.is_continuing()       # True for CONTINUING (both kinds: read content["kind"] for which)
 chunk.is_inbox()            # True for INBOX (a round delivering a message the host handed the run)
@@ -39,12 +41,19 @@ wrap-up, a round that tells the model to *stop* calling tools.
 |---|---|
 | Plain text generation | `GENERATING*` |
 | Thinking model, no tools | `THINKING*`, then `GENERATING*` |
-| Tool-using model | `THINKING*` (if thinking), `TOOL_CALLING` per call, `GENERATING*` |
-| Tool-using model, multi-round | `TOOL_CALLING* → THINKING*? → GENERATING*` repeated; `chunk.iteration` increments per round (agent context) |
+| Tool-using model | `THINKING*` (if thinking), `TOOL_REQUESTED` per call, then `TOOL_CALLING` per call, `GENERATING*` |
+| A streaming tool | `TOOL_REQUESTED`, the tool's own chunks, then its `TOOL_CALLING` |
+| Tool-using model, multi-round | `TOOL_REQUESTED* → TOOL_CALLING* → THINKING*? → GENERATING*` repeated; `chunk.iteration` increments per round (agent context) |
 | A round the loop injected | `CONTINUING`, then that round's own chunks (`THINKING*?`, `TOOL_CALLING*` for a nudge, `GENERATING*`); `chunk.iteration` on the `CONTINUING` chunk is the injected round's own index |
 | A round delivering an inbox message | `INBOX`, then that round's own chunks (`THINKING*?`, `TOOL_CALLING*`, `GENERATING*`); `chunk.iteration` on the `INBOX` chunk is that round's own index |
 
 `*` = "one or more chunks".
+
+`TOOL_REQUESTED` exists because `TOOL_CALLING` arrives only once a call returns: a tool that takes a
+minute would otherwise leave a streamed caller showing nothing for that minute. A round's calls are all
+announced first, before approval, so a refused call has an announcement too (its `TOOL_CALLING`
+carries the refusal). Pair the two by `id`, not by position: with `concurrent_tool_calls=True` the
+results arrive together after every call has run.
 
 `chunk.iteration` tells you the round number moved, not who moved it: a tool round, a nudge after an
 empty turn, and the forced wrap-up all advance it identically. `CONTINUING` is what separates the

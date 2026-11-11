@@ -98,6 +98,7 @@ class ModelDeprecatedError(ValueError):
 
 class StreamingContentType(str, Enum):
     THINKING = "thinking"
+    TOOL_REQUESTED = "tool_requested"
     TOOL_CALLING = "tool_calling"
     CONTINUING = "continuing"
     INBOX = "inbox"
@@ -113,12 +114,19 @@ class StreamChunk(NamedTuple):
     ``image_client.generate(stream=True)``, or any streaming tool / workflow.
 
     Fields:
-        phase:     content type of this chunk (THINKING, TOOL_CALLING, CONTINUING, INBOX,
+        phase:     content type of this chunk (THINKING, TOOL_REQUESTED, TOOL_CALLING, CONTINUING, INBOX,
                    GENERATING, IMAGE_GENERATING, AUDIO_GENERATING, SPEECH_GENERATING, DONE)
         content:   shape depends on phase:
                    - ``str`` for THINKING / GENERATING (token).
-                   - ``dict {"name", "arguments", "response"}`` for TOOL_CALLING
-                     (``arguments`` is the dict the model passed to the tool).
+                   - ``dict {"name", "arguments", "id"}`` for TOOL_REQUESTED: a call the model asked
+                     for, before it is approved or run. Every call in a round is announced before any
+                     of them runs, so a slow tool is visible while it works rather than only once it
+                     returns. Exactly one TOOL_CALLING with the same ``id`` follows, after any chunks
+                     a streaming tool yields itself.
+                   - ``dict {"name", "arguments", "response", "id"}`` for TOOL_CALLING: a call that has
+                     been dispatched, with its result (an error or a refusal is a result too).
+                     ``arguments`` is the dict the model passed to the tool, and ``id`` is the
+                     provider's tool-call id, the key that pairs it with its TOOL_REQUESTED.
                    - ``dict {"kind", "prompt"}`` for CONTINUING: the loop is about to inject a
                      prompt of its own, and the round that follows is that injected turn.
                      ``kind`` is ``PROVENANCE_CONTINUATION`` (a nudge after an empty turn, tools
@@ -156,7 +164,7 @@ class StreamChunk(NamedTuple):
                    ``Agent`` and workflow runners.
         iteration: zero-based iteration index inside the agent loop, or ``0`` for plain chat.
 
-    Use ``chunk.is_text()`` / ``chunk.is_tool_call()`` / ``chunk.is_continuing()`` /
+    Use ``chunk.is_text()`` / ``chunk.is_tool_request()`` / ``chunk.is_tool_call()`` / ``chunk.is_continuing()`` /
     ``chunk.is_inbox()`` / ``chunk.is_image_progress()`` / ``chunk.is_audio_progress()`` /
     ``chunk.is_speech_progress()`` / ``chunk.is_done()`` to dispatch on phase without repeating the
     equality check in user code.
@@ -170,6 +178,10 @@ class StreamChunk(NamedTuple):
     def is_text(self) -> bool:
         """True if this chunk carries text (THINKING or GENERATING)."""
         return self.phase in (StreamingContentType.THINKING, StreamingContentType.GENERATING)
+
+    def is_tool_request(self) -> bool:
+        """True if this chunk announces a tool call that has not run yet (TOOL_REQUESTED)."""
+        return self.phase == StreamingContentType.TOOL_REQUESTED
 
     def is_tool_call(self) -> bool:
         """True if this chunk carries a tool-call result."""
