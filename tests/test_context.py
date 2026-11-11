@@ -136,7 +136,7 @@ def test_summarize_replaces_the_prefix_and_keeps_the_tail():
         {"role": "assistant", "content": "a2"},
     ]
     client = FakeClient()
-    result = summarize_messages(client, messages, keep_last=2)
+    result = summarize_messages(client, messages, keep_first=0, keep_last=2)
 
     # System preserved, tail (last 2 messages) kept verbatim, prefix collapsed to one message.
     assert result[0] == messages[0]
@@ -149,6 +149,54 @@ def test_summarize_replaces_the_prefix_and_keeps_the_tail():
     # The summarized prefix (q1/a1) must have reached the client, the kept tail must not.
     assert "q1" in client.prompts[0]
     assert "q2" not in client.prompts[0]
+    # With nothing kept at the head there is no background to show.
+    assert "do not summarize" not in client.prompts[0]
+
+
+class _RecordingSummarizer:
+    def __init__(self):
+        self.prompts = []
+
+    def generate(self, prompt: str) -> str:
+        self.prompts.append(prompt)
+        return "a short summary"
+
+
+def test_summarize_keeps_the_task_verbatim_by_default():
+    """The summarizer may paraphrase or drop the task, so the first message is kept as written."""
+    system = {"role": "system", "content": "sys"}
+    task = {"role": "user", "content": "Compare the three reports."}
+    middle = [{"role": "assistant", "content": "reading report one"}, {"role": "user", "content": "go on"}]
+    tail = [{"role": "user", "content": "q2"}, {"role": "assistant", "content": "a2"}]
+    client = _RecordingSummarizer()
+
+    result = summarize_messages(client, [system, task, *middle, *tail], keep_last=2)
+
+    # The summary sits beside the system prompt, ahead of the task: several local chat templates
+    # reject a system message anywhere but the start of the conversation.
+    assert result[0] == system
+    assert result[1]["role"] == "system" and "a short summary" in result[1]["content"]
+    assert result[2:] == [task, *tail]
+    # The summarizer sees the task as background, so it can judge what the work needs, but is
+    # told to leave it out: the task survives verbatim in the result.
+    background, summarized = client.prompts[0].split("Summarize this part:")
+    assert "do not summarize" in background and "Compare the three reports." in background
+    assert "reading report one" in summarized and "Compare the three reports." not in summarized
+
+
+def test_summarize_makes_no_call_when_only_the_first_and_last_messages_remain():
+    class FailingClient:
+        def generate(self, prompt: str) -> str:
+            raise AssertionError("nothing between the kept first and last messages to summarize")
+
+    messages = [
+        {"role": "system", "content": "sys"},
+        {"role": "user", "content": "task"},
+        {"role": "user", "content": "q2"},
+        {"role": "assistant", "content": "a2"},
+    ]
+
+    assert summarize_messages(FailingClient(), messages, keep_first=1, keep_last=2) == messages
 
 
 def test_summarize_is_a_noop_when_everything_fits_in_keep_last():
@@ -206,7 +254,7 @@ def test_summarize_never_orphans_a_tool_result_at_the_keep_last_boundary():
     # A naive messages[-2:] tail would be [tool, a1], orphaning the tool result from the
     # assistant+tool_calls message that would land in the summarized prefix.
     client = FakeClient()
-    result = summarize_messages(client, messages, keep_last=2)
+    result = summarize_messages(client, messages, keep_first=0, keep_last=2)
     ids = {m["tool_call_id"] for m in result if m.get("role") == "tool"}
     advertised = {call["id"] for m in result if m.get("role") == "assistant" for call in (m.get("tool_calls") or [])}
     assert ids <= advertised, f"orphaned tool results: {ids - advertised}"

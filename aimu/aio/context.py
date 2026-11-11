@@ -17,7 +17,7 @@ from typing import Any, Optional
 # and this mirrors the existing precedent of aimu.aio.providers.openai_compat importing
 # _ThinkingParser / _split_thinking straight from aimu.models.providers._thinking -- a
 # private helper shared by exactly one sync/async pair doesn't warrant a new shared package.
-from aimu.context import DEFAULT_SUMMARIZE_PROMPT, _flatten, _group_messages, _protect_tail, _render_transcript
+from aimu.context import DEFAULT_SUMMARIZE_PROMPT, _partition_for_summary, _summary_message, _summary_prompt
 
 __all__ = ["summarize_messages"]
 
@@ -26,6 +26,7 @@ async def summarize_messages(
     client: Any,
     messages: list[dict],
     *,
+    keep_first: int = 1,
     keep_last: int = 2,
     prompt: Optional[str] = None,
 ) -> list[dict]:
@@ -34,22 +35,13 @@ async def summarize_messages(
     ``client`` is any object exposing ``async generate(prompt: str) -> str`` (an
     :class:`~aimu.aio.AsyncModelClient`, or ``agent.as_model_client()`` on an async
     :class:`~aimu.aio.Agent`). See the sync version's docstring for the full behaviour:
-    system messages are always preserved, the last ``keep_last`` messages (not exchanges)
-    are kept verbatim as the tail (extended outward to whole tool-call groups), and
-    everything older is replaced by one summary message.
+    system messages are always preserved, the first ``keep_first`` and last ``keep_last``
+    messages (not exchanges) are kept verbatim (extended outward to whole tool-call groups),
+    and everything between them is replaced by one summary message.
     """
-    messages = list(messages)
-    kept_system = [m for m in messages if m.get("role") == "system"]
-    rest = [m for m in messages if m.get("role") != "system"]
-
-    prefix_groups, tail_groups = _protect_tail(_group_messages(rest), keep_last)
-    prefix = _flatten(prefix_groups)
-    tail = _flatten(tail_groups)
-
+    kept_system, head, prefix, tail = _partition_for_summary(messages, keep_first, keep_last)
     if not prefix:
-        return kept_system + tail
+        return kept_system + head + tail
 
-    instruction = prompt or DEFAULT_SUMMARIZE_PROMPT
-    summary_text = await client.generate(f"{instruction}\n\n{_render_transcript(prefix)}")
-    summary_message = {"role": "system", "content": f"Summary of earlier conversation:\n{summary_text}"}
-    return kept_system + [summary_message] + tail
+    summary_text = await client.generate(_summary_prompt(prompt or DEFAULT_SUMMARIZE_PROMPT, head, prefix))
+    return kept_system + [_summary_message(summary_text)] + head + tail

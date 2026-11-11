@@ -173,3 +173,31 @@ async def test_async_compaction_is_a_per_run_override():
     agent2 = Agent(client2, events=seen2.append, compaction=trimmer)
     await agent2.run("q")  # no override -> None -> falls back to self.compaction
     assert any(isinstance(e, ContextCompacted) for e in seen2)
+
+
+async def test_async_summarize_keeps_the_task_verbatim_by_default():
+    """Mirrors test_summarize_keeps_the_task_verbatim_by_default on the async twin."""
+    from aimu.aio.context import summarize_messages
+
+    class RecordingSummarizer:
+        def __init__(self):
+            self.prompts = []
+
+        async def generate(self, prompt: str) -> str:
+            self.prompts.append(prompt)
+            return "a short summary"
+
+    system = {"role": "system", "content": "sys"}
+    task = {"role": "user", "content": "Compare the three reports."}
+    middle = [{"role": "assistant", "content": "reading report one"}, {"role": "user", "content": "go on"}]
+    tail = [{"role": "user", "content": "q2"}, {"role": "assistant", "content": "a2"}]
+    client = RecordingSummarizer()
+
+    result = await summarize_messages(client, [system, task, *middle, *tail], keep_last=2)
+
+    assert result[0] == system
+    assert result[1]["role"] == "system" and "a short summary" in result[1]["content"]
+    assert result[2:] == [task, *tail]
+    background, summarized = client.prompts[0].split("Summarize this part:")
+    assert "do not summarize" in background and "Compare the three reports." in background
+    assert "Compare the three reports." not in summarized
