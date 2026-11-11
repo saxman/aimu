@@ -106,6 +106,22 @@
   that exited early raised `BrokenPipeError`, and an interrupt during the write surfaced as
   `BrokenPipeError` instead of `KeyboardInterrupt`. `run_command` sends no stdin and was unaffected.
 
+### Context
+
+- **Change (breaking): `trim_messages` keeps the first message after the system messages, by
+  default.** New `keep_first` parameter, default `1`, the head-side mirror of `keep_last`, extended
+  outward to a whole tool-call group the same way. In an agent run the first non-system message is
+  the task (the user message `agent.run(task)` appended), and plain oldest-first dropping removed it
+  before anything else: a worker under `compaction=` carried on with its system prompt and recent
+  tool traffic, answering a question it could no longer see, with nothing raised. Every
+  `compaction=lambda m: trim_messages(m, ...)` already in use gets the protection without changing.
+  What a trim returns does change: the first message now survives, so a trim drops something else
+  in its place. `keep_first=0` restores the old behavior. Two limits: it pins the conversation's
+  first message, which is the current task only when the conversation starts with it (true of a
+  spawned sub-agent and of an `Agent` that resets each run, not of a conversation spanning several
+  runs); and in a multi-turn chat the pinned first question can outlive its answer.
+  `summarize_messages` does not take `keep_first` yet.
+
 ### Documentation
 
 - **New: [docs/explanation/context-management.md](docs/explanation/context-management.md).** The
