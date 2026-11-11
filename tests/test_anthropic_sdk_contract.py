@@ -44,13 +44,17 @@ def _models():
 
 
 def _payloads(client, thinking):
-    """The final kwargs for both request paths: the chat/generate one and the structured one."""
+    """The final kwargs for both request paths: the chat/generate one and the structured one
+    (a forced tool, or native JSON outputs on the models that reject one)."""
+    import anthropic
+
     resolved = client._resolve_generate_kwargs(
         client._apply_thinking({"max_tokens": 1024, "temperature": 0.3, "top_p": 0.9, "top_k": 40}, thinking)
     )
+    schema = {"type": "object", "properties": {"name": {"type": "string"}}, "required": ["name"]}
     return {
-        "chat": client._thinking_kwargs(resolved),
-        "structured": client._strip_thinking_for_structured(resolved),
+        "chat": client._thinking_kwargs(dict(resolved)),
+        "structured": client._structured_payload(anthropic.NOT_GIVEN, [], dict(resolved), schema),
     }
 
 
@@ -94,14 +98,34 @@ def test_sampling_survives_in_extra_body_where_the_model_accepts_it():
 
 
 def test_sampling_is_dropped_on_the_adaptive_models():
-    """Opus 4.7+ / Sonnet 5 / Fable 5 reject all three outright, thinking or not, so extra_body
+    """Opus 4.7+ and every 5.x model reject all three outright, thinking or not, so extra_body
     must not smuggle them back in."""
-    from aimu.models.providers.anthropic import AnthropicModel
+    from aimu.models.providers.anthropic import _REJECTS_SAMPLING, AnthropicModel
 
-    for model in (AnthropicModel.CLAUDE_OPUS_5, AnthropicModel.CLAUDE_SONNET_5, AnthropicModel.CLAUDE_FABLE_5):
+    for model in (m for m in AnthropicModel if m.value in _REJECTS_SAMPLING):
         client = _client(model)
         for path, kwargs in _payloads(client, False).items():
             assert "extra_body" not in kwargs, f"{model.name} {path}"
+
+
+@pytest.mark.parametrize("thinking", [None, True, False, "low"])
+def test_no_forced_tool_reaches_a_model_that_rejects_one(thinking):
+    """Fable 5.x, Opus 5.5 and Sonnet 5.5 return a 400 on tool_choice "any"/"tool"."""
+    from aimu.models.providers.anthropic import _REJECTS_FORCED_TOOL_CHOICE, AnthropicModel
+
+    for model in (m for m in AnthropicModel if m.value in _REJECTS_FORCED_TOOL_CHOICE):
+        structured = _payloads(_client(model), thinking)["structured"]
+        assert "tool_choice" not in structured, model.name
+        assert structured["output_config"]["format"]["type"] == "json_schema", model.name
+
+
+def test_model_quirk_sets_name_only_catalogued_models():
+    """The quirk sets are keyed by id string, so a typo would silently exempt a model."""
+    from aimu.models.providers import anthropic as provider
+
+    catalogued = {m.value for m in provider.AnthropicModel}
+    for quirk in ("_REJECTS_SAMPLING", "_REJECTS_FORCED_TOOL_CHOICE", "_DISABLES_THINKING_BETWEEN_TOOLS"):
+        assert getattr(provider, quirk) <= catalogued, quirk
 
 
 def test_removed_sdk_surface_is_actually_gone():

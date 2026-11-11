@@ -30,13 +30,18 @@ the per-provider mechanisms.
 <!-- generated:AnthropicModel -->
 | Enum member | Model id | Tools | Thinking | Vision |
 |---|---|:---:|:---:|:---:|
+| `CLAUDE_FABLE_5_2` ◆ ◇ | `claude-fable-5-2` | ✅ | ✅ (adaptive, effort) | ✅ |
+| `CLAUDE_FABLE_5_1` ◆ ◇ | `claude-fable-5-1` | ✅ | ✅ (adaptive, effort) | ✅ |
 | `CLAUDE_FABLE_5` ◆ ◇ | `claude-fable-5` | ✅ | ✅ (adaptive, effort) | ✅ |
+| `CLAUDE_OPUS_5_5` ◆ ◇ | `claude-opus-5-5` | ✅ | ✅ (adaptive, effort) | ✅ |
 | `CLAUDE_OPUS_5` ◆ | `claude-opus-5` | ✅ | ✅ (adaptive, effort) | ✅ |
 | `CLAUDE_OPUS_4_8` ◆ | `claude-opus-4-8` | ✅ | ✅ (adaptive, effort) | ✅ |
 | `CLAUDE_OPUS_4_7` ◆ | `claude-opus-4-7` | ✅ | ✅ (adaptive, effort) | ✅ |
 | `CLAUDE_OPUS_4_6` ◆ | `claude-opus-4-6` | ✅ | ✅ (adaptive, effort) | ✅ |
+| `CLAUDE_SONNET_5_5` ◆ | `claude-sonnet-5-5` | ✅ | ✅ (adaptive, effort) | ✅ |
 | `CLAUDE_SONNET_5` ◆ | `claude-sonnet-5` | ✅ | ✅ (adaptive, effort) | ✅ |
 | `CLAUDE_SONNET_4_6` ◆ | `claude-sonnet-4-6` | ✅ | ✅ (adaptive, effort) | ✅ |
+| `CLAUDE_HAIKU_5_5` ◆ | `claude-haiku-5-5` | ✅ | ✅ (adaptive, effort) | ✅ |
 | `CLAUDE_HAIKU_4_5` ◆ | `claude-haiku-4-5` | ✅ | ✅ (budget) | ✅ |
 <!-- /generated -->
 

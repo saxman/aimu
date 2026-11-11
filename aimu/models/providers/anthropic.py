@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import re
+from datetime import date
 from enum import Enum
 from types import SimpleNamespace
 from typing import Any, Iterator, Optional, Union
@@ -9,6 +10,7 @@ from typing import Any, Iterator, Optional, Union
 import anthropic
 from dotenv import load_dotenv
 
+from .._internal.deprecations import DeprecatedModel, register_deprecated
 from .._internal.generate_kwargs import CLOUD_MAX_TOKENS, Unsupported
 from .._internal.endpoint import recordable_endpoint
 from .._internal.sdk_config import sdk_client_kwargs
@@ -49,8 +51,33 @@ _EFFORT_LEVELS_4_6 = ("low", "medium", "high", "max")
 # ThinkingStyle: the 4.6 line is adaptive *and* takes sampling parameters. Kept provider-local
 # (like ThinkingStyle) rather than promoted to ModelSpec, since no other provider has the quirk.
 _REJECTS_SAMPLING = frozenset(
-    {"claude-fable-5", "claude-opus-5", "claude-opus-4-8", "claude-opus-4-7", "claude-sonnet-5"}
+    {
+        "claude-fable-5-2",
+        "claude-fable-5-1",
+        "claude-fable-5",
+        "claude-opus-5-5",
+        "claude-opus-5",
+        "claude-opus-4-8",
+        "claude-opus-4-7",
+        "claude-sonnet-5-5",
+        "claude-sonnet-5",
+        "claude-haiku-5-5",
+    }
 )
+
+# These models return a 400 on a forced tool_choice ("any" or "tool"), which is how structured
+# output works on the rest of the catalog. They get native JSON outputs (output_config.format)
+# instead. Native mode is not applied catalog-wide, although every member accepts it, because it
+# rejects schema features the forced tool takes (any additionalProperties other than false,
+# numeric and string constraints), so switching the others would break schemas that work today.
+_REJECTS_FORCED_TOOL_CHOICE = frozenset(
+    {"claude-fable-5-2", "claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5-5"}
+)
+
+# Sonnet 5.5 400s on {"type": "disabled"}. Its lowest setting is {"type": "between_tools"}, which
+# turns off up-front thinking but can still think between tool calls, so thinking=False sends it
+# and says so.
+_DISABLES_THINKING_BETWEEN_TOOLS = frozenset({"claude-sonnet-5-5"})
 
 # Effort values AIMU will not pair with disabled thinking: Opus 5 rejects that combination with a
 # 400, and validates the two independently on every request, so it cannot be settled per client.
@@ -71,21 +98,52 @@ def _effort_for_level(level: str, effort_levels: tuple[str, ...]) -> str:
     return level
 
 
+def _native_json_schema(schema):
+    """A copy of ``schema`` with ``additionalProperties: false`` on every object that leaves it unset.
+
+    Native JSON outputs require it on every object, and a Pydantic-generated schema omits it. An
+    object that sets it to anything else is left alone, as are constraints native mode rejects
+    (``minimum``, ``maxLength``, ...), so the API's 400 names the conflict instead of AIMU
+    silently rewriting a schema the caller wrote.
+    """
+    if isinstance(schema, list):
+        return [_native_json_schema(item) for item in schema]
+    if not isinstance(schema, dict):
+        return schema
+    copied = {key: _native_json_schema(value) for key, value in schema.items()}
+    if copied.get("type") == "object":
+        copied.setdefault("additionalProperties", False)
+    return copied
+
+
+def _structured_tools_conflict(model_id: str) -> str:
+    """The error for ``schema=`` with active action tools, which AIMU's Anthropic path cannot combine."""
+    if model_id in _REJECTS_FORCED_TOOL_CHOICE:
+        reason = "its structured turn is a single model turn that advertises no tools"
+    else:
+        reason = "it uses a forced tool, which conflicts with action tools"
+    return (
+        f"Anthropic structured output on {model_id} is incompatible with active action tools: {reason}. "
+        "Drop tools (or use_tools=False), or use a provider whose response_format composes with tools "
+        "(e.g. OpenAI)."
+    )
+
+
 class ThinkingStyle(Enum):
     """How a model's thinking parameter is expressed in the Anthropic Messages API.
 
     ENABLED  -> ``{"type": "enabled", "budget_tokens": N}``; the model always thinks up
-                to the budget. Used by Opus <= 4.6, Sonnet 4.6, and Haiku 4.5. Thinking is
-                disabled by omitting the parameter.
+                to the budget. Haiku 4.5 alone. Thinking is disabled by omitting the parameter.
     ADAPTIVE -> ``{"type": "adaptive", "display": "summarized"}``; the model decides per
                 request whether and how much to think (it may not think at all on simple
-                prompts). Required by Opus 4.7+, Sonnet 5, and Fable 5 -- the ENABLED form
-                returns a 400 on those models, which also reject temperature/top_p/top_k.
+                prompts). Every other member: required from Opus 4.7 on, where the ENABLED form
+                returns a 400, and used for the 4.6 line, where Anthropic deprecated it.
                 ``display`` defaults to ``"omitted"`` (empty thinking text), so we request
                 ``"summarized"`` to surface thinking as StreamChunks. Thinking is disabled
                 with an explicit ``{"type": "disabled"}`` rather than by omission, because
-                Opus 5 and Sonnet 5 reason by default when the parameter is absent (Fable 5
-                cannot be disabled at all, and declares ``thinking_optional=False``).
+                the 5.x models reason by default when the parameter is absent. Sonnet 5.5
+                rejects ``disabled`` and takes ``{"type": "between_tools"}`` instead; Fable 5.x
+                and Opus 5.5 cannot be disabled at all, and declare ``thinking_optional=False``.
     """
 
     ENABLED = "enabled"
@@ -106,6 +164,32 @@ class AnthropicModel(Model):
     # thinking_levels=True on every member: a portable level is always translated into an
     # Anthropic-specific mechanism by _thinking_kwargs (a token budget for ENABLED, a warned
     # no-op for ADAPTIVE), so the generic resolver must never strip it beforehand.
+    CLAUDE_FABLE_5_2 = (
+        ModelSpec(
+            "claude-fable-5-2",
+            tools=True,
+            thinking=True,
+            vision=True,
+            structured_output=True,
+            thinking_levels=True,
+            effort_levels=_EFFORT_LEVELS_4_7,
+            thinking_optional=False,
+        ),
+        ThinkingStyle.ADAPTIVE,
+    )
+    CLAUDE_FABLE_5_1 = (
+        ModelSpec(
+            "claude-fable-5-1",
+            tools=True,
+            thinking=True,
+            vision=True,
+            structured_output=True,
+            thinking_levels=True,
+            effort_levels=_EFFORT_LEVELS_4_7,
+            thinking_optional=False,
+        ),
+        ThinkingStyle.ADAPTIVE,
+    )
     CLAUDE_FABLE_5 = (
         ModelSpec(
             "claude-fable-5",
@@ -118,6 +202,20 @@ class AnthropicModel(Model):
             # Fable 5 always reasons: omitting the parameter runs adaptive, and an explicit
             # {"type": "disabled"} is a 400. Declaring it here is what makes thinking=False warn
             # and continue instead of reaching _thinking_kwargs and being sent.
+            thinking_optional=False,
+        ),
+        ThinkingStyle.ADAPTIVE,
+    )
+    CLAUDE_OPUS_5_5 = (
+        ModelSpec(
+            "claude-opus-5-5",
+            tools=True,
+            thinking=True,
+            vision=True,
+            structured_output=True,
+            thinking_levels=True,
+            effort_levels=_EFFORT_LEVELS_4_7,
+            # Opus 5.5 rejects {"type": "disabled"} at every effort level; effort is its only control.
             thinking_optional=False,
         ),
         ThinkingStyle.ADAPTIVE,
@@ -170,6 +268,18 @@ class AnthropicModel(Model):
         ),
         ThinkingStyle.ADAPTIVE,
     )
+    CLAUDE_SONNET_5_5 = (
+        ModelSpec(
+            "claude-sonnet-5-5",
+            tools=True,
+            thinking=True,
+            vision=True,
+            structured_output=True,
+            thinking_levels=True,
+            effort_levels=_EFFORT_LEVELS_4_7,
+        ),
+        ThinkingStyle.ADAPTIVE,
+    )
     CLAUDE_SONNET_5 = (
         ModelSpec(
             "claude-sonnet-5",
@@ -194,9 +304,94 @@ class AnthropicModel(Model):
         ),
         ThinkingStyle.ADAPTIVE,
     )
+    CLAUDE_HAIKU_5_5 = (
+        ModelSpec(
+            "claude-haiku-5-5",
+            tools=True,
+            thinking=True,
+            vision=True,
+            structured_output=True,
+            thinking_levels=True,
+            effort_levels=_EFFORT_LEVELS_4_7,
+        ),
+        ThinkingStyle.ADAPTIVE,
+    )
     CLAUDE_HAIKU_4_5 = ModelSpec(
         "claude-haiku-4-5", tools=True, thinking=True, vision=True, structured_output=True, thinking_levels=True
     )
+
+
+# Anthropic's published deprecations and retirements
+# (https://platform.claude.com/docs/en/about-claude/model-deprecations). When a catalog member is
+# deprecated, delete it above and add it here, with Anthropic's recommended replacement.
+register_deprecated(
+    AnthropicModel,
+    (
+        DeprecatedModel(
+            "CLAUDE_SONNET_4_5",
+            ("claude-sonnet-4-5", "claude-sonnet-4-5-20250929"),
+            "CLAUDE_SONNET_5_5",
+            deprecated_on=date(2026, 9, 30),
+            retires_on=date(2026, 11, 30),
+        ),
+        DeprecatedModel(
+            "CLAUDE_OPUS_4_1",
+            ("claude-opus-4-1", "claude-opus-4-1-20250805"),
+            "CLAUDE_OPUS_4_8",
+            deprecated_on=date(2026, 6, 5),
+            retires_on=date(2026, 8, 5),
+        ),
+        DeprecatedModel(
+            "CLAUDE_OPUS_4",
+            ("claude-opus-4-0", "claude-opus-4-20250514"),
+            "CLAUDE_OPUS_4_8",
+            deprecated_on=date(2026, 4, 14),
+            retires_on=date(2026, 6, 15),
+        ),
+        DeprecatedModel(
+            "CLAUDE_SONNET_4",
+            ("claude-sonnet-4-0", "claude-sonnet-4-20250514"),
+            "CLAUDE_SONNET_5_5",
+            deprecated_on=date(2026, 4, 14),
+            retires_on=date(2026, 6, 15),
+        ),
+        DeprecatedModel(
+            "CLAUDE_HAIKU_3",
+            ("claude-3-haiku-20240307",),
+            "CLAUDE_HAIKU_4_5",
+            deprecated_on=date(2026, 2, 19),
+            retires_on=date(2026, 4, 20),
+        ),
+        DeprecatedModel(
+            "CLAUDE_HAIKU_3_5",
+            ("claude-3-5-haiku-latest", "claude-3-5-haiku-20241022"),
+            "CLAUDE_HAIKU_4_5",
+            deprecated_on=date(2025, 12, 19),
+            retires_on=date(2026, 2, 19),
+        ),
+        DeprecatedModel(
+            "CLAUDE_SONNET_3_7",
+            ("claude-3-7-sonnet-latest", "claude-3-7-sonnet-20250219"),
+            "CLAUDE_SONNET_5_5",
+            deprecated_on=date(2025, 10, 28),
+            retires_on=date(2026, 2, 19),
+        ),
+        DeprecatedModel(
+            "CLAUDE_SONNET_3_5",
+            ("claude-3-5-sonnet-latest", "claude-3-5-sonnet-20241022", "claude-3-5-sonnet-20240620"),
+            "CLAUDE_SONNET_5_5",
+            deprecated_on=date(2025, 8, 13),
+            retires_on=date(2025, 10, 28),
+        ),
+        DeprecatedModel(
+            "CLAUDE_OPUS_3",
+            ("claude-3-opus-latest", "claude-3-opus-20240229"),
+            "CLAUDE_OPUS_4_8",
+            deprecated_on=date(2025, 6, 30),
+            retires_on=date(2026, 1, 5),
+        ),
+    ),
+)
 
 
 # The Messages API takes temperature, top_p, and top_k. It has no min_p and no penalty parameters, and
@@ -376,26 +571,51 @@ class AnthropicClient(BaseModelClient):
             )
         return kwargs
 
-    def _structured_call(self, system_str, ant_messages: list, generate_kwargs: dict, response_format: dict) -> str:
-        """Anthropic structured output via a forced single tool.
+    def _structured_payload(self, system_str, ant_messages: list, generate_kwargs: dict, response_format: dict) -> dict:
+        """The request for one structured-output turn.
 
-        Anthropic has no ``response_format`` param; the idiomatic enforcement is to expose
-        one tool whose ``input_schema`` is the JSON Schema and force it with ``tool_choice``.
-        Extended thinking is incompatible with a forced ``tool_choice``, so ``generate_kwargs``
-        here must NOT carry the thinking param (callers route around ``_thinking_kwargs``).
-        Returns the tool input as a JSON string so the base coerces it like every other provider.
+        Anthropic has no ``response_format`` parameter, so on most of the catalog the
+        enforcement is a forced single tool whose ``input_schema`` is the JSON Schema. Extended
+        thinking cannot coexist with a forced ``tool_choice``, so that path drops the thinking
+        request. The models in ``_REJECTS_FORCED_TOOL_CHOICE`` return a 400 on a forced tool and
+        use native JSON outputs (``output_config.format``) instead, which keep thinking.
         """
-        generate_kwargs = self._strip_thinking_for_structured(generate_kwargs)
+        request = {"model": self.model.value, "system": system_str, "messages": ant_messages}
+        if self.model.value in _REJECTS_FORCED_TOOL_CHOICE:
+            kwargs = self._thinking_kwargs(generate_kwargs)
+            output_format = {"type": "json_schema", "schema": _native_json_schema(response_format)}
+            # Merged, like _with_effort: output_config may already carry an effort.
+            return {
+                **kwargs,
+                **request,
+                "output_config": {**(kwargs.get("output_config") or {}), "format": output_format},
+            }
+
+        kwargs = self._strip_thinking_for_structured(generate_kwargs)
         name = re.sub(r"[^a-zA-Z0-9_-]", "_", str(response_format.get("title", "Response")))[:64] or "Response"
         tool = {"name": name, "description": f"Emit the answer as a {name} object.", "input_schema": response_format}
-        payload = {
-            **generate_kwargs,
-            "model": self.model.value,
-            "system": system_str,
-            "messages": ant_messages,
-            "tools": [tool],
-            "tool_choice": {"type": "tool", "name": name},
-        }
+        return {**kwargs, **request, "tools": [tool], "tool_choice": {"type": "tool", "name": name}}
+
+    def _structured_text(self, message) -> str:
+        """The JSON a structured turn produced: the forced tool's input, else the text block.
+
+        Returned as a string so the base coerces it like every other provider's. Records the
+        turn's thinking, which only the native path produces.
+        """
+        texts = []
+        for block in message.content:
+            if block.type == "tool_use":
+                return json.dumps(block.input)
+            if block.type == "thinking":
+                self.last_thinking = block.thinking
+            elif block.type == "text":
+                texts.append(block.text)
+        return "".join(texts) or "{}"
+
+    def _structured_call(self, system_str, ant_messages: list, generate_kwargs: dict, response_format: dict) -> str:
+        """One structured-output turn (see :meth:`_structured_payload`); returns the JSON text."""
+        self.last_thinking = ""
+        payload = self._structured_payload(system_str, ant_messages, generate_kwargs, response_format)
         self._record_request(payload)
         try:
             response = self._client.messages.create(**payload)
@@ -406,10 +626,7 @@ class AnthropicClient(BaseModelClient):
             raise
         logger.debug("Anthropic raw response (structured): %s", response)
         self._record_response(response)
-        for block in response.content:
-            if block.type == "tool_use":
-                return json.dumps(block.input)
-        return "{}"
+        return self._structured_text(response)
 
     def _structured_call_streamed(
         self,
@@ -420,33 +637,23 @@ class AnthropicClient(BaseModelClient):
         *,
         append_message: bool,
     ) -> Iterator[StreamChunk]:
-        """Streamed Anthropic structured output via a forced single tool.
+        """One streamed structured-output turn (see :meth:`_structured_payload`).
 
-        Streams the tool-input JSON as it is built (``GENERATING`` chunks from
-        ``input_json_delta``). Emits **no** ``THINKING``: a forced ``tool_choice`` is
-        incompatible with extended thinking, so ``generate_kwargs`` carries no thinking param
-        (same contract as :meth:`_structured_call`). The base accumulates the yielded JSON and
-        parses it; ``append_message`` stores the assistant turn for the stateful chat path.
+        Streams the JSON as it is built, as ``GENERATING`` chunks: ``input_json_delta`` on the
+        forced-tool path, ``text_delta`` on the native one, which also streams ``THINKING``. The
+        base accumulates the yielded JSON and parses it; ``append_message`` stores the assistant
+        turn for the stateful chat path.
         """
         self.last_thinking = ""
         self.last_usage = None
-        generate_kwargs = self._strip_thinking_for_structured(generate_kwargs)
-        name = re.sub(r"[^a-zA-Z0-9_-]", "_", str(response_format.get("title", "Response")))[:64] or "Response"
-        tool = {"name": name, "description": f"Emit the answer as a {name} object.", "input_schema": response_format}
-        payload = {
-            **generate_kwargs,
-            "model": self.model.value,
-            "system": system_str,
-            "messages": ant_messages,
-            "tools": [tool],
-            "tool_choice": {"type": "tool", "name": name},
-        }
+        payload = self._structured_payload(system_str, ant_messages, generate_kwargs, response_format)
         self._record_request(payload)
         try:
             with self._client.messages.stream(**payload) as stream:
                 for event in stream:
-                    if event.type == "content_block_delta" and event.delta.type == "input_json_delta":
-                        yield StreamChunk(StreamingContentType.GENERATING, event.delta.partial_json)
+                    chunk = self._structured_stream_chunk(event)
+                    if chunk is not None:
+                        yield chunk
                 final = stream.get_final_message()
         except anthropic.RequestTooLargeError as exc:
             _raise_for_request_too_large(exc)
@@ -454,13 +661,23 @@ class AnthropicClient(BaseModelClient):
             _raise_if_context_overflowed(exc)
             raise
         self._record_response(final)
-        text = "{}"
-        for block in final.content:
-            if block.type == "tool_use":
-                text = json.dumps(block.input)
-                break
+        text = self._structured_text(final)
         if append_message:
             self._append_message({"role": "assistant", "content": text})
+
+    def _structured_stream_chunk(self, event) -> Optional[StreamChunk]:
+        """The chunk a structured-output stream event carries, if any (shared with the async client)."""
+        if event.type != "content_block_delta":
+            return None
+        delta = event.delta
+        if delta.type == "thinking_delta":
+            self.last_thinking += delta.thinking
+            return StreamChunk(StreamingContentType.THINKING, delta.thinking)
+        if delta.type == "input_json_delta":
+            return StreamChunk(StreamingContentType.GENERATING, delta.partial_json)
+        if delta.type == "text_delta":
+            return StreamChunk(StreamingContentType.GENERATING, delta.text)
+        return None
 
     # ------------------------------------------------------------------ #
     # generate_kwargs helpers                                              #
@@ -556,8 +773,16 @@ class AnthropicClient(BaseModelClient):
 
         if resolved is not None and not resolved.enabled:
             # Omission is not "off" here the way it is for the ENABLED style: an absent parameter
-            # runs adaptive on Opus 5 and Sonnet 5, so disabling has to be said out loud.
-            kwargs["thinking"] = {"type": "disabled"}
+            # runs adaptive on the 5.x models, so disabling has to be said out loud.
+            if self.model.value in _DISABLES_THINKING_BETWEEN_TOOLS:
+                self._warn_once(
+                    f"{self.model.value} cannot turn thinking fully off; thinking=False sends its lowest "
+                    "setting, between_tools, which skips up-front thinking but may still think between "
+                    "tool calls."
+                )
+                kwargs["thinking"] = {"type": "between_tools"}
+            else:
+                kwargs["thinking"] = {"type": "disabled"}
             return self._cap_effort_for_disabled_thinking(kwargs)
 
         if resolved is not None and resolved.level is not None:
@@ -596,8 +821,8 @@ class AnthropicClient(BaseModelClient):
     def _cap_effort_for_disabled_thinking(self, kwargs: dict) -> dict:
         """Lower a caller's ``xhigh``/``max`` effort to ``high`` when thinking is disabled.
 
-        Opus 5 rejects that pair with a 400, and validates the two independently on every
-        request, so it cannot be settled once per client. AIMU never builds the pair itself --
+        Opus 5 and Haiku 5.5 reject that pair with a 400 (as Sonnet 5.5 does with ``between_tools``),
+        and validate the two independently on every request, so it cannot be settled once per client. AIMU never builds the pair itself --
         ``thinking=False`` resolves to ``level=None`` -- so this only ever fires on an effort the
         caller passed through ``generate_kwargs``.
 
@@ -855,11 +1080,7 @@ class AnthropicClient(BaseModelClient):
         response_format: Optional[dict] = None,
     ) -> Union[str, Iterator[StreamChunk]]:
         if response_format is not None and use_tools and self.tools:
-            raise ValueError(
-                "Anthropic structured output uses a forced tool, which is incompatible with active "
-                "action tools. Drop tools (or use_tools=False), or use a provider whose response_format "
-                "composes with tools (e.g. OpenAI)."
-            )
+            raise ValueError(_structured_tools_conflict(self.model.value))
 
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools, images=images, audio=audio)
 

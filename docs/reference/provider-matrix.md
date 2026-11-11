@@ -189,7 +189,7 @@ override you where an API demands it (see the notes below).
     |---|---|---|
     | `OllamaClient` | `think=False` | `think="low"/"medium"/"high"` |
     | OpenAI-compat local servers | `extra_body={"chat_template_kwargs": {"enable_thinking": False}}` | `reasoning_effort`, with `high` sent as Qwen's `xhigh` |
-    | `AnthropicClient` | `{"type": "disabled"}`, except Haiku 4.5 which omits the parameter; Fable 5 cannot be turned off | `output_config.effort` (`high` sent as `xhigh` where the model has it); `budget_tokens` 2048 / 8000 / 16000 on Haiku 4.5 |
+    | `AnthropicClient` | `{"type": "disabled"}`, except Haiku 4.5 which omits the parameter and Sonnet 5.5 which sends `{"type": "between_tools"}`; Fable 5.x and Opus 5.5 cannot be turned off | `output_config.effort` (`high` sent as `xhigh` where the model has it); `budget_tokens` 2048 / 8000 / 16000 on Haiku 4.5 |
     | `HuggingFaceClient` | `enable_thinking=False` template kwarg | `reasoning_effort` template kwarg |
     | `LlamaCppClient`, `OpenAIClient`, `GeminiClient` | nothing emitted | nothing emitted |
 

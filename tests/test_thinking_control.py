@@ -643,7 +643,19 @@ def test_anthropic_4_6_line_keeps_its_sampling_parameters(monkeypatch, model_nam
     assert kwargs["extra_body"] == {"temperature": 0.2}
 
 
-@pytest.mark.parametrize("model_name", ["CLAUDE_OPUS_5", "CLAUDE_SONNET_5", "CLAUDE_OPUS_4_7"])
+@pytest.mark.parametrize(
+    "model_name",
+    [
+        "CLAUDE_FABLE_5_2",
+        "CLAUDE_FABLE_5_1",
+        "CLAUDE_OPUS_5_5",
+        "CLAUDE_OPUS_5",
+        "CLAUDE_SONNET_5_5",
+        "CLAUDE_SONNET_5",
+        "CLAUDE_HAIKU_5_5",
+        "CLAUDE_OPUS_4_7",
+    ],
+)
 def test_anthropic_4_7_line_still_rejects_sampling(monkeypatch, model_name):
     """The other side of the same split: these genuinely 400 on a sampling parameter."""
     from aimu.models.providers.anthropic import AnthropicModel
@@ -779,6 +791,46 @@ def test_anthropic_fable_5_cannot_be_disabled(monkeypatch, caplog):
 
     assert kwargs["thinking"] == {"type": "adaptive", "display": "summarized"}
     assert any("cannot be disabled" in r.message for r in caplog.records)
+
+
+@pytest.mark.parametrize("model_name", ["CLAUDE_FABLE_5_2", "CLAUDE_FABLE_5_1", "CLAUDE_OPUS_5_5"])
+def test_anthropic_always_on_models_cannot_be_disabled(monkeypatch, caplog, model_name):
+    """These 400 on {"type": "disabled"} at every effort level, so thinking=False warns and continues."""
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    with caplog.at_level("WARNING"):
+        kwargs = _anthropic_kwargs(monkeypatch, getattr(AnthropicModel, model_name), False)
+
+    assert kwargs["thinking"] == {"type": "adaptive", "display": "summarized"}
+    assert any("cannot be disabled" in r.message for r in caplog.records)
+
+
+def test_anthropic_sonnet_5_5_thinking_off_sends_between_tools(monkeypatch, caplog):
+    """Sonnet 5.5 400s on {"type": "disabled"}; its lowest setting is between_tools, which still
+    thinks between tool calls, so the substitution has to be said out loud. between_tools also
+    400s above "high" effort, so a caller's xhigh is capped as it is for disabled thinking."""
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    with caplog.at_level("WARNING"):
+        kwargs = _anthropic_kwargs(
+            monkeypatch, AnthropicModel.CLAUDE_SONNET_5_5, False, generate_kwargs={"output_config": {"effort": "xhigh"}}
+        )
+
+    assert kwargs["thinking"] == {"type": "between_tools"}
+    assert kwargs["output_config"] == {"effort": "high"}
+    assert any("between_tools" in r.message for r in caplog.records)
+
+
+def test_anthropic_haiku_5_5_thinking_off_is_disabled_and_caps_effort(monkeypatch):
+    """Haiku 5.5 is adaptive (unlike Haiku 4.5) and accepts disabled thinking only at "high" or below."""
+    from aimu.models.providers.anthropic import AnthropicModel
+
+    kwargs = _anthropic_kwargs(
+        monkeypatch, AnthropicModel.CLAUDE_HAIKU_5_5, False, generate_kwargs={"output_config": {"effort": "max"}}
+    )
+
+    assert kwargs["thinking"] == {"type": "disabled"}
+    assert kwargs["output_config"] == {"effort": "high"}
 
 
 def test_anthropic_none_keeps_current_behavior(monkeypatch):

@@ -47,7 +47,7 @@ class AnthropicModel(Model):
 
 That's it. The model id (`"claude-opus-5"`) is what gets sent to the provider; the capability flags drive `is_tool_using_model`, `is_thinking_model`, `is_vision_model`, and the derived `TOOL_MODELS` / `THINKING_MODELS` / `VISION_MODELS` classproperties.
 
-A bare `ModelSpec` defaults the Anthropic reasoning request to `ThinkingStyle.ENABLED` (`budget_tokens`). New Claude reasoning models (Opus 4.7+ and Fable 5) require the adaptive request shape and **400 on the `enabled` form**, so define those with a `ThinkingStyle.ADAPTIVE` extra (see [Anthropic provider-specific extras](#anthropic-provider-specific-extras) below).
+A bare `ModelSpec` defaults the Anthropic reasoning request to `ThinkingStyle.ENABLED` (`budget_tokens`). New Claude reasoning models (everything since Opus 4.7, and the 5.x line) require the adaptive request shape and **400 on the `enabled` form**, so define those with a `ThinkingStyle.ADAPTIVE` extra (see [Anthropic provider-specific extras](#anthropic-provider-specific-extras) below).
 
 ## Local-runtime catalogs
 
@@ -205,13 +205,43 @@ Pick `ToolCallFormat.XML` / `JSON_OBJECT` / `JSON_ARRAY` / `BRACKETED` / `NA` ba
 # aimu/models/providers/anthropic.py
 class AnthropicModel(Model):
     # Adaptive: thinking={"type": "adaptive", "display": "summarized"}; sampling params dropped.
-    # Required by Opus 4.7+ and Fable 5 (the enabled form 400s here).
+    # Required from Opus 4.7 on (the enabled form 400s there).
     CLAUDE_OPUS_4_8 = (ModelSpec("claude-opus-4-8", tools=True, thinking=True, vision=True), ThinkingStyle.ADAPTIVE)
     # Enabled (default): thinking={"type": "enabled", "budget_tokens": N}; the model always thinks.
     CLAUDE_HAIKU_4_5 = ModelSpec("claude-haiku-4-5", tools=True, thinking=True, vision=True)
 ```
 
-Rule of thumb: Opus 4.7 and later, and Fable 5, are adaptive-only; Opus 4.6, Sonnet 4.6, and Haiku 4.5 use the budget form. Confirm a new model's support with the Models API (`client.models.retrieve(id).capabilities["thinking"]["types"]`); `adaptive.supported` / `enabled.supported` tell you which shape to pick.
+Rule of thumb: every member except Haiku 4.5 is adaptive (Opus 4.7 and later require it; the 4.6 line uses it because Anthropic deprecated the budget form there). Confirm a new model's support with the Models API (`client.models.retrieve(id).capabilities["thinking"]["types"]`); `adaptive.supported` / `enabled.supported` tell you which shape to pick.
+
+Three request quirks are per-model facts that no `ModelSpec` flag expresses, so they live in provider-local sets in the same module, keyed by model id. Add a new model's id to each one that applies:
+
+- `_REJECTS_SAMPLING`: the model 400s on `temperature` / `top_p` / `top_k` (Opus 4.7 and later, every 5.x model).
+- `_REJECTS_FORCED_TOOL_CHOICE`: the model 400s on `tool_choice` `"any"` / `"tool"`, so structured output uses native JSON outputs (`output_config.format`) instead of a forced tool (Fable 5.1/5.2, Opus 5.5, Sonnet 5.5).
+- `_DISABLES_THINKING_BETWEEN_TOOLS`: the model 400s on `{"type": "disabled"}` and takes `{"type": "between_tools"}` as its lowest setting (Sonnet 5.5).
+
+A model that cannot turn thinking off at all declares `thinking_optional=False` on its `ModelSpec` instead. `tests/test_anthropic_sdk_contract.py` fails if a set names an id that is not in the catalog.
+
+## Retiring a model
+
+When a provider deprecates a catalogued model, delete the enum member and record it with `register_deprecated` next to the catalog, naming the provider's recommended replacement:
+
+```python
+# aimu/models/providers/anthropic.py, after the AnthropicModel class
+register_deprecated(
+    AnthropicModel,
+    (
+        DeprecatedModel(
+            "CLAUDE_SONNET_4_5",                                   # the enum-member name
+            ("claude-sonnet-4-5", "claude-sonnet-4-5-20250929"),   # every id that names it
+            "CLAUDE_SONNET_5_5",                                   # replacement, a live member
+            deprecated_on=date(2026, 9, 30),
+            retires_on=date(2026, 11, 30),                         # omit when not yet announced
+        ),
+    ),
+)
+```
+
+After that, every way of naming the model raises `ModelDeprecatedError` (a `ValueError`) with the replacement and the retirement date: the model string, `AnthropicModel.CLAUDE_SONNET_4_5`, `AnthropicModel["CLAUDE_SONNET_4_5"]`, `AnthropicModel("claude-sonnet-4-5")`, and the bare name passed to `aimu.resolve_model_enum`. It raises whether the model is deprecated or already retired, since AIMU no longer catalogs either. Registration fails at import if the replacement is not a live member, or if the entry is still in the catalog.
 
 ## Image, audio, and speech models
 

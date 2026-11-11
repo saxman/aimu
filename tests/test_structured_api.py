@@ -363,3 +363,158 @@ def test_anthropic_schema_plus_tools_raises():
     client = _bare_anthropic(AnthropicModel.CLAUDE_SONNET_4_6, tools=[some_tool])
     with pytest.raises(ValueError, match="incompatible with active"):
         client._chat("hi", response_format=schema_to_json_schema(Person), use_tools=True)
+
+
+# ---------------------------------------------------------------------------
+# Anthropic native JSON outputs (models that reject a forced tool_choice)
+# ---------------------------------------------------------------------------
+
+_NATIVE_JSON_MODELS = ["CLAUDE_FABLE_5_2", "CLAUDE_FABLE_5_1", "CLAUDE_OPUS_5_5", "CLAUDE_SONNET_5_5"]
+
+
+@pytest.mark.parametrize("model_name", _NATIVE_JSON_MODELS)
+def test_anthropic_structured_uses_native_json_where_forced_tools_400(model_name):
+    """These models return a 400 on tool_choice "tool", so a forced-tool request cannot succeed."""
+    from aimu.models import HAS_ANTHROPIC
+
+    if not HAS_ANTHROPIC:
+        pytest.skip("anthropic not installed")
+    from aimu.models import AnthropicModel
+
+    client = _bare_anthropic(getattr(AnthropicModel, model_name))
+    captured = {}
+
+    def fake_create(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            content=[
+                SimpleNamespace(type="thinking", thinking="Reading the prompt."),
+                SimpleNamespace(type="text", text='{"name": "Ada", "age": 36}'),
+            ],
+            usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+        )
+
+    client._client = SimpleNamespace(messages=SimpleNamespace(create=fake_create))
+    text = client._structured_call("sys", [{"role": "user", "content": "hi"}], {}, schema_to_json_schema(Person))
+
+    assert "tool_choice" not in captured and "tools" not in captured
+    assert captured["output_config"]["format"] == {"type": "json_schema", "schema": schema_to_json_schema(Person)}
+    assert text == '{"name": "Ada", "age": 36}'
+    assert client.last_thinking == "Reading the prompt."
+
+
+def test_anthropic_native_json_schema_closes_every_object():
+    """Native JSON outputs require additionalProperties: false on every object, and Pydantic omits
+    it, including on nested $defs. A value the caller set is left for the API to judge."""
+    from aimu.models import HAS_ANTHROPIC
+
+    if not HAS_ANTHROPIC:
+        pytest.skip("anthropic not installed")
+    from aimu.models.providers.anthropic import _native_json_schema
+
+    schema = {
+        "type": "object",
+        "properties": {"inner": {"$ref": "#/$defs/Inner"}, "tags": {"type": "object", "additionalProperties": True}},
+        "$defs": {"Inner": {"type": "object", "properties": {"x": {"type": "integer"}}}},
+    }
+
+    native = _native_json_schema(schema)
+
+    assert native["additionalProperties"] is False
+    assert native["$defs"]["Inner"]["additionalProperties"] is False
+    assert native["properties"]["tags"]["additionalProperties"] is True
+    assert "additionalProperties" not in schema  # the caller's schema is not mutated
+
+
+def test_anthropic_native_json_keeps_thinking_and_merges_effort(monkeypatch):
+    """Unlike the forced tool, native JSON outputs compose with thinking, so a thinking level
+    survives as an effort, merged into the same output_config as the format."""
+    import types
+
+    anthropic = pytest.importorskip("anthropic")
+
+    from aimu.models.providers.anthropic import AnthropicClient, AnthropicModel
+
+    monkeypatch.setattr(anthropic, "Anthropic", lambda **kw: types.SimpleNamespace())
+    client = AnthropicClient(AnthropicModel.CLAUDE_OPUS_5_5)
+    captured = {}
+
+    def fake_create(**kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            content=[SimpleNamespace(type="text", text='{"name": "Ada", "age": 36}')],
+            usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+        )
+
+    client._client = SimpleNamespace(messages=SimpleNamespace(create=fake_create))
+    result = client.chat("hi", schema=Person, thinking="low")
+
+    assert result == Person(name="Ada", age=36)
+    assert captured["thinking"] == {"type": "adaptive", "display": "summarized"}
+    assert captured["output_config"]["effort"] == "low"
+    assert captured["output_config"]["format"]["type"] == "json_schema"
+
+
+def test_anthropic_native_json_streams_thinking_and_text():
+    from aimu.models import HAS_ANTHROPIC
+
+    if not HAS_ANTHROPIC:
+        pytest.skip("anthropic not installed")
+    from aimu.models import AnthropicModel
+
+    client = _bare_anthropic(AnthropicModel.CLAUDE_SONNET_5_5)
+
+    class FakeStream:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def __iter__(self):
+            yield SimpleNamespace(
+                type="content_block_delta", delta=SimpleNamespace(type="thinking_delta", thinking="Hmm.")
+            )
+            yield SimpleNamespace(
+                type="content_block_delta", delta=SimpleNamespace(type="text_delta", text='{"name": "Ada",')
+            )
+            yield SimpleNamespace(
+                type="content_block_delta", delta=SimpleNamespace(type="text_delta", text=' "age": 36}')
+            )
+
+        def get_final_message(self):
+            return SimpleNamespace(
+                content=[
+                    SimpleNamespace(type="thinking", thinking="Hmm."),
+                    SimpleNamespace(type="text", text='{"name": "Ada", "age": 36}'),
+                ],
+                usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+            )
+
+    client._client = SimpleNamespace(messages=SimpleNamespace(stream=lambda **kw: FakeStream()))
+    chunks = list(
+        client._structured_call_streamed(
+            "sys", [{"role": "user", "content": "hi"}], {}, schema_to_json_schema(Person), append_message=True
+        )
+    )
+
+    assert chunks[0] == StreamChunk(StreamingContentType.THINKING, "Hmm.")
+    generated = "".join(c.content for c in chunks if c.phase == StreamingContentType.GENERATING)
+    assert generated == '{"name": "Ada", "age": 36}'
+    assert client.messages[-1]["content"] == '{"name": "Ada", "age": 36}'
+
+
+def test_anthropic_native_json_schema_plus_tools_names_the_real_reason():
+    """The old message blamed a forced tool, which these models do not use."""
+    from aimu.models import HAS_ANTHROPIC
+
+    if not HAS_ANTHROPIC:
+        pytest.skip("anthropic not installed")
+    from aimu.models import AnthropicModel
+
+    def some_tool():
+        """A tool."""
+
+    client = _bare_anthropic(AnthropicModel.CLAUDE_OPUS_5_5, tools=[some_tool])
+    with pytest.raises(ValueError, match="advertises no tools"):
+        client._chat("hi", response_format=schema_to_json_schema(Person), use_tools=True)

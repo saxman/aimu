@@ -23,7 +23,7 @@ AIMU uses the best method the model supports, automatically:
 
 - **Native enforcement** when the model has `supports_structured_output=True`: the provider
   constrains generation to the schema (OpenAI `response_format`, Ollama `format=`, Anthropic
-  forced-tool). Check it with `client.supports_structured_output`.
+  forced-tool, or Anthropic `output_config.format` on the models that reject a forced tool). Check it with `client.supports_structured_output`.
 - **Prompt-and-parse** otherwise: the schema is appended to the prompt and the response is
   parsed.
 
@@ -72,10 +72,17 @@ Pydantic is optional; dataclasses work without it.
 `schema=` composes with tool calling on OpenAI-compatible and parse-path providers: tools
 run in the loop, and the final answer obeys the schema.
 
-**Anthropic is the exception.** Its native structured output *is* a forced tool, which
-conflicts with offering action tools, so combining `schema=` with active `tools=` raises a
-`ValueError`. Drop the tools (or `use_tools=False`), or use a provider whose `response_format`
-composes with tools.
+**Anthropic is the exception.** On most of its catalog the native structured output *is* a
+forced tool, which conflicts with offering action tools. Fable 5.1/5.2, Opus 5.5, and Sonnet 5.5
+reject a forced tool, so they use native JSON outputs (`output_config.format`) instead, but AIMU's
+structured turn on them still advertises no tools. Either way, combining `schema=` with active
+`tools=` raises a `ValueError`. Drop the tools (or `use_tools=False`), or use a provider whose
+`response_format` composes with tools.
+
+Native JSON outputs are stricter about the schema than the forced tool. AIMU adds
+`additionalProperties: false` to every object that leaves it unset, as the API requires. It does
+not remove constraints the API rejects, such as `minimum` or `maxLength` on a Pydantic `Field`;
+the API's 400 names them.
 
 ## Streaming structured output
 
@@ -97,11 +104,12 @@ for chunk in client.chat("Is 17 prime? Think, then answer.", schema=Verdict, str
 An `include=` filter still applies to the thinking/generation phases, but the terminal result chunk
 is **always** emitted so the payload is never filtered away.
 
-**Anthropic streams the JSON, not thinking.** Its structured mode is a forced tool, which the API
-forbids alongside extended thinking, so an Anthropic structured stream yields the answer JSON as it
-is built (GENERATING chunks) with no THINKING. Ollama and OpenAI-compatible thinking models stream
-thinking normally. This matches the non-streaming behavior (Anthropic structured output has never
-produced thinking).
+**Anthropic usually streams the JSON, not thinking.** On most of its catalog the structured mode
+is a forced tool, which the API forbids alongside extended thinking, so the stream yields the answer
+JSON as it is built (GENERATING chunks) with no THINKING, and a `thinking=` level is warned about and
+dropped. The models on native JSON outputs (Fable 5.1/5.2, Opus 5.5, Sonnet 5.5) keep thinking,
+stream it, and honour `thinking=`. Ollama and OpenAI-compatible thinking models stream thinking
+normally.
 
 ## Constraints
 
