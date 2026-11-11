@@ -120,7 +120,17 @@
   first message, which is the current task only when the conversation starts with it (true of a
   spawned sub-agent and of an `Agent` that resets each run, not of a conversation spanning several
   runs); and in a multi-turn chat the pinned first question can outlive its answer.
-  `summarize_messages` does not take `keep_first` yet.
+- **Change (breaking): `summarize_messages` keeps the first message verbatim, by default.** The
+  same `keep_first` parameter and default, on both surfaces, for the same reason: a summarizer may
+  paraphrase the task or leave it out. Only the messages between the kept first and last ones are
+  summarized, and the result is ordered system, summary, kept first messages, tail. The summary
+  goes ahead of the task it postdates because several local chat templates reject a system message
+  anywhere but the start of the conversation. The kept first message is still shown to the
+  summarizer, labeled as background not to summarize, since "keep what a continuation will need"
+  is relative to the task. Without it, a summary listed "the location" as an open question because
+  the city was named only in the task. Summaries tend to restate the task briefly despite the
+  label. `prompt=` still replaces only the instruction. `keep_first=0` restores the old behavior,
+  prompt included.
 
 ### Documentation
 

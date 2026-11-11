@@ -183,10 +183,12 @@ before rather than none:
 ```{python}
 summary_client = aimu.client(MODEL)
 plain_messages = [
-    {"role": "user", "content": "My favorite color is blue."},
-    {"role": "assistant", "content": "Got it, blue is a great color."},
-    {"role": "user", "content": "What is 2+2?"},
-    {"role": "assistant", "content": "4"},
+    {"role": "user", "content": "Help me plan a weekend in Lisbon."},
+    {"role": "assistant", "content": "Happy to. What do you enjoy most when you travel?"},
+    {"role": "user", "content": "Tile art and seafood, and I'd rather walk than take taxis."},
+    {"role": "assistant", "content": "Noted: tiles, seafood, and a walkable route."},
+    {"role": "user", "content": "Which museum should I start with?"},
+    {"role": "assistant", "content": "The National Tile Museum."},
 ]
 summarized = aimu.summarize_messages(summary_client, plain_messages, keep_last=2)
 for m in summarized:
@@ -195,19 +197,31 @@ for m in summarized:
 
 ```
 system : Summary of earlier conversation:
-<generated summary text -- varies by run and model>
-user : What is 2+2?
-assistant : 4
+The user requested help planning a Lisbon weekend, emphasizing tile art, seafood, and a preference for walking over taxis. The assistant confirmed these priorities, noting the focus on tiles, seafood, and walkable routes. Open questions include specific areas, duration, or budget details not yet discussed.
+user : Help me plan a weekend in Lisbon.
+user : Which museum should I start with?
+assistant : The National Tile Museum.
 ```
 
-The `"Summary of earlier conversation:\n"` prefix is a fixed template; the tail
-(`user`/`assistant` here) is the original messages kept verbatim — only the summary
-sentence is generated text, and it will read differently on your machine. `client` is
-anything with a `generate(prompt: str) -> str` method (a plain `BaseModelClient`, or
-`agent.as_model_client()`), passed in rather than constructed internally so this function
-stays free of any provider dependency. It applies the same group-protection invariant as
-`trim_messages` when carving out the tail. When the whole conversation already fits in
-`keep_last`, no summarization call is made and the input is returned unchanged (a copy).
+The `"Summary of earlier conversation:\n"` prefix is a fixed template; only the summary
+itself is generated, and it will read differently on your machine. The rest is the
+original messages kept verbatim: the first one (`keep_first=1`, the default, which protects
+an agent's task from being paraphrased away) and the last two (`keep_last=2`). The three
+messages between them were summarized. The summary sits *before* the kept first message,
+though it describes what came after it, because several local chat templates reject a system
+message anywhere but the start of the conversation.
+
+The summary knows the trip is to Lisbon although "Lisbon" appears only in the kept first
+message. The summarizer is shown that message as background, labeled "kept as written; do not
+summarize", because the instruction asks it to keep what a continuation will need and the
+task is what decides that. It restated the task anyway ("requested help planning a Lisbon
+weekend"); models tend to, despite the label. `keep_first=0` summarizes from the first
+message with no background block. `client` is anything with a `generate(prompt: str) -> str` method (a plain
+`BaseModelClient`, or `agent.as_model_client()`), passed in rather than constructed
+internally so this function stays free of any provider dependency. It applies the same
+group-protection invariant as `trim_messages` when carving out the kept messages. When
+nothing lies between the kept first and last messages, no summarization call is made and
+the input is returned unchanged (a copy).
 
 ## E - Automate it: `Agent(compaction=)`
 

@@ -61,6 +61,8 @@ In a multi-turn chat the protection has a cost of its own: the pinned first ques
 
 The costs: one extra model call each time it fires, plus the summarizer's own judgment about what mattered. The summary can drop the detail a later turn needed, with nothing in the transcript showing that it did.
 
+That judgment would apply to the task too, so `summarize_messages` takes the same `keep_first=1` default as `trim_messages` and keeps the first message verbatim instead of summarizing it. The summarizer is still shown that message, labeled as background it should not summarize. Without it, the summarizer cannot tell which tool results the task depends on: it is asked to keep what a continuation will need, and need is relative to the goal. Kept out of view, the task's context goes missing from the summary; in one run the summarizer listed "the location" as an open question because the city was named only in the task. The cost of showing it is a longer summarization prompt and a summary that tends to restate the task briefly, despite the label.
+
 ### Stubbing results keeps the record and drops the bulk
 
 AIMU ships no function for this, because it is a few lines and the placeholder wording is yours to choose. Replace the content of older tool results with a short placeholder and leave the calls in place:

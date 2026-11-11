@@ -263,6 +263,43 @@ def trim_messages(
     return kept_head + _flatten(droppable) + _flatten(tail)
 
 
+def _partition_for_summary(
+    messages: list[dict], keep_first: int, keep_last: int
+) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
+    """Split *messages* into ``(system, head, prefix, tail)`` for :func:`summarize_messages`.
+
+    Shared with the async twin so the two cannot disagree about what gets summarized.
+    """
+    messages = list(messages)
+    kept_system = [m for m in messages if m.get("role") == "system"]
+    rest = [m for m in messages if m.get("role") != "system"]
+    head, remainder = _protect_head(_group_messages(rest), keep_first)
+    prefix, tail = _protect_tail(remainder, keep_last)
+    return kept_system, _flatten(head), _flatten(prefix), _flatten(tail)
+
+
+def _summary_prompt(instruction: str, head: list[dict], prefix: list[dict]) -> str:
+    """The summarization request: *instruction*, the kept *head* as background, then *prefix*.
+
+    The head is shown because the instruction asks for what a continuation will need, and in
+    an agent run the head is the task that need is relative to. It is labeled as kept, so the
+    summarizer leaves it out rather than repeating it.
+    """
+    if not head:
+        return f"{instruction}\n\n{_render_transcript(prefix)}"
+    return (
+        f"{instruction}\n\n"
+        "For context only, the conversation began with the message(s) below. "
+        "They are kept as written; do not summarize them:\n"
+        f"{_render_transcript(head)}\n\n"
+        f"Summarize this part:\n{_render_transcript(prefix)}"
+    )
+
+
+def _summary_message(summary_text: str) -> dict:
+    return {"role": "system", "content": f"Summary of earlier conversation:\n{summary_text}"}
+
+
 def _render_transcript(messages: list[dict]) -> str:
     """Render *messages* as a simple ``role: text`` transcript for a summarization prompt."""
     return "\n".join(f"{m.get('role', '?')}: {_message_text(m)}" for m in messages)
@@ -272,53 +309,58 @@ def summarize_messages(
     client: Any,
     messages: list[dict],
     *,
+    keep_first: int = 1,
     keep_last: int = 2,
     prompt: Optional[str] = None,
 ) -> list[dict]:
-    """Replace the older part of a conversation with a one-message LLM summary.
+    """Replace the middle of a conversation with a one-message LLM summary.
 
     Any ``{"role": "system"}`` messages are always preserved unchanged, and are returned at
     the front (a mid-conversation system message is hoisted, the same reordering
-    :func:`trim_messages` does under ``keep_system=True``). Of the rest, the
-    last ``keep_last`` **messages** (see the module docstring on why messages, not
-    exchanges; extended outward to whole tool-call groups per :func:`_group_messages`, the
-    same invariant :func:`trim_messages` enforces) are kept verbatim as the tail. Everything
-    older than that (the "prefix") is rendered to a plain transcript, summarized by one
-    ``client.generate()`` call, and replaced with a single ``{"role": "system", ...}``
-    message carrying the summary text -- system, rather than user or assistant, because it
-    is out-of-band context neither party actually said, not a real conversational turn.
+    :func:`trim_messages` does under ``keep_system=True``). Of the rest, the first
+    ``keep_first`` and the last ``keep_last`` **messages** (see the module docstring on why
+    messages, not exchanges; each extended outward to whole tool-call groups per
+    :func:`_group_messages`, the same invariant :func:`trim_messages` enforces) are kept
+    verbatim. Everything between them (the "prefix") is rendered to a plain transcript,
+    summarized by one ``client.generate()`` call, and replaced with a single
+    ``{"role": "system", ...}`` message carrying the summary text -- system, rather than user
+    or assistant, because it is out-of-band context neither party actually said, not a real
+    conversational turn.
+
+    ``keep_first=1`` is the default for the reason it is on :func:`trim_messages`: in an agent
+    run the first non-system message is the task, and a summarizer may paraphrase it or leave
+    it out. The kept first messages are still shown to the summarizer, labeled as background
+    it should not summarize, because the instruction asks for what a continuation will need
+    and the task is what that need is relative to. Models tend to restate the task in the
+    summary anyway, a small duplication. The returned order is system messages, then the
+    summary, then the kept first messages, then the tail. The summary goes ahead of the kept first messages, though it
+    describes what came after them, because several local chat templates reject a system
+    message anywhere but the start of the conversation.
 
     ``client`` is any object exposing ``generate(prompt: str) -> str`` (a plain
     :class:`~aimu.models.BaseModelClient`, or a :class:`~aimu.agents.Agent` via
     ``agent.as_model_client()``); this function takes it as an argument rather than
     constructing one itself, so it stays free of any provider dependency.
 
-    When there is nothing older than the protected tail (the whole conversation already
-    fits in ``keep_last``), no summarization call is made and the conversation is returned
-    unchanged (a new list; *messages* is never mutated).
+    When nothing lies between the kept first and last messages, no summarization call is
+    made and the conversation is returned unchanged (a new list; *messages* is never
+    mutated).
 
     Args:
         client: Anything with a ``generate(prompt: str) -> str`` method.
         messages: The conversation, OpenAI message-dict format.
+        keep_first: Leading non-system messages to keep verbatim; ``0`` summarizes from the
+            first one.
         keep_last: Trailing messages (not exchanges) to keep verbatim; see above.
         prompt: Optional instruction prepended to the rendered transcript, replacing
             :data:`DEFAULT_SUMMARIZE_PROMPT`.
     """
-    messages = list(messages)
-    kept_system = [m for m in messages if m.get("role") == "system"]
-    rest = [m for m in messages if m.get("role") != "system"]
-
-    prefix_groups, tail_groups = _protect_tail(_group_messages(rest), keep_last)
-    prefix = _flatten(prefix_groups)
-    tail = _flatten(tail_groups)
-
+    kept_system, head, prefix, tail = _partition_for_summary(messages, keep_first, keep_last)
     if not prefix:
-        return kept_system + tail
+        return kept_system + head + tail
 
-    instruction = prompt or DEFAULT_SUMMARIZE_PROMPT
-    summary_text = client.generate(f"{instruction}\n\n{_render_transcript(prefix)}")
-    summary_message = {"role": "system", "content": f"Summary of earlier conversation:\n{summary_text}"}
-    return kept_system + [summary_message] + tail
+    summary_text = client.generate(_summary_prompt(prompt or DEFAULT_SUMMARIZE_PROMPT, head, prefix))
+    return kept_system + [_summary_message(summary_text)] + head + tail
 
 
 __all__ = ["count_tokens", "trim_messages", "summarize_messages", "DEFAULT_SUMMARIZE_PROMPT"]
