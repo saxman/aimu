@@ -3476,10 +3476,10 @@
 <p>A conversation is <code>self.messages</code> — a plain <code>list[dict]</code>, OpenAI format — and it only grows.
 Left alone, a long-running agent eventually produces a request that no longer fits the model's
 context window. <code>aimu.context</code> is three plain functions over that list — <code>count_tokens</code>,
-<code>trim_messages</code>, <code>summarize_messages</code> — plus a <code>compaction=</code> field on <code>Agent</code> that runs one of
-them automatically before every model turn. Nothing here is a hidden policy applied inside a
-client: it's the same "plain data, plain functions" shape as <code>aimu.rag</code>, so what gets dropped and
-why is always something you can print.</p>
+<code>trim_messages</code>, <code>summarize_messages</code> — plus a <code>compaction=</code> field on <code>Agent</code> that applies one of
+them to every request the agent sends, while the conversation itself stays whole. Nothing here is a
+policy AIMU picks for you: it's the same "plain data, plain functions" shape as <code>aimu.rag</code>, so what
+gets left out and why is always something you can print.</p>
 <p>For what each strategy costs the model (trimming a tool call erases the record that it ran, and
 the oldest message dropped is usually the task itself), see
 <a href="../../explanation/context-management/">Context management</a>.</p>
@@ -3596,9 +3596,11 @@ free of any provider dependency. It applies the same group-protection invariant 
 always survive" rule. When nothing lies between the kept first and last messages, no
 summarization call is made.</p>
 <h2 id="automate-it-agentcompaction">Automate it: <code>Agent(compaction=...)</code><a class="headerlink" href="#automate-it-agentcompaction" title="Permanent link">&para;</a></h2>
-<p>Both functions above are things you call by hand. <code>Agent(compaction=...)</code> (and the per-run
-<code>agent.run(compaction=...)</code> override) runs a callable of your choice — <code>list[dict] -&gt; list[dict]</code>
-— right before every model turn in the loop:</p>
+<p>Both functions above are things you call by hand, and assigning the result back is a permanent
+edit of the history. <code>Agent(compaction=...)</code> (and the per-run <code>agent.run(compaction=...)</code> override)
+takes the same kind of callable — <code>list[dict] -&gt; list[dict]</code> — and applies it to every request the
+agent sends, while each request is built. The model is sent what it returns; <code>client.messages</code>
+keeps the whole conversation:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
 </span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
@@ -3610,29 +3612,43 @@ summarization call is made.</p>
 </span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Tell me a fact about the moon."</span><span class="p">)</span>
 </span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Now tell me a fact about the sun."</span><span class="p">)</span>
 </span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Now tell me a fact about Mars."</span><span class="p">)</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>
+</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="p">[</span><span class="n">m</span><span class="p">[</span><span class="s2">"role"</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">messages</span><span class="p">]</span>
+</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="c1"># ['system', 'user', 'assistant', 'user', 'assistant', 'user', 'assistant']</span>
+</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="p">[</span><span class="n">m</span><span class="p">[</span><span class="s2">"role"</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">last_request</span><span class="p">[</span><span class="s2">"messages"</span><span class="p">]]</span>
+</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="c1"># ['system', 'user', 'assistant', 'user']</span>
 </span></code></pre></div>
-<p>The default is <code>None</code> — an agent that doesn't opt in behaves exactly as it did before this field
-existed. Set it to <code>lambda msgs: aimu.summarize_messages(client, msgs)</code> for the summarizing
-variant instead of trimming.</p>
-<p><strong>An applied compaction is never silent.</strong> "Applied" means it actually dropped something, judged
-by content (the callable may rebuild kept messages into new dict objects, so this isn't an
-identity check). When that happens, two things fire together: a
-<a href="../observe-a-run/"><code>ContextCompacted</code></a> event for a sink attached via <code>events=</code>, and an
-unconditional <code>WARNING</code> log — so a caller with no sink still learns their conversation was
-rewritten:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>WARNING Compacted conversation for agent '&lt;agent name&gt;': dropped 1 message(s) (~&lt;N&gt; -&gt; ~&lt;M&gt; tokens, AIMU's own estimate).
+<p>The history holds all three exchanges. The request for the Mars question sent four messages: the
+system prompt, the moon question (pinned by <code>keep_first=1</code>), the sun answer, and the Mars question
+(<code>keep_last=2</code>). What it left out is still in <code>client.messages</code>, so a later request under a looser
+compaction, or none, sends it again. <code>client.last_request</code> is the payload the provider actually
+received.</p>
+<p>The default is <code>None</code>: an agent that doesn't opt in sends its whole history on every request.
+Prefer a trim (or a stubbing function, see
+<a href="../../explanation/context-management/#stubbing-results-keeps-the-record-and-drops-the-bulk">Context management</a>)
+over <code>summarize_messages</code> here: a compaction runs on every request, so a summarizing one calls the
+summarizer before every model turn.</p>
+<p><strong>What a request leaves out is never silent.</strong> When a request leaves out a message the previous
+request sent, judged by content (the callable may rebuild kept messages into new dict objects, so
+this isn't an identity check), two things fire together: a <a href="../observe-a-run/"><code>ContextCompacted</code></a>
+event for a sink attached via <code>events=</code>, carrying the messages left out, and an unconditional
+<code>WARNING</code> log, so a caller with no sink still learns the model is working from less than the
+conversation holds:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>WARNING Compacted the request for agent '&lt;agent name&gt;': 2 more message(s) left out (~&lt;N&gt; -&gt; ~&lt;M&gt; tokens sent, AIMU's own estimate). The history keeps them.
 </span></code></pre></div>
 <p>The agent name, the token counts, and how many messages go all vary by run, because they depend on
-how long the model's sampled replies were. In the run shown, the one message dropped was the reply
-to the moon question. The question itself is the first message after the system prompt, so
-<code>keep_first=1</code> pinned it, and it stays in the conversation without its answer, followed directly by
-the next question. That is the price of protecting the first message in a multi-turn chat; in a
-single-task agent run, the pinned message is the task and is exactly what should survive.</p>
-<p>A compaction call that returns the conversation unchanged (the common case early in a
-conversation, before the budget is actually exceeded) is a no-op and announces nothing. The
-event's <code>before_tokens</code>/<code>after_tokens</code> are AIMU's own default estimate — not a measurement of
-whatever the callable itself counted to decide what to drop; a callable using a real tokenizer or
-a word count will disagree with these numbers, which is stated rather than hidden.</p>
+how long the model's sampled replies were. In the run shown, the moon answer and the sun question
+were left out. The moon question is the first message after the system prompt, so <code>keep_first=1</code>
+pinned it, and it is sent without its answer, followed directly by a later answer. That is the price
+of protecting the first message in a multi-turn chat; in a single-task agent run, the pinned message
+is the task and is exactly what should survive.</p>
+<p>Only a change is announced. Once the conversation is over budget every request is compacted, and a
+request that leaves out exactly what the previous one did says nothing; the agent remembers that
+across runs. A request that sends something the previous one left out reports it in the event's
+<code>restored</code> list, at <code>INFO</code>. A compaction that returns the conversation unchanged announces nothing.
+The event's <code>before_tokens</code>/<code>after_tokens</code> are AIMU's own estimate of the history and of what was
+sent, not a measurement of whatever the callable itself counted; a callable using a real tokenizer
+or a word count will disagree with these numbers, which is stated rather than hidden.</p>
 <p><strong>If the compaction callable raises, the run raises.</strong> A compaction that can't be trusted to run
 should stop the turn, not be silently skipped while the caller believes their context is being
 managed — the same "failures are apparent" rule as everywhere else in AIMU.</p>
@@ -3677,9 +3693,12 @@ design.</p>
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="k">try</span><span class="p">:</span>
 </span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
 </span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="k">except</span> <span class="n">ContextOverflowError</span><span class="p">:</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="n">agent</span><span class="o">.</span><span class="n">model_client</span><span class="o">.</span><span class="n">messages</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">trim_messages</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">model_client</span><span class="o">.</span><span class="n">messages</span><span class="p">,</span> <span class="n">max_tokens</span><span class="o">=</span><span class="mi">8000</span><span class="p">)</span>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">task</span><span class="p">,</span> <span class="n">compaction</span><span class="o">=</span><span class="k">lambda</span> <span class="n">msgs</span><span class="p">:</span> <span class="n">aimu</span><span class="o">.</span><span class="n">trim_messages</span><span class="p">(</span><span class="n">msgs</span><span class="p">,</span> <span class="n">max_tokens</span><span class="o">=</span><span class="mi">8000</span><span class="p">))</span>
 </span></code></pre></div>
+<p>The retry sends a trimmed request and leaves the history whole. To shrink the stored history
+itself instead, assign the trimmed list back
+(<code>agent.model_client.messages = aimu.trim_messages(...)</code>), a permanent edit you made and that
+nothing needs to announce.</p>
 <p>Raising the model's own context window (<code>generate_kwargs={"context_length": N}</code> on Ollama; see
 <a href="../set-context-length/">set the context length</a>) is the other lever, when the model actually
 supports a larger one.</p>

@@ -4216,7 +4216,7 @@ denials records why without having to reproduce the policy's logic.</p>
   </span>
 
 <a href="#aimu.events.ContextCompacted" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ContextCompacted</span><span class="p">(</span><span class="n">agent</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">iteration</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">run_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">parent_run_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dropped</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(),</span> <span class="n">before_tokens</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">after_tokens</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ContextCompacted</span><span class="p">(</span><span class="n">agent</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">iteration</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">run_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">parent_run_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">dropped</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(),</span> <span class="n">before_tokens</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">after_tokens</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">restored</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">())</span>
 </span></code></pre></div>
 
     <div class="doc doc-contents first">
@@ -4230,18 +4230,25 @@ denials records why without having to reproduce the policy's logic.</p>
 
 
 
-        <p>Conversation history was rewritten by an <code>Agent</code>'s <code>compaction=</code> callable.</p>
-<p>Fires once per compaction, after the rewrite, before the next model turn.</p>
-<p><code>dropped</code> is the removed messages, not a count, so a caller who wants the discarded
-turns still has them. They are copies, so a later in-place edit of <code>client.messages</code>
-(the provenance tag an agent loop adds, say) cannot mutate an already-emitted event.</p>
+        <p>What an <code>Agent</code>'s <code>compaction=</code> callable leaves out of the requests it sends changed.</p>
+<p>A compaction decides what each request sends and never rewrites the conversation, so this
+reports the model's view changing, not the history. It fires while a request is being built,
+before that request's <code>RequestPrepared</code>, and only when what is left out differs from the
+previous compacted request of the same agent: a conversation that stays over budget leaves
+the same old messages out of every request, and that is announced once, when it starts.</p>
+<p><code>dropped</code> is the messages this request leaves out that the previous one sent, including
+any it sends in a changed form (a placeholder in place of a tool result, say), with their
+original content. <code>restored</code> is the messages this request sends that the previous one left
+out, as sent. Both are messages rather than counts, and copies, so a later in-place edit of
+<code>client.messages</code> (the provenance tag an agent loop adds, say) cannot mutate an
+already-emitted event. Every message in either list is still in <code>client.messages</code>.</p>
 <p><code>before_tokens</code> / <code>after_tokens</code> are AIMU's own default token <em>estimate</em> (see
-:func:<code>aimu.context.count_tokens</code>), not a measurement of whatever the <code>compaction</code>
-callable itself counted to decide what to drop. A callable that used a real tokenizer,
-a word count, or any other budget will disagree with these numbers -- that is stated
-rather than hidden, since AIMU cannot see inside an opaque callable to know what it
-actually counted. Treat them as rough orientation, not a claim about the number that
-drove the decision.</p>
+:func:<code>aimu.context.count_tokens</code>) of the full history and of what the request sends, not a
+measurement of whatever the <code>compaction</code> callable itself counted to decide what to drop.
+A callable that used a real tokenizer, a word count, or any other budget will disagree with
+these numbers -- that is stated rather than hidden, since AIMU cannot see inside an opaque
+callable to know what it actually counted. Treat them as rough orientation, not a claim
+about the number that drove the decision.</p>
 
 
 

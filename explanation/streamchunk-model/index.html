@@ -3624,9 +3624,14 @@
 <td><code>str</code> (token)</td>
 </tr>
 <tr>
+<td><code>TOOL_REQUESTED</code></td>
+<td>The model asked for a tool call, and it has not run yet</td>
+<td><code>dict {"name": str, "arguments": dict, "id": str}</code></td>
+</tr>
+<tr>
 <td><code>TOOL_CALLING</code></td>
 <td>A tool call has just been dispatched and its result is back</td>
-<td><code>dict {"name": str, "arguments": dict, "response": str}</code></td>
+<td><code>dict {"name": str, "arguments": dict, "response": str, "id": str}</code></td>
 </tr>
 <tr>
 <td><code>GENERATING</code></td>
@@ -3655,7 +3660,7 @@
 </tr>
 </tbody>
 </table>
-<p>For thinking models, you typically see THINKING chunks first, then GENERATING. For tool-using models, you may see THINKING → TOOL_CALLING (one per tool used) → GENERATING. For image generation, you see <code>IMAGE_GENERATING</code> chunks per denoising step (or coarse start/done pair on Gemini); the last one of each image has <code>final=True</code> and carries the encoded <code>result</code>. <a href="../../reference/stream-phases/">Reference: stream phases</a> is the complete list, including the audio and speech phases this table leaves out.</p>
+<p>For thinking models, you typically see THINKING chunks first, then GENERATING. For tool-using models, you may see THINKING → TOOL_REQUESTED (one per call the round asked for) → TOOL_CALLING (one per call, as each returns) → GENERATING. For image generation, you see <code>IMAGE_GENERATING</code> chunks per denoising step (or coarse start/done pair on Gemini); the last one of each image has <code>final=True</code> and carries the encoded <code>result</code>. <a href="../../reference/stream-phases/">Reference: stream phases</a> is the complete list, including the audio and speech phases this table leaves out.</p>
 <h2 id="streaming-tools-a-unified-surface">Streaming tools: a unified surface<a class="headerlink" href="#streaming-tools-a-unified-surface" title="Permanent link">&para;</a></h2>
 <p>A <code>@tool</code>-decorated Python function may be <strong>plain</strong> (<code>def fn() -&gt; T</code>), <strong>async</strong> (<code>async def fn() -&gt; T</code>), a <strong>sync generator</strong> (<code>def fn(): yield ...; return T</code>), or an <strong>async generator</strong> (<code>async def fn(): yield ...</code>). Generator tools yield <code>StreamChunk</code> objects during execution; the agent's tool dispatcher forwards them through <code>agent.run(stream=True)</code>, so callers see per-step progress live without any side-channel callbacks. This is how the built-in <code>generate_image</code> tool delivers <code>IMAGE_GENERATING</code> chunks into the agent stream.</p>
 <p>The unification means <em>every</em> streaming source (model output, image generation, custom long-running tools) flows through the same <code>Iterator[StreamChunk]</code> shape and dispatches on the same <code>phase</code> field. UIs and loggers handle one type, not three.</p>

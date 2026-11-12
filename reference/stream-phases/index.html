@@ -3454,7 +3454,7 @@
 
 
 <h1 id="stream-phases">Stream phases<a class="headerlink" href="#stream-phases" title="Permanent link">&para;</a></h1>
-<p><code>StreamingContentType</code> is a string enum with nine values, attached to every <code>StreamChunk</code> via <code>chunk.phase</code>.</p>
+<p><code>StreamingContentType</code> is a string enum with ten values, attached to every <code>StreamChunk</code> via <code>chunk.phase</code>.</p>
 <table>
 <thead>
 <tr>
@@ -3472,10 +3472,16 @@
 <td><code>str</code> (token)</td>
 </tr>
 <tr>
+<td><code>TOOL_REQUESTED</code></td>
+<td><code>"tool_requested"</code></td>
+<td>A streamed agent-loop driver is about to dispatch a round's tool calls: one per call, every call in the round announced before any of them is approved or run</td>
+<td><code>dict {"name": str, "arguments": dict, "id": str}</code></td>
+</tr>
+<tr>
 <td><code>TOOL_CALLING</code></td>
 <td><code>"tool_calling"</code></td>
-<td>A tool call has just been dispatched and its result is available</td>
-<td><code>dict {"name": str, "arguments": dict, "response": str}</code></td>
+<td>A tool call has just been dispatched and its result is available; <code>id</code> matches the call's <code>TOOL_REQUESTED</code></td>
+<td><code>dict {"name": str, "arguments": dict, "response": str, "id": str}</code></td>
 </tr>
 <tr>
 <td><code>CONTINUING</code></td>
@@ -3524,13 +3530,14 @@
 <p>The enum inherits from <code>str</code>, so members compare equal to their string values, so <code>chunk.phase == "thinking"</code> is fine.</p>
 <h2 id="helpers-on-streamchunk">Helpers on <code>StreamChunk</code><a class="headerlink" href="#helpers-on-streamchunk" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_text</span><span class="p">()</span>             <span class="c1"># True for THINKING and GENERATING</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_tool_call</span><span class="p">()</span>        <span class="c1"># True for TOOL_CALLING</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_continuing</span><span class="p">()</span>       <span class="c1"># True for CONTINUING (both kinds: read content["kind"] for which)</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_inbox</span><span class="p">()</span>            <span class="c1"># True for INBOX (a round delivering a message the host handed the run)</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_image_progress</span><span class="p">()</span>   <span class="c1"># True for IMAGE_GENERATING</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_audio_progress</span><span class="p">()</span>   <span class="c1"># True for AUDIO_GENERATING</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_speech_progress</span><span class="p">()</span>  <span class="c1"># True for SPEECH_GENERATING</span>
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_done</span><span class="p">()</span>             <span class="c1"># True for DONE</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_tool_request</span><span class="p">()</span>     <span class="c1"># True for TOOL_REQUESTED (a call announced, not yet run)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_tool_call</span><span class="p">()</span>        <span class="c1"># True for TOOL_CALLING</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_continuing</span><span class="p">()</span>       <span class="c1"># True for CONTINUING (both kinds: read content["kind"] for which)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_inbox</span><span class="p">()</span>            <span class="c1"># True for INBOX (a round delivering a message the host handed the run)</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_image_progress</span><span class="p">()</span>   <span class="c1"># True for IMAGE_GENERATING</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_audio_progress</span><span class="p">()</span>   <span class="c1"># True for AUDIO_GENERATING</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_speech_progress</span><span class="p">()</span>  <span class="c1"># True for SPEECH_GENERATING</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">chunk</span><span class="o">.</span><span class="n">is_done</span><span class="p">()</span>             <span class="c1"># True for DONE</span>
 </span></code></pre></div>
 <p>These avoid sprinkling phase comparisons through your code. Each is named for its phase and not for
 one of the kinds that phase can carry, which is why <code>is_continuing()</code> is also true of the forced
@@ -3554,11 +3561,15 @@ wrap-up, a round that tells the model to <em>stop</em> calling tools.</p>
 </tr>
 <tr>
 <td>Tool-using model</td>
-<td><code>THINKING*</code> (if thinking), <code>TOOL_CALLING</code> per call, <code>GENERATING*</code></td>
+<td><code>THINKING*</code> (if thinking), <code>TOOL_REQUESTED</code> per call, then <code>TOOL_CALLING</code> per call, <code>GENERATING*</code></td>
+</tr>
+<tr>
+<td>A streaming tool</td>
+<td><code>TOOL_REQUESTED</code>, the tool's own chunks, then its <code>TOOL_CALLING</code></td>
 </tr>
 <tr>
 <td>Tool-using model, multi-round</td>
-<td><code>TOOL_CALLING* → THINKING*? → GENERATING*</code> repeated; <code>chunk.iteration</code> increments per round (agent context)</td>
+<td><code>TOOL_REQUESTED* → TOOL_CALLING* → THINKING*? → GENERATING*</code> repeated; <code>chunk.iteration</code> increments per round (agent context)</td>
 </tr>
 <tr>
 <td>A round the loop injected</td>
@@ -3571,6 +3582,11 @@ wrap-up, a round that tells the model to <em>stop</em> calling tools.</p>
 </tbody>
 </table>
 <p><code>*</code> = "one or more chunks".</p>
+<p><code>TOOL_REQUESTED</code> exists because <code>TOOL_CALLING</code> arrives only once a call returns: a tool that takes a
+minute would otherwise leave a streamed caller showing nothing for that minute. A round's calls are all
+announced first, before approval, so a refused call has an announcement too (its <code>TOOL_CALLING</code>
+carries the refusal). Pair the two by <code>id</code>, not by position: with <code>concurrent_tool_calls=True</code> the
+results arrive together after every call has run.</p>
 <p><code>chunk.iteration</code> tells you the round number moved, not who moved it: a tool round, a nudge after an
 empty turn, and the forced wrap-up all advance it identically. <code>CONTINUING</code> is what separates the
 last two from the first (see <a href="../../explanation/streamchunk-model/#why-continuing-needs-its-own-phase">why it needs its own

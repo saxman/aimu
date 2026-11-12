@@ -1565,6 +1565,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#images-from-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Images from tools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3464,6 +3475,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#images-from-tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Images from tools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3586,6 +3608,31 @@
 <li><code>Parallel.run("task", images=[...])</code>: forwards to every worker</li>
 <li><code>EvaluatorOptimizer.run("task", images=[...])</code>: forwards only to the initial generator turn</li>
 </ul>
+<h2 id="images-from-tools">Images from tools<a class="headerlink" href="#images-from-tools" title="Permanent link">&para;</a></h2>
+<p>A tool can hand the model an image by returning <code>ToolResult(text, images=[...])</code> (<a href="../add-custom-tool/#return-an-image-toolresult">Add a custom tool</a>). On a vision model the stored tool message's <code>content</code> becomes the same content-block list a user's image uses; on a model without vision only the text is stored. Where the images go in the request depends on whether the provider accepts images in a tool result:</p>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Adaptation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Anthropic</td>
+<td>Image blocks inside the <code>tool_result</code> itself</td>
+</tr>
+<tr>
+<td>Ollama (native API)</td>
+<td>The tool message's own <code>images=[&lt;bare base64&gt;]</code> field</td>
+</tr>
+<tr>
+<td>OpenAI / Gemini / OpenAI-compatible, llama-cpp, HuggingFace</td>
+<td>A tool message carries text only in this format, so the tool message keeps its text and the images move into one <code>user</code> message right after the run of tool results, each group introduced by <code>Returned by the &lt;tool&gt; call above:</code></td>
+</tr>
+</tbody>
+</table>
+<p>The last row is an approximation the format forces: the model sees the images as a user turn, labelled with the tool that returned them, rather than as part of the tool's answer.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li>Notebook <a href="https://github.com/saxman/aimu/blob/main/notebooks/04-vision.qmd">04 - Vision</a></li>

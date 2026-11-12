@@ -1161,6 +1161,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#return-an-image-toolresult" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Return an image (ToolResult)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3552,6 +3563,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#return-an-image-toolresult" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Return an image (ToolResult)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3788,10 +3810,28 @@
 <ol>
 <li><strong>The decorator detects it automatically.</strong> <code>@aimu.tool</code> sets <code>func.__tool_is_streaming__ = True</code> when the function is a generator (<code>inspect.isgeneratorfunction</code>) or async generator (<code>inspect.isasyncgenfunction</code>). No opt-in flag.</li>
 <li><strong>Yield any phase that fits.</strong> <code>GENERATING</code> for text progress, <code>IMAGE_GENERATING</code> for image-gen progress, future custom phases as needed. The agent forwards each chunk untouched (it only adds the <code>agent</code> and <code>iteration</code> metadata fields).</li>
-<li><strong>The result comes from one of three places</strong>, in priority order: the generator's <code>return</code> value (sync only, via <code>StopIteration.value</code>); the last yielded chunk's <code>content["result"]</code> if it's a dict with that key (matches the <code>IMAGE_GENERATING</code> final-chunk convention); or <code>str(last_chunk.content)</code>.</li>
+<li><strong>The result comes from one of three places</strong>, in priority order: the generator's <code>return</code> value (sync only, via <code>StopIteration.value</code>); the last yielded chunk's <code>content["result"]</code> if it's a dict with that key (matches the <code>IMAGE_GENERATING</code> final-chunk convention); or <code>str(last_chunk.content)</code>. Either of the first two may be a <code>ToolResult</code> (see below).</li>
 </ol>
 <p>Async streaming tools are async generators (<code>async def + yield</code>); the async agent's tool-loop engine drains them with <code>async for</code>. Sync generator tools also work in the async surface: each <code>next()</code> is routed through <code>asyncio.to_thread</code> so the event loop stays free between yields.</p>
 <p>Streaming tools require <code>stream=True</code> on <code>agent.run()</code>. The non-streaming dispatch path raises <code>ValueError</code> with a clear message pointing at <code>stream=True</code>.</p>
+<h2 id="return-an-image-toolresult">Return an image (<code>ToolResult</code>)<a class="headerlink" href="#return-an-image-toolresult" title="Permanent link">&para;</a></h2>
+<p>A tool's answer reaches the model as text, so a tool that makes or fetches an image could otherwise only tell the model where the image is. Return <code>ToolResult</code> to hand the model the image as well:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">ToolResult</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="nd">@aimu</span><span class="o">.</span><span class="n">tool</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">render_chart</span><span class="p">(</span><span class="n">series</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ToolResult</span><span class="p">:</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="w">    </span><span class="sd">"""Render a chart of a named series."""</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">_draw</span><span class="p">(</span><span class="n">series</span><span class="p">)</span>  <span class="c1"># imaginary: writes a PNG and returns its path</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>    <span class="k">return</span> <span class="n">ToolResult</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Rendered </span><span class="si">{</span><span class="n">series</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">."</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="p">[</span><span class="n">path</span><span class="p">])</span>
+</span></code></pre></div>
+<ul>
+<li><strong><code>images=</code></strong> takes what <code>chat(images=...)</code> takes: a file path, raw bytes, a <code>data:image/...</code> URL, or an http(s) URL. A path is read at construction, so a missing file raises inside the tool and the model is told the tool failed.</li>
+<li><strong>The stored tool message</strong> becomes the content-block list a user image already uses (<code>[{"type": "text", ...}, {"type": "image_url", ...}]</code>), and each provider adapts it at request time; see <a href="../handle-vision/#images-from-tools">Handle vision input</a>.</li>
+<li><strong>A model without vision</strong> (<code>supports_vision=False</code>) is sent the text alone, so a tool can return images unconditionally.</li>
+<li><strong><code>ToolCalled.result</code> and the <code>TOOL_CALLING</code> chunk's <code>response</code></strong> stay the text, and <code>str(result)</code> is the text, so nothing that reads a tool's answer as a string changes.</li>
+<li><strong>The image is re-sent with every later request</strong> in that conversation, like a user's image. Keep the images a tool returns to the ones the model needs to look at.</li>
+</ul>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../explanation/tool-integration/">Explanation: tool integration</a>: dispatch order, precedence, when to pick in-process vs MCP</li>

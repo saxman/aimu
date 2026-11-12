@@ -386,14 +386,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<p>A conversation is <code>self.messages</code> — a plain <code>list[dict]</code>, OpenAI format (see <a href="./02-conversations.html">notebook 02</a>) — and it only grows. Left alone, a long-running agent (<a href="./07-agents.html">notebook 07</a>) eventually produces a request that no longer fits the model’s context window. <code>aimu.context</code> is three plain functions over that list — <code>count_tokens</code>, <code>trim_messages</code>, <code>summarize_messages</code> — plus a <code>compaction=</code> field on <code>Agent</code> that runs one of them automatically before every model turn. Nothing here is a hidden policy applied inside a client: it’s the same “plain data, plain functions” shape as <code>aimu.rag</code> (<a href="./13-rag.html">notebook 13</a>), so what gets dropped and why is always something you can print.</p>
-<p><strong>What this notebook covers:</strong> - <code>count_tokens</code>, and its honesty caveat: an estimate, not a measurement - <code>trim_messages</code>, and the invariant that justifies it existing (never orphan a <code>tool</code> message from the <code>assistant</code> turn carrying its <code>tool_calls</code>) - <code>keep_last</code> counts messages, not exchanges - <code>summarize_messages</code>: replace old turns with a generated summary instead of dropping them - <code>Agent(compaction=)</code>: automate either one, and how an applied compaction announces itself (an event, and a warning) - <code>ContextOverflowError</code>: the portable catch-compact-retry signal for when it’s already too late</p>
+<p>A conversation is <code>self.messages</code> — a plain <code>list[dict]</code>, OpenAI format (see <a href="./02-conversations.html">notebook 02</a>) — and it only grows. Left alone, a long-running agent (<a href="./07-agents.html">notebook 07</a>) eventually produces a request that no longer fits the model’s context window. <code>aimu.context</code> is three plain functions over that list — <code>count_tokens</code>, <code>trim_messages</code>, <code>summarize_messages</code> — plus a <code>compaction=</code> field on <code>Agent</code> that applies one of them to every request an agent sends, leaving the conversation itself whole. Nothing here is a policy AIMU picks for you: it’s the same “plain data, plain functions” shape as <code>aimu.rag</code> (<a href="./13-rag.html">notebook 13</a>), so what gets left out and why is always something you can print, and the request that was actually sent is on <code>client.last_request</code>.</p>
+<p><strong>What this notebook covers:</strong> - <code>count_tokens</code>, and its honesty caveat: an estimate, not a measurement - <code>trim_messages</code>, and the invariant that justifies it existing (never orphan a <code>tool</code> message from the <code>assistant</code> turn carrying its <code>tool_calls</code>) - <code>keep_last</code> counts messages, not exchanges - <code>summarize_messages</code>: replace old turns with a generated summary instead of dropping them - <code>Agent(compaction=)</code>: apply one to what every request sends while the history stays whole, and how a request that leaves something out announces it (an event, and a warning) - <code>ContextOverflowError</code>: the portable catch-compact-retry signal for when it’s already too late</p>
 <blockquote class="blockquote">
 <p>This notebook runs a local Ollama model (<code>qwen3:8b</code>) in sections D, E, and F; A through C are pure functions and need no backend. Generated summary text and token usage vary by run; the numbers from the pure functions (<code>count_tokens</code>, <code>trim_messages</code>) do not, for a fixed input.</p>
 </blockquote>
 <section id="setup" class="level2">
 <h2 class="anchored" data-anchor-id="setup">Setup</h2>
-<div id="22ea5625" class="cell" data-execution_count="1">
+<div id="e50143b0" class="cell" data-execution_count="1">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>MODEL <span class="op">=</span> <span class="st">"ollama:qwen3:8b"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
@@ -402,7 +402,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="a---count-tokens-an-honest-estimate" class="level2">
 <h2 class="anchored" data-anchor-id="a---count-tokens-an-honest-estimate">A - Count tokens: an honest estimate</h2>
 <p><code>count_tokens</code> estimates a message list’s size. The default counter is <code>len(text) // 4</code> over each message JSON-serialized, with AIMU’s own inert bookkeeping keys (<code>timestamp</code>, <code>thinking</code>, <code>provenance</code>) stripped first — a provider never sees those, but the structural overhead of <code>role</code>/<code>tool_calls</code>/JSON punctuation does ride along in the real request:</p>
-<div id="1cf75b6c" class="cell" data-execution_count="2">
+<div id="e0f444ec" class="cell" data-execution_count="2">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>messages <span class="op">=</span> [{<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"hello there"</span>}]</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(aimu.count_tokens(messages))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
@@ -413,7 +413,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="b---trim-to-a-budget-trim_messages" class="level2">
 <h2 class="anchored" data-anchor-id="b---trim-to-a-budget-trim_messages">B - Trim to a budget: <code>trim_messages</code></h2>
 <p><code>trim_messages</code> drops the oldest messages until the conversation fits <code>max_tokens</code> (per <code>count_tokens</code>), and returns a new list — the input is never mutated:</p>
-<div id="424fca31" class="cell" data-execution_count="3">
+<div id="e2e4ac62" class="cell" data-execution_count="3">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>budget_messages <span class="op">=</span> [{<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: <span class="st">"You are a assistant."</span>}]</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">6</span>):</span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    budget_messages.append({<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="ss">f"This is user message number </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">, with some extra padding."</span>})</span>
@@ -428,13 +428,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 78
 ['system', 'user', 'user', 'assistant']</code></pre>
 <p>Three things survive any trim: the system message (<code>keep_system=True</code>), the first message after it (<code>keep_first=1</code>, here <code>user 0</code>), and the last <code>keep_last</code> messages (here <code>user 5</code> and <code>assistant 5</code>). Everything between is droppable, oldest first. The first message is protected by default because in an agent run it is the task: dropping it leaves the agent working without knowing what it was asked. <code>keep_first=0</code> restores plain oldest-first dropping:</p>
-<div id="6c089343" class="cell" data-execution_count="4">
+<div id="e0f1daa1" class="cell" data-execution_count="4">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>([m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> aimu.trim_messages(budget_messages, max_tokens<span class="op">=</span><span class="dv">80</span>, keep_first<span class="op">=</span><span class="dv">0</span>, keep_last<span class="op">=</span><span class="dv">2</span>)])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <pre><code>['system', 'assistant', 'user', 'assistant']</code></pre>
 <p>With <code>user 0</code> droppable, the budget is met one message earlier, so <code>assistant 4</code> survives instead. Section C explains why <code>keep_last</code> counts messages rather than exchanges.</p>
 <p><strong>The invariant that justifies this over a hand-written <code>messages[-n:]</code> slice</strong>: trimming never orphans a <code>tool</code> message from the <code>assistant</code> message carrying the <code>tool_calls</code> it’s answering. Every provider rejects that shape, and it’s exactly what a naive slice produces. <code>trim_messages</code> treats an <code>assistant</code>-with-<code>tool_calls</code> message and every <code>tool</code> message answering it as one indivisible unit — dropped together, kept together, never split. On a real two-turn tool-using conversation (built the same way <a href="./07-agents.html">notebook 07</a> does — note the system prompt lives on the <em>client</em>, not the agent, so both <code>run()</code> calls accumulate onto one history rather than resetting; see <a href="./25-sessions.html">notebook 25</a>’s gotcha for why):</p>
-<div id="c5027313" class="cell" data-execution_count="5">
+<div id="10901dba" class="cell" data-execution_count="5">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> tool</span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -462,7 +462,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="c---keep_last-counts-messages-not-exchanges" class="level2">
 <h2 class="anchored" data-anchor-id="c---keep_last-counts-messages-not-exchanges">C - <code>keep_last</code> counts messages, not exchanges</h2>
 <p>A “turn” is ambiguous: a plain back-and-forth is 2 messages (user + assistant), but an agentic turn can be 5+ (user, assistant-with-tool_calls, one or more tool results, final assistant answer). <code>keep_last=2</code> on section B’s tool-using conversation protects only the last 2 <em>messages</em> — here, <code>tool</code> and the final <code>assistant</code> — not the whole last exchange:</p>
-<div id="30831e21" class="cell" data-execution_count="6">
+<div id="2c9ff8f4" class="cell" data-execution_count="6">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>([m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> aimu.trim_messages(tool_client.messages, max_tokens<span class="op">=</span><span class="dv">10_000</span>, keep_last<span class="op">=</span><span class="dv">2</span>)])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <pre><code>['system', 'user', 'assistant', 'tool', 'assistant', 'user', 'assistant', 'tool', 'assistant']</code></pre>
@@ -471,7 +471,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="d---summarize-instead-of-dropping-summarize_messages" class="level2">
 <h2 class="anchored" data-anchor-id="d---summarize-instead-of-dropping-summarize_messages">D - Summarize instead of dropping: <code>summarize_messages</code></h2>
 <p><code>trim_messages</code> discards the oldest turns outright. <code>summarize_messages</code> replaces them with one LLM-generated summary instead, so the conversation keeps <em>some</em> memory of what came before rather than none:</p>
-<div id="41984435" class="cell" data-execution_count="7">
+<div id="813564a1" class="cell" data-execution_count="7">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>summary_client <span class="op">=</span> aimu.client(MODEL)</span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>plain_messages <span class="op">=</span> [</span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"Help me plan a weekend in Lisbon."</span>},</span>
@@ -495,8 +495,8 @@ assistant : The National Tile Museum.</code></pre>
 </section>
 <section id="e---automate-it-agentcompaction" class="level2">
 <h2 class="anchored" data-anchor-id="e---automate-it-agentcompaction">E - Automate it: <code>Agent(compaction=)</code></h2>
-<p>Both functions above are things you call by hand. <code>Agent(compaction=...)</code> (and the per-run <code>agent.run(compaction=...)</code> override) runs a callable of your choice — <code>list[dict] -&gt; list[dict]</code> — right before every model turn in the loop:</p>
-<div id="4676c418" class="cell" data-execution_count="8">
+<p>Both functions above are things you call by hand, and calling one by hand rewrites the list you assign it back to. <code>Agent(compaction=...)</code> (and the per-run <code>agent.run(compaction=...)</code> override) is different in kind: it takes a callable of your choice — <code>list[dict] -&gt; list[dict]</code> — and applies it to every request the agent sends, at the moment each request is built. The model is sent what the callable returns. The conversation keeps everything:</p>
+<div id="2aa2c12a" class="cell" data-execution_count="8">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> logging</span>
 <span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>logging.basicConfig(level<span class="op">=</span>logging.WARNING, <span class="bu">format</span><span class="op">=</span><span class="st">"</span><span class="sc">%(levelname)s</span><span class="st"> </span><span class="sc">%(message)s</span><span class="st">"</span>)</span>
@@ -517,13 +517,18 @@ assistant : The National Tile Museum.</code></pre>
 <span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>compacted <span class="op">=</span> [e <span class="cf">for</span> e <span class="kw">in</span> compaction_seen <span class="cf">if</span> <span class="bu">isinstance</span>(e, ContextCompacted)]</span>
 <span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"ContextCompacted events:"</span>, <span class="bu">len</span>(compacted))</span>
 <span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> e <span class="kw">in</span> compacted:</span>
-<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"dropped roles:"</span>, [m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> e.dropped], <span class="st">"| before:"</span>, e.before_tokens, <span class="st">"| after:"</span>, e.after_tokens)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"left out:"</span>, [m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> e.dropped], <span class="st">"| history:"</span>, e.before_tokens, <span class="st">"| sent:"</span>, e.after_tokens)</span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"history:"</span>, [m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> compaction_client.messages])</span>
+<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"last request sent:"</span>, [m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> compaction_client.last_request[<span class="st">"messages"</span>]])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<pre><code>WARNING Compacted conversation for agent 'agent-08b750': dropped 1 message(s) (~100 -&gt; ~71 tokens, AIMU's own estimate).
+<pre><code>WARNING Compacted the request for agent 'agent-2397f0': 2 more message(s) left out (~132 -&gt; ~87 tokens sent, AIMU's own estimate). The history keeps them.
 ContextCompacted events: 1
-dropped roles: ['assistant'] | before: 100 | after: 71</code></pre>
-<p><strong>An applied compaction is never silent.</strong> “Applied” means it actually dropped something (judged by content, not identity — the callable may rebuild kept messages into new dict objects). When that happens, two things fire together: a <code>ContextCompacted</code> event for a sink attached via <code>events=</code> (see <a href="./27-observing-runs.html">notebook 27</a>), and an unconditional <code>WARNING</code> log — so a caller with no sink still learns their conversation was rewritten. The agent id, the token counts, and how many messages go all vary by run (they depend on how long the model’s sampled replies were). In this run the one message dropped was the reply to the moon question. The question itself is pinned by <code>keep_first=1</code>, so it stays without its answer, followed directly by the next question: the price of protecting the first message in a multi-turn chat. In a single-task agent run the pinned message is the task, which is exactly what should survive.</p>
-<p>A compaction call that returns the conversation unchanged (the common case early on, before the budget is actually exceeded) is a no-op and announces nothing. <code>ContextCompacted</code>’s <code>before_tokens</code>/<code>after_tokens</code> are AIMU’s own default estimate — not a measurement of whatever the callable itself counted to decide what to drop.</p>
+left out: ['assistant', 'user'] | history: 132 | sent: 87
+history: ['system', 'user', 'assistant', 'user', 'assistant', 'user', 'assistant']
+last request sent: ['system', 'user', 'assistant', 'user']</code></pre>
+<p>The last two lines are the whole idea. The history holds all three exchanges, and the request for the Mars question sent four messages: the system prompt, the moon question (pinned by <code>keep_first=1</code>), the sun answer, and the Mars question itself (the last two, <code>keep_last=2</code>). What was left out, the moon answer and the sun question, is still in <code>compaction_client.messages</code>, so a later request under a looser compaction (or none) would send it again. <code>client.last_request</code> is the payload the provider actually received, which is where to look when you want to know what the model was working from.</p>
+<p><strong>What a request leaves out is never silent.</strong> When a request leaves out a message the previous one sent, two things fire together: a <code>ContextCompacted</code> event for a sink attached via <code>events=</code> (see <a href="./27-observing-runs.html">notebook 27</a>), carrying the messages left out, and an unconditional <code>WARNING</code> log, so a caller with no sink still learns the model is working from less than the conversation holds. The agent id, the token counts, and how many messages go all vary by run, since they depend on how long the model’s sampled replies were. Note the pinned moon question: it is sent without its answer, followed directly by a later answer. That is the price of protecting the first message in a multi-turn chat; in a single-task agent run the pinned message is the task, which is exactly what should survive.</p>
+<p>Only a <em>change</em> is announced. Once a conversation is over its budget, every request is compacted; a request that leaves out exactly what the previous one did says nothing, or every request of a long conversation would warn and the warning would stop meaning anything. The agent remembers what its last request left out across runs. A request that sends something the previous one left out (because the compaction changed, say) reports it in the event’s <code>restored</code> list, at <code>INFO</code> rather than as a warning, since nothing was lost. A compaction that returns the conversation unchanged announces nothing. <code>ContextCompacted</code>’s <code>before_tokens</code>/<code>after_tokens</code> are AIMU’s own estimate of the history and of what was sent, not a measurement of whatever the callable itself counted.</p>
 <p><strong>If the compaction callable raises, the run raises</strong> — the same “failures are apparent” rule as everywhere else in AIMU; a compaction that can’t be trusted to run should stop the turn, not be silently skipped while the caller believes their context is being managed.</p>
 </section>
 <section id="f---when-its-already-too-late-contextoverflowerror" class="level2">
@@ -559,19 +564,19 @@ dropped roles: ['assistant'] | before: 100 | after: 71</code></pre>
 </tr>
 </tbody>
 </table>
-<p>The recovery recipe — catch, trim, retry:</p>
+<p>The recovery recipe — catch, then retry with a compaction:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ContextOverflowError</span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span>:</span>
 <span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>    agent.run(task)</span>
 <span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="cf">except</span> ContextOverflowError:</span>
-<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>    agent.model_client.messages <span class="op">=</span> aimu.trim_messages(agent.model_client.messages, max_tokens<span class="op">=</span><span class="dv">8000</span>)</span>
-<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>    agent.run(task)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>    agent.run(task, compaction<span class="op">=</span><span class="kw">lambda</span> msgs: aimu.trim_messages(msgs, max_tokens<span class="op">=</span><span class="dv">8000</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The retry sends a trimmed request and leaves the history whole. To shrink the stored history itself instead, assign the trimmed list back (<code>agent.model_client.messages = aimu.trim_messages(...)</code>), which is a deliberate, permanent edit that you made and that nothing needs to announce.</p>
 <p>This cell is deliberately not executed for pasted output: triggering the real error live needs a request that overflows a <em>specific, small</em> context window in the exact way each backend’s own overflow detection expects (Ollama’s native path only raises when its server-side trim reaches past the required user turn), which is backend- and timing-dependent rather than something a short demo prompt reliably reproduces. Raising the model’s own context window (<code>generate_kwargs={"context_length": N}</code> on Ollama; see <a href="../docs/how-to/set-context-length.md">docs/how-to/set-context-length.md</a>) is the other lever, when the model actually supports a larger one.</p>
 </section>
 <section id="clean-up" class="level2">
 <h2 class="anchored" data-anchor-id="clean-up">Clean up</h2>
-<div id="1b97576c" class="cell" data-execution_count="9">
+<div id="887c69a0" class="cell" data-execution_count="9">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> tool_client, tool_agent, summary_client, compaction_client, compaction_agent</span>
 <span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Cleaned up."</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
@@ -1131,320 +1136,342 @@ dropped roles: ['assistant'] | before: 100 | after: 71</code></pre>
 <span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">notebook 02</span><span class="co">](02-conversations.qmd)</span>) — and it only grows. Left alone, a long-running agent</span>
 <span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>(<span class="co">[</span><span class="ot">notebook 07</span><span class="co">](07-agents.qmd)</span>) eventually produces a request that no longer fits the model's</span>
 <span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>context window. <span class="in">`aimu.context`</span> is three plain functions over that list — <span class="in">`count_tokens`</span>,</span>
-<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a><span class="in">`trim_messages`</span>, <span class="in">`summarize_messages`</span> — plus a <span class="in">`compaction=`</span> field on <span class="in">`Agent`</span> that runs one</span>
-<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>of them automatically before every model turn. Nothing here is a hidden policy applied</span>
-<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>inside a client: it's the same "plain data, plain functions" shape as <span class="in">`aimu.rag`</span></span>
-<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a>(<span class="co">[</span><span class="ot">notebook 13</span><span class="co">](13-rag.qmd)</span>), so what gets dropped and why is always something you can print.</span>
-<span id="cb19-15"><a href="#cb19-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-16"><a href="#cb19-16" aria-hidden="true" tabindex="-1"></a>**What this notebook covers:**</span>
-<span id="cb19-17"><a href="#cb19-17" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`count_tokens`</span>, and its honesty caveat: an estimate, not a measurement</span>
-<span id="cb19-18"><a href="#cb19-18" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`trim_messages`</span>, and the invariant that justifies it existing (never orphan a <span class="in">`tool`</span></span>
-<span id="cb19-19"><a href="#cb19-19" aria-hidden="true" tabindex="-1"></a>  message from the <span class="in">`assistant`</span> turn carrying its <span class="in">`tool_calls`</span>)</span>
-<span id="cb19-20"><a href="#cb19-20" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`keep_last`</span> counts messages, not exchanges</span>
-<span id="cb19-21"><a href="#cb19-21" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`summarize_messages`</span>: replace old turns with a generated summary instead of dropping them</span>
-<span id="cb19-22"><a href="#cb19-22" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`Agent(compaction=)`</span>: automate either one, and how an applied compaction announces itself</span>
-<span id="cb19-23"><a href="#cb19-23" aria-hidden="true" tabindex="-1"></a>  (an event, and a warning)</span>
-<span id="cb19-24"><a href="#cb19-24" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`ContextOverflowError`</span>: the portable catch-compact-retry signal for when it's already too</span>
-<span id="cb19-25"><a href="#cb19-25" aria-hidden="true" tabindex="-1"></a>  late</span>
-<span id="cb19-26"><a href="#cb19-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-27"><a href="#cb19-27" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; This notebook runs a local Ollama model (</span><span class="in">`qwen3:8b`</span><span class="at">) in sections D, E, and F; A through C</span></span>
-<span id="cb19-28"><a href="#cb19-28" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; are pure functions and need no backend. Generated summary text and token usage vary by</span></span>
-<span id="cb19-29"><a href="#cb19-29" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; run; the numbers from the pure functions (</span><span class="in">`count_tokens`</span><span class="at">, </span><span class="in">`trim_messages`</span><span class="at">) do not, for a</span></span>
-<span id="cb19-30"><a href="#cb19-30" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; fixed input.</span></span>
-<span id="cb19-31"><a href="#cb19-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-32"><a href="#cb19-32" aria-hidden="true" tabindex="-1"></a><span class="fu">## Setup</span></span>
-<span id="cb19-33"><a href="#cb19-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-36"><a href="#cb19-36" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb19-37"><a href="#cb19-37" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
-<span id="cb19-38"><a href="#cb19-38" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-39"><a href="#cb19-39" aria-hidden="true" tabindex="-1"></a>MODEL <span class="op">=</span> <span class="st">"ollama:qwen3:8b"</span></span>
-<span id="cb19-40"><a href="#cb19-40" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-41"><a href="#cb19-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-42"><a href="#cb19-42" aria-hidden="true" tabindex="-1"></a><span class="fu">## A - Count tokens: an honest estimate</span></span>
-<span id="cb19-43"><a href="#cb19-43" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-44"><a href="#cb19-44" aria-hidden="true" tabindex="-1"></a><span class="in">`count_tokens`</span> estimates a message list's size. The default counter is <span class="in">`len(text) // 4`</span></span>
-<span id="cb19-45"><a href="#cb19-45" aria-hidden="true" tabindex="-1"></a>over each message JSON-serialized, with AIMU's own inert bookkeeping keys</span>
-<span id="cb19-46"><a href="#cb19-46" aria-hidden="true" tabindex="-1"></a>(<span class="in">`timestamp`</span>, <span class="in">`thinking`</span>, <span class="in">`provenance`</span>) stripped first — a provider never sees those, but</span>
-<span id="cb19-47"><a href="#cb19-47" aria-hidden="true" tabindex="-1"></a>the structural overhead of <span class="in">`role`</span>/<span class="in">`tool_calls`</span>/JSON punctuation does ride along in the real</span>
-<span id="cb19-48"><a href="#cb19-48" aria-hidden="true" tabindex="-1"></a>request:</span>
-<span id="cb19-49"><a href="#cb19-49" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-52"><a href="#cb19-52" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb19-53"><a href="#cb19-53" aria-hidden="true" tabindex="-1"></a>messages <span class="op">=</span> [{<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"hello there"</span>}]</span>
-<span id="cb19-54"><a href="#cb19-54" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(aimu.count_tokens(messages))</span>
-<span id="cb19-55"><a href="#cb19-55" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-56"><a href="#cb19-56" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-57"><a href="#cb19-57" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-58"><a href="#cb19-58" aria-hidden="true" tabindex="-1"></a><span class="in">10</span></span>
-<span id="cb19-59"><a href="#cb19-59" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-60"><a href="#cb19-60" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-61"><a href="#cb19-61" aria-hidden="true" tabindex="-1"></a>**This is an estimate, not a measurement** — typically wrong by 20-30% for any specific</span>
-<span id="cb19-62"><a href="#cb19-62" aria-hidden="true" tabindex="-1"></a>model's real tokenizer. The only exact count AIMU can report is after the fact, via</span>
-<span id="cb19-63"><a href="#cb19-63" aria-hidden="true" tabindex="-1"></a><span class="in">`client.last_usage`</span> following a real call (see <span class="co">[</span><span class="ot">notebook 27</span><span class="co">](27-observing-runs.qmd)</span>, section</span>
-<span id="cb19-64"><a href="#cb19-64" aria-hidden="true" tabindex="-1"></a>E). Pass <span class="in">`counter=`</span> with a real tokenizer when accuracy matters more than a zero-dependency</span>
-<span id="cb19-65"><a href="#cb19-65" aria-hidden="true" tabindex="-1"></a>default:</span>
-<span id="cb19-66"><a href="#cb19-66" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-67"><a href="#cb19-67" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
-<span id="cb19-68"><a href="#cb19-68" aria-hidden="true" tabindex="-1"></a>aimu.count_tokens(messages, counter<span class="op">=</span><span class="kw">lambda</span> text: <span class="bu">len</span>(enc.encode(text)))  <span class="co"># enc: any tiktoken-like encoder</span></span>
-<span id="cb19-69"><a href="#cb19-69" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-70"><a href="#cb19-70" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-71"><a href="#cb19-71" aria-hidden="true" tabindex="-1"></a><span class="fu">## B - Trim to a budget: `trim_messages`</span></span>
-<span id="cb19-72"><a href="#cb19-72" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-73"><a href="#cb19-73" aria-hidden="true" tabindex="-1"></a><span class="in">`trim_messages`</span> drops the oldest messages until the conversation fits <span class="in">`max_tokens`</span> (per</span>
-<span id="cb19-74"><a href="#cb19-74" aria-hidden="true" tabindex="-1"></a><span class="in">`count_tokens`</span>), and returns a new list — the input is never mutated:</span>
-<span id="cb19-75"><a href="#cb19-75" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-78"><a href="#cb19-78" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb19-79"><a href="#cb19-79" aria-hidden="true" tabindex="-1"></a>budget_messages <span class="op">=</span> [{<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: <span class="st">"You are a assistant."</span>}]</span>
-<span id="cb19-80"><a href="#cb19-80" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">6</span>):</span>
-<span id="cb19-81"><a href="#cb19-81" aria-hidden="true" tabindex="-1"></a>    budget_messages.append({<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="ss">f"This is user message number </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">, with some extra padding."</span>})</span>
-<span id="cb19-82"><a href="#cb19-82" aria-hidden="true" tabindex="-1"></a>    budget_messages.append({<span class="st">"role"</span>: <span class="st">"assistant"</span>, <span class="st">"content"</span>: <span class="ss">f"This is assistant reply number </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">, also padded out."</span>})</span>
-<span id="cb19-83"><a href="#cb19-83" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-84"><a href="#cb19-84" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(aimu.count_tokens(budget_messages))</span>
-<span id="cb19-85"><a href="#cb19-85" aria-hidden="true" tabindex="-1"></a>trimmed <span class="op">=</span> aimu.trim_messages(budget_messages, max_tokens<span class="op">=</span><span class="dv">80</span>, keep_last<span class="op">=</span><span class="dv">2</span>)</span>
-<span id="cb19-86"><a href="#cb19-86" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(aimu.count_tokens(trimmed))</span>
-<span id="cb19-87"><a href="#cb19-87" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>([m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> trimmed])</span>
-<span id="cb19-88"><a href="#cb19-88" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-89"><a href="#cb19-89" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-90"><a href="#cb19-90" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-91"><a href="#cb19-91" aria-hidden="true" tabindex="-1"></a><span class="in">274</span></span>
-<span id="cb19-92"><a href="#cb19-92" aria-hidden="true" tabindex="-1"></a><span class="in">78</span></span>
-<span id="cb19-93"><a href="#cb19-93" aria-hidden="true" tabindex="-1"></a><span class="in">['system', 'user', 'user', 'assistant']</span></span>
-<span id="cb19-94"><a href="#cb19-94" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-95"><a href="#cb19-95" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-96"><a href="#cb19-96" aria-hidden="true" tabindex="-1"></a>Three things survive any trim: the system message (<span class="in">`keep_system=True`</span>), the first message after</span>
-<span id="cb19-97"><a href="#cb19-97" aria-hidden="true" tabindex="-1"></a>it (<span class="in">`keep_first=1`</span>, here <span class="in">`user 0`</span>), and the last <span class="in">`keep_last`</span> messages (here <span class="in">`user 5`</span> and</span>
-<span id="cb19-98"><a href="#cb19-98" aria-hidden="true" tabindex="-1"></a><span class="in">`assistant 5`</span>). Everything between is droppable, oldest first. The first message is protected by</span>
-<span id="cb19-99"><a href="#cb19-99" aria-hidden="true" tabindex="-1"></a>default because in an agent run it is the task: dropping it leaves the agent working without</span>
-<span id="cb19-100"><a href="#cb19-100" aria-hidden="true" tabindex="-1"></a>knowing what it was asked. <span class="in">`keep_first=0`</span> restores plain oldest-first dropping:</span>
-<span id="cb19-101"><a href="#cb19-101" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-104"><a href="#cb19-104" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb19-105"><a href="#cb19-105" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>([m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> aimu.trim_messages(budget_messages, max_tokens<span class="op">=</span><span class="dv">80</span>, keep_first<span class="op">=</span><span class="dv">0</span>, keep_last<span class="op">=</span><span class="dv">2</span>)])</span>
-<span id="cb19-106"><a href="#cb19-106" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-107"><a href="#cb19-107" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-108"><a href="#cb19-108" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-109"><a href="#cb19-109" aria-hidden="true" tabindex="-1"></a><span class="in">['system', 'assistant', 'user', 'assistant']</span></span>
-<span id="cb19-110"><a href="#cb19-110" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-111"><a href="#cb19-111" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-112"><a href="#cb19-112" aria-hidden="true" tabindex="-1"></a>With <span class="in">`user 0`</span> droppable, the budget is met one message earlier, so <span class="in">`assistant 4`</span> survives</span>
-<span id="cb19-113"><a href="#cb19-113" aria-hidden="true" tabindex="-1"></a>instead. Section C explains why <span class="in">`keep_last`</span> counts messages rather than exchanges.</span>
-<span id="cb19-114"><a href="#cb19-114" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-115"><a href="#cb19-115" aria-hidden="true" tabindex="-1"></a>**The invariant that justifies this over a hand-written `messages[-n:]` slice**: trimming</span>
-<span id="cb19-116"><a href="#cb19-116" aria-hidden="true" tabindex="-1"></a>never orphans a <span class="in">`tool`</span> message from the <span class="in">`assistant`</span> message carrying the <span class="in">`tool_calls`</span> it's</span>
-<span id="cb19-117"><a href="#cb19-117" aria-hidden="true" tabindex="-1"></a>answering. Every provider rejects that shape, and it's exactly what a naive slice produces.</span>
-<span id="cb19-118"><a href="#cb19-118" aria-hidden="true" tabindex="-1"></a><span class="in">`trim_messages`</span> treats an <span class="in">`assistant`</span>-with-<span class="in">`tool_calls`</span> message and every <span class="in">`tool`</span> message</span>
-<span id="cb19-119"><a href="#cb19-119" aria-hidden="true" tabindex="-1"></a>answering it as one indivisible unit — dropped together, kept together, never split. On a</span>
-<span id="cb19-120"><a href="#cb19-120" aria-hidden="true" tabindex="-1"></a>real two-turn tool-using conversation (built the same way <span class="co">[</span><span class="ot">notebook 07</span><span class="co">](07-agents.qmd)</span></span>
-<span id="cb19-121"><a href="#cb19-121" aria-hidden="true" tabindex="-1"></a>does — note the system prompt lives on the *client*, not the agent, so both <span class="in">`run()`</span> calls</span>
-<span id="cb19-122"><a href="#cb19-122" aria-hidden="true" tabindex="-1"></a>accumulate onto one history rather than resetting; see <span class="co">[</span><span class="ot">notebook 25</span><span class="co">](25-sessions.qmd)</span>'s</span>
-<span id="cb19-123"><a href="#cb19-123" aria-hidden="true" tabindex="-1"></a>gotcha for why):</span>
-<span id="cb19-124"><a href="#cb19-124" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-127"><a href="#cb19-127" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb19-128"><a href="#cb19-128" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
-<span id="cb19-129"><a href="#cb19-129" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> tool</span>
-<span id="cb19-130"><a href="#cb19-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a><span class="in">`trim_messages`</span>, <span class="in">`summarize_messages`</span> — plus a <span class="in">`compaction=`</span> field on <span class="in">`Agent`</span> that applies one</span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>of them to every request an agent sends, leaving the conversation itself whole. Nothing here</span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>is a policy AIMU picks for you: it's the same "plain data, plain functions" shape as</span>
+<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a><span class="in">`aimu.rag`</span> (<span class="co">[</span><span class="ot">notebook 13</span><span class="co">](13-rag.qmd)</span>), so what gets left out and why is always something you</span>
+<span id="cb19-15"><a href="#cb19-15" aria-hidden="true" tabindex="-1"></a>can print, and the request that was actually sent is on <span class="in">`client.last_request`</span>.</span>
+<span id="cb19-16"><a href="#cb19-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-17"><a href="#cb19-17" aria-hidden="true" tabindex="-1"></a>**What this notebook covers:**</span>
+<span id="cb19-18"><a href="#cb19-18" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`count_tokens`</span>, and its honesty caveat: an estimate, not a measurement</span>
+<span id="cb19-19"><a href="#cb19-19" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`trim_messages`</span>, and the invariant that justifies it existing (never orphan a <span class="in">`tool`</span></span>
+<span id="cb19-20"><a href="#cb19-20" aria-hidden="true" tabindex="-1"></a>  message from the <span class="in">`assistant`</span> turn carrying its <span class="in">`tool_calls`</span>)</span>
+<span id="cb19-21"><a href="#cb19-21" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`keep_last`</span> counts messages, not exchanges</span>
+<span id="cb19-22"><a href="#cb19-22" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`summarize_messages`</span>: replace old turns with a generated summary instead of dropping them</span>
+<span id="cb19-23"><a href="#cb19-23" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`Agent(compaction=)`</span>: apply one to what every request sends while the history stays whole,</span>
+<span id="cb19-24"><a href="#cb19-24" aria-hidden="true" tabindex="-1"></a>  and how a request that leaves something out announces it (an event, and a warning)</span>
+<span id="cb19-25"><a href="#cb19-25" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="in">`ContextOverflowError`</span>: the portable catch-compact-retry signal for when it's already too</span>
+<span id="cb19-26"><a href="#cb19-26" aria-hidden="true" tabindex="-1"></a>  late</span>
+<span id="cb19-27"><a href="#cb19-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-28"><a href="#cb19-28" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; This notebook runs a local Ollama model (</span><span class="in">`qwen3:8b`</span><span class="at">) in sections D, E, and F; A through C</span></span>
+<span id="cb19-29"><a href="#cb19-29" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; are pure functions and need no backend. Generated summary text and token usage vary by</span></span>
+<span id="cb19-30"><a href="#cb19-30" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; run; the numbers from the pure functions (</span><span class="in">`count_tokens`</span><span class="at">, </span><span class="in">`trim_messages`</span><span class="at">) do not, for a</span></span>
+<span id="cb19-31"><a href="#cb19-31" aria-hidden="true" tabindex="-1"></a><span class="at">&gt; fixed input.</span></span>
+<span id="cb19-32"><a href="#cb19-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-33"><a href="#cb19-33" aria-hidden="true" tabindex="-1"></a><span class="fu">## Setup</span></span>
+<span id="cb19-34"><a href="#cb19-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-37"><a href="#cb19-37" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb19-38"><a href="#cb19-38" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> aimu</span>
+<span id="cb19-39"><a href="#cb19-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-40"><a href="#cb19-40" aria-hidden="true" tabindex="-1"></a>MODEL <span class="op">=</span> <span class="st">"ollama:qwen3:8b"</span></span>
+<span id="cb19-41"><a href="#cb19-41" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-42"><a href="#cb19-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-43"><a href="#cb19-43" aria-hidden="true" tabindex="-1"></a><span class="fu">## A - Count tokens: an honest estimate</span></span>
+<span id="cb19-44"><a href="#cb19-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-45"><a href="#cb19-45" aria-hidden="true" tabindex="-1"></a><span class="in">`count_tokens`</span> estimates a message list's size. The default counter is <span class="in">`len(text) // 4`</span></span>
+<span id="cb19-46"><a href="#cb19-46" aria-hidden="true" tabindex="-1"></a>over each message JSON-serialized, with AIMU's own inert bookkeeping keys</span>
+<span id="cb19-47"><a href="#cb19-47" aria-hidden="true" tabindex="-1"></a>(<span class="in">`timestamp`</span>, <span class="in">`thinking`</span>, <span class="in">`provenance`</span>) stripped first — a provider never sees those, but</span>
+<span id="cb19-48"><a href="#cb19-48" aria-hidden="true" tabindex="-1"></a>the structural overhead of <span class="in">`role`</span>/<span class="in">`tool_calls`</span>/JSON punctuation does ride along in the real</span>
+<span id="cb19-49"><a href="#cb19-49" aria-hidden="true" tabindex="-1"></a>request:</span>
+<span id="cb19-50"><a href="#cb19-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-53"><a href="#cb19-53" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb19-54"><a href="#cb19-54" aria-hidden="true" tabindex="-1"></a>messages <span class="op">=</span> [{<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"hello there"</span>}]</span>
+<span id="cb19-55"><a href="#cb19-55" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(aimu.count_tokens(messages))</span>
+<span id="cb19-56"><a href="#cb19-56" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-57"><a href="#cb19-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-58"><a href="#cb19-58" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-59"><a href="#cb19-59" aria-hidden="true" tabindex="-1"></a><span class="in">10</span></span>
+<span id="cb19-60"><a href="#cb19-60" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-61"><a href="#cb19-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-62"><a href="#cb19-62" aria-hidden="true" tabindex="-1"></a>**This is an estimate, not a measurement** — typically wrong by 20-30% for any specific</span>
+<span id="cb19-63"><a href="#cb19-63" aria-hidden="true" tabindex="-1"></a>model's real tokenizer. The only exact count AIMU can report is after the fact, via</span>
+<span id="cb19-64"><a href="#cb19-64" aria-hidden="true" tabindex="-1"></a><span class="in">`client.last_usage`</span> following a real call (see <span class="co">[</span><span class="ot">notebook 27</span><span class="co">](27-observing-runs.qmd)</span>, section</span>
+<span id="cb19-65"><a href="#cb19-65" aria-hidden="true" tabindex="-1"></a>E). Pass <span class="in">`counter=`</span> with a real tokenizer when accuracy matters more than a zero-dependency</span>
+<span id="cb19-66"><a href="#cb19-66" aria-hidden="true" tabindex="-1"></a>default:</span>
+<span id="cb19-67"><a href="#cb19-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-68"><a href="#cb19-68" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb19-69"><a href="#cb19-69" aria-hidden="true" tabindex="-1"></a>aimu.count_tokens(messages, counter<span class="op">=</span><span class="kw">lambda</span> text: <span class="bu">len</span>(enc.encode(text)))  <span class="co"># enc: any tiktoken-like encoder</span></span>
+<span id="cb19-70"><a href="#cb19-70" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-71"><a href="#cb19-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-72"><a href="#cb19-72" aria-hidden="true" tabindex="-1"></a><span class="fu">## B - Trim to a budget: `trim_messages`</span></span>
+<span id="cb19-73"><a href="#cb19-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-74"><a href="#cb19-74" aria-hidden="true" tabindex="-1"></a><span class="in">`trim_messages`</span> drops the oldest messages until the conversation fits <span class="in">`max_tokens`</span> (per</span>
+<span id="cb19-75"><a href="#cb19-75" aria-hidden="true" tabindex="-1"></a><span class="in">`count_tokens`</span>), and returns a new list — the input is never mutated:</span>
+<span id="cb19-76"><a href="#cb19-76" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-79"><a href="#cb19-79" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb19-80"><a href="#cb19-80" aria-hidden="true" tabindex="-1"></a>budget_messages <span class="op">=</span> [{<span class="st">"role"</span>: <span class="st">"system"</span>, <span class="st">"content"</span>: <span class="st">"You are a assistant."</span>}]</span>
+<span id="cb19-81"><a href="#cb19-81" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">6</span>):</span>
+<span id="cb19-82"><a href="#cb19-82" aria-hidden="true" tabindex="-1"></a>    budget_messages.append({<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="ss">f"This is user message number </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">, with some extra padding."</span>})</span>
+<span id="cb19-83"><a href="#cb19-83" aria-hidden="true" tabindex="-1"></a>    budget_messages.append({<span class="st">"role"</span>: <span class="st">"assistant"</span>, <span class="st">"content"</span>: <span class="ss">f"This is assistant reply number </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss">, also padded out."</span>})</span>
+<span id="cb19-84"><a href="#cb19-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-85"><a href="#cb19-85" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(aimu.count_tokens(budget_messages))</span>
+<span id="cb19-86"><a href="#cb19-86" aria-hidden="true" tabindex="-1"></a>trimmed <span class="op">=</span> aimu.trim_messages(budget_messages, max_tokens<span class="op">=</span><span class="dv">80</span>, keep_last<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb19-87"><a href="#cb19-87" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(aimu.count_tokens(trimmed))</span>
+<span id="cb19-88"><a href="#cb19-88" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>([m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> trimmed])</span>
+<span id="cb19-89"><a href="#cb19-89" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-90"><a href="#cb19-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-91"><a href="#cb19-91" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-92"><a href="#cb19-92" aria-hidden="true" tabindex="-1"></a><span class="in">274</span></span>
+<span id="cb19-93"><a href="#cb19-93" aria-hidden="true" tabindex="-1"></a><span class="in">78</span></span>
+<span id="cb19-94"><a href="#cb19-94" aria-hidden="true" tabindex="-1"></a><span class="in">['system', 'user', 'user', 'assistant']</span></span>
+<span id="cb19-95"><a href="#cb19-95" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-96"><a href="#cb19-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-97"><a href="#cb19-97" aria-hidden="true" tabindex="-1"></a>Three things survive any trim: the system message (<span class="in">`keep_system=True`</span>), the first message after</span>
+<span id="cb19-98"><a href="#cb19-98" aria-hidden="true" tabindex="-1"></a>it (<span class="in">`keep_first=1`</span>, here <span class="in">`user 0`</span>), and the last <span class="in">`keep_last`</span> messages (here <span class="in">`user 5`</span> and</span>
+<span id="cb19-99"><a href="#cb19-99" aria-hidden="true" tabindex="-1"></a><span class="in">`assistant 5`</span>). Everything between is droppable, oldest first. The first message is protected by</span>
+<span id="cb19-100"><a href="#cb19-100" aria-hidden="true" tabindex="-1"></a>default because in an agent run it is the task: dropping it leaves the agent working without</span>
+<span id="cb19-101"><a href="#cb19-101" aria-hidden="true" tabindex="-1"></a>knowing what it was asked. <span class="in">`keep_first=0`</span> restores plain oldest-first dropping:</span>
+<span id="cb19-102"><a href="#cb19-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-105"><a href="#cb19-105" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb19-106"><a href="#cb19-106" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>([m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> aimu.trim_messages(budget_messages, max_tokens<span class="op">=</span><span class="dv">80</span>, keep_first<span class="op">=</span><span class="dv">0</span>, keep_last<span class="op">=</span><span class="dv">2</span>)])</span>
+<span id="cb19-107"><a href="#cb19-107" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-108"><a href="#cb19-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-109"><a href="#cb19-109" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-110"><a href="#cb19-110" aria-hidden="true" tabindex="-1"></a><span class="in">['system', 'assistant', 'user', 'assistant']</span></span>
+<span id="cb19-111"><a href="#cb19-111" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-112"><a href="#cb19-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-113"><a href="#cb19-113" aria-hidden="true" tabindex="-1"></a>With <span class="in">`user 0`</span> droppable, the budget is met one message earlier, so <span class="in">`assistant 4`</span> survives</span>
+<span id="cb19-114"><a href="#cb19-114" aria-hidden="true" tabindex="-1"></a>instead. Section C explains why <span class="in">`keep_last`</span> counts messages rather than exchanges.</span>
+<span id="cb19-115"><a href="#cb19-115" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-116"><a href="#cb19-116" aria-hidden="true" tabindex="-1"></a>**The invariant that justifies this over a hand-written `messages[-n:]` slice**: trimming</span>
+<span id="cb19-117"><a href="#cb19-117" aria-hidden="true" tabindex="-1"></a>never orphans a <span class="in">`tool`</span> message from the <span class="in">`assistant`</span> message carrying the <span class="in">`tool_calls`</span> it's</span>
+<span id="cb19-118"><a href="#cb19-118" aria-hidden="true" tabindex="-1"></a>answering. Every provider rejects that shape, and it's exactly what a naive slice produces.</span>
+<span id="cb19-119"><a href="#cb19-119" aria-hidden="true" tabindex="-1"></a><span class="in">`trim_messages`</span> treats an <span class="in">`assistant`</span>-with-<span class="in">`tool_calls`</span> message and every <span class="in">`tool`</span> message</span>
+<span id="cb19-120"><a href="#cb19-120" aria-hidden="true" tabindex="-1"></a>answering it as one indivisible unit — dropped together, kept together, never split. On a</span>
+<span id="cb19-121"><a href="#cb19-121" aria-hidden="true" tabindex="-1"></a>real two-turn tool-using conversation (built the same way <span class="co">[</span><span class="ot">notebook 07</span><span class="co">](07-agents.qmd)</span></span>
+<span id="cb19-122"><a href="#cb19-122" aria-hidden="true" tabindex="-1"></a>does — note the system prompt lives on the *client*, not the agent, so both <span class="in">`run()`</span> calls</span>
+<span id="cb19-123"><a href="#cb19-123" aria-hidden="true" tabindex="-1"></a>accumulate onto one history rather than resetting; see <span class="co">[</span><span class="ot">notebook 25</span><span class="co">](25-sessions.qmd)</span>'s</span>
+<span id="cb19-124"><a href="#cb19-124" aria-hidden="true" tabindex="-1"></a>gotcha for why):</span>
+<span id="cb19-125"><a href="#cb19-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-128"><a href="#cb19-128" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb19-129"><a href="#cb19-129" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.agents <span class="im">import</span> Agent</span>
+<span id="cb19-130"><a href="#cb19-130" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.tools <span class="im">import</span> tool</span>
 <span id="cb19-131"><a href="#cb19-131" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-132"><a href="#cb19-132" aria-hidden="true" tabindex="-1"></a><span class="at">@tool</span></span>
-<span id="cb19-133"><a href="#cb19-133" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> add(a: <span class="bu">int</span>, b: <span class="bu">int</span>) <span class="op">-&gt;</span> <span class="bu">int</span>:</span>
-<span id="cb19-134"><a href="#cb19-134" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Add two integers."""</span></span>
-<span id="cb19-135"><a href="#cb19-135" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> a <span class="op">+</span> b</span>
-<span id="cb19-136"><a href="#cb19-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-132"><a href="#cb19-132" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-133"><a href="#cb19-133" aria-hidden="true" tabindex="-1"></a><span class="at">@tool</span></span>
+<span id="cb19-134"><a href="#cb19-134" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> add(a: <span class="bu">int</span>, b: <span class="bu">int</span>) <span class="op">-&gt;</span> <span class="bu">int</span>:</span>
+<span id="cb19-135"><a href="#cb19-135" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Add two integers."""</span></span>
+<span id="cb19-136"><a href="#cb19-136" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> a <span class="op">+</span> b</span>
 <span id="cb19-137"><a href="#cb19-137" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-138"><a href="#cb19-138" aria-hidden="true" tabindex="-1"></a>tool_client <span class="op">=</span> aimu.client(MODEL, system<span class="op">=</span><span class="st">"You are a helpful assistant. Use the add tool for arithmetic."</span>)</span>
-<span id="cb19-139"><a href="#cb19-139" aria-hidden="true" tabindex="-1"></a>tool_agent <span class="op">=</span> Agent(tool_client, tools<span class="op">=</span>[add])</span>
-<span id="cb19-140"><a href="#cb19-140" aria-hidden="true" tabindex="-1"></a>tool_agent.run(<span class="st">"What is 12 + 30? Use the add tool."</span>)</span>
-<span id="cb19-141"><a href="#cb19-141" aria-hidden="true" tabindex="-1"></a>tool_agent.run(<span class="st">"What is 100 + 1? Use the add tool."</span>)</span>
-<span id="cb19-142"><a href="#cb19-142" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-143"><a href="#cb19-143" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>([m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> tool_client.messages])</span>
-<span id="cb19-144"><a href="#cb19-144" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-145"><a href="#cb19-145" aria-hidden="true" tabindex="-1"></a>tool_trimmed <span class="op">=</span> aimu.trim_messages(tool_client.messages, max_tokens<span class="op">=</span><span class="dv">150</span>, keep_last<span class="op">=</span><span class="dv">1</span>)</span>
-<span id="cb19-146"><a href="#cb19-146" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>([m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> tool_trimmed])</span>
-<span id="cb19-147"><a href="#cb19-147" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-148"><a href="#cb19-148" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-149"><a href="#cb19-149" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-150"><a href="#cb19-150" aria-hidden="true" tabindex="-1"></a><span class="in">['system', 'user', 'assistant', 'tool', 'assistant', 'user', 'assistant', 'tool', 'assistant']</span></span>
-<span id="cb19-151"><a href="#cb19-151" aria-hidden="true" tabindex="-1"></a><span class="in">['system', 'user', 'assistant', 'user', 'assistant', 'tool', 'assistant']</span></span>
-<span id="cb19-152"><a href="#cb19-152" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-153"><a href="#cb19-153" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-154"><a href="#cb19-154" aria-hidden="true" tabindex="-1"></a>Reading the trimmed list against the original: the first exchange's <span class="in">`user`</span> question is pinned by</span>
-<span id="cb19-155"><a href="#cb19-155" aria-hidden="true" tabindex="-1"></a><span class="in">`keep_first=1`</span>, so the first thing dropped is the <span class="in">`assistant`</span>-with-<span class="in">`tool_calls`</span>/<span class="in">`tool`</span> pair</span>
-<span id="cb19-156"><a href="#cb19-156" aria-hidden="true" tabindex="-1"></a>answering it, removed together (the whole group, never split). The first exchange's own **final**</span>
-<span id="cb19-157"><a href="#cb19-157" aria-hidden="true" tabindex="-1"></a><span class="in">`assistant`</span> reply (no <span class="in">`tool_calls`</span>, so nothing to orphan) survived on its own. The second</span>
-<span id="cb19-158"><a href="#cb19-158" aria-hidden="true" tabindex="-1"></a>exchange's <span class="in">`assistant`</span>-with-<span class="in">`tool_calls`</span>/<span class="in">`tool`</span> pair was kept intact even though only its</span>
-<span id="cb19-159"><a href="#cb19-159" aria-hidden="true" tabindex="-1"></a>trailing <span class="in">`assistant`</span> message was technically inside the protected <span class="in">`keep_last=1`</span> tail — the</span>
-<span id="cb19-160"><a href="#cb19-160" aria-hidden="true" tabindex="-1"></a>boundary was pushed outward to the group's edge rather than splitting it. (Which messages</span>
-<span id="cb19-161"><a href="#cb19-161" aria-hidden="true" tabindex="-1"></a>are big enough to need dropping depends on how much the model reasoned before each reply —</span>
-<span id="cb19-162"><a href="#cb19-162" aria-hidden="true" tabindex="-1"></a>a <span class="in">`thinking`</span> model's reasoning text inflates some assistant messages far more than others —</span>
-<span id="cb19-163"><a href="#cb19-163" aria-hidden="true" tabindex="-1"></a>so a re-run can drop a different combination of groups than shown here; what never changes</span>
-<span id="cb19-164"><a href="#cb19-164" aria-hidden="true" tabindex="-1"></a>is that a <span class="in">`tool`</span> message is never separated from the <span class="in">`assistant`</span> message carrying the</span>
-<span id="cb19-165"><a href="#cb19-165" aria-hidden="true" tabindex="-1"></a><span class="in">`tool_calls`</span> it answers.)</span>
-<span id="cb19-166"><a href="#cb19-166" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-167"><a href="#cb19-167" aria-hidden="true" tabindex="-1"></a><span class="fu">## C - `keep_last` counts messages, not exchanges</span></span>
-<span id="cb19-168"><a href="#cb19-168" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-169"><a href="#cb19-169" aria-hidden="true" tabindex="-1"></a>A "turn" is ambiguous: a plain back-and-forth is 2 messages (user + assistant), but an</span>
-<span id="cb19-170"><a href="#cb19-170" aria-hidden="true" tabindex="-1"></a>agentic turn can be 5+ (user, assistant-with-tool_calls, one or more tool results, final</span>
-<span id="cb19-171"><a href="#cb19-171" aria-hidden="true" tabindex="-1"></a>assistant answer). <span class="in">`keep_last=2`</span> on section B's tool-using conversation protects only the</span>
-<span id="cb19-172"><a href="#cb19-172" aria-hidden="true" tabindex="-1"></a>last 2 *messages* — here, <span class="in">`tool`</span> and the final <span class="in">`assistant`</span> — not the whole last exchange:</span>
-<span id="cb19-173"><a href="#cb19-173" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-176"><a href="#cb19-176" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb19-177"><a href="#cb19-177" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>([m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> aimu.trim_messages(tool_client.messages, max_tokens<span class="op">=</span><span class="dv">10_000</span>, keep_last<span class="op">=</span><span class="dv">2</span>)])</span>
-<span id="cb19-178"><a href="#cb19-178" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-179"><a href="#cb19-179" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-180"><a href="#cb19-180" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-181"><a href="#cb19-181" aria-hidden="true" tabindex="-1"></a><span class="in">['system', 'user', 'assistant', 'tool', 'assistant', 'user', 'assistant', 'tool', 'assistant']</span></span>
-<span id="cb19-182"><a href="#cb19-182" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-183"><a href="#cb19-183" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-184"><a href="#cb19-184" aria-hidden="true" tabindex="-1"></a>Nothing dropped here — the whole conversation already fits comfortably under 10,000 tokens,</span>
-<span id="cb19-185"><a href="#cb19-185" aria-hidden="true" tabindex="-1"></a>so <span class="in">`trim_messages`</span> returns everything unchanged (a copy). Pass a larger <span class="in">`keep_last`</span> if you</span>
-<span id="cb19-186"><a href="#cb19-186" aria-hidden="true" tabindex="-1"></a>want whole exchanges protected on a tool-using conversation; system messages</span>
-<span id="cb19-187"><a href="#cb19-187" aria-hidden="true" tabindex="-1"></a>(<span class="in">`keep_system=True`</span>, the default) are always kept regardless of budget or <span class="in">`keep_last`</span>.</span>
-<span id="cb19-188"><a href="#cb19-188" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-189"><a href="#cb19-189" aria-hidden="true" tabindex="-1"></a><span class="fu">## D - Summarize instead of dropping: `summarize_messages`</span></span>
-<span id="cb19-190"><a href="#cb19-190" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-191"><a href="#cb19-191" aria-hidden="true" tabindex="-1"></a><span class="in">`trim_messages`</span> discards the oldest turns outright. <span class="in">`summarize_messages`</span> replaces them with</span>
-<span id="cb19-192"><a href="#cb19-192" aria-hidden="true" tabindex="-1"></a>one LLM-generated summary instead, so the conversation keeps *some* memory of what came</span>
-<span id="cb19-193"><a href="#cb19-193" aria-hidden="true" tabindex="-1"></a>before rather than none:</span>
-<span id="cb19-194"><a href="#cb19-194" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-197"><a href="#cb19-197" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb19-198"><a href="#cb19-198" aria-hidden="true" tabindex="-1"></a>summary_client <span class="op">=</span> aimu.client(MODEL)</span>
-<span id="cb19-199"><a href="#cb19-199" aria-hidden="true" tabindex="-1"></a>plain_messages <span class="op">=</span> [</span>
-<span id="cb19-200"><a href="#cb19-200" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"Help me plan a weekend in Lisbon."</span>},</span>
-<span id="cb19-201"><a href="#cb19-201" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"assistant"</span>, <span class="st">"content"</span>: <span class="st">"Happy to. What do you enjoy most when you travel?"</span>},</span>
-<span id="cb19-202"><a href="#cb19-202" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"Tile art and seafood, and I'd rather walk than take taxis."</span>},</span>
-<span id="cb19-203"><a href="#cb19-203" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"assistant"</span>, <span class="st">"content"</span>: <span class="st">"Noted: tiles, seafood, and a walkable route."</span>},</span>
-<span id="cb19-204"><a href="#cb19-204" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"Which museum should I start with?"</span>},</span>
-<span id="cb19-205"><a href="#cb19-205" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"assistant"</span>, <span class="st">"content"</span>: <span class="st">"The National Tile Museum."</span>},</span>
-<span id="cb19-206"><a href="#cb19-206" aria-hidden="true" tabindex="-1"></a>]</span>
-<span id="cb19-207"><a href="#cb19-207" aria-hidden="true" tabindex="-1"></a>summarized <span class="op">=</span> aimu.summarize_messages(summary_client, plain_messages, keep_last<span class="op">=</span><span class="dv">2</span>)</span>
-<span id="cb19-208"><a href="#cb19-208" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> m <span class="kw">in</span> summarized:</span>
-<span id="cb19-209"><a href="#cb19-209" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(m[<span class="st">"role"</span>], <span class="st">":"</span>, m[<span class="st">"content"</span>])</span>
-<span id="cb19-210"><a href="#cb19-210" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-211"><a href="#cb19-211" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-212"><a href="#cb19-212" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-213"><a href="#cb19-213" aria-hidden="true" tabindex="-1"></a><span class="in">system : Summary of earlier conversation:</span></span>
-<span id="cb19-214"><a href="#cb19-214" aria-hidden="true" tabindex="-1"></a><span class="in">The user requested help planning a Lisbon weekend, emphasizing tile art, seafood, and a preference for walking over taxis. The assistant confirmed these priorities, noting the focus on tiles, seafood, and walkable routes. Open questions include specific areas, duration, or budget details not yet discussed.</span></span>
-<span id="cb19-215"><a href="#cb19-215" aria-hidden="true" tabindex="-1"></a><span class="in">user : Help me plan a weekend in Lisbon.</span></span>
-<span id="cb19-216"><a href="#cb19-216" aria-hidden="true" tabindex="-1"></a><span class="in">user : Which museum should I start with?</span></span>
-<span id="cb19-217"><a href="#cb19-217" aria-hidden="true" tabindex="-1"></a><span class="in">assistant : The National Tile Museum.</span></span>
-<span id="cb19-218"><a href="#cb19-218" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-219"><a href="#cb19-219" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-220"><a href="#cb19-220" aria-hidden="true" tabindex="-1"></a>The <span class="in">`"Summary of earlier conversation:\n"`</span> prefix is a fixed template; only the summary</span>
-<span id="cb19-221"><a href="#cb19-221" aria-hidden="true" tabindex="-1"></a>itself is generated, and it will read differently on your machine. The rest is the</span>
-<span id="cb19-222"><a href="#cb19-222" aria-hidden="true" tabindex="-1"></a>original messages kept verbatim: the first one (<span class="in">`keep_first=1`</span>, the default, which protects</span>
-<span id="cb19-223"><a href="#cb19-223" aria-hidden="true" tabindex="-1"></a>an agent's task from being paraphrased away) and the last two (<span class="in">`keep_last=2`</span>). The three</span>
-<span id="cb19-224"><a href="#cb19-224" aria-hidden="true" tabindex="-1"></a>messages between them were summarized. The summary sits *before* the kept first message,</span>
-<span id="cb19-225"><a href="#cb19-225" aria-hidden="true" tabindex="-1"></a>though it describes what came after it, because several local chat templates reject a system</span>
-<span id="cb19-226"><a href="#cb19-226" aria-hidden="true" tabindex="-1"></a>message anywhere but the start of the conversation.</span>
-<span id="cb19-227"><a href="#cb19-227" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-228"><a href="#cb19-228" aria-hidden="true" tabindex="-1"></a>The summary knows the trip is to Lisbon although "Lisbon" appears only in the kept first</span>
-<span id="cb19-229"><a href="#cb19-229" aria-hidden="true" tabindex="-1"></a>message. The summarizer is shown that message as background, labeled "kept as written; do not</span>
-<span id="cb19-230"><a href="#cb19-230" aria-hidden="true" tabindex="-1"></a>summarize", because the instruction asks it to keep what a continuation will need and the</span>
-<span id="cb19-231"><a href="#cb19-231" aria-hidden="true" tabindex="-1"></a>task is what decides that. It restated the task anyway ("requested help planning a Lisbon</span>
-<span id="cb19-232"><a href="#cb19-232" aria-hidden="true" tabindex="-1"></a>weekend"); models tend to, despite the label. <span class="in">`keep_first=0`</span> summarizes from the first</span>
-<span id="cb19-233"><a href="#cb19-233" aria-hidden="true" tabindex="-1"></a>message with no background block. <span class="in">`client`</span> is anything with a <span class="in">`generate(prompt: str) -&gt; str`</span> method (a plain</span>
-<span id="cb19-234"><a href="#cb19-234" aria-hidden="true" tabindex="-1"></a><span class="in">`BaseModelClient`</span>, or <span class="in">`agent.as_model_client()`</span>), passed in rather than constructed</span>
-<span id="cb19-235"><a href="#cb19-235" aria-hidden="true" tabindex="-1"></a>internally so this function stays free of any provider dependency. It applies the same</span>
-<span id="cb19-236"><a href="#cb19-236" aria-hidden="true" tabindex="-1"></a>group-protection invariant as <span class="in">`trim_messages`</span> when carving out the kept messages. When</span>
-<span id="cb19-237"><a href="#cb19-237" aria-hidden="true" tabindex="-1"></a>nothing lies between the kept first and last messages, no summarization call is made and</span>
-<span id="cb19-238"><a href="#cb19-238" aria-hidden="true" tabindex="-1"></a>the input is returned unchanged (a copy).</span>
-<span id="cb19-239"><a href="#cb19-239" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-240"><a href="#cb19-240" aria-hidden="true" tabindex="-1"></a><span class="fu">## E - Automate it: `Agent(compaction=)`</span></span>
-<span id="cb19-241"><a href="#cb19-241" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-242"><a href="#cb19-242" aria-hidden="true" tabindex="-1"></a>Both functions above are things you call by hand. <span class="in">`Agent(compaction=...)`</span> (and the per-run</span>
-<span id="cb19-243"><a href="#cb19-243" aria-hidden="true" tabindex="-1"></a><span class="in">`agent.run(compaction=...)`</span> override) runs a callable of your choice —</span>
-<span id="cb19-244"><a href="#cb19-244" aria-hidden="true" tabindex="-1"></a><span class="in">`list[dict] -&gt; list[dict]`</span> — right before every model turn in the loop:</span>
-<span id="cb19-245"><a href="#cb19-245" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-248"><a href="#cb19-248" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb19-249"><a href="#cb19-249" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> logging</span>
-<span id="cb19-250"><a href="#cb19-250" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-251"><a href="#cb19-251" aria-hidden="true" tabindex="-1"></a>logging.basicConfig(level<span class="op">=</span>logging.WARNING, <span class="bu">format</span><span class="op">=</span><span class="st">"</span><span class="sc">%(levelname)s</span><span class="st"> </span><span class="sc">%(message)s</span><span class="st">"</span>)</span>
-<span id="cb19-252"><a href="#cb19-252" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-253"><a href="#cb19-253" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> ContextCompacted</span>
-<span id="cb19-254"><a href="#cb19-254" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-255"><a href="#cb19-255" aria-hidden="true" tabindex="-1"></a>compaction_seen: <span class="bu">list</span> <span class="op">=</span> []</span>
-<span id="cb19-256"><a href="#cb19-256" aria-hidden="true" tabindex="-1"></a>compaction_client <span class="op">=</span> aimu.client(MODEL, system<span class="op">=</span><span class="st">"You are terse. Reply in one short sentence."</span>)</span>
-<span id="cb19-257"><a href="#cb19-257" aria-hidden="true" tabindex="-1"></a>compaction_agent <span class="op">=</span> Agent(</span>
-<span id="cb19-258"><a href="#cb19-258" aria-hidden="true" tabindex="-1"></a>    compaction_client,</span>
-<span id="cb19-259"><a href="#cb19-259" aria-hidden="true" tabindex="-1"></a>    events<span class="op">=</span>compaction_seen.append,</span>
-<span id="cb19-260"><a href="#cb19-260" aria-hidden="true" tabindex="-1"></a>    compaction<span class="op">=</span><span class="kw">lambda</span> msgs: aimu.trim_messages(msgs, max_tokens<span class="op">=</span><span class="dv">60</span>, keep_last<span class="op">=</span><span class="dv">2</span>),</span>
-<span id="cb19-261"><a href="#cb19-261" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb19-262"><a href="#cb19-262" aria-hidden="true" tabindex="-1"></a>compaction_agent.run(<span class="st">"Tell me a fact about the moon."</span>)</span>
-<span id="cb19-263"><a href="#cb19-263" aria-hidden="true" tabindex="-1"></a>compaction_agent.run(<span class="st">"Now tell me a fact about the sun."</span>)</span>
-<span id="cb19-264"><a href="#cb19-264" aria-hidden="true" tabindex="-1"></a>compaction_agent.run(<span class="st">"Now tell me a fact about Mars."</span>)</span>
-<span id="cb19-265"><a href="#cb19-265" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-266"><a href="#cb19-266" aria-hidden="true" tabindex="-1"></a>compacted <span class="op">=</span> [e <span class="cf">for</span> e <span class="kw">in</span> compaction_seen <span class="cf">if</span> <span class="bu">isinstance</span>(e, ContextCompacted)]</span>
-<span id="cb19-267"><a href="#cb19-267" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"ContextCompacted events:"</span>, <span class="bu">len</span>(compacted))</span>
-<span id="cb19-268"><a href="#cb19-268" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> e <span class="kw">in</span> compacted:</span>
-<span id="cb19-269"><a href="#cb19-269" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"dropped roles:"</span>, [m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> e.dropped], <span class="st">"| before:"</span>, e.before_tokens, <span class="st">"| after:"</span>, e.after_tokens)</span>
-<span id="cb19-270"><a href="#cb19-270" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-271"><a href="#cb19-271" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-272"><a href="#cb19-272" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-273"><a href="#cb19-273" aria-hidden="true" tabindex="-1"></a><span class="in">WARNING Compacted conversation for agent 'agent-08b750': dropped 1 message(s) (~100 -&gt; ~71 tokens, AIMU's own estimate).</span></span>
-<span id="cb19-274"><a href="#cb19-274" aria-hidden="true" tabindex="-1"></a><span class="in">ContextCompacted events: 1</span></span>
-<span id="cb19-275"><a href="#cb19-275" aria-hidden="true" tabindex="-1"></a><span class="in">dropped roles: ['assistant'] | before: 100 | after: 71</span></span>
-<span id="cb19-276"><a href="#cb19-276" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-277"><a href="#cb19-277" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-278"><a href="#cb19-278" aria-hidden="true" tabindex="-1"></a>**An applied compaction is never silent.** "Applied" means it actually dropped something</span>
-<span id="cb19-279"><a href="#cb19-279" aria-hidden="true" tabindex="-1"></a>(judged by content, not identity — the callable may rebuild kept messages into new dict</span>
-<span id="cb19-280"><a href="#cb19-280" aria-hidden="true" tabindex="-1"></a>objects). When that happens, two things fire together: a <span class="in">`ContextCompacted`</span> event for a</span>
-<span id="cb19-281"><a href="#cb19-281" aria-hidden="true" tabindex="-1"></a>sink attached via <span class="in">`events=`</span> (see <span class="co">[</span><span class="ot">notebook 27</span><span class="co">](27-observing-runs.qmd)</span>), and an unconditional</span>
-<span id="cb19-282"><a href="#cb19-282" aria-hidden="true" tabindex="-1"></a><span class="in">`WARNING`</span> log — so a caller with no sink still learns their conversation was rewritten. The</span>
-<span id="cb19-283"><a href="#cb19-283" aria-hidden="true" tabindex="-1"></a>agent id, the token counts, and how many messages go all vary by run (they depend on how long</span>
-<span id="cb19-284"><a href="#cb19-284" aria-hidden="true" tabindex="-1"></a>the model's sampled replies were). In this run the one message dropped was the reply to the</span>
-<span id="cb19-285"><a href="#cb19-285" aria-hidden="true" tabindex="-1"></a>moon question. The question itself is pinned by <span class="in">`keep_first=1`</span>, so it stays without its answer,</span>
-<span id="cb19-286"><a href="#cb19-286" aria-hidden="true" tabindex="-1"></a>followed directly by the next question: the price of protecting the first message in a</span>
-<span id="cb19-287"><a href="#cb19-287" aria-hidden="true" tabindex="-1"></a>multi-turn chat. In a single-task agent run the pinned message is the task, which is exactly</span>
-<span id="cb19-288"><a href="#cb19-288" aria-hidden="true" tabindex="-1"></a>what should survive.</span>
-<span id="cb19-289"><a href="#cb19-289" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-290"><a href="#cb19-290" aria-hidden="true" tabindex="-1"></a>A compaction call that returns the conversation unchanged (the common case early on, before</span>
-<span id="cb19-291"><a href="#cb19-291" aria-hidden="true" tabindex="-1"></a>the budget is actually exceeded) is a no-op and announces nothing. <span class="in">`ContextCompacted`</span>'s</span>
-<span id="cb19-292"><a href="#cb19-292" aria-hidden="true" tabindex="-1"></a><span class="in">`before_tokens`</span>/<span class="in">`after_tokens`</span> are AIMU's own default estimate — not a measurement of</span>
-<span id="cb19-293"><a href="#cb19-293" aria-hidden="true" tabindex="-1"></a>whatever the callable itself counted to decide what to drop.</span>
-<span id="cb19-294"><a href="#cb19-294" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-295"><a href="#cb19-295" aria-hidden="true" tabindex="-1"></a>**If the compaction callable raises, the run raises** — the same "failures are apparent"</span>
-<span id="cb19-296"><a href="#cb19-296" aria-hidden="true" tabindex="-1"></a>rule as everywhere else in AIMU; a compaction that can't be trusted to run should stop the</span>
-<span id="cb19-297"><a href="#cb19-297" aria-hidden="true" tabindex="-1"></a>turn, not be silently skipped while the caller believes their context is being managed.</span>
-<span id="cb19-298"><a href="#cb19-298" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-299"><a href="#cb19-299" aria-hidden="true" tabindex="-1"></a><span class="fu">## F - When it's already too late: `ContextOverflowError`</span></span>
-<span id="cb19-300"><a href="#cb19-300" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-301"><a href="#cb19-301" aria-hidden="true" tabindex="-1"></a>Compaction is preventive. <span class="in">`ContextOverflowError`</span> (<span class="in">`from aimu.models import ContextOverflowError`</span>)</span>
-<span id="cb19-302"><a href="#cb19-302" aria-hidden="true" tabindex="-1"></a>is what a request that *already* doesn't fit raises — the input-side counterpart of</span>
-<span id="cb19-303"><a href="#cb19-303" aria-hidden="true" tabindex="-1"></a><span class="in">`TruncatedTurnError`</span> (<span class="in">`aimu.agents`</span>), which reports an *output* that ran out of room</span>
-<span id="cb19-304"><a href="#cb19-304" aria-hidden="true" tabindex="-1"></a>instead. Coverage differs by backend, because the failure itself looks different per</span>
-<span id="cb19-305"><a href="#cb19-305" aria-hidden="true" tabindex="-1"></a>backend:</span>
-<span id="cb19-306"><a href="#cb19-306" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-307"><a href="#cb19-307" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Provider <span class="pp">|</span> How it's detected <span class="pp">|</span></span>
-<span id="cb19-308"><a href="#cb19-308" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|</span></span>
-<span id="cb19-309"><a href="#cb19-309" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`ollama`</span> <span class="pp">|</span> native API rejects the request after trimming past the required user turn <span class="pp">|</span></span>
-<span id="cb19-310"><a href="#cb19-310" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`anthropic`</span> <span class="pp">|</span> a 400 whose message names the prompt as too long, or a 413 <span class="pp">|</span></span>
-<span id="cb19-311"><a href="#cb19-311" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`openai`</span>, <span class="in">`gemini`</span>, local OpenAI-compat servers that set it <span class="pp">|</span> 400 with <span class="in">`code=context_length_exceeded`</span> <span class="pp">|</span></span>
-<span id="cb19-312"><a href="#cb19-312" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`hf`</span>, <span class="in">`llamacpp`</span> <span class="pp">|</span> in-process pre-flight token count against the model's own known window, before the call is even attempted <span class="pp">|</span></span>
-<span id="cb19-313"><a href="#cb19-313" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-314"><a href="#cb19-314" aria-hidden="true" tabindex="-1"></a>The recovery recipe — catch, trim, retry:</span>
-<span id="cb19-315"><a href="#cb19-315" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-316"><a href="#cb19-316" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
-<span id="cb19-317"><a href="#cb19-317" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ContextOverflowError</span>
+<span id="cb19-138"><a href="#cb19-138" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-139"><a href="#cb19-139" aria-hidden="true" tabindex="-1"></a>tool_client <span class="op">=</span> aimu.client(MODEL, system<span class="op">=</span><span class="st">"You are a helpful assistant. Use the add tool for arithmetic."</span>)</span>
+<span id="cb19-140"><a href="#cb19-140" aria-hidden="true" tabindex="-1"></a>tool_agent <span class="op">=</span> Agent(tool_client, tools<span class="op">=</span>[add])</span>
+<span id="cb19-141"><a href="#cb19-141" aria-hidden="true" tabindex="-1"></a>tool_agent.run(<span class="st">"What is 12 + 30? Use the add tool."</span>)</span>
+<span id="cb19-142"><a href="#cb19-142" aria-hidden="true" tabindex="-1"></a>tool_agent.run(<span class="st">"What is 100 + 1? Use the add tool."</span>)</span>
+<span id="cb19-143"><a href="#cb19-143" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-144"><a href="#cb19-144" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>([m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> tool_client.messages])</span>
+<span id="cb19-145"><a href="#cb19-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-146"><a href="#cb19-146" aria-hidden="true" tabindex="-1"></a>tool_trimmed <span class="op">=</span> aimu.trim_messages(tool_client.messages, max_tokens<span class="op">=</span><span class="dv">150</span>, keep_last<span class="op">=</span><span class="dv">1</span>)</span>
+<span id="cb19-147"><a href="#cb19-147" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>([m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> tool_trimmed])</span>
+<span id="cb19-148"><a href="#cb19-148" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-149"><a href="#cb19-149" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-150"><a href="#cb19-150" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-151"><a href="#cb19-151" aria-hidden="true" tabindex="-1"></a><span class="in">['system', 'user', 'assistant', 'tool', 'assistant', 'user', 'assistant', 'tool', 'assistant']</span></span>
+<span id="cb19-152"><a href="#cb19-152" aria-hidden="true" tabindex="-1"></a><span class="in">['system', 'user', 'assistant', 'user', 'assistant', 'tool', 'assistant']</span></span>
+<span id="cb19-153"><a href="#cb19-153" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-154"><a href="#cb19-154" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-155"><a href="#cb19-155" aria-hidden="true" tabindex="-1"></a>Reading the trimmed list against the original: the first exchange's <span class="in">`user`</span> question is pinned by</span>
+<span id="cb19-156"><a href="#cb19-156" aria-hidden="true" tabindex="-1"></a><span class="in">`keep_first=1`</span>, so the first thing dropped is the <span class="in">`assistant`</span>-with-<span class="in">`tool_calls`</span>/<span class="in">`tool`</span> pair</span>
+<span id="cb19-157"><a href="#cb19-157" aria-hidden="true" tabindex="-1"></a>answering it, removed together (the whole group, never split). The first exchange's own **final**</span>
+<span id="cb19-158"><a href="#cb19-158" aria-hidden="true" tabindex="-1"></a><span class="in">`assistant`</span> reply (no <span class="in">`tool_calls`</span>, so nothing to orphan) survived on its own. The second</span>
+<span id="cb19-159"><a href="#cb19-159" aria-hidden="true" tabindex="-1"></a>exchange's <span class="in">`assistant`</span>-with-<span class="in">`tool_calls`</span>/<span class="in">`tool`</span> pair was kept intact even though only its</span>
+<span id="cb19-160"><a href="#cb19-160" aria-hidden="true" tabindex="-1"></a>trailing <span class="in">`assistant`</span> message was technically inside the protected <span class="in">`keep_last=1`</span> tail — the</span>
+<span id="cb19-161"><a href="#cb19-161" aria-hidden="true" tabindex="-1"></a>boundary was pushed outward to the group's edge rather than splitting it. (Which messages</span>
+<span id="cb19-162"><a href="#cb19-162" aria-hidden="true" tabindex="-1"></a>are big enough to need dropping depends on how much the model reasoned before each reply —</span>
+<span id="cb19-163"><a href="#cb19-163" aria-hidden="true" tabindex="-1"></a>a <span class="in">`thinking`</span> model's reasoning text inflates some assistant messages far more than others —</span>
+<span id="cb19-164"><a href="#cb19-164" aria-hidden="true" tabindex="-1"></a>so a re-run can drop a different combination of groups than shown here; what never changes</span>
+<span id="cb19-165"><a href="#cb19-165" aria-hidden="true" tabindex="-1"></a>is that a <span class="in">`tool`</span> message is never separated from the <span class="in">`assistant`</span> message carrying the</span>
+<span id="cb19-166"><a href="#cb19-166" aria-hidden="true" tabindex="-1"></a><span class="in">`tool_calls`</span> it answers.)</span>
+<span id="cb19-167"><a href="#cb19-167" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-168"><a href="#cb19-168" aria-hidden="true" tabindex="-1"></a><span class="fu">## C - `keep_last` counts messages, not exchanges</span></span>
+<span id="cb19-169"><a href="#cb19-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-170"><a href="#cb19-170" aria-hidden="true" tabindex="-1"></a>A "turn" is ambiguous: a plain back-and-forth is 2 messages (user + assistant), but an</span>
+<span id="cb19-171"><a href="#cb19-171" aria-hidden="true" tabindex="-1"></a>agentic turn can be 5+ (user, assistant-with-tool_calls, one or more tool results, final</span>
+<span id="cb19-172"><a href="#cb19-172" aria-hidden="true" tabindex="-1"></a>assistant answer). <span class="in">`keep_last=2`</span> on section B's tool-using conversation protects only the</span>
+<span id="cb19-173"><a href="#cb19-173" aria-hidden="true" tabindex="-1"></a>last 2 *messages* — here, <span class="in">`tool`</span> and the final <span class="in">`assistant`</span> — not the whole last exchange:</span>
+<span id="cb19-174"><a href="#cb19-174" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-177"><a href="#cb19-177" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb19-178"><a href="#cb19-178" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>([m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> aimu.trim_messages(tool_client.messages, max_tokens<span class="op">=</span><span class="dv">10_000</span>, keep_last<span class="op">=</span><span class="dv">2</span>)])</span>
+<span id="cb19-179"><a href="#cb19-179" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-180"><a href="#cb19-180" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-181"><a href="#cb19-181" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-182"><a href="#cb19-182" aria-hidden="true" tabindex="-1"></a><span class="in">['system', 'user', 'assistant', 'tool', 'assistant', 'user', 'assistant', 'tool', 'assistant']</span></span>
+<span id="cb19-183"><a href="#cb19-183" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-184"><a href="#cb19-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-185"><a href="#cb19-185" aria-hidden="true" tabindex="-1"></a>Nothing dropped here — the whole conversation already fits comfortably under 10,000 tokens,</span>
+<span id="cb19-186"><a href="#cb19-186" aria-hidden="true" tabindex="-1"></a>so <span class="in">`trim_messages`</span> returns everything unchanged (a copy). Pass a larger <span class="in">`keep_last`</span> if you</span>
+<span id="cb19-187"><a href="#cb19-187" aria-hidden="true" tabindex="-1"></a>want whole exchanges protected on a tool-using conversation; system messages</span>
+<span id="cb19-188"><a href="#cb19-188" aria-hidden="true" tabindex="-1"></a>(<span class="in">`keep_system=True`</span>, the default) are always kept regardless of budget or <span class="in">`keep_last`</span>.</span>
+<span id="cb19-189"><a href="#cb19-189" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-190"><a href="#cb19-190" aria-hidden="true" tabindex="-1"></a><span class="fu">## D - Summarize instead of dropping: `summarize_messages`</span></span>
+<span id="cb19-191"><a href="#cb19-191" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-192"><a href="#cb19-192" aria-hidden="true" tabindex="-1"></a><span class="in">`trim_messages`</span> discards the oldest turns outright. <span class="in">`summarize_messages`</span> replaces them with</span>
+<span id="cb19-193"><a href="#cb19-193" aria-hidden="true" tabindex="-1"></a>one LLM-generated summary instead, so the conversation keeps *some* memory of what came</span>
+<span id="cb19-194"><a href="#cb19-194" aria-hidden="true" tabindex="-1"></a>before rather than none:</span>
+<span id="cb19-195"><a href="#cb19-195" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-198"><a href="#cb19-198" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb19-199"><a href="#cb19-199" aria-hidden="true" tabindex="-1"></a>summary_client <span class="op">=</span> aimu.client(MODEL)</span>
+<span id="cb19-200"><a href="#cb19-200" aria-hidden="true" tabindex="-1"></a>plain_messages <span class="op">=</span> [</span>
+<span id="cb19-201"><a href="#cb19-201" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"Help me plan a weekend in Lisbon."</span>},</span>
+<span id="cb19-202"><a href="#cb19-202" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"assistant"</span>, <span class="st">"content"</span>: <span class="st">"Happy to. What do you enjoy most when you travel?"</span>},</span>
+<span id="cb19-203"><a href="#cb19-203" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"Tile art and seafood, and I'd rather walk than take taxis."</span>},</span>
+<span id="cb19-204"><a href="#cb19-204" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"assistant"</span>, <span class="st">"content"</span>: <span class="st">"Noted: tiles, seafood, and a walkable route."</span>},</span>
+<span id="cb19-205"><a href="#cb19-205" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"user"</span>, <span class="st">"content"</span>: <span class="st">"Which museum should I start with?"</span>},</span>
+<span id="cb19-206"><a href="#cb19-206" aria-hidden="true" tabindex="-1"></a>    {<span class="st">"role"</span>: <span class="st">"assistant"</span>, <span class="st">"content"</span>: <span class="st">"The National Tile Museum."</span>},</span>
+<span id="cb19-207"><a href="#cb19-207" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb19-208"><a href="#cb19-208" aria-hidden="true" tabindex="-1"></a>summarized <span class="op">=</span> aimu.summarize_messages(summary_client, plain_messages, keep_last<span class="op">=</span><span class="dv">2</span>)</span>
+<span id="cb19-209"><a href="#cb19-209" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> m <span class="kw">in</span> summarized:</span>
+<span id="cb19-210"><a href="#cb19-210" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(m[<span class="st">"role"</span>], <span class="st">":"</span>, m[<span class="st">"content"</span>])</span>
+<span id="cb19-211"><a href="#cb19-211" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-212"><a href="#cb19-212" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-213"><a href="#cb19-213" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-214"><a href="#cb19-214" aria-hidden="true" tabindex="-1"></a><span class="in">system : Summary of earlier conversation:</span></span>
+<span id="cb19-215"><a href="#cb19-215" aria-hidden="true" tabindex="-1"></a><span class="in">The user requested help planning a Lisbon weekend, emphasizing tile art, seafood, and a preference for walking over taxis. The assistant confirmed these priorities, noting the focus on tiles, seafood, and walkable routes. Open questions include specific areas, duration, or budget details not yet discussed.</span></span>
+<span id="cb19-216"><a href="#cb19-216" aria-hidden="true" tabindex="-1"></a><span class="in">user : Help me plan a weekend in Lisbon.</span></span>
+<span id="cb19-217"><a href="#cb19-217" aria-hidden="true" tabindex="-1"></a><span class="in">user : Which museum should I start with?</span></span>
+<span id="cb19-218"><a href="#cb19-218" aria-hidden="true" tabindex="-1"></a><span class="in">assistant : The National Tile Museum.</span></span>
+<span id="cb19-219"><a href="#cb19-219" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-220"><a href="#cb19-220" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-221"><a href="#cb19-221" aria-hidden="true" tabindex="-1"></a>The <span class="in">`"Summary of earlier conversation:\n"`</span> prefix is a fixed template; only the summary</span>
+<span id="cb19-222"><a href="#cb19-222" aria-hidden="true" tabindex="-1"></a>itself is generated, and it will read differently on your machine. The rest is the</span>
+<span id="cb19-223"><a href="#cb19-223" aria-hidden="true" tabindex="-1"></a>original messages kept verbatim: the first one (<span class="in">`keep_first=1`</span>, the default, which protects</span>
+<span id="cb19-224"><a href="#cb19-224" aria-hidden="true" tabindex="-1"></a>an agent's task from being paraphrased away) and the last two (<span class="in">`keep_last=2`</span>). The three</span>
+<span id="cb19-225"><a href="#cb19-225" aria-hidden="true" tabindex="-1"></a>messages between them were summarized. The summary sits *before* the kept first message,</span>
+<span id="cb19-226"><a href="#cb19-226" aria-hidden="true" tabindex="-1"></a>though it describes what came after it, because several local chat templates reject a system</span>
+<span id="cb19-227"><a href="#cb19-227" aria-hidden="true" tabindex="-1"></a>message anywhere but the start of the conversation.</span>
+<span id="cb19-228"><a href="#cb19-228" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-229"><a href="#cb19-229" aria-hidden="true" tabindex="-1"></a>The summary knows the trip is to Lisbon although "Lisbon" appears only in the kept first</span>
+<span id="cb19-230"><a href="#cb19-230" aria-hidden="true" tabindex="-1"></a>message. The summarizer is shown that message as background, labeled "kept as written; do not</span>
+<span id="cb19-231"><a href="#cb19-231" aria-hidden="true" tabindex="-1"></a>summarize", because the instruction asks it to keep what a continuation will need and the</span>
+<span id="cb19-232"><a href="#cb19-232" aria-hidden="true" tabindex="-1"></a>task is what decides that. It restated the task anyway ("requested help planning a Lisbon</span>
+<span id="cb19-233"><a href="#cb19-233" aria-hidden="true" tabindex="-1"></a>weekend"); models tend to, despite the label. <span class="in">`keep_first=0`</span> summarizes from the first</span>
+<span id="cb19-234"><a href="#cb19-234" aria-hidden="true" tabindex="-1"></a>message with no background block. <span class="in">`client`</span> is anything with a <span class="in">`generate(prompt: str) -&gt; str`</span> method (a plain</span>
+<span id="cb19-235"><a href="#cb19-235" aria-hidden="true" tabindex="-1"></a><span class="in">`BaseModelClient`</span>, or <span class="in">`agent.as_model_client()`</span>), passed in rather than constructed</span>
+<span id="cb19-236"><a href="#cb19-236" aria-hidden="true" tabindex="-1"></a>internally so this function stays free of any provider dependency. It applies the same</span>
+<span id="cb19-237"><a href="#cb19-237" aria-hidden="true" tabindex="-1"></a>group-protection invariant as <span class="in">`trim_messages`</span> when carving out the kept messages. When</span>
+<span id="cb19-238"><a href="#cb19-238" aria-hidden="true" tabindex="-1"></a>nothing lies between the kept first and last messages, no summarization call is made and</span>
+<span id="cb19-239"><a href="#cb19-239" aria-hidden="true" tabindex="-1"></a>the input is returned unchanged (a copy).</span>
+<span id="cb19-240"><a href="#cb19-240" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-241"><a href="#cb19-241" aria-hidden="true" tabindex="-1"></a><span class="fu">## E - Automate it: `Agent(compaction=)`</span></span>
+<span id="cb19-242"><a href="#cb19-242" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-243"><a href="#cb19-243" aria-hidden="true" tabindex="-1"></a>Both functions above are things you call by hand, and calling one by hand rewrites the list</span>
+<span id="cb19-244"><a href="#cb19-244" aria-hidden="true" tabindex="-1"></a>you assign it back to. <span class="in">`Agent(compaction=...)`</span> (and the per-run <span class="in">`agent.run(compaction=...)`</span></span>
+<span id="cb19-245"><a href="#cb19-245" aria-hidden="true" tabindex="-1"></a>override) is different in kind: it takes a callable of your choice — <span class="in">`list[dict] -&gt; list[dict]`</span></span>
+<span id="cb19-246"><a href="#cb19-246" aria-hidden="true" tabindex="-1"></a>— and applies it to every request the agent sends, at the moment each request is built. The</span>
+<span id="cb19-247"><a href="#cb19-247" aria-hidden="true" tabindex="-1"></a>model is sent what the callable returns. The conversation keeps everything:</span>
+<span id="cb19-248"><a href="#cb19-248" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-251"><a href="#cb19-251" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb19-252"><a href="#cb19-252" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> logging</span>
+<span id="cb19-253"><a href="#cb19-253" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-254"><a href="#cb19-254" aria-hidden="true" tabindex="-1"></a>logging.basicConfig(level<span class="op">=</span>logging.WARNING, <span class="bu">format</span><span class="op">=</span><span class="st">"</span><span class="sc">%(levelname)s</span><span class="st"> </span><span class="sc">%(message)s</span><span class="st">"</span>)</span>
+<span id="cb19-255"><a href="#cb19-255" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-256"><a href="#cb19-256" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.events <span class="im">import</span> ContextCompacted</span>
+<span id="cb19-257"><a href="#cb19-257" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-258"><a href="#cb19-258" aria-hidden="true" tabindex="-1"></a>compaction_seen: <span class="bu">list</span> <span class="op">=</span> []</span>
+<span id="cb19-259"><a href="#cb19-259" aria-hidden="true" tabindex="-1"></a>compaction_client <span class="op">=</span> aimu.client(MODEL, system<span class="op">=</span><span class="st">"You are terse. Reply in one short sentence."</span>)</span>
+<span id="cb19-260"><a href="#cb19-260" aria-hidden="true" tabindex="-1"></a>compaction_agent <span class="op">=</span> Agent(</span>
+<span id="cb19-261"><a href="#cb19-261" aria-hidden="true" tabindex="-1"></a>    compaction_client,</span>
+<span id="cb19-262"><a href="#cb19-262" aria-hidden="true" tabindex="-1"></a>    events<span class="op">=</span>compaction_seen.append,</span>
+<span id="cb19-263"><a href="#cb19-263" aria-hidden="true" tabindex="-1"></a>    compaction<span class="op">=</span><span class="kw">lambda</span> msgs: aimu.trim_messages(msgs, max_tokens<span class="op">=</span><span class="dv">60</span>, keep_last<span class="op">=</span><span class="dv">2</span>),</span>
+<span id="cb19-264"><a href="#cb19-264" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb19-265"><a href="#cb19-265" aria-hidden="true" tabindex="-1"></a>compaction_agent.run(<span class="st">"Tell me a fact about the moon."</span>)</span>
+<span id="cb19-266"><a href="#cb19-266" aria-hidden="true" tabindex="-1"></a>compaction_agent.run(<span class="st">"Now tell me a fact about the sun."</span>)</span>
+<span id="cb19-267"><a href="#cb19-267" aria-hidden="true" tabindex="-1"></a>compaction_agent.run(<span class="st">"Now tell me a fact about Mars."</span>)</span>
+<span id="cb19-268"><a href="#cb19-268" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-269"><a href="#cb19-269" aria-hidden="true" tabindex="-1"></a>compacted <span class="op">=</span> [e <span class="cf">for</span> e <span class="kw">in</span> compaction_seen <span class="cf">if</span> <span class="bu">isinstance</span>(e, ContextCompacted)]</span>
+<span id="cb19-270"><a href="#cb19-270" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"ContextCompacted events:"</span>, <span class="bu">len</span>(compacted))</span>
+<span id="cb19-271"><a href="#cb19-271" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> e <span class="kw">in</span> compacted:</span>
+<span id="cb19-272"><a href="#cb19-272" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"left out:"</span>, [m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> e.dropped], <span class="st">"| history:"</span>, e.before_tokens, <span class="st">"| sent:"</span>, e.after_tokens)</span>
+<span id="cb19-273"><a href="#cb19-273" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"history:"</span>, [m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> compaction_client.messages])</span>
+<span id="cb19-274"><a href="#cb19-274" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"last request sent:"</span>, [m[<span class="st">"role"</span>] <span class="cf">for</span> m <span class="kw">in</span> compaction_client.last_request[<span class="st">"messages"</span>]])</span>
+<span id="cb19-275"><a href="#cb19-275" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-276"><a href="#cb19-276" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-277"><a href="#cb19-277" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-278"><a href="#cb19-278" aria-hidden="true" tabindex="-1"></a><span class="in">WARNING Compacted the request for agent 'agent-2397f0': 2 more message(s) left out (~132 -&gt; ~87 tokens sent, AIMU's own estimate). The history keeps them.</span></span>
+<span id="cb19-279"><a href="#cb19-279" aria-hidden="true" tabindex="-1"></a><span class="in">ContextCompacted events: 1</span></span>
+<span id="cb19-280"><a href="#cb19-280" aria-hidden="true" tabindex="-1"></a><span class="in">left out: ['assistant', 'user'] | history: 132 | sent: 87</span></span>
+<span id="cb19-281"><a href="#cb19-281" aria-hidden="true" tabindex="-1"></a><span class="in">history: ['system', 'user', 'assistant', 'user', 'assistant', 'user', 'assistant']</span></span>
+<span id="cb19-282"><a href="#cb19-282" aria-hidden="true" tabindex="-1"></a><span class="in">last request sent: ['system', 'user', 'assistant', 'user']</span></span>
+<span id="cb19-283"><a href="#cb19-283" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-284"><a href="#cb19-284" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-285"><a href="#cb19-285" aria-hidden="true" tabindex="-1"></a>The last two lines are the whole idea. The history holds all three exchanges, and the request</span>
+<span id="cb19-286"><a href="#cb19-286" aria-hidden="true" tabindex="-1"></a>for the Mars question sent four messages: the system prompt, the moon question (pinned by</span>
+<span id="cb19-287"><a href="#cb19-287" aria-hidden="true" tabindex="-1"></a><span class="in">`keep_first=1`</span>), the sun answer, and the Mars question itself (the last two, <span class="in">`keep_last=2`</span>).</span>
+<span id="cb19-288"><a href="#cb19-288" aria-hidden="true" tabindex="-1"></a>What was left out, the moon answer and the sun question, is still in</span>
+<span id="cb19-289"><a href="#cb19-289" aria-hidden="true" tabindex="-1"></a><span class="in">`compaction_client.messages`</span>, so a later request under a looser compaction (or none) would</span>
+<span id="cb19-290"><a href="#cb19-290" aria-hidden="true" tabindex="-1"></a>send it again. <span class="in">`client.last_request`</span> is the payload the provider actually received, which is</span>
+<span id="cb19-291"><a href="#cb19-291" aria-hidden="true" tabindex="-1"></a>where to look when you want to know what the model was working from.</span>
+<span id="cb19-292"><a href="#cb19-292" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-293"><a href="#cb19-293" aria-hidden="true" tabindex="-1"></a>**What a request leaves out is never silent.** When a request leaves out a message the</span>
+<span id="cb19-294"><a href="#cb19-294" aria-hidden="true" tabindex="-1"></a>previous one sent, two things fire together: a <span class="in">`ContextCompacted`</span> event for a sink attached</span>
+<span id="cb19-295"><a href="#cb19-295" aria-hidden="true" tabindex="-1"></a>via <span class="in">`events=`</span> (see <span class="co">[</span><span class="ot">notebook 27</span><span class="co">](27-observing-runs.qmd)</span>), carrying the messages left out, and</span>
+<span id="cb19-296"><a href="#cb19-296" aria-hidden="true" tabindex="-1"></a>an unconditional <span class="in">`WARNING`</span> log, so a caller with no sink still learns the model is working from</span>
+<span id="cb19-297"><a href="#cb19-297" aria-hidden="true" tabindex="-1"></a>less than the conversation holds. The agent id, the token counts, and how many messages go all</span>
+<span id="cb19-298"><a href="#cb19-298" aria-hidden="true" tabindex="-1"></a>vary by run, since they depend on how long the model's sampled replies were. Note the pinned</span>
+<span id="cb19-299"><a href="#cb19-299" aria-hidden="true" tabindex="-1"></a>moon question: it is sent without its answer, followed directly by a later answer. That is the</span>
+<span id="cb19-300"><a href="#cb19-300" aria-hidden="true" tabindex="-1"></a>price of protecting the first message in a multi-turn chat; in a single-task agent run the</span>
+<span id="cb19-301"><a href="#cb19-301" aria-hidden="true" tabindex="-1"></a>pinned message is the task, which is exactly what should survive.</span>
+<span id="cb19-302"><a href="#cb19-302" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-303"><a href="#cb19-303" aria-hidden="true" tabindex="-1"></a>Only a *change* is announced. Once a conversation is over its budget, every request is</span>
+<span id="cb19-304"><a href="#cb19-304" aria-hidden="true" tabindex="-1"></a>compacted; a request that leaves out exactly what the previous one did says nothing, or every</span>
+<span id="cb19-305"><a href="#cb19-305" aria-hidden="true" tabindex="-1"></a>request of a long conversation would warn and the warning would stop meaning anything. The</span>
+<span id="cb19-306"><a href="#cb19-306" aria-hidden="true" tabindex="-1"></a>agent remembers what its last request left out across runs. A request that sends something</span>
+<span id="cb19-307"><a href="#cb19-307" aria-hidden="true" tabindex="-1"></a>the previous one left out (because the compaction changed, say) reports it in the event's</span>
+<span id="cb19-308"><a href="#cb19-308" aria-hidden="true" tabindex="-1"></a><span class="in">`restored`</span> list, at <span class="in">`INFO`</span> rather than as a warning, since nothing was lost. A compaction that</span>
+<span id="cb19-309"><a href="#cb19-309" aria-hidden="true" tabindex="-1"></a>returns the conversation unchanged announces nothing. <span class="in">`ContextCompacted`</span>'s</span>
+<span id="cb19-310"><a href="#cb19-310" aria-hidden="true" tabindex="-1"></a><span class="in">`before_tokens`</span>/<span class="in">`after_tokens`</span> are AIMU's own estimate of the history and of what was sent,</span>
+<span id="cb19-311"><a href="#cb19-311" aria-hidden="true" tabindex="-1"></a>not a measurement of whatever the callable itself counted.</span>
+<span id="cb19-312"><a href="#cb19-312" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-313"><a href="#cb19-313" aria-hidden="true" tabindex="-1"></a>**If the compaction callable raises, the run raises** — the same "failures are apparent"</span>
+<span id="cb19-314"><a href="#cb19-314" aria-hidden="true" tabindex="-1"></a>rule as everywhere else in AIMU; a compaction that can't be trusted to run should stop the</span>
+<span id="cb19-315"><a href="#cb19-315" aria-hidden="true" tabindex="-1"></a>turn, not be silently skipped while the caller believes their context is being managed.</span>
+<span id="cb19-316"><a href="#cb19-316" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-317"><a href="#cb19-317" aria-hidden="true" tabindex="-1"></a><span class="fu">## F - When it's already too late: `ContextOverflowError`</span></span>
 <span id="cb19-318"><a href="#cb19-318" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-319"><a href="#cb19-319" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span>:</span>
-<span id="cb19-320"><a href="#cb19-320" aria-hidden="true" tabindex="-1"></a>    agent.run(task)</span>
-<span id="cb19-321"><a href="#cb19-321" aria-hidden="true" tabindex="-1"></a><span class="cf">except</span> ContextOverflowError:</span>
-<span id="cb19-322"><a href="#cb19-322" aria-hidden="true" tabindex="-1"></a>    agent.model_client.messages <span class="op">=</span> aimu.trim_messages(agent.model_client.messages, max_tokens<span class="op">=</span><span class="dv">8000</span>)</span>
-<span id="cb19-323"><a href="#cb19-323" aria-hidden="true" tabindex="-1"></a>    agent.run(task)</span>
-<span id="cb19-324"><a href="#cb19-324" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb19-325"><a href="#cb19-325" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-326"><a href="#cb19-326" aria-hidden="true" tabindex="-1"></a>This cell is deliberately not executed for pasted output: triggering the real error live</span>
-<span id="cb19-327"><a href="#cb19-327" aria-hidden="true" tabindex="-1"></a>needs a request that overflows a *specific, small* context window in the exact way each</span>
-<span id="cb19-328"><a href="#cb19-328" aria-hidden="true" tabindex="-1"></a>backend's own overflow detection expects (Ollama's native path only raises when its</span>
-<span id="cb19-329"><a href="#cb19-329" aria-hidden="true" tabindex="-1"></a>server-side trim reaches past the required user turn), which is backend- and</span>
-<span id="cb19-330"><a href="#cb19-330" aria-hidden="true" tabindex="-1"></a>timing-dependent rather than something a short demo prompt reliably reproduces. Raising the</span>
-<span id="cb19-331"><a href="#cb19-331" aria-hidden="true" tabindex="-1"></a>model's own context window (<span class="in">`generate_kwargs={"context_length": N}`</span> on Ollama; see</span>
-<span id="cb19-332"><a href="#cb19-332" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">docs/how-to/set-context-length.md</span><span class="co">](../docs/how-to/set-context-length.md)</span>) is the other</span>
-<span id="cb19-333"><a href="#cb19-333" aria-hidden="true" tabindex="-1"></a>lever, when the model actually supports a larger one.</span>
-<span id="cb19-334"><a href="#cb19-334" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-335"><a href="#cb19-335" aria-hidden="true" tabindex="-1"></a><span class="fu">## Clean up</span></span>
+<span id="cb19-319"><a href="#cb19-319" aria-hidden="true" tabindex="-1"></a>Compaction is preventive. <span class="in">`ContextOverflowError`</span> (<span class="in">`from aimu.models import ContextOverflowError`</span>)</span>
+<span id="cb19-320"><a href="#cb19-320" aria-hidden="true" tabindex="-1"></a>is what a request that *already* doesn't fit raises — the input-side counterpart of</span>
+<span id="cb19-321"><a href="#cb19-321" aria-hidden="true" tabindex="-1"></a><span class="in">`TruncatedTurnError`</span> (<span class="in">`aimu.agents`</span>), which reports an *output* that ran out of room</span>
+<span id="cb19-322"><a href="#cb19-322" aria-hidden="true" tabindex="-1"></a>instead. Coverage differs by backend, because the failure itself looks different per</span>
+<span id="cb19-323"><a href="#cb19-323" aria-hidden="true" tabindex="-1"></a>backend:</span>
+<span id="cb19-324"><a href="#cb19-324" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-325"><a href="#cb19-325" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> Provider <span class="pp">|</span> How it's detected <span class="pp">|</span></span>
+<span id="cb19-326"><a href="#cb19-326" aria-hidden="true" tabindex="-1"></a><span class="pp">|---|---|</span></span>
+<span id="cb19-327"><a href="#cb19-327" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`ollama`</span> <span class="pp">|</span> native API rejects the request after trimming past the required user turn <span class="pp">|</span></span>
+<span id="cb19-328"><a href="#cb19-328" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`anthropic`</span> <span class="pp">|</span> a 400 whose message names the prompt as too long, or a 413 <span class="pp">|</span></span>
+<span id="cb19-329"><a href="#cb19-329" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`openai`</span>, <span class="in">`gemini`</span>, local OpenAI-compat servers that set it <span class="pp">|</span> 400 with <span class="in">`code=context_length_exceeded`</span> <span class="pp">|</span></span>
+<span id="cb19-330"><a href="#cb19-330" aria-hidden="true" tabindex="-1"></a><span class="pp">|</span> <span class="in">`hf`</span>, <span class="in">`llamacpp`</span> <span class="pp">|</span> in-process pre-flight token count against the model's own known window, before the call is even attempted <span class="pp">|</span></span>
+<span id="cb19-331"><a href="#cb19-331" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-332"><a href="#cb19-332" aria-hidden="true" tabindex="-1"></a>The recovery recipe — catch, then retry with a compaction:</span>
+<span id="cb19-333"><a href="#cb19-333" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-334"><a href="#cb19-334" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb19-335"><a href="#cb19-335" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> aimu.models <span class="im">import</span> ContextOverflowError</span>
 <span id="cb19-336"><a href="#cb19-336" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-339"><a href="#cb19-339" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
-<span id="cb19-340"><a href="#cb19-340" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> tool_client, tool_agent, summary_client, compaction_client, compaction_agent</span>
-<span id="cb19-341"><a href="#cb19-341" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Cleaned up."</span>)</span>
-<span id="cb19-342"><a href="#cb19-342" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-337"><a href="#cb19-337" aria-hidden="true" tabindex="-1"></a><span class="cf">try</span>:</span>
+<span id="cb19-338"><a href="#cb19-338" aria-hidden="true" tabindex="-1"></a>    agent.run(task)</span>
+<span id="cb19-339"><a href="#cb19-339" aria-hidden="true" tabindex="-1"></a><span class="cf">except</span> ContextOverflowError:</span>
+<span id="cb19-340"><a href="#cb19-340" aria-hidden="true" tabindex="-1"></a>    agent.run(task, compaction<span class="op">=</span><span class="kw">lambda</span> msgs: aimu.trim_messages(msgs, max_tokens<span class="op">=</span><span class="dv">8000</span>))</span>
+<span id="cb19-341"><a href="#cb19-341" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb19-342"><a href="#cb19-342" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-343"><a href="#cb19-343" aria-hidden="true" tabindex="-1"></a>The retry sends a trimmed request and leaves the history whole. To shrink the stored history</span>
+<span id="cb19-344"><a href="#cb19-344" aria-hidden="true" tabindex="-1"></a>itself instead, assign the trimmed list back</span>
+<span id="cb19-345"><a href="#cb19-345" aria-hidden="true" tabindex="-1"></a>(<span class="in">`agent.model_client.messages = aimu.trim_messages(...)`</span>), which is a deliberate, permanent</span>
+<span id="cb19-346"><a href="#cb19-346" aria-hidden="true" tabindex="-1"></a>edit that you made and that nothing needs to announce.</span>
+<span id="cb19-347"><a href="#cb19-347" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-348"><a href="#cb19-348" aria-hidden="true" tabindex="-1"></a>This cell is deliberately not executed for pasted output: triggering the real error live</span>
+<span id="cb19-349"><a href="#cb19-349" aria-hidden="true" tabindex="-1"></a>needs a request that overflows a *specific, small* context window in the exact way each</span>
+<span id="cb19-350"><a href="#cb19-350" aria-hidden="true" tabindex="-1"></a>backend's own overflow detection expects (Ollama's native path only raises when its</span>
+<span id="cb19-351"><a href="#cb19-351" aria-hidden="true" tabindex="-1"></a>server-side trim reaches past the required user turn), which is backend- and</span>
+<span id="cb19-352"><a href="#cb19-352" aria-hidden="true" tabindex="-1"></a>timing-dependent rather than something a short demo prompt reliably reproduces. Raising the</span>
+<span id="cb19-353"><a href="#cb19-353" aria-hidden="true" tabindex="-1"></a>model's own context window (<span class="in">`generate_kwargs={"context_length": N}`</span> on Ollama; see</span>
+<span id="cb19-354"><a href="#cb19-354" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="ot">docs/how-to/set-context-length.md</span><span class="co">](../docs/how-to/set-context-length.md)</span>) is the other</span>
+<span id="cb19-355"><a href="#cb19-355" aria-hidden="true" tabindex="-1"></a>lever, when the model actually supports a larger one.</span>
+<span id="cb19-356"><a href="#cb19-356" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-357"><a href="#cb19-357" aria-hidden="true" tabindex="-1"></a><span class="fu">## Clean up</span></span>
+<span id="cb19-358"><a href="#cb19-358" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-361"><a href="#cb19-361" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb19-362"><a href="#cb19-362" aria-hidden="true" tabindex="-1"></a><span class="kw">del</span> tool_client, tool_agent, summary_client, compaction_client, compaction_agent</span>
+<span id="cb19-363"><a href="#cb19-363" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">"Cleaned up."</span>)</span>
+<span id="cb19-364"><a href="#cb19-364" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 </code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
 </div></div></div></div></div>
 </div> <!-- /content -->

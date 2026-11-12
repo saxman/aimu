@@ -2567,6 +2567,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#aimu.models.StreamChunk.is_tool_request" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        is_tool_request
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.models.StreamChunk.is_tool_call" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4095,6 +4106,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#aimu.models.StreamChunk.is_tool_request" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        is_tool_request
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#aimu.models.StreamChunk.is_tool_call" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5328,12 +5350,19 @@ raises <code>ModelDeprecatedError</code> (see <code>aimu/models/_internal/deprec
 
 <details class="fields" open>
   <summary>Fields</summary>
-  <p>phase:     content type of this chunk (THINKING, TOOL_CALLING, CONTINUING, INBOX,
+  <p>phase:     content type of this chunk (THINKING, TOOL_REQUESTED, TOOL_CALLING, CONTINUING, INBOX,
            GENERATING, IMAGE_GENERATING, AUDIO_GENERATING, SPEECH_GENERATING, DONE)
 content:   shape depends on phase:
            - <code>str</code> for THINKING / GENERATING (token).
-           - <code>dict {"name", "arguments", "response"}</code> for TOOL_CALLING
-             (<code>arguments</code> is the dict the model passed to the tool).
+           - <code>dict {"name", "arguments", "id"}</code> for TOOL_REQUESTED: a call the model asked
+             for, before it is approved or run. Every call in a round is announced before any
+             of them runs, so a slow tool is visible while it works rather than only once it
+             returns. Exactly one TOOL_CALLING with the same <code>id</code> follows, after any chunks
+             a streaming tool yields itself.
+           - <code>dict {"name", "arguments", "response", "id"}</code> for TOOL_CALLING: a call that has
+             been dispatched, with its result (an error or a refusal is a result too).
+             <code>arguments</code> is the dict the model passed to the tool, and <code>id</code> is the
+             provider's tool-call id, the key that pairs it with its TOOL_REQUESTED.
            - <code>dict {"kind", "prompt"}</code> for CONTINUING: the loop is about to inject a
              prompt of its own, and the round that follows is that injected turn.
              <code>kind</code> is <code>PROVENANCE_CONTINUATION</code> (a nudge after an empty turn, tools
@@ -5370,7 +5399,7 @@ agent:     name of the agent that produced this chunk, or <code>None</code> for 
            <code>client.chat()</code> / <code>client.generate()</code> call. Set automatically by
            <code>Agent</code> and workflow runners.
 iteration: zero-based iteration index inside the agent loop, or <code>0</code> for plain chat.</p>
-</details>        <p>Use <code>chunk.is_text()</code> / <code>chunk.is_tool_call()</code> / <code>chunk.is_continuing()</code> /
+</details>        <p>Use <code>chunk.is_text()</code> / <code>chunk.is_tool_request()</code> / <code>chunk.is_tool_call()</code> / <code>chunk.is_continuing()</code> /
 <code>chunk.is_inbox()</code> / <code>chunk.is_image_progress()</code> / <code>chunk.is_audio_progress()</code> /
 <code>chunk.is_speech_progress()</code> / <code>chunk.is_done()</code> to dispatch on phase without repeating the
 equality check in user code.</p>
@@ -5410,6 +5439,26 @@ equality check in user code.</p>
     <div class="doc doc-contents ">
 
         <p>True if this chunk carries text (THINKING or GENERATING).</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.models.StreamChunk.is_tool_request" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">is_tool_request</span>
+
+
+<a href="#aimu.models.StreamChunk.is_tool_request" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">is_tool_request</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>True if this chunk announces a tool call that has not run yet (TOOL_REQUESTED).</p>
 
 
     </div>

@@ -2522,6 +2522,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#returning-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Returning images
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.ToolResult" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ToolResult
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ToolResult">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#aimu.tools.ToolResult.content_blocks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        content_blocks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tool-approval" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3838,6 +3877,45 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#returning-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Returning images
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.ToolResult" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ToolResult
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ToolResult">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#aimu.tools.ToolResult.content_blocks" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        content_blocks
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tool-approval" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4382,6 +4460,85 @@ validates them).</p>
 
 
 
+
+    </div>
+
+</div><h2 id="returning-images">Returning images<a class="headerlink" href="#returning-images" title="Permanent link">&para;</a></h2>
+<p>A tool's answer carrying images for the model to look at. See
+<a href="../../../how-to/add-custom-tool/#return-an-image-toolresult">add a custom tool</a> for the how-to.</p>
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="aimu.tools.ToolResult" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">aimu.tools.ToolResult</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#aimu.tools.ToolResult" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ToolResult</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">images</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ImageInput</span><span class="p">]</span> <span class="o">=</span> <span class="p">())</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>A tool's answer: <em>text</em> for the model to read, and <em>images</em> for it to look at.</p>
+<p>Each image is anything <code>chat(images=...)</code> accepts: a file path, raw bytes, a <code>data:image/...</code>
+URL, or an http(s) URL. They are normalized at construction (a path is read and base64-encoded
+there), so a missing file raises inside the tool, where the loop reports it as the tool's error,
+rather than later while a request is being built.</p>
+<p>Return it from a plain tool, or put it in a streaming tool's final chunk as <code>content["result"]</code>.</p>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="aimu.tools.ToolResult.content_blocks" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">content_blocks</span>
+
+
+<a href="#aimu.tools.ToolResult.content_blocks" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">content_blocks</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The tool message content for a vision model: the text block, then one block per image.</p>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
 
     </div>
 
@@ -6085,7 +6242,7 @@ the GIL/CUDA, and a shared <code>deps</code> object handed to concurrent spawns 
   without being written into each spec. It must be an int &gt;= 1, checked at factory-call time, because
   <code>bool</code> is an <code>int</code> subclass (so <code>True</code> would read as a cap of 1) and a cap below 1 is a loop
   that makes no model call at all.
-  <code>"compaction"</code> is the callable :class:<code>~aimu.agents.Agent</code> applies before every model turn, and it
+  <code>"compaction"</code> is the callable :class:<code>~aimu.agents.Agent</code> applies to every request, and it
   is read by <em>membership</em> rather than <code>.get()</code>: an absent key falls back to this factory's own
   <code>compaction</code> (a third key with a factory tier, alongside <code>"model"</code> and <code>"max_iterations"</code>),
   while a spec naming <code>"compaction": None</code> turns that policy off for one specialist. Those two
@@ -6325,10 +6482,10 @@ so the tool can say when the round cap ended the child.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>A <code>list[dict] -&gt; list[dict]</code> callable applied before every model turn of every
-spawned agent, so a long-running worker trims its own context rather than dying in it.
-The parent's conversation is untouched: this reaches the child's messages only. A spec's
-own <code>"compaction"</code> overrides it, and <code>"compaction": None</code> in a spec turns it off.</p>
+                <p>A <code>list[dict] -&gt; list[dict]</code> callable applied to every request of every spawned
+agent, so a long-running worker sends a trimmed context rather than dying in it; its own
+history stays whole. The parent's requests are untouched: this reaches the child's only. A
+spec's own <code>"compaction"</code> overrides it, and <code>"compaction": None</code> in a spec turns it off.</p>
               </div>
             </td>
             <td>
