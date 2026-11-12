@@ -7,6 +7,7 @@ Mirrors ``aimu.models.providers.anthropic.AnthropicClient`` using
 
 from __future__ import annotations
 
+from aimu.models._internal.chat_state import outgoing_messages
 import json
 import logging
 import os
@@ -263,7 +264,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         )
 
         if response_format is not None:
-            system_str, ant_messages = self._openai_messages_to_anthropic(self.messages)
+            system_str, ant_messages = self._openai_messages_to_anthropic(outgoing_messages(self))
             system = system_str if system_str else anthropic.NOT_GIVEN
             if stream:
                 return self._structured_call_streamed(
@@ -278,7 +279,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         if stream:
             return self._chat_streamed(generate_kwargs, tools)
 
-        system_str, ant_messages = self._openai_messages_to_anthropic(self.messages)
+        system_str, ant_messages = self._openai_messages_to_anthropic(outgoing_messages(self))
         ant_tools = self._openai_tools_to_anthropic(tools) if tools else anthropic.NOT_GIVEN
 
         payload = {
@@ -327,7 +328,7 @@ class AsyncAnthropicClient(AsyncBaseModelClient):
         return text_content
 
     async def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> AsyncIterator[StreamChunk]:
-        system_str, ant_messages = self._openai_messages_to_anthropic(self.messages)
+        system_str, ant_messages = self._openai_messages_to_anthropic(outgoing_messages(self))
         ant_tools = self._openai_tools_to_anthropic(tools) if tools else anthropic.NOT_GIVEN
 
         tool_use_acc: list[dict] = []

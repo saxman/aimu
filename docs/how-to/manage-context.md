@@ -3,10 +3,10 @@
 A conversation is `self.messages` — a plain `list[dict]`, OpenAI format — and it only grows.
 Left alone, a long-running agent eventually produces a request that no longer fits the model's
 context window. `aimu.context` is three plain functions over that list — `count_tokens`,
-`trim_messages`, `summarize_messages` — plus a `compaction=` field on `Agent` that runs one of
-them automatically before every model turn. Nothing here is a hidden policy applied inside a
-client: it's the same "plain data, plain functions" shape as `aimu.rag`, so what gets dropped and
-why is always something you can print.
+`trim_messages`, `summarize_messages` — plus a `compaction=` field on `Agent` that applies one of
+them to every request the agent sends, while the conversation itself stays whole. Nothing here is a
+policy AIMU picks for you: it's the same "plain data, plain functions" shape as `aimu.rag`, so what
+gets left out and why is always something you can print.
 
 For what each strategy costs the model (trimming a tool call erases the record that it ran, and
 the oldest message dropped is usually the task itself), see
@@ -152,9 +152,11 @@ summarization call is made.
 
 ## Automate it: `Agent(compaction=...)`
 
-Both functions above are things you call by hand. `Agent(compaction=...)` (and the per-run
-`agent.run(compaction=...)` override) runs a callable of your choice — `list[dict] -> list[dict]`
-— right before every model turn in the loop:
+Both functions above are things you call by hand, and assigning the result back is a permanent
+edit of the history. `Agent(compaction=...)` (and the per-run `agent.run(compaction=...)` override)
+takes the same kind of callable — `list[dict] -> list[dict]` — and applies it to every request the
+agent sends, while each request is built. The model is sent what it returns; `client.messages`
+keeps the whole conversation:
 
 ```python
 import logging
@@ -168,35 +170,50 @@ agent = Agent(
 agent.run("Tell me a fact about the moon.")
 agent.run("Now tell me a fact about the sun.")
 agent.run("Now tell me a fact about Mars.")
+
+[m["role"] for m in client.messages]
+# ['system', 'user', 'assistant', 'user', 'assistant', 'user', 'assistant']
+[m["role"] for m in client.last_request["messages"]]
+# ['system', 'user', 'assistant', 'user']
 ```
 
-The default is `None` — an agent that doesn't opt in behaves exactly as it did before this field
-existed. Set it to `lambda msgs: aimu.summarize_messages(client, msgs)` for the summarizing
-variant instead of trimming.
+The history holds all three exchanges. The request for the Mars question sent four messages: the
+system prompt, the moon question (pinned by `keep_first=1`), the sun answer, and the Mars question
+(`keep_last=2`). What it left out is still in `client.messages`, so a later request under a looser
+compaction, or none, sends it again. `client.last_request` is the payload the provider actually
+received.
 
-**An applied compaction is never silent.** "Applied" means it actually dropped something, judged
-by content (the callable may rebuild kept messages into new dict objects, so this isn't an
-identity check). When that happens, two things fire together: a
-[`ContextCompacted`](observe-a-run.md) event for a sink attached via `events=`, and an
-unconditional `WARNING` log — so a caller with no sink still learns their conversation was
-rewritten:
+The default is `None`: an agent that doesn't opt in sends its whole history on every request.
+Prefer a trim (or a stubbing function, see
+[Context management](../explanation/context-management.md#stubbing-results-keeps-the-record-and-drops-the-bulk))
+over `summarize_messages` here: a compaction runs on every request, so a summarizing one calls the
+summarizer before every model turn.
+
+**What a request leaves out is never silent.** When a request leaves out a message the previous
+request sent, judged by content (the callable may rebuild kept messages into new dict objects, so
+this isn't an identity check), two things fire together: a [`ContextCompacted`](observe-a-run.md)
+event for a sink attached via `events=`, carrying the messages left out, and an unconditional
+`WARNING` log, so a caller with no sink still learns the model is working from less than the
+conversation holds:
 
 ```
-WARNING Compacted conversation for agent '<agent name>': dropped 1 message(s) (~<N> -> ~<M> tokens, AIMU's own estimate).
+WARNING Compacted the request for agent '<agent name>': 2 more message(s) left out (~<N> -> ~<M> tokens sent, AIMU's own estimate). The history keeps them.
 ```
 
 The agent name, the token counts, and how many messages go all vary by run, because they depend on
-how long the model's sampled replies were. In the run shown, the one message dropped was the reply
-to the moon question. The question itself is the first message after the system prompt, so
-`keep_first=1` pinned it, and it stays in the conversation without its answer, followed directly by
-the next question. That is the price of protecting the first message in a multi-turn chat; in a
-single-task agent run, the pinned message is the task and is exactly what should survive.
+how long the model's sampled replies were. In the run shown, the moon answer and the sun question
+were left out. The moon question is the first message after the system prompt, so `keep_first=1`
+pinned it, and it is sent without its answer, followed directly by a later answer. That is the price
+of protecting the first message in a multi-turn chat; in a single-task agent run, the pinned message
+is the task and is exactly what should survive.
 
-A compaction call that returns the conversation unchanged (the common case early in a
-conversation, before the budget is actually exceeded) is a no-op and announces nothing. The
-event's `before_tokens`/`after_tokens` are AIMU's own default estimate — not a measurement of
-whatever the callable itself counted to decide what to drop; a callable using a real tokenizer or
-a word count will disagree with these numbers, which is stated rather than hidden.
+Only a change is announced. Once the conversation is over budget every request is compacted, and a
+request that leaves out exactly what the previous one did says nothing; the agent remembers that
+across runs. A request that sends something the previous one left out reports it in the event's
+`restored` list, at `INFO`. A compaction that returns the conversation unchanged announces nothing.
+The event's `before_tokens`/`after_tokens` are AIMU's own estimate of the history and of what was
+sent, not a measurement of whatever the callable itself counted; a callable using a real tokenizer
+or a word count will disagree with these numbers, which is stated rather than hidden.
 
 **If the compaction callable raises, the run raises.** A compaction that can't be trusted to run
 should stop the turn, not be silently skipped while the caller believes their context is being
@@ -229,9 +246,13 @@ from aimu.models import ContextOverflowError
 try:
     agent.run(task)
 except ContextOverflowError:
-    agent.model_client.messages = aimu.trim_messages(agent.model_client.messages, max_tokens=8000)
-    agent.run(task)
+    agent.run(task, compaction=lambda msgs: aimu.trim_messages(msgs, max_tokens=8000))
 ```
+
+The retry sends a trimmed request and leaves the history whole. To shrink the stored history
+itself instead, assign the trimmed list back
+(`agent.model_client.messages = aimu.trim_messages(...)`), a permanent edit you made and that
+nothing needs to announce.
 
 Raising the model's own context window (`generate_kwargs={"context_length": N}` on Ollama; see
 [set the context length](set-context-length.md)) is the other lever, when the model actually

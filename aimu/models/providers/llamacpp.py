@@ -1,3 +1,4 @@
+from aimu.models._internal.chat_state import outgoing_messages
 import json
 import logging
 import threading
@@ -11,7 +12,7 @@ import llama_cpp
 from ..base import StreamingContentType, StreamChunk, Model, BaseModelClient, ContextOverflowError, classproperty
 from .._catalog import Wire
 from .._internal.generate_kwargs import LOCAL_MAX_TOKENS, Unsupported
-from .._internal.image_input import _build_user_content_blocks
+from .._internal.image_input import _build_user_content_blocks, _hoist_tool_images
 from .._internal.thinking import pop_thinking
 from ._thinking import _reasoning_text, _split_thinking, _ThinkingParser
 
@@ -321,7 +322,11 @@ class LlamaCppClient(BaseModelClient):
         # let the recorded request grow the model's own answer after the fact. generate_kwargs is
         # splatted first so an accidental "messages"/"tools" key in it cannot silently override
         # the real ones.
-        payload = {**generate_kwargs, "messages": list(self.messages), "tools": tools if tools else None}
+        payload = {
+            **generate_kwargs,
+            "messages": _hoist_tool_images(list(outgoing_messages(self))),
+            "tools": tools if tools else None,
+        }
         self._record_request(payload)
         _raise_if_prompt_overflows(self._llm, payload["messages"])
         response = self._llm.create_chat_completion(**payload)
@@ -368,7 +373,7 @@ class LlamaCppClient(BaseModelClient):
         # otherwise quietly disable streaming instead of raising).
         payload = {
             **generate_kwargs,
-            "messages": list(self.messages),
+            "messages": _hoist_tool_images(list(outgoing_messages(self))),
             "stream": True,
             "tools": tools if tools else None,
         }

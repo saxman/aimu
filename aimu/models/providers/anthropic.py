@@ -1,3 +1,4 @@
+from aimu.models._internal.chat_state import outgoing_messages
 import json
 import logging
 import os
@@ -916,11 +917,20 @@ class AnthropicClient(BaseModelClient):
                 tool_results = []
                 while i < len(messages) and messages[i]["role"] == "tool":
                     tm = messages[i]
+                    content = tm["content"]
+                    if isinstance(content, list):
+                        # A tool result carrying images (aimu.tools.result). Anthropic takes image
+                        # blocks inside a tool_result directly; an empty text block it rejects.
+                        content = [
+                            block
+                            for block in _openai_blocks_to_anthropic(content)
+                            if block.get("type") != "text" or block["text"].strip()
+                        ]
                     tool_results.append(
                         {
                             "type": "tool_result",
                             "tool_use_id": tm["tool_call_id"],
-                            "content": tm["content"],
+                            "content": content,
                         }
                     )
                     i += 1
@@ -1085,7 +1095,7 @@ class AnthropicClient(BaseModelClient):
         generate_kwargs, tools = self._chat_setup(user_message, generate_kwargs, use_tools, images=images, audio=audio)
 
         if response_format is not None:
-            system_str, ant_messages = self._openai_messages_to_anthropic(self.messages)
+            system_str, ant_messages = self._openai_messages_to_anthropic(outgoing_messages(self))
             system = system_str if system_str else anthropic.NOT_GIVEN
             if stream:
                 return self._structured_call_streamed(
@@ -1100,7 +1110,7 @@ class AnthropicClient(BaseModelClient):
         if stream:
             return self._chat_streamed(generate_kwargs, tools)
 
-        system_str, ant_messages = self._openai_messages_to_anthropic(self.messages)
+        system_str, ant_messages = self._openai_messages_to_anthropic(outgoing_messages(self))
         ant_tools = self._openai_tools_to_anthropic(tools) if tools else anthropic.NOT_GIVEN
 
         payload = {
@@ -1150,7 +1160,7 @@ class AnthropicClient(BaseModelClient):
         return text_content
 
     def _chat_streamed(self, generate_kwargs: dict[str, Any], tools: list) -> Iterator[StreamChunk]:
-        system_str, ant_messages = self._openai_messages_to_anthropic(self.messages)
+        system_str, ant_messages = self._openai_messages_to_anthropic(outgoing_messages(self))
         ant_tools = self._openai_tools_to_anthropic(tools) if tools else anthropic.NOT_GIVEN
 
         # Accumulated state from first stream pass

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections import Counter
 from contextlib import closing
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Iterator, Optional, Union
@@ -123,20 +124,14 @@ class Agent(_AgentLoopMixin, Runner):
     # runs immediately. (The async surface has a bounded residual on that last case -- see
     # aio.Agent.events and docs/how-to/observe-a-run.md.)
     events: Optional[EventSink] = None
-    # None (default): the loop never rewrites model_client.messages on its own -- an agent that
-    # doesn't opt in behaves exactly as it did before this field existed. Set to a callable such
-    # as ``lambda msgs: trim_messages(msgs, max_tokens=8000)`` or
-    # ``lambda msgs: summarize_messages(client, msgs)`` (see aimu.context) to compact automatically
-    # before every model turn. An *applied* compaction (one that actually dropped a message,
-    # judged by content -- not identity, since the callable may rebuild kept messages into new
-    # dict objects) is never silent: it emits a ContextCompacted event for a caller with a sink
-    # attached, and logs a WARNING unconditionally, so a caller without one still learns their
-    # conversation was rewritten (see _ToolLoop._maybe_compact for the full rationale). A
-    # compaction that returns the conversation unchanged is a no-op and announces nothing. The
-    # event's before_tokens/after_tokens are AIMU's own default estimate, not a measurement of
-    # whatever counter the callable itself used. If the callable raises, the run raises (fail
-    # loud): a compaction that cannot be trusted to run should stop the turn, not be silently
-    # skipped while the caller believes their context is being managed.
+    # None (default): every request sends the whole conversation. Set to a callable such as
+    # ``lambda msgs: trim_messages(msgs, max_tokens=8000)`` (see aimu.context) and every request of
+    # every run sends what it returns instead. It decides what the model is sent, never what the
+    # conversation holds: model_client.messages keeps the full history. What it leaves out is
+    # announced when that changes (a ContextCompacted event for a sink, a WARNING regardless; see
+    # _BaseToolLoop._compacted_request for the full rationale), judged by content, not identity. If
+    # the callable raises, the run raises: a compaction that cannot be trusted to run should stop
+    # the turn, not be silently skipped while the caller believes their context is being managed.
     compaction: Optional[Callable[[list[dict]], list[dict]]] = None
     inbox: Optional[Inbox] = None
     concurrent_tool_calls: bool = False
@@ -149,6 +144,9 @@ class Agent(_AgentLoopMixin, Runner):
     # concurrent_tool_calls dispatches sync tools on a thread pool, so two loads can arrive at once.
     _group_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
     _last_messages: list = field(default_factory=list, init=False, repr=False)
+    # What this agent's last compacted request left out, so a run announces a change in that
+    # rather than re-announcing every omission an earlier run already reported.
+    _compaction_omitted: Counter = field(default_factory=Counter, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.name is None:
@@ -389,6 +387,7 @@ class Agent(_AgentLoopMixin, Runner):
             inbox=inbox if inbox is not None else self.inbox,
             run_id=run_id,
             parent_run_id=parent_run_id,
+            compaction_omitted=self._compaction_omitted,
         )
 
     def _run_streamed(

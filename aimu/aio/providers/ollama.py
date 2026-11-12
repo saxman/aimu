@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from aimu.models._internal.chat_state import outgoing_messages
 import asyncio
 import logging
 from typing import AsyncIterator, Optional, Union
@@ -221,7 +222,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
             return self._chat_streamed(generate_kwargs, tools, response_format=response_format)
 
         think = self._pop_think(generate_kwargs)
-        messages = _adapt_messages_for_ollama(self.messages)
+        messages = _adapt_messages_for_ollama(outgoing_messages(self))
         payload = {
             "model": self.model.value,
             "messages": messages,
@@ -265,7 +266,7 @@ class AsyncOllamaClient(AsyncBaseModelClient):
         self._record_stop_reason(None)
 
         think = self._pop_think(generate_kwargs)
-        messages = _adapt_messages_for_ollama(self.messages)
+        messages = _adapt_messages_for_ollama(outgoing_messages(self))
         payload = {
             "model": self.model.value,
             "messages": messages,

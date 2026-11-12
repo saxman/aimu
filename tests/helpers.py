@@ -5,6 +5,7 @@ Kept in a regular module (not conftest.py) so static type checkers can resolve
 imports from it. pytest hooks and fixtures still live in conftest.py.
 """
 
+from aimu.models._internal.chat_state import outgoing_messages
 import time
 from typing import Iterator
 from unittest.mock import MagicMock
@@ -98,6 +99,8 @@ class MockModelClient(BaseModelClient):
         self._streaming_content_type = StreamingContentType.DONE
         self._responses = list(responses)
         self._call_count = 0
+        self.sent: list[list[dict]] = []
+        self._generating = False
 
     def _resolve_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
@@ -118,6 +121,10 @@ class MockModelClient(BaseModelClient):
                 self.messages.append({"role": "user", "content": _build_audio_content_blocks(user_message, audio)})
             else:
                 self.messages.append({"role": "user", "content": user_message})
+        if not self._generating:
+            # What a real provider does at this point: build the request from the history, compacted
+            # if a run asked for that. Kept so a test can assert on what the model was sent.
+            self.sent.append(list(outgoing_messages(self)))
         response = self._responses[self._call_count]
         self._call_count += 1
 
@@ -164,7 +171,13 @@ class MockModelClient(BaseModelClient):
     def _generate(self, prompt, generate_kwargs=None, stream=False, images=None, audio=None):
         if stream:
             return self._generate_streamed(prompt, generate_kwargs)
-        return self._chat(prompt, generate_kwargs, images=images)
+        # A real generate() sends its own prompt, never the history, so it is never compacted; this
+        # mock reuses _chat to produce the reply, so it says so rather than "sending" the history.
+        self._generating = True
+        try:
+            return self._chat(prompt, generate_kwargs, images=images)
+        finally:
+            self._generating = False
 
     def _generate_streamed(self, prompt, generate_kwargs=None):
         self._streaming_content_type = StreamingContentType.GENERATING

@@ -200,11 +200,32 @@ Three rules cover the contract:
 
 1. **The decorator detects it automatically.** `@aimu.tool` sets `func.__tool_is_streaming__ = True` when the function is a generator (`inspect.isgeneratorfunction`) or async generator (`inspect.isasyncgenfunction`). No opt-in flag.
 2. **Yield any phase that fits.** `GENERATING` for text progress, `IMAGE_GENERATING` for image-gen progress, future custom phases as needed. The agent forwards each chunk untouched (it only adds the `agent` and `iteration` metadata fields).
-3. **The result comes from one of three places**, in priority order: the generator's `return` value (sync only, via `StopIteration.value`); the last yielded chunk's `content["result"]` if it's a dict with that key (matches the `IMAGE_GENERATING` final-chunk convention); or `str(last_chunk.content)`.
+3. **The result comes from one of three places**, in priority order: the generator's `return` value (sync only, via `StopIteration.value`); the last yielded chunk's `content["result"]` if it's a dict with that key (matches the `IMAGE_GENERATING` final-chunk convention); or `str(last_chunk.content)`. Either of the first two may be a `ToolResult` (see below).
 
 Async streaming tools are async generators (`async def + yield`); the async agent's tool-loop engine drains them with `async for`. Sync generator tools also work in the async surface: each `next()` is routed through `asyncio.to_thread` so the event loop stays free between yields.
 
 Streaming tools require `stream=True` on `agent.run()`. The non-streaming dispatch path raises `ValueError` with a clear message pointing at `stream=True`.
+
+## Return an image (`ToolResult`)
+
+A tool's answer reaches the model as text, so a tool that makes or fetches an image could otherwise only tell the model where the image is. Return `ToolResult` to hand the model the image as well:
+
+```python
+import aimu
+from aimu.tools import ToolResult
+
+@aimu.tool
+def render_chart(series: str) -> ToolResult:
+    """Render a chart of a named series."""
+    path = _draw(series)  # imaginary: writes a PNG and returns its path
+    return ToolResult(f"Rendered {series} to {path}.", images=[path])
+```
+
+- **`images=`** takes what `chat(images=...)` takes: a file path, raw bytes, a `data:image/...` URL, or an http(s) URL. A path is read at construction, so a missing file raises inside the tool and the model is told the tool failed.
+- **The stored tool message** becomes the content-block list a user image already uses (`[{"type": "text", ...}, {"type": "image_url", ...}]`), and each provider adapts it at request time; see [Handle vision input](handle-vision.md#images-from-tools).
+- **A model without vision** (`supports_vision=False`) is sent the text alone, so a tool can return images unconditionally.
+- **`ToolCalled.result` and the `TOOL_CALLING` chunk's `response`** stay the text, and `str(result)` is the text, so nothing that reads a tool's answer as a string changes.
+- **The image is re-sent with every later request** in that conversation, like a user's image. Keep the images a tool returns to the ones the model needs to look at.
 
 ## See also
 

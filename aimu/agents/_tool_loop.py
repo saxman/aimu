@@ -41,6 +41,7 @@ from aimu.events import (
 from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER, PROVENANCE_KEY
 from aimu.models.base import StreamChunk, StreamingContentType
 from aimu.tools.approval import Denied
+from aimu.tools.result import ToolResult, tool_message_text
 
 logger = logging.getLogger(__name__)
 
@@ -219,6 +220,23 @@ def last_turn_called_tools(messages: list[dict]) -> bool:
     return classify_terminal_turn(messages) == TERMINAL_PENDING_TOOLS
 
 
+def _content_key(message: dict) -> str:
+    """A message's identity for compaction bookkeeping: its content, serialized, never its ``id()``."""
+    return json.dumps(message, sort_keys=True, default=str)
+
+
+def _take(messages: list[dict], counts: Counter) -> list[dict]:
+    """The messages of *messages* that *counts* names, one per count, in order. Does not mutate *counts*."""
+    wanted = Counter(counts)
+    taken = []
+    for message in messages:
+        key = _content_key(message)
+        if wanted[key] > 0:
+            wanted[key] -= 1
+            taken.append(message)
+    return taken
+
+
 def _dropped_by_content(before: list[dict], after: list[dict]) -> list[dict]:
     """Multiset diff of *before* against *after*, by JSON-serialized content, not identity.
 
@@ -226,8 +244,8 @@ def _dropped_by_content(before: list[dict], after: list[dict]) -> list[dict]:
     removes messages -- a plausible normalize/dedupe rebuilds every kept message into a new
     dict object (e.g. ``lambda msgs: [dict(m) for m in msgs]``). Comparing by identity
     (``id()``) would then report every message as "dropped" even though nothing was actually
-    removed, which is exactly the every-turn false alarm the no-op guard in
-    :meth:`_BaseToolLoop._maybe_compact` exists to prevent, reached through a different door.
+    removed, which is exactly the every-request false alarm the change-only announcement in
+    :meth:`_BaseToolLoop._compacted_request` exists to prevent, reached through a different door.
     Comparing by content means a rebuild-without-removal correctly yields no diff.
 
     Multiset (not set) semantics: matches are consumed one-for-one via a ``Counter``, so two
@@ -236,10 +254,10 @@ def _dropped_by_content(before: list[dict], after: list[dict]) -> list[dict]:
     double-count). Order of *before* determines which duplicate is reported dropped, which
     doesn't matter since the messages are content-identical.
     """
-    remaining = Counter(json.dumps(m, sort_keys=True, default=str) for m in after)
+    remaining = Counter(_content_key(m) for m in after)
     dropped = []
     for message in before:
-        key = json.dumps(message, sort_keys=True, default=str)
+        key = _content_key(message)
         if remaining[key] > 0:
             remaining[key] -= 1
         else:
@@ -279,6 +297,7 @@ class _BaseToolLoop:
         inbox: Optional["Inbox"] = None,
         run_id: Optional[str] = None,
         parent_run_id: Optional[str] = None,
+        compaction_omitted: Optional[Counter] = None,
     ):
         # ``tools`` is either the tool-callable list, or a zero-arg callable returning it
         # (re-read each round so tools added mid-run — e.g. SkillAgent.reload_skills authoring a
@@ -300,12 +319,14 @@ class _BaseToolLoop:
         self._run_id = run_id or new_run_id(agent_name)
         self._events = _identifying(events, self._run_id, parent_run_id)
         self._agent_name = agent_name
-        # None (default): the loop never touches model_client.messages on its own, so an
-        # existing run is byte-identical to before this field existed. Set, it is applied
-        # (see _maybe_compact) before every model turn -- an automatic rewrite of history the
-        # caller still believes is present, which is a bigger silent change than any kwarg
-        # drop principle 6 was written about, so an applied compaction is never silent.
+        # None (default): every request sends the whole history. Set, it decides what each
+        # request of this run sends (see _compacted_request), and model_client.messages is never
+        # rewritten. What it leaves out is announced whenever that changes, never silently.
         self._compaction = compaction
+        # What the previous compacted request left out, as content keys. Owned by the Agent and
+        # passed in, so it outlives one run: a conversation that keeps leaving the same old
+        # messages out is announced when that starts, not again on every later run.
+        self._compaction_omitted = compaction_omitted if compaction_omitted is not None else Counter()
         # The host's source of mid-run user messages, and this run's own cursor over it. The
         # cursor is opened once per run (see _open_inbox) rather than per call, because the
         # source hands out one per reader and a run is what a reader identifies.
@@ -409,7 +430,7 @@ class _BaseToolLoop:
         No event is emitted. ``ToolDenied`` is the nearest fit in shape but means an approval
         policy refused the call, and a sink cannot tell a real denial from this one if both use it;
         the ``WARNING`` is what keeps the synthesis from being silent, matching
-        :meth:`_maybe_compact`'s unconditional log for the other place the loop rewrites history.
+        :meth:`_compacted_request`'s unconditional log when a request starts leaving messages out.
 
         Deliberately not routed through :meth:`_pending`, whose scan walks back past an empty
         terminal turn to an *older*, already-answered tool turn. That is harmless where it is used
@@ -563,58 +584,52 @@ class _BaseToolLoop:
             iteration=iteration,
         )
 
-    def _maybe_compact(self) -> None:
-        """Apply the configured ``compaction`` callable to ``self._client.messages``, if any,
-        right before the next model turn. No-op when ``compaction`` is unset (the default):
-        the loop then never touches ``model_client.messages`` on its own, so an agent that
-        doesn't opt in is byte-identical to one from before this field existed.
+    def _request_compaction(self) -> Optional[Callable[[list[dict]], list[dict]]]:
+        """The hook this run installs on its client (``_compaction_override``), or None for none."""
+        return self._compacted_request if self._compaction is not None else None
 
-        An *applied* compaction (one that actually dropped something) is never silent, per
-        principle 6 ("warns and says what it dropped, rather than quietly changing what you
-        asked for"): silently rewriting history the caller still believes is present is a
-        bigger quiet change than any kwarg drop that principle protects against. So it is
-        announced twice -- a :class:`~aimu.events.ContextCompacted` event carrying the
-        removed messages for a caller with a sink (:func:`~aimu.events.emit` is a no-op
-        without one), and a ``WARNING`` log line unconditionally, so a caller with no sink
-        attached still learns their conversation was rewritten.
+    def _compacted_request(self, messages: list[dict]) -> list[dict]:
+        """What the request being built sends in place of *messages*, the conversation's full history.
 
-        A compaction that returns the conversation unchanged -- the common case on a short
-        conversation, since :func:`~aimu.context.trim_messages` and
-        :func:`~aimu.context.summarize_messages` are themselves no-ops under budget --
-        produces neither: a WARNING on every turn of every short conversation would train
-        callers to ignore it, and then it would say nothing the one time it mattered.
+        The client calls this once per request while it builds it (see
+        ``aimu.models._internal.chat_state.outgoing_messages``), after the turn's own prompt has been appended, so the
+        compaction sees exactly what the request would otherwise carry. Its result is sent and then
+        discarded: ``model_client.messages`` is never rewritten, so nothing a compaction leaves out is
+        lost, and a different compaction on a later request (a per-run override, say) can send it again.
 
-        "Dropped" is computed by content (:func:`_dropped_by_content`), not identity: the
-        ``compaction`` type, ``list[dict] -> list[dict]``, does not promise the callable only
-        ever removes messages -- a plausible normalize/dedupe rebuilds every kept message into
-        a new dict object, and comparing by ``id()`` would then report every message as
-        dropped even though nothing was removed, reintroducing the every-turn false alarm the
-        no-op guard above exists to prevent, just through a different door.
+        **What it leaves out is announced when that changes**, per principle 6: a model working from
+        less than the conversation holds is the kind of quiet change that principle forbids. So when
+        a request omits a message the previous one sent, a :class:`~aimu.events.ContextCompacted`
+        event carries it (``dropped``) for a caller with a sink, and a ``WARNING`` is logged
+        unconditionally for one without. When a request sends one the previous left out, the event
+        carries it as ``restored``, logged at ``INFO``, since nothing was lost. A request that omits
+        what the previous one omitted announces nothing: once a conversation is over budget every
+        request is compacted, and a warning per request would train callers to ignore it. "The
+        previous request" is remembered by the Agent (``compaction_omitted``), so it spans runs.
 
-        The announced ``before_tokens``/``after_tokens`` are AIMU's own default estimate (see
-        :func:`aimu.context.count_tokens`), computed independently of whatever the
-        ``compaction`` callable itself used to decide what to drop. They will not match a
-        compaction that counted with a real tokenizer, a word count, or any other budget --
-        that is stated rather than hidden, since AIMU cannot see inside an opaque callable to
-        know what it actually counted. Treat them as rough orientation ("compaction ran, and
-        shrank the conversation by about this much"), not a claim about the number that drove
-        the decision.
+        Omission is judged by content (:func:`_dropped_by_content`), not identity, so a callable that
+        rebuilds every dict without removing anything omits nothing, and a message it shortens counts
+        as omitted, reported with its original content. ``before_tokens``/``after_tokens`` are AIMU's
+        own estimate (:func:`aimu.context.count_tokens`) of the history and of what is sent, not
+        whatever the callable counted.
 
-        If ``compaction`` itself raises, the exception propagates uncaught (fail loud, matching
-        the run's own exception handling in :meth:`run`/:meth:`run_streamed`): a compaction that
-        cannot be trusted to run correctly should stop the turn, not be silently skipped while
-        the caller continues to believe their context is being managed -- the same reasoning
-        that makes an unhandled tool bug visible rather than swallowed for the tools that matter.
+        If ``compaction`` raises, the exception propagates through the request and stops the run: a
+        compaction that cannot be trusted to run should stop the turn, not be skipped while the caller
+        believes their context is being managed.
         """
-        if self._compaction is None:
-            return
-        before = list(self._client.messages)
-        after = self._compaction(before)
-        dropped = _dropped_by_content(before, after)
-        if not dropped:
-            return
-        self._client.messages = after
-        before_tokens = count_tokens(before)
+        after = self._compaction(messages)
+        omitted = _dropped_by_content(messages, after)
+        now = Counter(_content_key(message) for message in omitted)
+        previously = self._compaction_omitted
+        newly_counts = now - previously
+        restored_counts = previously - now
+        dropped = _take(omitted, newly_counts)
+        restored = [copy.deepcopy(message) for message in _take(after, restored_counts)]
+        self._compaction_omitted.clear()
+        self._compaction_omitted.update(now)
+        if not dropped and not restored:
+            return after
+        before_tokens = count_tokens(messages)
         after_tokens = count_tokens(after)
         emit(
             self._events,
@@ -624,15 +639,25 @@ class _BaseToolLoop:
                 dropped=dropped,
                 before_tokens=before_tokens,
                 after_tokens=after_tokens,
+                restored=restored,
             ),
         )
-        logger.warning(
-            "Compacted conversation for agent '%s': dropped %d message(s) (~%d -> ~%d tokens, AIMU's own estimate).",
-            self._agent_name,
-            len(dropped),
-            before_tokens,
-            after_tokens,
-        )
+        if dropped:
+            logger.warning(
+                "Compacted the request for agent '%s': %d more message(s) left out (~%d -> ~%d tokens sent, "
+                "AIMU's own estimate). The history keeps them.",
+                self._agent_name,
+                len(dropped),
+                before_tokens,
+                after_tokens,
+            )
+        if restored:
+            logger.info(
+                "The request for agent '%s' sends %d message(s) its compaction had left out.",
+                self._agent_name,
+                len(restored),
+            )
+        return after
 
     def _tool_call_kwargs(self, fn: Callable, arguments: dict) -> dict:
         """Coerce model-supplied args to the tool's hints and inject ``ToolContext(deps)``."""
@@ -647,6 +672,19 @@ class _BaseToolLoop:
             for name in injected:
                 kwargs[name] = ctx
         return kwargs
+
+    def _tool_message(self, tc: dict, tc_id: str, response: Any) -> dict:
+        """The ``role: "tool"`` message for a call that answered *response*.
+
+        A ``ToolResult`` carrying images becomes a content-block list, but only on a vision model: a
+        text-only model is sent the text alone, a valid request where the image blocks would not be.
+        See ``aimu.tools.result``.
+        """
+        message = {"role": "tool", "name": tc["name"], "content": str(response), "tool_call_id": tc_id}
+        model = getattr(self._client, "model", None)
+        if isinstance(response, ToolResult) and response.images and getattr(model, "supports_vision", False):
+            message["content"] = response.content_blocks()
+        return message
 
     def _not_approved(self, tc: dict, tc_id: str, iteration: int = 0, reason: str = "") -> dict:
         """The tool message a refused call gets, carrying the policy's *reason* when it gave one.
@@ -696,8 +734,10 @@ class _ToolLoop(_BaseToolLoop):
         last_iteration = 0
         self._current_iteration = 0
         try:
-            with self._client._events_override(self._attributing_sink()):
-                self._maybe_compact()
+            with (
+                self._client._events_override(self._attributing_sink()),
+                self._client._compaction_override(self._request_compaction()),
+            ):
                 response = self._client.chat(
                     user_message,
                     generate_kwargs=generate_kwargs,
@@ -718,7 +758,6 @@ class _ToolLoop(_BaseToolLoop):
                         message = self._take_message()
                         if message is not None:
                             self._extend_budget(chats)
-                        self._maybe_compact()
                         response = self._client.chat(
                             message,
                             generate_kwargs=generate_kwargs,
@@ -737,7 +776,6 @@ class _ToolLoop(_BaseToolLoop):
                         message = self._take_message()
                         if message is not None:
                             self._extend_budget(chats)
-                        self._maybe_compact()
                         injected_at = len(self._client.messages)
                         response = self._client.chat(
                             message if message is not None else self._continuation_prompt,
@@ -760,7 +798,6 @@ class _ToolLoop(_BaseToolLoop):
                         # all: a turn that calls one tool and then answers offers no other window.
                         self._current_iteration = chats
                         self._extend_budget(chats)
-                        self._maybe_compact()
                         response = self._client.chat(
                             message,
                             generate_kwargs=generate_kwargs,
@@ -794,8 +831,10 @@ class _ToolLoop(_BaseToolLoop):
         iteration = 0
         self._current_iteration = 0
         try:
-            with self._client._events_override(self._attributing_sink()):
-                self._maybe_compact()
+            with (
+                self._client._events_override(self._attributing_sink()),
+                self._client._compaction_override(self._request_compaction()),
+            ):
                 yield from self._retag(
                     self._client.chat(
                         user_message,
@@ -820,7 +859,6 @@ class _ToolLoop(_BaseToolLoop):
                         if message is not None:
                             self._extend_budget(iteration)
                             yield self._message_chunk(message, iteration)
-                        self._maybe_compact()
                         yield from self._retag(
                             self._client.chat(
                                 message,
@@ -838,7 +876,6 @@ class _ToolLoop(_BaseToolLoop):
                         # A real user message is a better resumption than the generic nudge, so a
                         # pending one replaces it rather than queuing behind it.
                         message = self._take_message()
-                        self._maybe_compact()
                         injected_at = len(self._client.messages)
                         if message is None:
                             yield self._boundary_chunk(PROVENANCE_CONTINUATION, self._continuation_prompt, iteration)
@@ -870,7 +907,6 @@ class _ToolLoop(_BaseToolLoop):
                         iteration += 1
                         self._current_iteration = iteration
                         self._extend_budget(iteration)
-                        self._maybe_compact()
                         yield self._message_chunk(message, iteration)
                         yield from self._retag(
                             self._client.chat(
@@ -891,7 +927,6 @@ class _ToolLoop(_BaseToolLoop):
                     # Before injected_at is read: the wrap-up prompt must still be the message at
                     # that index for _tag_injected to find (it tags a user message and nothing else).
                     self._settle_pending_tools()
-                    self._maybe_compact()
                     injected_at = len(self._client.messages)
                     prompt = self._wrap_up_prompt()
                     yield self._boundary_chunk(PROVENANCE_FINAL_ANSWER, prompt, iteration)
@@ -937,7 +972,6 @@ class _ToolLoop(_BaseToolLoop):
         # Before injected_at is read: the wrap-up prompt must still be the message at that
         # index for _tag_injected to find (it tags a user message and nothing else).
         self._settle_pending_tools()
-        self._maybe_compact()
         injected_at = len(self._client.messages)
         response = self._client.chat(
             self._wrap_up_prompt(),
@@ -1007,7 +1041,7 @@ class _ToolLoop(_BaseToolLoop):
                 results = [f.result() for f in futures]
             for (tc, tc_id), result_msg in zip(prepared, results):
                 self._client._append_message(result_msg)
-                yield _tool_chunk(tc, tc_id, result_msg["content"])
+                yield _tool_chunk(tc, tc_id, tool_message_text(result_msg["content"]))
             return
 
         for tc, tc_id in prepared:
@@ -1045,10 +1079,10 @@ class _ToolLoop(_BaseToolLoop):
                         response = last_content if last_content is not None else "(no response)"
                     content = str(response)
                 except ToolArgumentError as exc:
-                    content = str(exc)
+                    response = content = str(exc)
                     error_str = content
                 except Exception as exc:
-                    content = f"Tool '{tc['name']}' raised an error: {exc}"
+                    response = content = f"Tool '{tc['name']}' raised an error: {exc}"
                     error_str = str(exc)
                     logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
                 emit(
@@ -1063,12 +1097,12 @@ class _ToolLoop(_BaseToolLoop):
                         duration_s=time.monotonic() - started,
                     ),
                 )
-                result_msg = {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
+                result_msg = self._tool_message(tc, tc_id, response)
             else:
                 result_msg = self._call_plain_tool(tc, tc_id, iteration)
 
             self._client._append_message(result_msg)
-            yield _tool_chunk(tc, tc_id, result_msg["content"])
+            yield _tool_chunk(tc, tc_id, tool_message_text(result_msg["content"]))
 
     def _call_plain_tool(self, tc: dict, tc_id: str, iteration: int = 0) -> dict:
         """Dispatch one non-streaming tool call. Returns the ``role:"tool"`` message dict."""
@@ -1113,10 +1147,10 @@ class _ToolLoop(_BaseToolLoop):
             response = fn(**self._tool_call_kwargs(fn, tc["arguments"]))
             content = str(response)
         except ToolArgumentError as exc:
-            content = str(exc)
+            response = content = str(exc)
             error_str = content
         except Exception as exc:
-            content = f"Tool '{tc['name']}' raised an error: {exc}"
+            response = content = f"Tool '{tc['name']}' raised an error: {exc}"
             error_str = str(exc)
             logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
         emit(
@@ -1131,7 +1165,7 @@ class _ToolLoop(_BaseToolLoop):
                 duration_s=time.monotonic() - started,
             ),
         )
-        return {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
+        return self._tool_message(tc, tc_id, response)
 
     def _tool_call_approved(self, name: str, arguments: dict) -> "bool | Denied":
         """Run the approval policy (default approves everything). Rejects a coroutine policy.

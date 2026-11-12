@@ -1,3 +1,4 @@
+from aimu.models._internal.chat_state import outgoing_messages
 from ..base import (
     ContextOverflowError,
     ModelNotInstalledError,
@@ -453,7 +454,7 @@ class OllamaClient(BaseModelClient):
             return self._chat_streamed(generate_kwargs, tools, response_format=response_format)
 
         think = self._pop_think(generate_kwargs)
-        messages = _adapt_messages_for_ollama(self.messages)
+        messages = _adapt_messages_for_ollama(outgoing_messages(self))
         payload = {
             "model": self.model.value,
             "messages": messages,
@@ -505,7 +506,7 @@ class OllamaClient(BaseModelClient):
         # non-empty content (so empty/transitional/done parts never surface as stray output).
         think = self._pop_think(generate_kwargs)
         turn: dict = {}
-        messages = _adapt_messages_for_ollama(self.messages)
+        messages = _adapt_messages_for_ollama(outgoing_messages(self))
         payload = {
             "model": self.model.value,
             "messages": messages,

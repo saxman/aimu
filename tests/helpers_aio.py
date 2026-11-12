@@ -6,6 +6,7 @@ for the async surface (``aimu.aio``).
 
 from __future__ import annotations
 
+from aimu.models._internal.chat_state import outgoing_messages
 import time
 from typing import AsyncIterator
 from unittest.mock import MagicMock
@@ -77,6 +78,8 @@ class MockAsyncModelClient(AsyncBaseModelClient):
         self.events = None
         self._responses = list(responses)
         self._call_count = 0
+        self.sent: list[list[dict]] = []
+        self._generating = False
 
     def _resolve_generate_kwargs(self, generate_kwargs=None):
         return generate_kwargs or {}
@@ -98,6 +101,10 @@ class MockAsyncModelClient(AsyncBaseModelClient):
                 self.messages.append({"role": "user", "content": _build_user_content_blocks(user_message, images)})
             else:
                 self.messages.append({"role": "user", "content": user_message})
+        if not self._generating:
+            # What a real provider does at this point: build the request from the history, compacted
+            # if a run asked for that. Kept so a test can assert on what the model was sent.
+            self.sent.append(list(outgoing_messages(self)))
         response = self._responses[self._call_count]
         self._call_count += 1
 
@@ -142,7 +149,13 @@ class MockAsyncModelClient(AsyncBaseModelClient):
     async def _generate(self, prompt, generate_kwargs=None, stream=False, images=None, audio=None):
         if stream:
             return self._generate_streamed(prompt, generate_kwargs)
-        return await self._chat(prompt, generate_kwargs, images=images)
+        # A real generate() sends its own prompt, never the history, so it is never compacted; this
+        # mock reuses _chat to produce the reply, so it says so rather than "sending" the history.
+        self._generating = True
+        try:
+            return await self._chat(prompt, generate_kwargs, images=images)
+        finally:
+            self._generating = False
 
     async def _generate_streamed(self, prompt, generate_kwargs=None) -> AsyncIterator[StreamChunk]:
         text = await self._generate(prompt, generate_kwargs)

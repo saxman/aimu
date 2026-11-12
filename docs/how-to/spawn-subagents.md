@@ -59,7 +59,7 @@ Caveats:
 
 A sub-agent starts from the task string alone, so what fills its window is the output of the tools *it* called. Two things follow.
 
-**Give a long-running worker a `compaction` callable** and every spawned agent trims its own messages before each model turn, exactly as [`Agent(compaction=...)`](manage-context.md) does. The parent's conversation is never touched; this reaches the child's messages only.
+**Give a long-running worker a `compaction` callable** and every request a spawned agent sends is trimmed, exactly as [`Agent(compaction=...)`](manage-context.md) does: the worker's own history stays whole, and only what each of its requests carries is compacted. The parent's requests are never touched; this reaches the child's only.
 
 ```python
 from aimu.context import trim_messages

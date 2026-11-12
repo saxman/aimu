@@ -13,6 +13,42 @@
   than by position. `StreamChunk.is_tool_request()` is the predicate. The bundled channels and
   `print_stream` ignore the phase, so their output is unchanged; a consumer that dispatches on phase
   with an `else` branch will now see it there.
+- **Change: `compaction=` decides what each request sends, and no longer rewrites the conversation.**
+  `Agent(compaction=...)`, `agent.run(compaction=...)`, and the spawn tools' `compaction` used to replace
+  `client.messages` with the callable's result before each model turn, so whatever a compaction left
+  out was gone for good, and the conversation a host persisted or rendered lost it too. The callable
+  now runs while each request is built, on a copy of the history: the model is sent what it returns,
+  `client.messages` keeps everything, and `client.last_request` / `RequestPrepared` record the
+  compacted payload. So a later request under a different compaction (or none) can send what an
+  earlier one left out, and compacting a conversation someone is reading hides nothing from them.
+  `ContextCompacted` now reports a *change* in what requests leave out: `dropped` is what this request
+  leaves out that the previous one of the same agent sent (remembered across runs), and the new
+  `restored` field is what it sends that the previous one left out. Leaving out the same messages as
+  before announces nothing, where every request of an over-budget conversation would otherwise warn.
+  The WARNING now reads "Compacted the request for agent ..." and ends "The history keeps them."
+  Three things to check in existing code: a caller that relied on `client.messages` shrinking should
+  assign `client.messages = trim_messages(...)` itself; a compaction now sees the turn's own prompt,
+  since it runs after that is appended; and `summarize_messages` as a compaction calls the summarizer
+  on every request, over a growing stretch of history, so it suits a manual edit better. A
+  "trigger at 75%, trim to 50%" headroom compaction no longer buys several turns, because the history
+  it trims from keeps growing; [Context management](docs/explanation/context-management.md) shows a
+  stepped trim that does.
+
+### Tools
+
+- **New: `aimu.tools.ToolResult`, so a tool can hand the model an image.** Both tool loops built a
+  tool message's content with `str(response)`, so a tool that generated or fetched an image could only
+  tell the model where it was: a vision model that could look at an image the user attached could not
+  look at one its own tool made. A tool (or a streaming tool's final chunk, as `content["result"]`)
+  may now return `ToolResult(text, images=[...])`, taking what `chat(images=...)` takes. On a vision
+  model the stored tool message's `content` becomes the canonical content-block list; on a model
+  without vision it is the text alone. Anthropic receives the images inside the `tool_result`, Ollama
+  on the tool message's `images`, and the OpenAI-format servers (OpenAI, Gemini, OpenAI-compatible,
+  llama-cpp, HuggingFace templates), whose tool role is text-only, in one `user` message after the run
+  of tool results, each group labelled with the tool that returned it. `ToolCalled.result`, the
+  `TOOL_CALLING` chunk's `response`, and `str(result)` all stay the text. A tool message's `content`
+  can therefore now be a list: code reading it as a string should use
+  `aimu.tools.result.tool_message_text`.
 
 ## v0.39.0 (2026-11-11): Claude 5.5 models, Nemotron 3.5, opt-in Ollama pulling and `aimu.pull()`, `make_page_tools`, and compaction that keeps the task
 
