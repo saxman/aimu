@@ -87,6 +87,18 @@ AIMU keeps `self.messages` in OpenAI format always (`image_url` content blocks) 
 - `Parallel.run("task", images=[...])`: forwards to every worker
 - `EvaluatorOptimizer.run("task", images=[...])`: forwards only to the initial generator turn
 
+## Images from tools
+
+A tool can hand the model an image by returning `ToolResult(text, images=[...])` ([Add a custom tool](add-custom-tool.md#return-an-image-toolresult)). On a vision model the stored tool message's `content` becomes the same content-block list a user's image uses; on a model without vision only the text is stored. Where the images go in the request depends on whether the provider accepts images in a tool result:
+
+| Provider | Adaptation |
+|---|---|
+| Anthropic | Image blocks inside the `tool_result` itself |
+| Ollama (native API) | The tool message's own `images=[<bare base64>]` field |
+| OpenAI / Gemini / OpenAI-compatible, llama-cpp, HuggingFace | A tool message carries text only in this format, so the tool message keeps its text and the images move into one `user` message right after the run of tool results, each group introduced by `Returned by the <tool> call above:` |
+
+The last row is an approximation the format forces: the model sees the images as a user turn, labelled with the tool that returned them, rather than as part of the tool's answer.
+
 ## See also
 
 - Notebook [04 - Vision](https://github.com/saxman/aimu/blob/main/notebooks/04-vision.qmd)

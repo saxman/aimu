@@ -240,26 +240,34 @@ class ToolDenied(RunEvent):
 
 @dataclass(frozen=True)
 class ContextCompacted(RunEvent):
-    """Conversation history was rewritten by an ``Agent``'s ``compaction=`` callable.
+    """What an ``Agent``'s ``compaction=`` callable leaves out of the requests it sends changed.
 
-    Fires once per compaction, after the rewrite, before the next model turn.
+    A compaction decides what each request sends and never rewrites the conversation, so this
+    reports the model's view changing, not the history. It fires while a request is being built,
+    before that request's ``RequestPrepared``, and only when what is left out differs from the
+    previous compacted request of the same agent: a conversation that stays over budget leaves
+    the same old messages out of every request, and that is announced once, when it starts.
 
-    ``dropped`` is the removed messages, not a count, so a caller who wants the discarded
-    turns still has them. They are copies, so a later in-place edit of ``client.messages``
-    (the provenance tag an agent loop adds, say) cannot mutate an already-emitted event.
+    ``dropped`` is the messages this request leaves out that the previous one sent, including
+    any it sends in a changed form (a placeholder in place of a tool result, say), with their
+    original content. ``restored`` is the messages this request sends that the previous one left
+    out, as sent. Both are messages rather than counts, and copies, so a later in-place edit of
+    ``client.messages`` (the provenance tag an agent loop adds, say) cannot mutate an
+    already-emitted event. Every message in either list is still in ``client.messages``.
 
     ``before_tokens`` / ``after_tokens`` are AIMU's own default token *estimate* (see
-    :func:`aimu.context.count_tokens`), not a measurement of whatever the ``compaction``
-    callable itself counted to decide what to drop. A callable that used a real tokenizer,
-    a word count, or any other budget will disagree with these numbers -- that is stated
-    rather than hidden, since AIMU cannot see inside an opaque callable to know what it
-    actually counted. Treat them as rough orientation, not a claim about the number that
-    drove the decision.
+    :func:`aimu.context.count_tokens`) of the full history and of what the request sends, not a
+    measurement of whatever the ``compaction`` callable itself counted to decide what to drop.
+    A callable that used a real tokenizer, a word count, or any other budget will disagree with
+    these numbers -- that is stated rather than hidden, since AIMU cannot see inside an opaque
+    callable to know what it actually counted. Treat them as rough orientation, not a claim
+    about the number that drove the decision.
     """
 
     dropped: list = field(default_factory=list)
     before_tokens: int = 0
     after_tokens: int = 0
+    restored: list = field(default_factory=list)
 
 
 EventSink = Callable[[RunEvent], None]

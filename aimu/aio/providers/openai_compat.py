@@ -9,6 +9,7 @@ subpackages: ``aimu.aio.providers.openai`` and ``aimu.aio.providers.gemini``.
 
 from __future__ import annotations
 
+from aimu.models._internal.chat_state import outgoing_messages
 import json
 import logging
 from typing import Any, AsyncIterator, Optional, Union
@@ -17,7 +18,7 @@ import openai
 
 from aimu.models._internal.audio_input import _build_audio_content_blocks
 from aimu.models._internal.endpoint import recordable_endpoint
-from aimu.models._internal.image_input import _build_user_content_blocks
+from aimu.models._internal.image_input import _build_user_content_blocks, _hoist_tool_images
 from aimu.models._internal.message_meta import encode_tool_call_arguments, strip_inert_keys
 from aimu.models._internal.sdk_config import sdk_client_kwargs
 from aimu.models._internal.usage import usage_from_openai
@@ -266,7 +267,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
             self,
             self._client,
             model=self.model.value,
-            messages=encode_tool_call_arguments(strip_inert_keys(self.messages)),
+            messages=_hoist_tool_images(encode_tool_call_arguments(strip_inert_keys(outgoing_messages(self)))),
             tools=tools if tools else openai.NOT_GIVEN,
             **generate_kwargs,
         )
@@ -311,7 +312,7 @@ class AsyncOpenAICompatClient(AsyncBaseModelClient):
             self,
             self._client,
             model=self.model.value,
-            messages=encode_tool_call_arguments(strip_inert_keys(self.messages)),
+            messages=_hoist_tool_images(encode_tool_call_arguments(strip_inert_keys(outgoing_messages(self)))),
             stream=True,
             stream_options={"include_usage": True},
             tools=tools if tools else openai.NOT_GIVEN,

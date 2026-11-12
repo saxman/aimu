@@ -8,10 +8,11 @@ A conversation is `self.messages` — a plain `list[dict]`, OpenAI format (see
 [notebook 02](02-conversations.qmd)) — and it only grows. Left alone, a long-running agent
 ([notebook 07](07-agents.qmd)) eventually produces a request that no longer fits the model's
 context window. `aimu.context` is three plain functions over that list — `count_tokens`,
-`trim_messages`, `summarize_messages` — plus a `compaction=` field on `Agent` that runs one
-of them automatically before every model turn. Nothing here is a hidden policy applied
-inside a client: it's the same "plain data, plain functions" shape as `aimu.rag`
-([notebook 13](13-rag.qmd)), so what gets dropped and why is always something you can print.
+`trim_messages`, `summarize_messages` — plus a `compaction=` field on `Agent` that applies one
+of them to every request an agent sends, leaving the conversation itself whole. Nothing here
+is a policy AIMU picks for you: it's the same "plain data, plain functions" shape as
+`aimu.rag` ([notebook 13](13-rag.qmd)), so what gets left out and why is always something you
+can print, and the request that was actually sent is on `client.last_request`.
 
 **What this notebook covers:**
 - `count_tokens`, and its honesty caveat: an estimate, not a measurement
@@ -19,8 +20,8 @@ inside a client: it's the same "plain data, plain functions" shape as `aimu.rag`
   message from the `assistant` turn carrying its `tool_calls`)
 - `keep_last` counts messages, not exchanges
 - `summarize_messages`: replace old turns with a generated summary instead of dropping them
-- `Agent(compaction=)`: automate either one, and how an applied compaction announces itself
-  (an event, and a warning)
+- `Agent(compaction=)`: apply one to what every request sends while the history stays whole,
+  and how a request that leaves something out announces it (an event, and a warning)
 - `ContextOverflowError`: the portable catch-compact-retry signal for when it's already too
   late
 
@@ -225,9 +226,11 @@ the input is returned unchanged (a copy).
 
 ## E - Automate it: `Agent(compaction=)`
 
-Both functions above are things you call by hand. `Agent(compaction=...)` (and the per-run
-`agent.run(compaction=...)` override) runs a callable of your choice —
-`list[dict] -> list[dict]` — right before every model turn in the loop:
+Both functions above are things you call by hand, and calling one by hand rewrites the list
+you assign it back to. `Agent(compaction=...)` (and the per-run `agent.run(compaction=...)`
+override) is different in kind: it takes a callable of your choice — `list[dict] -> list[dict]`
+— and applies it to every request the agent sends, at the moment each request is built. The
+model is sent what the callable returns. The conversation keeps everything:
 
 ```{python}
 import logging
@@ -250,31 +253,46 @@ compaction_agent.run("Now tell me a fact about Mars.")
 compacted = [e for e in compaction_seen if isinstance(e, ContextCompacted)]
 print("ContextCompacted events:", len(compacted))
 for e in compacted:
-    print("dropped roles:", [m["role"] for m in e.dropped], "| before:", e.before_tokens, "| after:", e.after_tokens)
+    print("left out:", [m["role"] for m in e.dropped], "| history:", e.before_tokens, "| sent:", e.after_tokens)
+print("history:", [m["role"] for m in compaction_client.messages])
+print("last request sent:", [m["role"] for m in compaction_client.last_request["messages"]])
 ```
 
 ```
-WARNING Compacted conversation for agent 'agent-08b750': dropped 1 message(s) (~100 -> ~71 tokens, AIMU's own estimate).
+WARNING Compacted the request for agent 'agent-2397f0': 2 more message(s) left out (~132 -> ~87 tokens sent, AIMU's own estimate). The history keeps them.
 ContextCompacted events: 1
-dropped roles: ['assistant'] | before: 100 | after: 71
+left out: ['assistant', 'user'] | history: 132 | sent: 87
+history: ['system', 'user', 'assistant', 'user', 'assistant', 'user', 'assistant']
+last request sent: ['system', 'user', 'assistant', 'user']
 ```
 
-**An applied compaction is never silent.** "Applied" means it actually dropped something
-(judged by content, not identity — the callable may rebuild kept messages into new dict
-objects). When that happens, two things fire together: a `ContextCompacted` event for a
-sink attached via `events=` (see [notebook 27](27-observing-runs.qmd)), and an unconditional
-`WARNING` log — so a caller with no sink still learns their conversation was rewritten. The
-agent id, the token counts, and how many messages go all vary by run (they depend on how long
-the model's sampled replies were). In this run the one message dropped was the reply to the
-moon question. The question itself is pinned by `keep_first=1`, so it stays without its answer,
-followed directly by the next question: the price of protecting the first message in a
-multi-turn chat. In a single-task agent run the pinned message is the task, which is exactly
-what should survive.
+The last two lines are the whole idea. The history holds all three exchanges, and the request
+for the Mars question sent four messages: the system prompt, the moon question (pinned by
+`keep_first=1`), the sun answer, and the Mars question itself (the last two, `keep_last=2`).
+What was left out, the moon answer and the sun question, is still in
+`compaction_client.messages`, so a later request under a looser compaction (or none) would
+send it again. `client.last_request` is the payload the provider actually received, which is
+where to look when you want to know what the model was working from.
 
-A compaction call that returns the conversation unchanged (the common case early on, before
-the budget is actually exceeded) is a no-op and announces nothing. `ContextCompacted`'s
-`before_tokens`/`after_tokens` are AIMU's own default estimate — not a measurement of
-whatever the callable itself counted to decide what to drop.
+**What a request leaves out is never silent.** When a request leaves out a message the
+previous one sent, two things fire together: a `ContextCompacted` event for a sink attached
+via `events=` (see [notebook 27](27-observing-runs.qmd)), carrying the messages left out, and
+an unconditional `WARNING` log, so a caller with no sink still learns the model is working from
+less than the conversation holds. The agent id, the token counts, and how many messages go all
+vary by run, since they depend on how long the model's sampled replies were. Note the pinned
+moon question: it is sent without its answer, followed directly by a later answer. That is the
+price of protecting the first message in a multi-turn chat; in a single-task agent run the
+pinned message is the task, which is exactly what should survive.
+
+Only a *change* is announced. Once a conversation is over its budget, every request is
+compacted; a request that leaves out exactly what the previous one did says nothing, or every
+request of a long conversation would warn and the warning would stop meaning anything. The
+agent remembers what its last request left out across runs. A request that sends something
+the previous one left out (because the compaction changed, say) reports it in the event's
+`restored` list, at `INFO` rather than as a warning, since nothing was lost. A compaction that
+returns the conversation unchanged announces nothing. `ContextCompacted`'s
+`before_tokens`/`after_tokens` are AIMU's own estimate of the history and of what was sent,
+not a measurement of whatever the callable itself counted.
 
 **If the compaction callable raises, the run raises** — the same "failures are apparent"
 rule as everywhere else in AIMU; a compaction that can't be trusted to run should stop the
@@ -295,7 +313,7 @@ backend:
 | `openai`, `gemini`, local OpenAI-compat servers that set it | 400 with `code=context_length_exceeded` |
 | `hf`, `llamacpp` | in-process pre-flight token count against the model's own known window, before the call is even attempted |
 
-The recovery recipe — catch, trim, retry:
+The recovery recipe — catch, then retry with a compaction:
 
 ```python
 from aimu.models import ContextOverflowError
@@ -303,9 +321,13 @@ from aimu.models import ContextOverflowError
 try:
     agent.run(task)
 except ContextOverflowError:
-    agent.model_client.messages = aimu.trim_messages(agent.model_client.messages, max_tokens=8000)
-    agent.run(task)
+    agent.run(task, compaction=lambda msgs: aimu.trim_messages(msgs, max_tokens=8000))
 ```
+
+The retry sends a trimmed request and leaves the history whole. To shrink the stored history
+itself instead, assign the trimmed list back
+(`agent.model_client.messages = aimu.trim_messages(...)`), which is a deliberate, permanent
+edit that you made and that nothing needs to announce.
 
 This cell is deliberately not executed for pasted output: triggering the real error live
 needs a request that overflows a *specific, small* context window in the exact way each

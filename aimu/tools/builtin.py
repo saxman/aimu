@@ -2836,7 +2836,7 @@ def make_subagent_tool(
       without being written into each spec. It must be an int >= 1, checked at factory-call time, because
       ``bool`` is an ``int`` subclass (so ``True`` would read as a cap of 1) and a cap below 1 is a loop
       that makes no model call at all.
-      ``"compaction"`` is the callable :class:`~aimu.agents.Agent` applies before every model turn, and it
+      ``"compaction"`` is the callable :class:`~aimu.agents.Agent` applies to every request, and it
       is read by *membership* rather than ``.get()``: an absent key falls back to this factory's own
       ``compaction`` (a third key with a factory tier, alongside ``"model"`` and ``"max_iterations"``),
       while a spec naming ``"compaction": None`` turns that policy off for one specialist. Those two
@@ -2888,10 +2888,10 @@ def make_subagent_tool(
             measuring the whole turn. Each spawn passes it to the child's ``run`` wrapped in a
             ``_RunEndingWatch``, which forwards every event and keeps the child's ``RunFinished``
             so the tool can say when the round cap ended the child.
-        compaction: A ``list[dict] -> list[dict]`` callable applied before every model turn of every
-            spawned agent, so a long-running worker trims its own context rather than dying in it.
-            The parent's conversation is untouched: this reaches the child's messages only. A spec's
-            own ``"compaction"`` overrides it, and ``"compaction": None`` in a spec turns it off.
+        compaction: A ``list[dict] -> list[dict]`` callable applied to every request of every spawned
+            agent, so a long-running worker sends a trimmed context rather than dying in it; its own
+            history stays whole. The parent's requests are untouched: this reaches the child's only. A
+            spec's own ``"compaction"`` overrides it, and ``"compaction": None`` in a spec turns it off.
         inbox: An :class:`~aimu.agents.inbox.Inbox` source of mid-run messages for every
             spawned agent. Each spawn opens its own reader from it, so several spawns (or nested
             ones) sharing one source never share a cursor. A spec's own ``"inbox"`` overrides it,

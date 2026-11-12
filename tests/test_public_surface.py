@@ -306,6 +306,7 @@ REQUIRED_TOOLS = {
     "ToolArgumentError",
     "ToolContext",
     "ToolGroup",
+    "ToolResult",
     "ToolSignatureError",
     "approve_all",
     "builtin",

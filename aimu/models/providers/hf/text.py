@@ -1,3 +1,4 @@
+from aimu.models._internal.chat_state import outgoing_messages
 from ...base import StreamingContentType, StreamChunk, Model, BaseModelClient, ContextOverflowError, classproperty
 from ..._catalog import Wire
 from ._download import HubDownload
@@ -6,6 +7,7 @@ from ..._internal.generate_kwargs import LOCAL_MAX_TOKENS, Unsupported
 from ..._internal.image_input import (
     _build_user_content_blocks,
     _extract_pil_images,
+    _hoist_tool_images,
     _replace_image_url_with_image_placeholder,
 )
 from ..._internal.thinking import QWEN_REASONING_EFFORT, ResolvedThinking, pop_thinking
@@ -505,6 +507,9 @@ class HuggingFaceClient(BaseModelClient):
         self._last_rendered_audio = None
 
         if self._hf_processor is not None:
+            # Chat templates render a tool message's content as a string, so a tool's images
+            # (aimu.tools.result) ride in a user message after it, as on the OpenAI-format servers.
+            messages = _hoist_tool_images(messages)
             pil_images = _extract_pil_images(messages) if self.model.supports_vision else []
             audio_arrays = _extract_audio_arrays(messages) if self.model.supports_audio else []
             template_messages = _replace_image_url_with_image_placeholder(messages) if pil_images else messages
@@ -791,7 +796,7 @@ class HuggingFaceClient(BaseModelClient):
         if stream:
             return self._chat_streamed(generate_kwargs, tools)
 
-        response = self._generate_sync(self.messages, generate_kwargs, tools)
+        response = self._generate_sync(outgoing_messages(self), generate_kwargs, tools)
 
         if self._uses_processor_parse_response:
             tool_calls = self._parsed_tool_calls
@@ -829,7 +834,7 @@ class HuggingFaceClient(BaseModelClient):
             return
 
         streamer = TextIteratorStreamer(self._hf_tokenizer, skip_prompt=True, skip_special_tokens=True)
-        it = self._generate_streaming(self.messages, generate_kwargs, tools, streamer)
+        it = self._generate_streaming(outgoing_messages(self), generate_kwargs, tools, streamer)
 
         for token in self._pending_thinking_tokens:
             yield StreamChunk(StreamingContentType.THINKING, token)
@@ -900,7 +905,7 @@ class HuggingFaceClient(BaseModelClient):
         self, generate_kwargs: dict[str, Any], tools: Optional[list[dict]]
     ) -> Iterator[StreamChunk]:
         """Buffered streaming for models that require processor.parse_response (Gemma 4)."""
-        response = self._generate_sync(self.messages, generate_kwargs, tools)
+        response = self._generate_sync(outgoing_messages(self), generate_kwargs, tools)
 
         # Single turn: if the model called tools, execute them and return, preserving any prose
         # emitted alongside. The model's response to the tool results comes on the next chat() call.

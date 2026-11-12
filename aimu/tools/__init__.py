@@ -26,6 +26,7 @@ from .approval import Denied, ToolApproval, approve_all
 from .context import ToolContext
 from .decorator import ToolArgumentError, ToolSignatureError, coerce_tool_arguments, tool
 from .groups import ToolGroup
+from .result import ToolResult
 
 # MCPClient / MCPConnectionError live in .client, which imports fastmcp at module level.
 # fastmcp is a required (not optional) dependency, so this isn't the HAS_*-gated pattern
@@ -62,6 +63,7 @@ __all__ = [
     "ToolArgumentError",
     "ToolContext",
     "ToolGroup",
+    "ToolResult",
     "ToolSignatureError",
     "approve_all",
     "builtin",

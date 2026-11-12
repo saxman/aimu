@@ -23,6 +23,7 @@ from aimu.events import RunStarted, ToolCalled, emit
 from aimu.models._internal.message_meta import PROVENANCE_CONTINUATION, PROVENANCE_FINAL_ANSWER
 from aimu.models.base import StreamChunk, StreamingContentType
 from aimu.tools.approval import Denied
+from aimu.tools.result import tool_message_text
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +55,10 @@ class _AsyncToolLoop(_BaseToolLoop):
         last_iteration = 0
         self._current_iteration = 0
         try:
-            with self._client._events_override(self._attributing_sink()):
-                self._maybe_compact()
+            with (
+                self._client._events_override(self._attributing_sink()),
+                self._client._compaction_override(self._request_compaction()),
+            ):
                 response = await self._client.chat(
                     user_message,
                     generate_kwargs=generate_kwargs,
@@ -81,7 +84,6 @@ class _AsyncToolLoop(_BaseToolLoop):
                         message = self._take_message()
                         if message is not None:
                             self._extend_budget(rounds + 1)
-                        self._maybe_compact()
                         response = await self._client.chat(
                             message,
                             generate_kwargs=generate_kwargs,
@@ -96,7 +98,6 @@ class _AsyncToolLoop(_BaseToolLoop):
                         message = self._take_message()
                         if message is not None:
                             self._extend_budget(rounds + 1)
-                        self._maybe_compact()
                         injected_at = len(self._client.messages)
                         response = await self._client.chat(
                             message if message is not None else self._continuation_prompt,
@@ -119,7 +120,6 @@ class _AsyncToolLoop(_BaseToolLoop):
                         # all: a turn that calls one tool and then answers offers no other window.
                         self._current_iteration = rounds + 1
                         self._extend_budget(rounds + 1)
-                        self._maybe_compact()
                         response = await self._client.chat(
                             message,
                             generate_kwargs=generate_kwargs,
@@ -153,8 +153,10 @@ class _AsyncToolLoop(_BaseToolLoop):
         iteration = 0
         self._current_iteration = 0
         try:
-            with self._client._events_override(self._attributing_sink()):
-                self._maybe_compact()
+            with (
+                self._client._events_override(self._attributing_sink()),
+                self._client._compaction_override(self._request_compaction()),
+            ):
                 stream = await self._client.chat(
                     user_message,
                     generate_kwargs=generate_kwargs,
@@ -185,7 +187,6 @@ class _AsyncToolLoop(_BaseToolLoop):
                         if message is not None:
                             self._extend_budget(iteration)
                             yield self._message_chunk(message, iteration)
-                        self._maybe_compact()
                         stream = await self._client.chat(
                             message,
                             generate_kwargs=generate_kwargs,
@@ -202,7 +203,6 @@ class _AsyncToolLoop(_BaseToolLoop):
                         # A real user message is a better resumption than the generic nudge, so a
                         # pending one replaces it rather than queuing behind it.
                         message = self._take_message()
-                        self._maybe_compact()
                         injected_at = len(self._client.messages)
                         if message is None:
                             yield self._boundary_chunk(PROVENANCE_CONTINUATION, self._continuation_prompt, iteration)
@@ -233,7 +233,6 @@ class _AsyncToolLoop(_BaseToolLoop):
                         iteration += 1
                         self._current_iteration = iteration
                         self._extend_budget(iteration)
-                        self._maybe_compact()
                         yield self._message_chunk(message, iteration)
                         stream = await self._client.chat(
                             message,
@@ -253,7 +252,6 @@ class _AsyncToolLoop(_BaseToolLoop):
                     # Before injected_at is read: the wrap-up prompt must still be the message at
                     # that index for _tag_injected to find (it tags a user message and nothing else).
                     self._settle_pending_tools()
-                    self._maybe_compact()
                     injected_at = len(self._client.messages)
                     prompt = self._wrap_up_prompt()
                     yield self._boundary_chunk(PROVENANCE_FINAL_ANSWER, prompt, iteration)
@@ -297,7 +295,6 @@ class _AsyncToolLoop(_BaseToolLoop):
         # Before injected_at is read: the wrap-up prompt must still be the message at that
         # index for _tag_injected to find (it tags a user message and nothing else).
         self._settle_pending_tools()
-        self._maybe_compact()
         injected_at = len(self._client.messages)
         response = await self._client.chat(
             self._wrap_up_prompt(),
@@ -358,7 +355,7 @@ class _AsyncToolLoop(_BaseToolLoop):
             results = [t.result() for t in tasks]
             for (tc, tc_id), result_msg in zip(prepared, results):
                 self._client._append_message(result_msg)
-                yield _tool_chunk(tc, tc_id, result_msg["content"])
+                yield _tool_chunk(tc, tc_id, tool_message_text(result_msg["content"]))
             return
 
         for tc, tc_id in prepared:
@@ -406,10 +403,10 @@ class _AsyncToolLoop(_BaseToolLoop):
                         response = last_content if last_content is not None else "(no response)"
                     content = str(response)
                 except ToolArgumentError as exc:
-                    content = str(exc)
+                    response = content = str(exc)
                     error_str = content
                 except Exception as exc:
-                    content = f"Tool '{tc['name']}' raised an error: {exc}"
+                    response = content = f"Tool '{tc['name']}' raised an error: {exc}"
                     error_str = str(exc)
                     logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
                 emit(
@@ -424,12 +421,12 @@ class _AsyncToolLoop(_BaseToolLoop):
                         duration_s=time.monotonic() - started,
                     ),
                 )
-                result_msg = {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
+                result_msg = self._tool_message(tc, tc_id, response)
             else:
                 result_msg = await self._call_plain_tool(tc, tc_id, iteration)
 
             self._client._append_message(result_msg)
-            yield _tool_chunk(tc, tc_id, result_msg["content"])
+            yield _tool_chunk(tc, tc_id, tool_message_text(result_msg["content"]))
 
     async def _call_plain_tool(self, tc: dict, tc_id: str, iteration: int = 0) -> dict:
         from aimu.tools.decorator import ToolArgumentError
@@ -472,10 +469,10 @@ class _AsyncToolLoop(_BaseToolLoop):
                 response = await asyncio.to_thread(lambda: fn(**kwargs))
             content = str(response)
         except ToolArgumentError as exc:
-            content = str(exc)
+            response = content = str(exc)
             error_str = content
         except Exception as exc:
-            content = f"Tool '{tc['name']}' raised an error: {exc}"
+            response = content = f"Tool '{tc['name']}' raised an error: {exc}"
             error_str = str(exc)
             logger.warning("Tool call '%s' failed: %s", tc["name"], exc)
         emit(
@@ -490,7 +487,7 @@ class _AsyncToolLoop(_BaseToolLoop):
                 duration_s=time.monotonic() - started,
             ),
         )
-        return {"role": "tool", "name": tc["name"], "content": content, "tool_call_id": tc_id}
+        return self._tool_message(tc, tc_id, response)
 
     async def _tool_call_approved(self, name: str, arguments: dict) -> "bool | Denied":
         """Run the approval policy, awaiting a coroutine one.

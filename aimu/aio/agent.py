@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from abc import ABC, abstractmethod
+from collections import Counter
 from contextlib import aclosing
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, AsyncIterator, Callable, Optional, Union
@@ -143,20 +144,9 @@ class Agent(_AgentLoopMixin, AsyncRunner):
     # asyncgen hook a few loop iterations later, and until then this sink is still the active
     # one. Bounded and self-healing, never permanent -- see docs/how-to/observe-a-run.md.
     events: Optional[EventSink] = None
-    # None (default): the loop never rewrites model_client.messages on its own -- an agent that
-    # doesn't opt in behaves exactly as it did before this field existed. Set to a callable such
-    # as ``lambda msgs: trim_messages(msgs, max_tokens=8000)`` or
-    # ``lambda msgs: summarize_messages(client, msgs)`` (see aimu.context) to compact automatically
-    # before every model turn. An *applied* compaction (one that actually dropped a message,
-    # judged by content -- not identity, since the callable may rebuild kept messages into new
-    # dict objects) is never silent: it emits a ContextCompacted event for a caller with a sink
-    # attached, and logs a WARNING unconditionally, so a caller without one still learns their
-    # conversation was rewritten (see the sync aimu.agents.Agent.compaction docstring for the
-    # full rationale). A compaction that returns the conversation unchanged is a no-op and
-    # announces nothing. The event's before_tokens/after_tokens are AIMU's own default estimate,
-    # not a measurement of whatever counter the callable itself used. If the callable raises, the
-    # run raises (fail loud): a compaction that cannot be trusted to run should stop the turn, not
-    # be silently skipped while the caller believes their context is being managed.
+    # None (default): every request sends the whole conversation. Set, every request of every run
+    # sends what the callable returns instead, and model_client.messages keeps the full history. See
+    # the sync aimu.agents.Agent.compaction comment for the full contract; it is the same here.
     compaction: Optional[Callable[[list[dict]], list[dict]]] = None
     inbox: Optional[Inbox] = None
     concurrent_tool_calls: bool = False
@@ -171,6 +161,8 @@ class Agent(_AgentLoopMixin, AsyncRunner):
     # be cancelled, so cancelling the caller must not cancel the record of what that thread is doing.
     _group_builds: dict = field(default_factory=dict, init=False, repr=False)
     _last_messages: list = field(default_factory=list, init=False, repr=False)
+    # What this agent's last compacted request left out; see the sync Agent's field of this name.
+    _compaction_omitted: Counter = field(default_factory=Counter, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.name is None:
@@ -379,6 +371,7 @@ class Agent(_AgentLoopMixin, AsyncRunner):
             inbox=inbox if inbox is not None else self.inbox,
             run_id=run_id,
             parent_run_id=parent_run_id,
+            compaction_omitted=self._compaction_omitted,
         )
 
     async def _run_loop(

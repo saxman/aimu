@@ -151,6 +151,40 @@ def _ollama_split_message(message: dict) -> dict:
     return out
 
 
+def _hoist_tool_images(messages: list[dict]) -> list[dict]:
+    """Return *messages* with images moved out of tool messages, for a format whose tool role is text-only.
+
+    OpenAI's Chat Completions format, and the servers that speak it, accept only text in a
+    ``role: "tool"`` message, so a tool result carrying images (see :mod:`aimu.tools.result`) cannot be
+    sent there as it is stored. Each such message keeps its text, and its images move into one user
+    message placed straight after the run of tool results, each group introduced by a line naming the
+    tool that returned it, so the model can tell a tool's image from one the user attached. A list
+    with no tool images is returned unchanged (the same object), so the common case copies nothing.
+    """
+    if not any(m.get("role") == "tool" and isinstance(m.get("content"), list) for m in messages):
+        return messages
+
+    out: list[dict] = []
+    hoisted: list[dict] = []
+    for message in messages:
+        if hoisted and message.get("role") != "tool":
+            out.append({"role": "user", "content": hoisted})
+            hoisted = []
+        content = message.get("content")
+        if message.get("role") != "tool" or not isinstance(content, list):
+            out.append(message)
+            continue
+        text = "\n".join(block.get("text", "") for block in content if block.get("type") == "text")
+        out.append({**message, "content": text})
+        images = [block for block in content if block.get("type") != "text"]
+        if images:
+            hoisted.append({"type": "text", "text": f"Returned by the {message.get('name', 'tool')} call above:"})
+            hoisted.extend(images)
+    if hoisted:
+        out.append({"role": "user", "content": hoisted})
+    return out
+
+
 def _adapt_messages_for_ollama(messages: list[dict]) -> list[dict]:
     """Return a copy of ``messages`` with vision blocks rewritten for Ollama.
 

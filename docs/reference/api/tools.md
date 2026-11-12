@@ -14,6 +14,13 @@ In-process `@tool` decorator and cross-process `MCPClient`.
 
 ::: aimu.tools.ToolArgumentError
 
+## Returning images
+
+A tool's answer carrying images for the model to look at. See
+[add a custom tool](../../how-to/add-custom-tool.md#return-an-image-toolresult) for the how-to.
+
+::: aimu.tools.ToolResult
+
 ## Tool approval
 
 The gate an `Agent` runs before each tool call. See

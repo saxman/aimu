@@ -116,7 +116,10 @@ def extract_tool_calls(messages: list[dict]) -> list[dict]:
     for msg in messages:
         if msg.get("role") == "tool":
             tc_id = msg.get("tool_call_id", "")
-            tool_results[tc_id] = msg.get("content", "")
+            content = msg.get("content", "")
+            if isinstance(content, list):  # a tool result carrying images (aimu.tools.result): keep its text
+                content = "\n".join(block.get("text", "") for block in content if block.get("type") == "text")
+            tool_results[tc_id] = content
 
     results: list[dict] = []
     iteration = 0

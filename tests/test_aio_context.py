@@ -1,18 +1,23 @@
 """Async mirror of the Agent(compaction=...) tests in tests/test_context.py.
 
-See tests/test_context.py for the sync surface and the full rationale (principle 6: an
-applied automatic compaction is never silent). These exercise the same behaviour on
-aimu.aio.Agent + the async tool-loop engine.
+See tests/test_context.py for the sync surface and the full rationale: a compaction decides what
+each request sends, never what the conversation holds, and what it leaves out is announced when
+that changes. These exercise the same behaviour on aimu.aio.Agent and the async tool-loop engine,
+plus a streamed run, whose requests are built while the engine's generator is suspended.
 """
 
 import logging
 
+import pytest
+
 from aimu.context import count_tokens, trim_messages
 from tests.helpers_aio import MockAsyncModelClient
 
-# _maybe_compact() is inherited from _BaseToolLoop, defined in aimu.agents._tool_loop, so its
-# WARNING is logged under that module's name even when the async loop is the one calling it.
+# _compacted_request is inherited from _BaseToolLoop, defined in aimu.agents._tool_loop, so its
+# log lines are under that module's name even when the async loop is the one running.
 _ASYNC_TOOL_LOOP_LOGGER = "aimu.agents._tool_loop"
+
+NEW = {"role": "user", "content": "new question"}
 
 
 def _old_conversation() -> list[dict]:
@@ -24,155 +29,166 @@ def _old_conversation() -> list[dict]:
     ]
 
 
-async def test_async_compaction_emits_ContextCompacted_carrying_the_dropped_messages():
-    """Not a count -- the messages, so a caller who wants them back has them."""
+def _newest_only():
+    budget = count_tokens([NEW])
+    return lambda msgs: trim_messages(msgs, max_tokens=budget, keep_first=0, keep_last=1)
+
+
+def _agent_over(old_messages, compaction, responses=("final answer",), **kwargs):
     from aimu.aio.agent import Agent
+
+    client = MockAsyncModelClient(list(responses))
+    client.model.supports_tools = False
+    client.messages = list(old_messages)
+    return client, Agent(client, compaction=compaction, **kwargs)
+
+
+async def test_async_compaction_changes_what_is_sent_and_leaves_the_history_whole():
+    old_messages = _old_conversation()
+    client, agent = _agent_over(old_messages, _newest_only())
+
+    assert await agent.run("new question") == "final answer"
+
+    assert client.sent == [[NEW]]
+    assert client.messages[:4] == old_messages
+    assert client.messages[4] == NEW
+
+
+async def test_async_compaction_emits_ContextCompacted_carrying_the_left_out_messages():
     from aimu.events import ContextCompacted
 
     old_messages = _old_conversation()
-    client = MockAsyncModelClient(["final answer"])
-    client.model.supports_tools = False
-    client.messages = list(old_messages)
-
     seen = []
-    budget = count_tokens(old_messages[-2:])
-    agent = Agent(
-        client,
-        events=seen.append,
-        compaction=lambda msgs: trim_messages(msgs, max_tokens=budget, keep_first=0, keep_last=0),
-    )
-    result = await agent.run("new question")
+    client, agent = _agent_over(old_messages, _newest_only(), events=seen.append)
+    await agent.run("new question")
 
-    assert result == "final answer"
-    compacted = [e for e in seen if isinstance(e, ContextCompacted)]
-    assert len(compacted) == 1
-    event = compacted[0]
-    assert event.dropped == old_messages[:2]
-    # Copies, not the live dicts: a later in-place write to client.messages must not mutate
-    # an event a sink has already seen. Mirrors the sync test.
-    assert event.dropped[0] is not old_messages[0]
-    assert event.dropped[1] is not old_messages[1]
-    old_messages[0]["provenance"] = "mutated afterwards"
+    (event,) = [e for e in seen if isinstance(e, ContextCompacted)]
+    assert event.dropped == old_messages
+    assert event.restored == []
+    assert event.dropped[0] is not client.messages[0]
+    client.messages[0]["provenance"] = "mutated afterwards"
     assert "provenance" not in event.dropped[0]
-    assert event.before_tokens == count_tokens(old_messages)
-    assert event.after_tokens == count_tokens(old_messages[-2:])
+    assert event.before_tokens == count_tokens(old_messages + [NEW])
+    assert event.after_tokens == count_tokens([NEW])
 
 
 async def test_async_compaction_warns_even_with_no_sink_attached(caplog):
-    """A caller who attached no sink still learns their conversation was rewritten."""
-    from aimu.aio.agent import Agent
+    _, agent = _agent_over(_old_conversation(), _newest_only())
+    with caplog.at_level(logging.WARNING, logger=_ASYNC_TOOL_LOOP_LOGGER):
+        await agent.run("new question")
+    assert "4 more message(s) left out" in caplog.text
+
+
+async def test_async_leaving_out_what_the_previous_request_left_out_is_not_announced_again():
+    from aimu.events import ContextCompacted
 
     old_messages = _old_conversation()
-    client = MockAsyncModelClient(["final answer"])
-    client.model.supports_tools = False
-    client.messages = list(old_messages)
+    seen = []
+    _, agent = _agent_over(old_messages, lambda msgs: msgs[-2:], responses=["one", "two"], events=seen.append)
+    await agent.run("first")
+    await agent.run("second")
 
-    budget = count_tokens(old_messages[-2:])
-    agent = Agent(client, compaction=lambda msgs: trim_messages(msgs, max_tokens=budget, keep_last=0))
+    first, second = [e for e in seen if isinstance(e, ContextCompacted)]
+    assert first.dropped == old_messages[:3]
+    assert second.dropped == [{"role": "assistant", "content": "old answer two"}, {"role": "user", "content": "first"}]
 
-    with caplog.at_level(logging.WARNING, logger=_ASYNC_TOOL_LOOP_LOGGER):
-        result = await agent.run("new question")  # events=None: no sink attached at all
 
-    assert result == "final answer"
-    assert "dropped 2 message" in caplog.text
+async def test_async_a_request_that_sends_again_what_was_left_out_reports_it_restored():
+    from aimu.events import ContextCompacted
+
+    old_messages = _old_conversation()
+    seen = []
+    client, agent = _agent_over(old_messages, _newest_only(), responses=["one", "two"], events=seen.append)
+    await agent.run("new question")
+    await agent.run("and now?", compaction=lambda msgs: msgs)
+
+    restored = [e for e in seen if isinstance(e, ContextCompacted)][-1]
+    assert restored.dropped == []
+    assert restored.restored == old_messages
+    assert client.sent[-1][:4] == old_messages
 
 
 async def test_async_compaction_that_drops_nothing_is_silent(caplog):
-    """No spurious warning on a conversation already under the limit."""
-    from aimu.aio.agent import Agent
     from aimu.events import ContextCompacted
 
-    client = MockAsyncModelClient(["final answer"])
-    client.model.supports_tools = False
-    client.messages = [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "yo"}]
-
     seen = []
-    agent = Agent(
-        client,
+    _, agent = _agent_over(
+        [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "yo"}],
+        lambda msgs: trim_messages(msgs, max_tokens=10_000),
         events=seen.append,
-        compaction=lambda msgs: trim_messages(msgs, max_tokens=10_000),
     )
     with caplog.at_level(logging.WARNING, logger=_ASYNC_TOOL_LOOP_LOGGER):
-        result = await agent.run("another question")
-
-    assert result == "final answer"
+        assert await agent.run("another question") == "final answer"
     assert not any(isinstance(e, ContextCompacted) for e in seen)
-    assert "Compacted conversation" not in caplog.text
+    assert "Compacted the request" not in caplog.text
 
 
 async def test_async_compaction_that_rebuilds_without_dropping_is_silent(caplog):
-    """Async mirror: a normalize/dedupe callable returning new dict objects for every kept
-    message must not be mistaken for a drop by identity comparison."""
-    from aimu.aio.agent import Agent
     from aimu.events import ContextCompacted
 
-    old_messages = _old_conversation()
-    client = MockAsyncModelClient(["final answer"])
-    client.model.supports_tools = False
-    client.messages = list(old_messages)
-
     seen = []
-    agent = Agent(client, events=seen.append, compaction=lambda msgs: [dict(m) for m in msgs])
+    _, agent = _agent_over(_old_conversation(), lambda msgs: [dict(m) for m in msgs], events=seen.append)
     with caplog.at_level(logging.WARNING, logger=_ASYNC_TOOL_LOOP_LOGGER):
-        result = await agent.run("another question")
-
-    assert result == "final answer"
+        assert await agent.run("another question") == "final answer"
     assert not any(isinstance(e, ContextCompacted) for e in seen)
-    assert "Compacted conversation" not in caplog.text
+    assert "Compacted the request" not in caplog.text
 
 
 async def test_async_explicit_trim_does_not_warn(caplog):
-    """client.messages = trim_messages(...) needs no announcement: the caller performed
-    the drop and holds both lists."""
     from aimu.aio.agent import Agent
 
     old_messages = _old_conversation()
     client = MockAsyncModelClient(["final answer"])
     client.model.supports_tools = False
-    budget = count_tokens(old_messages[-2:])
-    client.messages = trim_messages(old_messages, max_tokens=budget, keep_last=0)
+    client.messages = trim_messages(old_messages, max_tokens=count_tokens(old_messages[-2:]), keep_last=0)
 
-    agent = Agent(client)  # compaction=None (default): the automatic hook never runs
+    agent = Agent(client)
     with caplog.at_level(logging.WARNING, logger=_ASYNC_TOOL_LOOP_LOGGER):
-        result = await agent.run("new question")
-
-    assert result == "final answer"
-    assert "Compacted conversation" not in caplog.text
+        assert await agent.run("new question") == "final answer"
+    assert "Compacted the request" not in caplog.text
 
 
 async def test_async_compaction_is_a_per_run_override():
-    """Mirrors deps / tool_approval / thinking / events: None uses the field, otherwise the
-    run()-level override wins."""
+    client, agent = _agent_over(_old_conversation(), lambda msgs: msgs)
+    await agent.run("new question", compaction=_newest_only())
+    assert client.sent == [[NEW]]
+
+    client2, agent2 = _agent_over(_old_conversation(), _newest_only())
+    await agent2.run("new question")
+    assert client2.sent == [[NEW]]
+
+
+async def test_async_streamed_run_compacts_every_request_and_none_after_it():
+    """A streamed run builds its requests while the engine's generator is suspended between yields;
+    the compaction must reach every one of them, and none once the stream is drained."""
     from aimu.aio.agent import Agent
-    from aimu.events import ContextCompacted
+    from aimu.tools import tool
 
-    old_messages = _old_conversation()
-    budget = count_tokens(old_messages[-2:])
+    @tool
+    async def lookup() -> str:
+        """Look something up."""
+        return "found it"
 
-    def trimmer(msgs: list[dict]) -> list[dict]:
-        return trim_messages(msgs, max_tokens=budget, keep_last=0)
+    client = MockAsyncModelClient(["tool", "final answer", "plain"])
+    client.messages = _old_conversation()
+    agent = Agent(client, tools=[lookup], compaction=lambda msgs: msgs[-1:])
+    stream = await agent.run("new question", stream=True)
+    async for _ in stream:
+        pass
 
-    def no_op(msgs: list[dict]) -> list[dict]:
-        return msgs
+    assert [len(request) for request in client.sent] == [1, 1]
+    assert client.sent[1][0]["role"] == "tool"
+    await client.chat("outside any run")
+    assert client.sent[-1] == client.messages[:-1]
 
-    # The field is a no-op (would never announce anything on its own); the per-run
-    # override is the trimmer. Seeing ContextCompacted proves the override ran, not the field.
-    seen = []
-    client = MockAsyncModelClient(["final answer"])
-    client.model.supports_tools = False
-    client.messages = list(old_messages)
-    agent = Agent(client, events=seen.append, compaction=no_op)
-    await agent.run("q", compaction=trimmer)
-    assert any(isinstance(e, ContextCompacted) for e in seen)
 
-    # compaction=None (the default, i.e. omitted) falls back to the field.
-    seen2 = []
-    client2 = MockAsyncModelClient(["final answer"])
-    client2.model.supports_tools = False
-    client2.messages = list(old_messages)
-    agent2 = Agent(client2, events=seen2.append, compaction=trimmer)
-    await agent2.run("q")  # no override -> None -> falls back to self.compaction
-    assert any(isinstance(e, ContextCompacted) for e in seen2)
+async def test_async_a_compaction_that_raises_stops_the_run():
+    def broken(msgs):
+        raise RuntimeError("compaction bug")
+
+    _, agent = _agent_over(_old_conversation(), broken)
+    with pytest.raises(RuntimeError, match="compaction bug"):
+        await agent.run("new question")
 
 
 async def test_async_summarize_keeps_the_task_verbatim_by_default():

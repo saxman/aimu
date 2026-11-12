@@ -193,6 +193,33 @@ def _effective_sink(client: Any) -> Optional[Any]:
     return getattr(client, "events", None)
 
 
+# The scoped request compaction: what an agent run sends in place of the client's full history.
+#
+# It is held exactly the way the scoped event sink above is, and for the same three reasons: a
+# client can be shared by agents running concurrently (one run's compaction must not reach
+# another's requests), a tool can call an unrelated client while the run is open (that client's
+# requests are not this run's to compact), and a streamed run's teardown can happen in the event
+# loop's asyncgen finalizer (so teardown flips a flag rather than resetting a Token). The payload is
+# the same `_EventScope` shape with the compaction callable in its `sink` slot.
+_ACTIVE_REQUEST_COMPACTION: ContextVar[tuple] = ContextVar("aimu_active_request_compaction", default=())
+
+
+def outgoing_messages(client: Any) -> list[dict]:
+    """The messages the request *client* is building sends: its history, compacted if a run asked for it.
+
+    Every provider's request builder calls this exactly once per request, in place of reading
+    ``client.messages``, and adapts what it returns. So a compaction decides what the model is sent
+    and never what the conversation holds: the full history stays in ``client.messages``, a different
+    compaction on a later request can send what an earlier one left out, and ``last_request`` records
+    the compacted payload a provider actually received. A plain function over anything with
+    ``messages``, so a provider's request path works the same on a stand-in client.
+    """
+    for scope in reversed(_ACTIVE_REQUEST_COMPACTION.get()):
+        if scope.active and any(client is member for member in scope.family):
+            return scope.sink(list(client.messages))
+    return client.messages
+
+
 class _ChatStateMixin:
     """Mixin providing system-message lifecycle, reset, and user-turn append.
 
@@ -465,6 +492,26 @@ class _ChatStateMixin:
         finally:
             scope.active = False
             _ACTIVE_EVENT_SINK.set(tuple(s for s in _ACTIVE_EVENT_SINK.get() if s.active))
+
+    @contextmanager
+    def _compaction_override(self, compaction: Optional[Any]) -> Iterator[None]:
+        """Temporarily make every request ``self``'s client family builds send ``compaction(messages)``.
+
+        ``compaction=None`` is a no-op. Scoped like :meth:`_events_override` (see
+        ``_ACTIVE_REQUEST_COMPACTION``), which an agent run opens beside it, so the compaction
+        reaches this run's requests and no other's. ``self.messages`` is never touched: the history
+        stays whole, and only what is sent is compacted (see :func:`outgoing_messages`).
+        """
+        if compaction is None:
+            yield
+            return
+        scope = _EventScope(compaction, _client_family(self))
+        _ACTIVE_REQUEST_COMPACTION.set(tuple(s for s in _ACTIVE_REQUEST_COMPACTION.get() if s.active) + (scope,))
+        try:
+            yield
+        finally:
+            scope.active = False
+            _ACTIVE_REQUEST_COMPACTION.set(tuple(s for s in _ACTIVE_REQUEST_COMPACTION.get() if s.active))
 
     def _collect_python_tool_specs(self) -> list[dict]:
         """Collect ``__tool_spec__`` dicts from every registered Python tool callable.

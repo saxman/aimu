@@ -345,8 +345,8 @@ def make_async_subagent_tool(
     reports it as it happens, without making this a streaming tool (which would disable the parent's
     concurrent dispatch). Nested spawns inherit it.
 
-    ``compaction`` is the ``list[dict] -> list[dict]`` callable each spawned agent applies before every
-    model turn, so a long-running worker trims its own context rather than dying in it; a spec's own
+    ``compaction`` is the ``list[dict] -> list[dict]`` callable each spawned agent applies to every
+    request, so a long-running worker sends a trimmed context rather than dying in it; a spec's own
     ``"compaction"`` key overrides it, and ``"compaction": None`` in a spec turns it off. When a child
     runs out of context anyway, the ``ContextOverflowError`` becomes a tool result attributing the full
     window to the sub-agent rather than to the caller, which is what an uncaught one would imply.
