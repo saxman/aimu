@@ -46,8 +46,9 @@ from ._model_client import AsyncModelClient, client, chat
 # Eager, not deferred like the sync surface: aimu.aio.context imports only aimu.context
 # (stdlib+typing), so there is no heavy dependency to avoid paying for, and aio itself is
 # already behind aimu's lazy `aio` attribute gate -- deferring further here would add
-# indirection with nothing to show for it on the import-weight guard.
-from .context import summarize_messages
+# indirection with nothing to show for it on the import-weight guard. The top-level name is the
+# short path, as aimu.summarize_messages is on the sync surface.
+from .context.compaction import summarize_messages
 from aimu.models import (
     ContextOverflowError,
     ModelConnectionError,

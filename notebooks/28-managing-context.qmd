@@ -7,28 +7,32 @@ jupyter: python3
 A conversation is `self.messages` — a plain `list[dict]`, OpenAI format (see
 [notebook 02](02-conversations.qmd)) — and it only grows. Left alone, a long-running agent
 ([notebook 07](07-agents.qmd)) eventually produces a request that no longer fits the model's
-context window. `aimu.context` is three plain functions over that list — `count_tokens`,
-`trim_messages`, `summarize_messages` — plus a `compaction=` field on `Agent` that applies one
-of them to every request an agent sends, leaving the conversation itself whole. Nothing here
-is a policy AIMU picks for you: it's the same "plain data, plain functions" shape as
-`aimu.rag` ([notebook 13](13-rag.qmd)), so what gets left out and why is always something you
-can print, and the request that was actually sent is on `client.last_request`.
+context window. `aimu.context` holds the tools for that: `count_tokens`, the estimate every
+budget is measured in, and `aimu.context.compaction`, which bundles the strategies (mask, trim,
+summarize) and the ready-made compactions an `Agent(compaction=...)` applies to every request it
+sends, leaving the conversation itself whole. Nothing here is a policy AIMU picks for you: it's
+the same "plain data, plain functions" shape as `aimu.rag` ([notebook 13](13-rag.qmd)), so what
+gets left out and why is always something you can print, and the request that was actually sent
+is on `client.last_request`.
 
 **What this notebook covers:**
 - `count_tokens`, and its honesty caveat: an estimate, not a measurement
 - `trim_messages`, and the invariant that justifies it existing (never orphan a `tool`
   message from the `assistant` turn carrying its `tool_calls`)
+- `mask_messages`: replace old content in place with a note naming the message, instead of
+  dropping it
 - `keep_last` counts messages, not exchanges
 - `summarize_messages`: replace old turns with a generated summary instead of dropping them
-- `Agent(compaction=)`: apply one to what every request sends while the history stays whole,
-  and how a request that leaves something out announces it (an event, and a warning)
+- `Agent(compaction=)`: the ready-made `compaction.mask` / `compaction.trim` / `compaction.chain`,
+  applied to what every request sends while the history stays whole, the `get_message` tool
+  that comes with them, and how a request that leaves something out announces it
 - `ContextOverflowError`: the portable catch-compact-retry signal for when it's already too
   late
 
 > This notebook runs a local Ollama model (`qwen3:8b`) in sections D, E, and F; A through C
 > are pure functions and need no backend. Generated summary text and token usage vary by
-> run; the numbers from the pure functions (`count_tokens`, `trim_messages`) do not, for a
-> fixed input.
+> run; the numbers from the pure functions (`count_tokens`, `trim_messages`, `mask_messages`)
+> do not, for a fixed input.
 
 ## Setup
 
@@ -155,6 +159,51 @@ so a re-run can drop a different combination of groups than shown here; what nev
 is that a `tool` message is never separated from the `assistant` message carrying the
 `tool_calls` it answers.)
 
+### Mask instead of dropping: `mask_messages`
+
+Trimming drops a tool call together with its result, so the model loses the fact that it read
+anything. `aimu.context.compaction.mask_messages` keeps every message where it is and replaces
+old content with a note naming the message, cheapest content first (tool results, then images,
+then assistant text, then user text):
+
+```{python}
+from aimu.context.compaction import MASK_ORDER, mask_messages
+
+page = "The release is planned for March. " * 60
+research = [
+    {"role": "system", "content": "You are a researcher."},
+    {"role": "user", "content": "When is the release?"},
+    {"role": "assistant", "content": "", "tool_calls": [
+        {"id": "c1", "type": "function", "function": {"name": "fetch", "arguments": {"url": "https://example.com"}}},
+    ]},
+    {"role": "tool", "tool_call_id": "c1", "name": "fetch", "content": page},
+    {"role": "assistant", "content": "It is planned for March."},
+    {"role": "user", "content": "Which year?"},
+]
+print(aimu.count_tokens(research))
+masked = mask_messages(research, max_tokens=200)
+for index, m in enumerate(masked):
+    print(index, m["role"], "|", (m.get("content") or "")[:96])
+print(aimu.count_tokens(masked), MASK_ORDER)
+```
+
+```
+621
+0 system | You are a researcher.
+1 user | When is the release?
+2 assistant | 
+3 tool | [Message 3, the result of fetch, is not shown here, to save context. get_message(3) returns it i
+4 assistant | It is planned for March.
+5 user | Which year?
+137 ('tool', 'image', 'assistant', 'user')
+```
+
+Only message 3 changed, and only its content: the call that fetched the page is still there with
+its URL, so the model knows it read the page, and the note names `get_message(3)`, a tool every
+agent with a compaction is given (section E). No message was removed or added, so the list has
+the history's own shape. A note still costs tokens, so masking slows growth without bounding it,
+which is why trimming stays, as the backstop behind it.
+
 ## C - `keep_last` counts messages, not exchanges
 
 A "turn" is ambiguous: a plain back-and-forth is 2 messages (user + assistant), but an
@@ -226,17 +275,23 @@ the input is returned unchanged (a copy).
 
 ## E - Automate it: `Agent(compaction=)`
 
-Both functions above are things you call by hand, and calling one by hand rewrites the list
+The functions above are things you call by hand, and calling one by hand rewrites the list
 you assign it back to. `Agent(compaction=...)` (and the per-run `agent.run(compaction=...)`
-override) is different in kind: it takes a callable of your choice — `list[dict] -> list[dict]`
-— and applies it to every request the agent sends, at the moment each request is built. The
-model is sent what the callable returns. The conversation keeps everything:
+override) is different in kind: it takes a compaction — `aimu.context.Compaction`, any
+`list[dict] -> list[dict]` — and applies it to every request the agent sends, at the moment each
+request is built. The model is sent what it returns. The conversation keeps everything.
+
+`aimu.context.compaction` ships them ready-made, the way `aimu.tools.builtin` ships tool groups:
+`compaction.trim(max_tokens, **options)` and `compaction.mask(max_tokens, **options)` bind a
+strategy's settings, and `compaction.chain(...)` runs several in order. A trim keeps this
+example's output easy to read:
 
 ```{python}
 import logging
 
 logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(message)s")
 
+from aimu.context import compaction
 from aimu.events import ContextCompacted
 
 compaction_seen: list = []
@@ -244,7 +299,7 @@ compaction_client = aimu.client(MODEL, system="You are terse. Reply in one short
 compaction_agent = Agent(
     compaction_client,
     events=compaction_seen.append,
-    compaction=lambda msgs: aimu.trim_messages(msgs, max_tokens=60, keep_last=2),
+    compaction=compaction.trim(60, keep_last=2),
 )
 compaction_agent.run("Tell me a fact about the moon.")
 compaction_agent.run("Now tell me a fact about the sun.")
@@ -259,9 +314,9 @@ print("last request sent:", [m["role"] for m in compaction_client.last_request["
 ```
 
 ```
-WARNING Compacted the request for agent 'agent-2397f0': 2 more message(s) left out (~132 -> ~87 tokens sent, AIMU's own estimate). The history keeps them.
+WARNING Compacted the request for agent 'agent-d457f0': 2 more message(s) left out (~140 -> ~83 tokens sent, AIMU's own estimate). The history keeps them.
 ContextCompacted events: 1
-left out: ['assistant', 'user'] | history: 132 | sent: 87
+left out: ['assistant', 'user'] | history: 140 | sent: 83
 history: ['system', 'user', 'assistant', 'user', 'assistant', 'user', 'assistant']
 last request sent: ['system', 'user', 'assistant', 'user']
 ```
@@ -273,6 +328,14 @@ What was left out, the moon answer and the sun question, is still in
 `compaction_client.messages`, so a later request under a looser compaction (or none) would
 send it again. `client.last_request` is the payload the provider actually received, which is
 where to look when you want to know what the model was working from.
+
+For a long-running agent, the shape to start from is masking first and trimming as the
+backstop: `compaction.chain(compaction.mask(6000), compaction.trim(6000))`. The mask keeps the
+record of what happened (section B), and the trim only ever drops messages the mask has already
+reduced to notes. Put a mask first in any chain, since its notes name positions in the full
+history. Any run with a compaction also carries a `get_message` tool the agent did not list,
+which returns a message from its own history in full, in windows for a long one: it is what a
+mask's notes name, so the model can read back what it needs.
 
 **What a request leaves out is never silent.** When a request leaves out a message the
 previous one sent, two things fire together: a `ContextCompacted` event for a sink attached
@@ -321,7 +384,7 @@ from aimu.models import ContextOverflowError
 try:
     agent.run(task)
 except ContextOverflowError:
-    agent.run(task, compaction=lambda msgs: aimu.trim_messages(msgs, max_tokens=8000))
+    agent.run(task, compaction=compaction.trim(8000))
 ```
 
 The retry sends a trimmed request and leaves the history whole. To shrink the stored history

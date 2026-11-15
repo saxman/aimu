@@ -17,7 +17,7 @@ Auto-generated from docstrings. One page per package:
 - [`aimu.evals`](api/evals.md): `Benchmark`, `DeepEvalModel`, `DeepEvalScorer`
 - [`aimu.history`](api/history.md): `ConversationManager`
 - [`aimu.events`](api/events.md): `RunEvent` and its subclasses, `EventSink`, `emit`, `log_events`
-- [`aimu.context`](api/context.md): `count_tokens`, `trim_messages`, `summarize_messages`
+- [`aimu.context`](api/context.md): `count_tokens`, and `aimu.context.compaction`: `mask`, `trim`, `chain`, and the strategy functions
 
 ## Other reference
 

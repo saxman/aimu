@@ -428,7 +428,7 @@ def _raise_if_context_overflowed(exc: "anthropic.BadRequestError") -> None:
     raise ContextOverflowError(
         "The request no longer fits the model's context window: Anthropic rejected the prompt as "
         "too long. Shorten the conversation, advertise fewer tools, or compact history first "
-        "(aimu.context.trim_messages / summarize_messages)."
+        "(see aimu.context.compaction)."
     ) from exc
 
 
@@ -448,7 +448,7 @@ def _raise_for_request_too_large(exc: "anthropic.RequestTooLargeError") -> None:
         "Anthropic rejected the request as too large (413). This is usually the context window, "
         "but a large image or document in the request can also trigger it. Shorten the "
         "conversation, advertise fewer tools, or compact history first "
-        "(aimu.context.trim_messages / summarize_messages)."
+        "(see aimu.context.compaction)."
     ) from exc
 
 

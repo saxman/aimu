@@ -2,11 +2,19 @@
 
 A conversation is `self.messages` — a plain `list[dict]`, OpenAI format — and it only grows.
 Left alone, a long-running agent eventually produces a request that no longer fits the model's
-context window. `aimu.context` is three plain functions over that list — `count_tokens`,
-`trim_messages`, `summarize_messages` — plus a `compaction=` field on `Agent` that applies one of
-them to every request the agent sends, while the conversation itself stays whole. Nothing here is a
-policy AIMU picks for you: it's the same "plain data, plain functions" shape as `aimu.rag`, so what
-gets left out and why is always something you can print.
+context window. `aimu.context` holds the tools for that: `count_tokens`, the estimate every budget
+is measured in, and `aimu.context.compaction`, which bundles the strategies (mask, trim, summarize)
+and the ready-made compactions an `Agent(compaction=...)` applies to every request it sends, the way
+`aimu.tools.builtin` bundles tools. The conversation itself stays whole. Nothing here is a policy
+AIMU picks for you: it's the same "plain data, plain functions" shape as `aimu.rag`, so what gets
+left out and why is always something you can print.
+
+```python
+from aimu.context import compaction
+```
+
+`aimu.trim_messages`, `aimu.summarize_messages`, and `aimu.count_tokens` are short paths to the same
+functions.
 
 For what each strategy costs the model (trimming a tool call erases the record that it ran, and
 the oldest message dropped is usually the task itself), see
@@ -38,8 +46,9 @@ aimu.count_tokens(messages, counter=lambda text: len(enc.encode(text)))  # enc: 
 
 ## Trim to a budget
 
-`trim_messages` drops the oldest messages until the conversation fits `max_tokens` (per
-`count_tokens`), and returns a new list — the input is never mutated:
+`compaction.trim_messages` drops the oldest messages until the conversation fits `max_tokens` (per
+`count_tokens`), and returns a new list — the input is never mutated. Dropping leaves no trace, so
+as a compaction it is the backstop behind masking (next section), not the first resort:
 
 ```python
 messages = [
@@ -99,6 +108,61 @@ tool-call group (index 6-7 in the original list) survived intact even though onl
 edge rather than splitting it. `keep_first` follows the same rule, so a first message that opens a
 tool-call group keeps its whole group.
 
+## Mask instead of dropping
+
+`compaction.mask_messages` keeps every message where it is and replaces old content with a short
+note naming the message, until the list fits. The model still sees who said what and which tools
+ran, and each note names the way back:
+
+```python
+from aimu.context.compaction import mask_messages
+
+page = "The release is planned for March. " * 60
+messages = [
+    {"role": "system", "content": "You are a researcher."},
+    {"role": "user", "content": "When is the release?"},
+    {"role": "assistant", "content": "", "tool_calls": [
+        {"id": "c1", "type": "function", "function": {"name": "fetch", "arguments": {"url": "https://example.com"}}},
+    ]},
+    {"role": "tool", "tool_call_id": "c1", "name": "fetch", "content": page},
+    {"role": "assistant", "content": "It is planned for March."},
+    {"role": "user", "content": "Which year?"},
+]
+aimu.count_tokens(messages)                  # 621
+masked = mask_messages(messages, max_tokens=200)
+masked[3]["content"]
+# '[Message 3, the result of fetch, is not shown here, to save context. get_message(3) returns it in full.]'
+aimu.count_tokens(masked)                    # 137
+```
+
+Only message 3 changed. The call that fetched the page is still there, with its URL, so the model
+knows it read the page, and the note says how to read it again.
+
+**What goes first.** Content is masked in `compaction.MASK_ORDER`, oldest first within each kind,
+and masking stops the moment the list fits:
+
+1. **Tool results**, usually the bulk, and the call stays beside each one.
+2. **Images**, in any message: a message's image blocks become one note beside its text.
+3. **Assistant text**: a reply's text becomes a note, and a tool-call argument over 200 characters
+   (a whole file's content, say) becomes a short placeholder while the call stays.
+4. **User text**, last, since the dialogue is what the model reasons from.
+
+The system messages, the first `keep_first` and the last `keep_last` messages are never masked, as
+for `trim_messages`, and a message shorter than its note is left alone. Because no message is removed
+or added, the list keeps the history's shape: roles alternate wherever they did, and a tool call
+never loses its result.
+
+**The way back is `get_message`.** The default note (`compaction.default_note`) names
+`get_message(<index>)`, a tool every agent with a compaction is given automatically (see
+[Automate it](#automate-it-agentcompaction)). It reads the message from the agent's own history,
+which a compaction never rewrites. Pass `note=` (a function of the index, the original message, and
+the kind) for your own wording; the index is the message's position in the list you pass, which is
+its position in the history when masking runs as a compaction.
+
+A note still costs tokens, so masking slows a conversation's growth without bounding it. When every
+candidate has been masked and the list still does not fit, `mask_messages` returns it as masked;
+follow it with a trim.
+
 ## Summarize instead of dropping
 
 `trim_messages` discards the oldest turns outright. `summarize_messages` replaces them with one
@@ -152,21 +216,21 @@ summarization call is made.
 
 ## Automate it: `Agent(compaction=...)`
 
-Both functions above are things you call by hand, and assigning the result back is a permanent
-edit of the history. `Agent(compaction=...)` (and the per-run `agent.run(compaction=...)` override)
-takes the same kind of callable — `list[dict] -> list[dict]` — and applies it to every request the
-agent sends, while each request is built. The model is sent what it returns; `client.messages`
-keeps the whole conversation:
+The functions above are things you call by hand, and assigning the result back is a permanent edit
+of the history. `Agent(compaction=...)` (and the per-run `agent.run(compaction=...)` override) is
+different in kind: it takes a compaction (`aimu.context.Compaction`, any `list[dict] -> list[dict]`)
+and applies it to every request the agent sends, while each request is built. The model is sent what
+it returns; `client.messages` keeps the whole conversation.
+
+`aimu.context.compaction` ships them ready-made, with their settings bound, the way
+`aimu.tools.builtin` ships tool groups:
 
 ```python
-import logging
 from aimu.agents import Agent
+from aimu.context import compaction
 
 client = aimu.client("ollama:qwen3:8b", system="You are terse. Reply in one short sentence.")
-agent = Agent(
-    client,
-    compaction=lambda msgs: aimu.trim_messages(msgs, max_tokens=60, keep_last=2),
-)
+agent = Agent(client, compaction=compaction.trim(60, keep_last=2))
 agent.run("Tell me a fact about the moon.")
 agent.run("Now tell me a fact about the sun.")
 agent.run("Now tell me a fact about Mars.")
@@ -183,18 +247,45 @@ system prompt, the moon question (pinned by `keep_first=1`), the sun answer, and
 compaction, or none, sends it again. `client.last_request` is the payload the provider actually
 received.
 
-The default is `None`: an agent that doesn't opt in sends its whole history on every request.
-Prefer a trim (or a stubbing function, see
-[Context management](../explanation/context-management.md#stubbing-results-keeps-the-record-and-drops-the-bulk))
-over `summarize_messages` here: a compaction runs on every request, so a summarizing one calls the
-summarizer before every model turn.
+| Ready-made | What each request gets |
+|---|---|
+| `compaction.mask(max_tokens, **options)` | `mask_messages` with these options: old content replaced by notes, in place |
+| `compaction.trim(max_tokens, **options)` | `trim_messages` with these options: the oldest messages dropped |
+| `compaction.chain(a, b, ...)` | each compaction in turn, on the previous one's result |
+
+Options are the function's own keyword arguments, checked when the compaction is made, so a
+misspelled one raises then rather than on the first request.
+
+**Mask first, trim as the backstop.** Masking keeps the record of what happened but cannot bound
+growth on its own, since the notes still cost tokens; a trim bounds it but leaves no trace. Chained,
+the trim only ever drops messages masking has already reduced to notes:
+
+```python
+agent = Agent(client, compaction=compaction.chain(compaction.mask(6000), compaction.trim(6000)))
+```
+
+Put a mask first in any chain. Its notes name each message by its position in the list it is given,
+so it has to see the full history, before anything drops messages.
+
+**`get_message` comes with any compaction.** An agent run with a compaction carries one more tool,
+`get_message(index, offset=1, max_chars=8000)` (`aimu.tools.builtin.make_history_tools`), which
+returns a message from the agent's own history in full: what a mask's note replaced, in windows for a
+long one, with its images. You do not list it; a note naming a tool the model cannot call would only
+produce a refusal. It sits ahead of any tool-group tail, and an agent whose own tools already include
+a `get_message` is refused while it has a compaction.
+
+The default is `None`: an agent that doesn't opt in sends its whole history on every request, and
+carries no `get_message`. There is no ready-made summarizing compaction: a compaction runs on every
+request, so a summarizing one would call the summarizer before every model turn, over a longer
+history each time (issue #19). Use `summarize_messages` for a deliberate edit by hand.
 
 **What a request leaves out is never silent.** When a request leaves out a message the previous
 request sent, judged by content (the callable may rebuild kept messages into new dict objects, so
 this isn't an identity check), two things fire together: a [`ContextCompacted`](observe-a-run.md)
 event for a sink attached via `events=`, carrying the messages left out, and an unconditional
 `WARNING` log, so a caller with no sink still learns the model is working from less than the
-conversation holds:
+conversation holds. A masked message counts as left out, reported with its original content, since
+the model was sent a note in its place:
 
 ```
 WARNING Compacted the request for agent '<agent name>': 2 more message(s) left out (~<N> -> ~<M> tokens sent, AIMU's own estimate). The history keeps them.
@@ -246,7 +337,7 @@ from aimu.models import ContextOverflowError
 try:
     agent.run(task)
 except ContextOverflowError:
-    agent.run(task, compaction=lambda msgs: aimu.trim_messages(msgs, max_tokens=8000))
+    agent.run(task, compaction=compaction.trim(8000))
 ```
 
 The retry sends a trimmed request and leaves the history whole. To shrink the stored history

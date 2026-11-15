@@ -34,6 +34,43 @@
   it trims from keeps growing; [Context management](docs/explanation/context-management.md) shows a
   stepped trim that does.
 
+### Context
+
+- **Change: the compaction strategies moved to `aimu.context.compaction`.** `aimu.context` is now a
+  package holding `count_tokens` and the new `Compaction` type (the `list[dict] -> list[dict]` contract
+  `Agent(compaction=...)` takes), and `aimu.context.compaction` bundles the strategies the way
+  `aimu.tools.builtin` bundles tools. `aimu.context.trim_messages`, `aimu.context.summarize_messages`,
+  and `aimu.context.DEFAULT_SUMMARIZE_PROMPT` are now `aimu.context.compaction.<name>`, with no alias
+  left behind; `aimu.aio.context.summarize_messages` is now `aimu.aio.context.compaction.summarize_messages`.
+  The short paths `aimu.trim_messages`, `aimu.summarize_messages`, `aimu.count_tokens`, and
+  `aimu.aio.summarize_messages` still work and point at the new home.
+- **New: ready-made compactions and `chain`.** `compaction.mask(max_tokens, **options)` and
+  `compaction.trim(max_tokens, **options)` return a compaction with the strategy's settings bound, so
+  `Agent(compaction=compaction.trim(8000))` replaces a hand-written lambda; options are checked when the
+  compaction is made, so a misspelled one raises then. `compaction.chain(a, b, ...)` runs several in
+  order, each on the previous one's result. There is deliberately no ready-made summarizing compaction:
+  as one it would call the summarizer on every request (#19).
+- **New: `compaction.mask_messages` replaces old content in place instead of dropping it.** Every message
+  keeps its place and role; old content becomes a note naming the message ("[Message 12, the result of
+  search, is not shown here, to save context. get_message(12) returns it in full.]"), until the list
+  fits. It masks the cheapest content first (`compaction.MASK_ORDER`): tool results, then images, then
+  assistant text (and tool-call arguments over 200 characters), then user text, oldest first within
+  each, never the task, the system messages, or the last `keep_last`. Because nothing is removed or
+  added, a masked request has the history's own shape: roles alternate wherever they did and a tool call
+  keeps its result. `note=` replaces the wording. A note still costs tokens, so masking slows growth
+  without bounding it; `chain(mask(n), trim(n))` is the shape to start from, with the mask first since
+  its notes number messages in the full history.
+- **New: `get_message` comes with any compaction.** An agent run with a compaction now carries one more
+  tool, `get_message(index, offset=1, max_chars=8000)` (`aimu.tools.builtin.make_history_tools`), which
+  returns a message from the agent's own history in full: what a mask's note replaced, in windows for a
+  long one, with its images. It is added without being listed, since a note naming a tool the model
+  cannot call would only produce a refusal, and it reads nothing the agent was not already shown. It sits
+  ahead of any tool-group tail, and an agent whose own tools include a `get_message` is refused while it
+  has a compaction. The spawn tools need nothing new: each spawned worker is an `Agent` with the
+  compaction, so it carries the tool and can read back its own history, which exists nowhere else.
+- **Change: the context-overflow error messages** now point at `aimu.context.compaction` instead of
+  the old function paths.
+
 ### Tools
 
 - **New: `aimu.tools.ToolResult`, so a tool can hand the model an image.** Both tool loops built a

@@ -102,7 +102,7 @@ def _raise_if_prompt_overflows(hf_model: Any, model_inputs: Any, *, model_name: 
         f"The request no longer fits the model's context window: the rendered prompt is "
         f"{prompt_tokens} tokens, but {model_name} supports at most {max_position_embeddings}. "
         "Shorten the conversation, advertise fewer tools, or compact history first "
-        "(aimu.context.trim_messages / summarize_messages)."
+        "(see aimu.context.compaction)."
     )
 
 

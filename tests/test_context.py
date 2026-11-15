@@ -7,7 +7,8 @@ Every provider rejects that shape, and it is exactly what a naive slice produces
 
 import logging
 
-from aimu.context import count_tokens, summarize_messages, trim_messages
+from aimu.context import count_tokens
+from aimu.context.compaction import summarize_messages, trim_messages
 from tests.helpers import MockModelClient
 
 

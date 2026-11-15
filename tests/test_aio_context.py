@@ -10,7 +10,8 @@ import logging
 
 import pytest
 
-from aimu.context import count_tokens, trim_messages
+from aimu.context import count_tokens
+from aimu.context.compaction import trim_messages
 from tests.helpers_aio import MockAsyncModelClient
 
 # _compacted_request is inherited from _BaseToolLoop, defined in aimu.agents._tool_loop, so its
@@ -193,7 +194,7 @@ async def test_async_a_compaction_that_raises_stops_the_run():
 
 async def test_async_summarize_keeps_the_task_verbatim_by_default():
     """Mirrors test_summarize_keeps_the_task_verbatim_by_default on the async twin."""
-    from aimu.aio.context import summarize_messages
+    from aimu.aio.context.compaction import summarize_messages
 
     class RecordingSummarizer:
         def __init__(self):

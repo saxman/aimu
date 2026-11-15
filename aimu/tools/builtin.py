@@ -12,6 +12,7 @@ import ast
 import contextlib
 import datetime
 import hashlib
+import json
 import logging
 import math
 import operator
@@ -48,6 +49,7 @@ from aimu.agents.inbox import Inbox
 from aimu.agents._tool_loop import new_run_id
 from aimu.tools.groups import check_tool_groups
 from aimu.tools.context import ToolContext
+from aimu.tools.result import ToolResult
 
 from . import _execute_python_worker
 from ._documents import DocumentConversionError, html_to_markdown, pdf_to_markdown
@@ -3162,6 +3164,94 @@ def make_web_tools(
         return _format_response(response, max_content_chars, note)
 
     return [find_forms, submit_form, submit_json]
+
+
+#: The name of the tool :func:`make_history_tools` returns, which every agent with a compaction is given
+#: and which :mod:`aimu.context.compaction`'s notes name.
+HISTORY_TOOL_NAME = "get_message"
+
+
+def make_history_tools(client: Any) -> list:
+    """Build ``[get_message]``, which reads one message of *client*'s own history in full.
+
+    The way back from a masked request. A compaction (see :mod:`aimu.context.compaction`) decides
+    what each request sends and leaves the history whole, and a mask puts a note in place of the
+    content it leaves out, naming the message by its position: "[Message 12, the result of search,
+    is not shown here, to save context. get_message(12) returns it in full.]". This tool returns
+    what the note replaced, read from ``client.messages``, which the compaction never touched.
+
+    **Every agent with a compaction is given it**, without being listed in its ``tools``: a note that
+    names a tool the model cannot call sends it into a refusal, and the only messages this reads are
+    ones the agent was already shown. An agent whose own tools include one named ``get_message`` is
+    refused at run time while it has a compaction, since that would be two tools with one name.
+
+    It reads the live list, so it reaches a message added this turn as well as an old one, and works
+    the same for a spawned worker, whose history is never stored anywhere else. A long message is
+    returned in windows like ``read_file`` (``offset`` continues where a read stopped), because the
+    message most worth getting back is often the oversized tool result that was masked for its size.
+    A message's images come back as images (a :class:`~aimu.tools.ToolResult`) on the first window.
+    """
+
+    @tool
+    def get_message(index: int, offset: int = 1, max_chars: int = 8000) -> str | ToolResult:
+        """Read one earlier message of this conversation in full.
+
+        To save context, a request can show an earlier message as a note such as "[Message 12, the
+        result of search, is not shown here, to save context. get_message(12) returns it in full.]".
+        This returns what that note replaced. Call it only when you need what was there; it is not
+        needed for messages you can already read.
+
+        Args:
+            index: The message's number, as the note gives it.
+            offset: The character to start from, 1 for the beginning. A read that stops early names
+                the offset that continues it.
+            max_chars: The most characters to return in one read.
+        """
+        complaint = window_complaint(offset=offset, limit=max_chars, limit_name="max_chars", unit="character")
+        if complaint:
+            return complaint
+        messages = client.messages
+        if not 0 <= index < len(messages):
+            return f"There is no message {index}: this conversation has messages 0 to {len(messages) - 1}."
+        message = messages[index]
+        text = _render_history_message(index, message)
+        if offset > len(text):
+            return past_end(offset=offset, total=len(text), unit="character", describe=f"message {index}")
+        shown = window(text, offset=offset, limit=max_chars, unit="character", tool=f"get_message({index})")
+        images = _image_urls(message.get("content")) if offset == 1 else []
+        return ToolResult(shown, images=images) if images else shown
+
+    return [get_message]
+
+
+def _render_history_message(index: int, message: dict) -> str:
+    """One stored message as text: who it is from, its content, and any tool calls it made."""
+    role = message.get("role", "?")
+    header = (
+        f"Message {index} ({role}" + (f", {message['name']}" if role == "tool" and message.get("name") else "") + ")"
+    )
+    parts = [header]
+    content = message.get("content")
+    if isinstance(content, str) and content:
+        parts.append(content)
+    elif isinstance(content, list):
+        for block in content:
+            if block.get("type") == "text":
+                parts.append(block.get("text", ""))
+            elif block.get("type") == "image_url":
+                parts.append("[image, shown below]")
+    for call in message.get("tool_calls") or []:
+        function = call.get("function") or {}
+        arguments = function.get("arguments", {})
+        rendered = arguments if isinstance(arguments, str) else json.dumps(arguments, ensure_ascii=False)
+        parts.append(f"Called {function.get('name', '?')} with {rendered}")
+    return "\n".join(parts)
+
+
+def _image_urls(content: Any) -> list[str]:
+    if not isinstance(content, list):
+        return []
+    return [block["image_url"]["url"] for block in content if block.get("type") == "image_url"]
 
 
 # Lines longer than this are clipped around the match in find_in_page, so one minified line

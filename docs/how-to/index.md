@@ -16,7 +16,7 @@ If you're new to AIMU, start with the [tutorials](../tutorials/index.md) instead
 - [Get structured output](use-structured-output.md): `schema=` on `chat()` / `generate()` returns a typed dataclass/Pydantic object; native enforcement with a parse fallback
 - [Control thinking effort](control-thinking.md): `thinking=` to turn reasoning off or set an effort level, portably across providers
 - [Set the context length](set-context-length.md): `context_length` in `generate_kwargs`, as a client default or per request
-- [Manage context](manage-context.md): trim or summarize a conversation by hand, or automatically via `Agent(compaction=...)`
+- [Manage context](manage-context.md): mask, trim, or summarize a conversation by hand, or compact every request via `Agent(compaction=...)` with `aimu.context.compaction`'s ready-made compactions
 - [Use async (`aio`)](use-async.md): embed AIMU in async apps; `asyncio.TaskGroup`-backed `Parallel`
 - [Handle vision input](handle-vision.md): pass images via `images=`
 - [Generate images](generate-images.md): `aimu.image_client()` / `generate_image()` with HuggingFace `diffusers` + Google Nano Banana

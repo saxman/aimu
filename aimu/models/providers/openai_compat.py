@@ -57,7 +57,7 @@ def _raise_if_context_overflowed(exc: openai.BadRequestError) -> None:
     raise ContextOverflowError(
         "The request no longer fits the model's context window: the server rejected it as too "
         "long (context_length_exceeded). Shorten the conversation, advertise fewer tools, or "
-        "compact history first (aimu.context.trim_messages / summarize_messages)."
+        "compact history first (see aimu.context.compaction)."
     ) from exc
 
 

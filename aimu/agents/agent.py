@@ -147,6 +147,8 @@ class Agent(_AgentLoopMixin, Runner):
     # What this agent's last compacted request left out, so a run announces a change in that
     # rather than re-announcing every omission an earlier run already reported.
     _compaction_omitted: Counter = field(default_factory=Counter, init=False, repr=False)
+    # This agent's get_message, built on its first compacted run (see _AgentLoopMixin._run_tools).
+    _history_tools: list = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.name is None:
@@ -371,9 +373,10 @@ class Agent(_AgentLoopMixin, Runner):
         """Build the iterative tool-calling engine with this run's effective tools + policy."""
         from aimu.tools.approval import approve_all
 
+        compaction = compaction if compaction is not None else self.compaction
         return _ToolLoop(
             self.model_client,
-            lambda: self._effective_tools(tools),  # re-read each round (SkillAgent may add skill tools mid-run)
+            self._run_tools(tools, compaction),  # re-read each round (SkillAgent may add skill tools mid-run)
             deps=deps if deps is not None else self.deps,
             tool_approval=tool_approval or self.tool_approval or approve_all,
             concurrent_tool_calls=self.concurrent_tool_calls,
@@ -383,7 +386,7 @@ class Agent(_AgentLoopMixin, Runner):
             thinking=thinking,
             events=events if events is not None else self.events,
             agent_name=self.name,
-            compaction=compaction if compaction is not None else self.compaction,
+            compaction=compaction,
             inbox=inbox if inbox is not None else self.inbox,
             run_id=run_id,
             parent_run_id=parent_run_id,
