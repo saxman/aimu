@@ -654,7 +654,7 @@ async def test_spawn_without_events_reports_nowhere():
 OVERFLOW_MESSAGE = (
     "The request no longer fits the model's context window: Anthropic rejected the prompt as too "
     "long. Shorten the conversation, advertise fewer tools, or compact history first "
-    "(aimu.context.trim_messages / summarize_messages)."
+    "(see aimu.context.compaction)."
 )
 
 

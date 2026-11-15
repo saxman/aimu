@@ -129,6 +129,8 @@ environment allowlist) instead of a process-wide singleton.
 
 ::: aimu.tools.builtin.make_command_tool
 
+::: aimu.tools.builtin.make_history_tools
+
 ::: aimu.tools.builtin.make_memory_tools
 
 ::: aimu.tools.builtin.make_page_tools

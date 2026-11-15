@@ -59,20 +59,20 @@ Caveats:
 
 A sub-agent starts from the task string alone, so what fills its window is the output of the tools *it* called. Two things follow.
 
-**Give a long-running worker a `compaction` callable** and every request a spawned agent sends is trimmed, exactly as [`Agent(compaction=...)`](manage-context.md) does: the worker's own history stays whole, and only what each of its requests carries is compacted. The parent's requests are never touched; this reaches the child's only.
+**Give a long-running worker a compaction** and every request a spawned agent sends is compacted, exactly as [`Agent(compaction=...)`](manage-context.md) does: the worker's own history stays whole, and only what each of its requests carries is compacted. The parent's requests are never touched; this reaches the child's only.
 
 ```python
-from aimu.context import trim_messages
+from aimu.context import compaction
 from aimu.tools.builtin import make_subagent_tool, web
 
 spawn = make_subagent_tool(
     "anthropic:claude-sonnet-4-6",
     tools=web,
-    compaction=lambda messages: trim_messages(messages, max_tokens=100_000),
+    compaction=compaction.chain(compaction.mask(100_000), compaction.trim(100_000)),
 )
 ```
 
-The worker's task is the first message after its system prompt, so `trim_messages`' default `keep_first=1` keeps it however much is trimmed. Before that default, the task was the first message dropped, and a worker carried on without knowing what it had been asked.
+The mask replaces the worker's oldest page fetches with notes first, keeping the calls; the trim drops whole messages only if that is not enough. Each spawned worker is an `Agent` with that compaction, so it carries `get_message` and can read a masked page back from its own history, which exists nowhere else. The worker's task is the first message after its system prompt, so both strategies' default `keep_first=1` keeps it however much is compacted. Before that default, the task was the first message dropped, and a worker carried on without knowing what it had been asked.
 
 That bounds growth **spread over many rounds**, which is the common shape. It cannot save a worker from a *single* tool result too large for the window: `trim_messages` will not drop the most recent group without orphaning the call it answers, so a tool that can return megabytes has to cap itself. The built-in `get_web_content` and `read_file` both cap what one call returns for this reason. Their `offset` is a separate thing and does not help here: it lets a model read past the cap deliberately, so a tool's own advice about paging is what has to stay honest about cost.
 

@@ -1,6 +1,6 @@
 """Pure agent-loop helpers shared by the sync and async ``Agent``.
 
-These three methods are byte-for-byte identical across :class:`aimu.agents.Agent`
+These methods are byte-for-byte identical across :class:`aimu.agents.Agent`
 and :class:`aimu.aio.Agent`: they only read or assign model-client state and never
 ``await``, so they live here and are mixed into both. The surface-specific
 ``run()`` / ``_run_streamed()`` bodies stay on each class (their return types and
@@ -15,7 +15,7 @@ not collected as fields by the ``@dataclass`` decorator on the concrete classes.
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Any, Iterator, Optional
+from typing import Any, Callable, Iterator, Optional
 
 
 class _AgentLoopMixin:
@@ -29,6 +29,7 @@ class _AgentLoopMixin:
     tools: list
     deps: Any
     tool_approval: Any
+    _history_tools: list
 
     def _structured_sink(self, events: Any) -> Any:
         """The sink to install on the client for a ``schema=`` run.
@@ -66,6 +67,37 @@ class _AgentLoopMixin:
         finally:
             ended_by = "error" if error is not None else "answered"
             emit(events, RunFinished(agent=self.name, iteration=0, result=None, error=error, ended_by=ended_by))
+
+    def _run_tools(self, tools: Optional[list], compaction: Any) -> Callable[[], list]:
+        """The tool list a run's loop re-reads each round: the effective tools, plus ``get_message``
+        when the run has a compaction.
+
+        A compaction's notes name ``get_message(<index>)`` as the way back to what a request leaves
+        out (see :mod:`aimu.context.compaction`), so any run with a compaction carries the tool,
+        without the caller listing it; a note naming a tool the model cannot call would send it into
+        a refusal. It goes ahead of the tool-group tail, which stays last so loading a group only
+        appends. Refused when the agent's own tools already have a ``get_message``, which would be
+        two tools with one name in every request.
+        """
+        if compaction is None:
+            return lambda: self._effective_tools(tools)
+        from aimu.tools.builtin import HISTORY_TOOL_NAME, make_history_tools
+
+        if any(getattr(fn, "__name__", None) == HISTORY_TOOL_NAME for fn in self._effective_tools(tools)):
+            raise ValueError(
+                f"tools contains a tool named {HISTORY_TOOL_NAME!r}, which an agent with a compaction already "
+                "provides. Rename the tool."
+            )
+        if not self._history_tools:
+            self._history_tools = make_history_tools(self.model_client)
+        history = self._history_tools
+
+        def read() -> list:
+            effective = self._effective_tools(tools)
+            split = len(effective) - len(self._group_tail())
+            return effective[:split] + history + effective[split:]
+
+        return read
 
     def _prepare_run(self, deps: Any = None, tool_approval: Any = None) -> None:
         """Reset client state and re-apply system_message before a run, when configured.

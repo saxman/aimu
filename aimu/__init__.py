@@ -792,7 +792,9 @@ def __getattr__(name: str):
     if name in _LAZY_CONTEXT_SYMBOLS:
         from . import context as _context
 
-        return getattr(_context, name)
+        # count_tokens is the package's own; the strategies are the short path to
+        # aimu.context.compaction, where they live.
+        return getattr(_context if name == "count_tokens" else _context.compaction, name)
     if name in _LAZY_PROVIDER_SYMBOLS:
         from . import models as _models
 
