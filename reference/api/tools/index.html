@@ -2886,6 +2886,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.make_history_tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_history_tools
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#aimu.tools.builtin.make_memory_tools" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4234,6 +4245,17 @@
     <span class="md-ellipsis">
       
         make_command_tool
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.make_history_tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_history_tools
       
     </span>
   </a>
@@ -5968,6 +5990,40 @@ a separately defined twin. <code>@tool</code> freezes the docstring into <code>_
 decoration time, so a closure with no docstring reaches a model with an empty
 description and a <code>__doc__</code> assigned afterwards never lands; one definition is the only
 way to keep one security disclosure.</p>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.tools.builtin.make_history_tools" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.tools.builtin.make_history_tools</span>
+
+
+<a href="#aimu.tools.builtin.make_history_tools" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_history_tools</span><span class="p">(</span><span class="n">client</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Build <code>[get_message]</code>, which reads one message of <em>client</em>'s own history in full.</p>
+<p>The way back from a masked request. A compaction (see :mod:<code>aimu.context.compaction</code>) decides
+what each request sends and leaves the history whole, and a mask puts a note in place of the
+content it leaves out, naming the message by its position: "[Message 12, the result of search,
+is not shown here, to save context. get_message(12) returns it in full.]". This tool returns
+what the note replaced, read from <code>client.messages</code>, which the compaction never touched.</p>
+<p><strong>Every agent with a compaction is given it</strong>, without being listed in its <code>tools</code>: a note that
+names a tool the model cannot call sends it into a refusal, and the only messages this reads are
+ones the agent was already shown. An agent whose own tools include one named <code>get_message</code> is
+refused at run time while it has a compaction, since that would be two tools with one name.</p>
+<p>It reads the live list, so it reaches a message added this turn as well as an old one, and works
+the same for a spawned worker, whose history is never stored anywhere else. A long message is
+returned in windows like <code>read_file</code> (<code>offset</code> continues where a read stopped), because the
+message most worth getting back is often the oversized tool result that was masked for its size.
+A message's images come back as images (a :class:<code>~aimu.tools.ToolResult</code>) on the first window.</p>
 
 
     </div>

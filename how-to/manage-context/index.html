@@ -1465,6 +1465,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#mask-instead-of-dropping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mask instead of dropping
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#summarize-instead-of-dropping" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3409,6 +3420,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#mask-instead-of-dropping" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mask instead of dropping
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#summarize-instead-of-dropping" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3475,11 +3497,16 @@
 <h1 id="manage-context">Manage context<a class="headerlink" href="#manage-context" title="Permanent link">&para;</a></h1>
 <p>A conversation is <code>self.messages</code> — a plain <code>list[dict]</code>, OpenAI format — and it only grows.
 Left alone, a long-running agent eventually produces a request that no longer fits the model's
-context window. <code>aimu.context</code> is three plain functions over that list — <code>count_tokens</code>,
-<code>trim_messages</code>, <code>summarize_messages</code> — plus a <code>compaction=</code> field on <code>Agent</code> that applies one of
-them to every request the agent sends, while the conversation itself stays whole. Nothing here is a
-policy AIMU picks for you: it's the same "plain data, plain functions" shape as <code>aimu.rag</code>, so what
-gets left out and why is always something you can print.</p>
+context window. <code>aimu.context</code> holds the tools for that: <code>count_tokens</code>, the estimate every budget
+is measured in, and <code>aimu.context.compaction</code>, which bundles the strategies (mask, trim, summarize)
+and the ready-made compactions an <code>Agent(compaction=...)</code> applies to every request it sends, the way
+<code>aimu.tools.builtin</code> bundles tools. The conversation itself stays whole. Nothing here is a policy
+AIMU picks for you: it's the same "plain data, plain functions" shape as <code>aimu.rag</code>, so what gets
+left out and why is always something you can print.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">compaction</span>
+</span></code></pre></div>
+<p><code>aimu.trim_messages</code>, <code>aimu.summarize_messages</code>, and <code>aimu.count_tokens</code> are short paths to the same
+functions.</p>
 <p>For what each strategy costs the model (trimming a tool call erases the record that it ran, and
 the oldest message dropped is usually the task itself), see
 <a href="../../explanation/context-management/">Context management</a>.</p>
@@ -3488,33 +3515,34 @@ the oldest message dropped is usually the task itself), see
 message JSON-serialized (AIMU's own inert bookkeeping keys — <code>timestamp</code>, <code>thinking</code>,
 <code>provenance</code> — stripped first, since a provider never sees those but the structural overhead of
 <code>role</code>/<code>tool_calls</code>/JSON punctuation does ride along in the real request):</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">messages</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"hello there"</span><span class="p">}]</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">aimu</span><span class="o">.</span><span class="n">count_tokens</span><span class="p">(</span><span class="n">messages</span><span class="p">)</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="c1"># 10</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">aimu</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">messages</span> <span class="o">=</span> <span class="p">[{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"hello there"</span><span class="p">}]</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">aimu</span><span class="o">.</span><span class="n">count_tokens</span><span class="p">(</span><span class="n">messages</span><span class="p">)</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># 10</span>
 </span></code></pre></div>
 <p><strong>This is an estimate, not a measurement</strong> — typically wrong by 20-30% for any specific model's
 real tokenizer. The only exact count AIMU can report is after the fact, via <code>client.last_usage</code>
 following a real call (see <a href="../compare-models/#3-what-did-each-one-cost">compare models</a>). Pass
 <code>counter=</code> with a real tokenizer when accuracy matters more than a zero-dependency default:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">aimu</span><span class="o">.</span><span class="n">count_tokens</span><span class="p">(</span><span class="n">messages</span><span class="p">,</span> <span class="n">counter</span><span class="o">=</span><span class="k">lambda</span> <span class="n">text</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">enc</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">text</span><span class="p">)))</span>  <span class="c1"># enc: any tiktoken-like encoder</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">aimu</span><span class="o">.</span><span class="n">count_tokens</span><span class="p">(</span><span class="n">messages</span><span class="p">,</span> <span class="n">counter</span><span class="o">=</span><span class="k">lambda</span> <span class="n">text</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">enc</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">text</span><span class="p">)))</span>  <span class="c1"># enc: any tiktoken-like encoder</span>
 </span></code></pre></div>
 <h2 id="trim-to-a-budget">Trim to a budget<a class="headerlink" href="#trim-to-a-budget" title="Permanent link">&para;</a></h2>
-<p><code>trim_messages</code> drops the oldest messages until the conversation fits <code>max_tokens</code> (per
-<code>count_tokens</code>), and returns a new list — the input is never mutated:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">messages</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"system"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"You are a assistant."</span><span class="p">},</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="p">]</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">):</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">messages</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"This is user message number </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">, with some extra padding."</span><span class="p">})</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">messages</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"This is assistant reply number </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">, also padded out."</span><span class="p">})</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">aimu</span><span class="o">.</span><span class="n">count_tokens</span><span class="p">(</span><span class="n">messages</span><span class="p">)</span>                                  <span class="c1"># 274 (estimate)</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">trimmed</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">trim_messages</span><span class="p">(</span><span class="n">messages</span><span class="p">,</span> <span class="n">max_tokens</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">keep_last</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">aimu</span><span class="o">.</span><span class="n">count_tokens</span><span class="p">(</span><span class="n">trimmed</span><span class="p">)</span>                                   <span class="c1"># 78</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="p">[</span><span class="n">m</span><span class="p">[</span><span class="s2">"role"</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">trimmed</span><span class="p">]</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="c1"># ['system', 'user', 'user', 'assistant']</span>
+<p><code>compaction.trim_messages</code> drops the oldest messages until the conversation fits <code>max_tokens</code> (per
+<code>count_tokens</code>), and returns a new list — the input is never mutated. Dropping leaves no trace, so
+as a compaction it is the backstop behind masking (next section), not the first resort:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">messages</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"system"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"You are a assistant."</span><span class="p">},</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="p">]</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">6</span><span class="p">):</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">messages</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"This is user message number </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">, with some extra padding."</span><span class="p">})</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">messages</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"This is assistant reply number </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">, also padded out."</span><span class="p">})</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">aimu</span><span class="o">.</span><span class="n">count_tokens</span><span class="p">(</span><span class="n">messages</span><span class="p">)</span>                                  <span class="c1"># 274 (estimate)</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">trimmed</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">trim_messages</span><span class="p">(</span><span class="n">messages</span><span class="p">,</span> <span class="n">max_tokens</span><span class="o">=</span><span class="mi">80</span><span class="p">,</span> <span class="n">keep_last</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">aimu</span><span class="o">.</span><span class="n">count_tokens</span><span class="p">(</span><span class="n">trimmed</span><span class="p">)</span>                                   <span class="c1"># 78</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="p">[</span><span class="n">m</span><span class="p">[</span><span class="s2">"role"</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">trimmed</span><span class="p">]</span>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="c1"># ['system', 'user', 'user', 'assistant']</span>
 </span></code></pre></div>
 <p>Three things are protected, and everything between them is droppable:</p>
 <ul>
@@ -3540,12 +3568,12 @@ provider rejects that shape, and it's exactly what a naive <code>messages[-n:]</
 <code>trim_messages</code> treats an <code>assistant</code>-with-<code>tool_calls</code> message and every <code>tool</code> message
 answering it as one indivisible unit — dropped together, kept together, never split. On a real
 two-turn tool-using conversation:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">[</span><span class="n">m</span><span class="p">[</span><span class="s2">"role"</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">messages</span><span class="p">]</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># ['system', 'user', 'assistant', 'tool', 'assistant', 'user', 'assistant', 'tool', 'assistant']</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">trimmed</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">trim_messages</span><span class="p">(</span><span class="n">client</span><span class="o">.</span><span class="n">messages</span><span class="p">,</span> <span class="n">max_tokens</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">keep_last</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">[</span><span class="n">m</span><span class="p">[</span><span class="s2">"role"</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">trimmed</span><span class="p">]</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="c1"># ['system', 'user', 'assistant', 'user', 'assistant', 'tool', 'assistant']</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">[</span><span class="n">m</span><span class="p">[</span><span class="s2">"role"</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">messages</span><span class="p">]</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1"># ['system', 'user', 'assistant', 'tool', 'assistant', 'user', 'assistant', 'tool', 'assistant']</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">trimmed</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">trim_messages</span><span class="p">(</span><span class="n">client</span><span class="o">.</span><span class="n">messages</span><span class="p">,</span> <span class="n">max_tokens</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">keep_last</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">[</span><span class="n">m</span><span class="p">[</span><span class="s2">"role"</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">trimmed</span><span class="p">]</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="c1"># ['system', 'user', 'assistant', 'user', 'assistant', 'tool', 'assistant']</span>
 </span></code></pre></div>
 <p>The first user turn is pinned by <code>keep_first</code>, so the first thing dropped is the tool-call group
 answering it: the <code>assistant</code> carrying <code>tool_calls</code> and its <code>tool</code> result go together. The later
@@ -3553,28 +3581,75 @@ tool-call group (index 6-7 in the original list) survived intact even though onl
 <code>assistant</code> reply was inside the protected tail: the boundary was pushed outward to the group's
 edge rather than splitting it. <code>keep_first</code> follows the same rule, so a first message that opens a
 tool-call group keeps its whole group.</p>
+<h2 id="mask-instead-of-dropping">Mask instead of dropping<a class="headerlink" href="#mask-instead-of-dropping" title="Permanent link">&para;</a></h2>
+<p><code>compaction.mask_messages</code> keeps every message where it is and replaces old content with a short
+note naming the message, until the list fits. The model still sees who said what and which tools
+ran, and each note names the way back:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.context.compaction</span><span class="w"> </span><span class="kn">import</span> <span class="n">mask_messages</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">page</span> <span class="o">=</span> <span class="s2">"The release is planned for March. "</span> <span class="o">*</span> <span class="mi">60</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">messages</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"system"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"You are a researcher."</span><span class="p">},</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"When is the release?"</span><span class="p">},</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">""</span><span class="p">,</span> <span class="s2">"tool_calls"</span><span class="p">:</span> <span class="p">[</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>        <span class="p">{</span><span class="s2">"id"</span><span class="p">:</span> <span class="s2">"c1"</span><span class="p">,</span> <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"function"</span><span class="p">,</span> <span class="s2">"function"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="s2">"fetch"</span><span class="p">,</span> <span class="s2">"arguments"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"url"</span><span class="p">:</span> <span class="s2">"https://example.com"</span><span class="p">}}},</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="p">]},</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"tool"</span><span class="p">,</span> <span class="s2">"tool_call_id"</span><span class="p">:</span> <span class="s2">"c1"</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">:</span> <span class="s2">"fetch"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="n">page</span><span class="p">},</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"It is planned for March."</span><span class="p">},</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Which year?"</span><span class="p">},</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="p">]</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="n">aimu</span><span class="o">.</span><span class="n">count_tokens</span><span class="p">(</span><span class="n">messages</span><span class="p">)</span>                  <span class="c1"># 621</span>
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a><span class="n">masked</span> <span class="o">=</span> <span class="n">mask_messages</span><span class="p">(</span><span class="n">messages</span><span class="p">,</span> <span class="n">max_tokens</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a><span class="n">masked</span><span class="p">[</span><span class="mi">3</span><span class="p">][</span><span class="s2">"content"</span><span class="p">]</span>
+</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="c1"># '[Message 3, the result of fetch, is not shown here, to save context. get_message(3) returns it in full.]'</span>
+</span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="n">aimu</span><span class="o">.</span><span class="n">count_tokens</span><span class="p">(</span><span class="n">masked</span><span class="p">)</span>                    <span class="c1"># 137</span>
+</span></code></pre></div>
+<p>Only message 3 changed. The call that fetched the page is still there, with its URL, so the model
+knows it read the page, and the note says how to read it again.</p>
+<p><strong>What goes first.</strong> Content is masked in <code>compaction.MASK_ORDER</code>, oldest first within each kind,
+and masking stops the moment the list fits:</p>
+<ol>
+<li><strong>Tool results</strong>, usually the bulk, and the call stays beside each one.</li>
+<li><strong>Images</strong>, in any message: a message's image blocks become one note beside its text.</li>
+<li><strong>Assistant text</strong>: a reply's text becomes a note, and a tool-call argument over 200 characters
+   (a whole file's content, say) becomes a short placeholder while the call stays.</li>
+<li><strong>User text</strong>, last, since the dialogue is what the model reasons from.</li>
+</ol>
+<p>The system messages, the first <code>keep_first</code> and the last <code>keep_last</code> messages are never masked, as
+for <code>trim_messages</code>, and a message shorter than its note is left alone. Because no message is removed
+or added, the list keeps the history's shape: roles alternate wherever they did, and a tool call
+never loses its result.</p>
+<p><strong>The way back is <code>get_message</code>.</strong> The default note (<code>compaction.default_note</code>) names
+<code>get_message(&lt;index&gt;)</code>, a tool every agent with a compaction is given automatically (see
+<a href="#automate-it-agentcompaction">Automate it</a>). It reads the message from the agent's own history,
+which a compaction never rewrites. Pass <code>note=</code> (a function of the index, the original message, and
+the kind) for your own wording; the index is the message's position in the list you pass, which is
+its position in the history when masking runs as a compaction.</p>
+<p>A note still costs tokens, so masking slows a conversation's growth without bounding it. When every
+candidate has been masked and the list still does not fit, <code>mask_messages</code> returns it as masked;
+follow it with a trim.</p>
 <h2 id="summarize-instead-of-dropping">Summarize instead of dropping<a class="headerlink" href="#summarize-instead-of-dropping" title="Permanent link">&para;</a></h2>
 <p><code>trim_messages</code> discards the oldest turns outright. <code>summarize_messages</code> replaces them with one
 LLM-generated summary instead, so the conversation keeps <em>some</em> memory of what came before rather
 than none:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3:8b"</span><span class="p">)</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">messages</span> <span class="o">=</span> <span class="p">[</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Help me plan a weekend in Lisbon."</span><span class="p">},</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Happy to. What do you enjoy most when you travel?"</span><span class="p">},</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Tile art and seafood, and I'd rather walk than take taxis."</span><span class="p">},</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Noted: tiles, seafood, and a walkable route."</span><span class="p">},</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Which museum should I start with?"</span><span class="p">},</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"The National Tile Museum."</span><span class="p">},</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="p">]</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">summarized</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">summarize_messages</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">messages</span><span class="p">,</span> <span class="n">keep_last</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">summarized</span><span class="p">:</span>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="s2">"role"</span><span class="p">],</span> <span class="s2">":"</span><span class="p">,</span> <span class="n">m</span><span class="p">[</span><span class="s2">"content"</span><span class="p">])</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3:8b"</span><span class="p">)</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">messages</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Help me plan a weekend in Lisbon."</span><span class="p">},</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Happy to. What do you enjoy most when you travel?"</span><span class="p">},</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Tile art and seafood, and I'd rather walk than take taxis."</span><span class="p">},</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Noted: tiles, seafood, and a walkable route."</span><span class="p">},</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"user"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"Which museum should I start with?"</span><span class="p">},</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="p">{</span><span class="s2">"role"</span><span class="p">:</span> <span class="s2">"assistant"</span><span class="p">,</span> <span class="s2">"content"</span><span class="p">:</span> <span class="s2">"The National Tile Museum."</span><span class="p">},</span>
+</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="p">]</span>
+</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="n">summarized</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">summarize_messages</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">messages</span><span class="p">,</span> <span class="n">keep_last</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">summarized</span><span class="p">:</span>
+</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="s2">"role"</span><span class="p">],</span> <span class="s2">":"</span><span class="p">,</span> <span class="n">m</span><span class="p">[</span><span class="s2">"content"</span><span class="p">])</span>
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>system : Summary of earlier conversation:
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>&lt;generated summary text — varies by run and model&gt;
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>user : Help me plan a weekend in Lisbon.
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>user : Which museum should I start with?
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>assistant : The National Tile Museum.
+<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>system : Summary of earlier conversation:
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>&lt;generated summary text — varies by run and model&gt;
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>user : Help me plan a weekend in Lisbon.
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>user : Which museum should I start with?
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>assistant : The National Tile Museum.
 </span></code></pre></div>
 <p>The <code>"Summary of earlier conversation:\n"</code> prefix is a fixed template (see
 <code>summarize_messages</code>'s source). Only the summary itself is generated text, and it will read
@@ -3596,45 +3671,81 @@ free of any provider dependency. It applies the same group-protection invariant 
 always survive" rule. When nothing lies between the kept first and last messages, no
 summarization call is made.</p>
 <h2 id="automate-it-agentcompaction">Automate it: <code>Agent(compaction=...)</code><a class="headerlink" href="#automate-it-agentcompaction" title="Permanent link">&para;</a></h2>
-<p>Both functions above are things you call by hand, and assigning the result back is a permanent
-edit of the history. <code>Agent(compaction=...)</code> (and the per-run <code>agent.run(compaction=...)</code> override)
-takes the same kind of callable — <code>list[dict] -&gt; list[dict]</code> — and applies it to every request the
-agent sends, while each request is built. The model is sent what it returns; <code>client.messages</code>
-keeps the whole conversation:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3:8b"</span><span class="p">,</span> <span class="n">system</span><span class="o">=</span><span class="s2">"You are terse. Reply in one short sentence."</span><span class="p">)</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">client</span><span class="p">,</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="n">compaction</span><span class="o">=</span><span class="k">lambda</span> <span class="n">msgs</span><span class="p">:</span> <span class="n">aimu</span><span class="o">.</span><span class="n">trim_messages</span><span class="p">(</span><span class="n">msgs</span><span class="p">,</span> <span class="n">max_tokens</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span> <span class="n">keep_last</span><span class="o">=</span><span class="mi">2</span><span class="p">),</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="p">)</span>
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Tell me a fact about the moon."</span><span class="p">)</span>
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Now tell me a fact about the sun."</span><span class="p">)</span>
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Now tell me a fact about Mars."</span><span class="p">)</span>
-</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>
-</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="p">[</span><span class="n">m</span><span class="p">[</span><span class="s2">"role"</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">messages</span><span class="p">]</span>
-</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="c1"># ['system', 'user', 'assistant', 'user', 'assistant', 'user', 'assistant']</span>
-</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="p">[</span><span class="n">m</span><span class="p">[</span><span class="s2">"role"</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">last_request</span><span class="p">[</span><span class="s2">"messages"</span><span class="p">]]</span>
-</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="c1"># ['system', 'user', 'assistant', 'user']</span>
+<p>The functions above are things you call by hand, and assigning the result back is a permanent edit
+of the history. <code>Agent(compaction=...)</code> (and the per-run <code>agent.run(compaction=...)</code> override) is
+different in kind: it takes a compaction (<code>aimu.context.Compaction</code>, any <code>list[dict] -&gt; list[dict]</code>)
+and applies it to every request the agent sends, while each request is built. The model is sent what
+it returns; <code>client.messages</code> keeps the whole conversation.</p>
+<p><code>aimu.context.compaction</code> ships them ready-made, with their settings bound, the way
+<code>aimu.tools.builtin</code> ships tool groups:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.agents</span><span class="w"> </span><span class="kn">import</span> <span class="n">Agent</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.context</span><span class="w"> </span><span class="kn">import</span> <span class="n">compaction</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">client</span> <span class="o">=</span> <span class="n">aimu</span><span class="o">.</span><span class="n">client</span><span class="p">(</span><span class="s2">"ollama:qwen3:8b"</span><span class="p">,</span> <span class="n">system</span><span class="o">=</span><span class="s2">"You are terse. Reply in one short sentence."</span><span class="p">)</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">compaction</span><span class="o">=</span><span class="n">compaction</span><span class="o">.</span><span class="n">trim</span><span class="p">(</span><span class="mi">60</span><span class="p">,</span> <span class="n">keep_last</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Tell me a fact about the moon."</span><span class="p">)</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Now tell me a fact about the sun."</span><span class="p">)</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="s2">"Now tell me a fact about Mars."</span><span class="p">)</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="p">[</span><span class="n">m</span><span class="p">[</span><span class="s2">"role"</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">messages</span><span class="p">]</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="c1"># ['system', 'user', 'assistant', 'user', 'assistant', 'user', 'assistant']</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="p">[</span><span class="n">m</span><span class="p">[</span><span class="s2">"role"</span><span class="p">]</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">client</span><span class="o">.</span><span class="n">last_request</span><span class="p">[</span><span class="s2">"messages"</span><span class="p">]]</span>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="c1"># ['system', 'user', 'assistant', 'user']</span>
 </span></code></pre></div>
 <p>The history holds all three exchanges. The request for the Mars question sent four messages: the
 system prompt, the moon question (pinned by <code>keep_first=1</code>), the sun answer, and the Mars question
 (<code>keep_last=2</code>). What it left out is still in <code>client.messages</code>, so a later request under a looser
 compaction, or none, sends it again. <code>client.last_request</code> is the payload the provider actually
 received.</p>
-<p>The default is <code>None</code>: an agent that doesn't opt in sends its whole history on every request.
-Prefer a trim (or a stubbing function, see
-<a href="../../explanation/context-management/#stubbing-results-keeps-the-record-and-drops-the-bulk">Context management</a>)
-over <code>summarize_messages</code> here: a compaction runs on every request, so a summarizing one calls the
-summarizer before every model turn.</p>
+<table>
+<thead>
+<tr>
+<th>Ready-made</th>
+<th>What each request gets</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>compaction.mask(max_tokens, **options)</code></td>
+<td><code>mask_messages</code> with these options: old content replaced by notes, in place</td>
+</tr>
+<tr>
+<td><code>compaction.trim(max_tokens, **options)</code></td>
+<td><code>trim_messages</code> with these options: the oldest messages dropped</td>
+</tr>
+<tr>
+<td><code>compaction.chain(a, b, ...)</code></td>
+<td>each compaction in turn, on the previous one's result</td>
+</tr>
+</tbody>
+</table>
+<p>Options are the function's own keyword arguments, checked when the compaction is made, so a
+misspelled one raises then rather than on the first request.</p>
+<p><strong>Mask first, trim as the backstop.</strong> Masking keeps the record of what happened but cannot bound
+growth on its own, since the notes still cost tokens; a trim bounds it but leaves no trace. Chained,
+the trim only ever drops messages masking has already reduced to notes:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">agent</span> <span class="o">=</span> <span class="n">Agent</span><span class="p">(</span><span class="n">client</span><span class="p">,</span> <span class="n">compaction</span><span class="o">=</span><span class="n">compaction</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span><span class="n">compaction</span><span class="o">.</span><span class="n">mask</span><span class="p">(</span><span class="mi">6000</span><span class="p">),</span> <span class="n">compaction</span><span class="o">.</span><span class="n">trim</span><span class="p">(</span><span class="mi">6000</span><span class="p">)))</span>
+</span></code></pre></div>
+<p>Put a mask first in any chain. Its notes name each message by its position in the list it is given,
+so it has to see the full history, before anything drops messages.</p>
+<p><strong><code>get_message</code> comes with any compaction.</strong> An agent run with a compaction carries one more tool,
+<code>get_message(index, offset=1, max_chars=8000)</code> (<code>aimu.tools.builtin.make_history_tools</code>), which
+returns a message from the agent's own history in full: what a mask's note replaced, in windows for a
+long one, with its images. You do not list it; a note naming a tool the model cannot call would only
+produce a refusal. It sits ahead of any tool-group tail, and an agent whose own tools already include
+a <code>get_message</code> is refused while it has a compaction.</p>
+<p>The default is <code>None</code>: an agent that doesn't opt in sends its whole history on every request, and
+carries no <code>get_message</code>. There is no ready-made summarizing compaction: a compaction runs on every
+request, so a summarizing one would call the summarizer before every model turn, over a longer
+history each time (issue #19). Use <code>summarize_messages</code> for a deliberate edit by hand.</p>
 <p><strong>What a request leaves out is never silent.</strong> When a request leaves out a message the previous
 request sent, judged by content (the callable may rebuild kept messages into new dict objects, so
 this isn't an identity check), two things fire together: a <a href="../observe-a-run/"><code>ContextCompacted</code></a>
 event for a sink attached via <code>events=</code>, carrying the messages left out, and an unconditional
 <code>WARNING</code> log, so a caller with no sink still learns the model is working from less than the
-conversation holds:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>WARNING Compacted the request for agent '&lt;agent name&gt;': 2 more message(s) left out (~&lt;N&gt; -&gt; ~&lt;M&gt; tokens sent, AIMU's own estimate). The history keeps them.
+conversation holds. A masked message counts as left out, reported with its original content, since
+the model was sent a note in its place:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>WARNING Compacted the request for agent '&lt;agent name&gt;': 2 more message(s) left out (~&lt;N&gt; -&gt; ~&lt;M&gt; tokens sent, AIMU's own estimate). The history keeps them.
 </span></code></pre></div>
 <p>The agent name, the token counts, and how many messages go all vary by run, because they depend on
 how long the model's sampled replies were. In the run shown, the moon answer and the sun question
@@ -3688,12 +3799,12 @@ here — its own error propagates unchanged, which is honest rather than a silen
 provider where <code>__cause__</code> exists (every networked backend), the original SDK exception is
 chained; the in-process pre-flight path has no such error to chain and <code>__cause__</code> is <code>None</code> by
 design.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContextOverflowError</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="k">try</span><span class="p">:</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="k">except</span> <span class="n">ContextOverflowError</span><span class="p">:</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">task</span><span class="p">,</span> <span class="n">compaction</span><span class="o">=</span><span class="k">lambda</span> <span class="n">msgs</span><span class="p">:</span> <span class="n">aimu</span><span class="o">.</span><span class="n">trim_messages</span><span class="p">(</span><span class="n">msgs</span><span class="p">,</span> <span class="n">max_tokens</span><span class="o">=</span><span class="mi">8000</span><span class="p">))</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">aimu.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ContextOverflowError</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="k">except</span> <span class="n">ContextOverflowError</span><span class="p">:</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">agent</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">task</span><span class="p">,</span> <span class="n">compaction</span><span class="o">=</span><span class="n">compaction</span><span class="o">.</span><span class="n">trim</span><span class="p">(</span><span class="mi">8000</span><span class="p">))</span>
 </span></code></pre></div>
 <p>The retry sends a trimmed request and leaves the history whole. To shrink the stored history
 itself instead, assign the trimmed list back

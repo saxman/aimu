@@ -3363,7 +3363,7 @@
 <li><a href="use-structured-output/">Get structured output</a>: <code>schema=</code> on <code>chat()</code> / <code>generate()</code> returns a typed dataclass/Pydantic object; native enforcement with a parse fallback</li>
 <li><a href="control-thinking/">Control thinking effort</a>: <code>thinking=</code> to turn reasoning off or set an effort level, portably across providers</li>
 <li><a href="set-context-length/">Set the context length</a>: <code>context_length</code> in <code>generate_kwargs</code>, as a client default or per request</li>
-<li><a href="manage-context/">Manage context</a>: trim or summarize a conversation by hand, or automatically via <code>Agent(compaction=...)</code></li>
+<li><a href="manage-context/">Manage context</a>: mask, trim, or summarize a conversation by hand, or compact every request via <code>Agent(compaction=...)</code> with <code>aimu.context.compaction</code>'s ready-made compactions</li>
 <li><a href="use-async/">Use async (<code>aio</code>)</a>: embed AIMU in async apps; <code>asyncio.TaskGroup</code>-backed <code>Parallel</code></li>
 <li><a href="handle-vision/">Handle vision input</a>: pass images via <code>images=</code></li>
 <li><a href="generate-images/">Generate images</a>: <code>aimu.image_client()</code> / <code>generate_image()</code> with HuggingFace <code>diffusers</code> + Google Nano Banana</li>

@@ -3278,6 +3278,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tools" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3339,7 +3350,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
+  <a href="#context_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Context
@@ -5754,6 +5765,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#context" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Context
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tools" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5815,7 +5837,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#context" class="md-nav__link">
+  <a href="#context_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Context
@@ -8205,6 +8227,43 @@ not this stub.
   it trims from keeps growing; <a href="docs/explanation/context-management.md">Context management</a> shows a
   stepped trim that does.</li>
 </ul>
+<h3 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Change: the compaction strategies moved to <code>aimu.context.compaction</code>.</strong> <code>aimu.context</code> is now a
+  package holding <code>count_tokens</code> and the new <code>Compaction</code> type (the <code>list[dict] -&gt; list[dict]</code> contract
+  <code>Agent(compaction=...)</code> takes), and <code>aimu.context.compaction</code> bundles the strategies the way
+  <code>aimu.tools.builtin</code> bundles tools. <code>aimu.context.trim_messages</code>, <code>aimu.context.summarize_messages</code>,
+  and <code>aimu.context.DEFAULT_SUMMARIZE_PROMPT</code> are now <code>aimu.context.compaction.&lt;name&gt;</code>, with no alias
+  left behind; <code>aimu.aio.context.summarize_messages</code> is now <code>aimu.aio.context.compaction.summarize_messages</code>.
+  The short paths <code>aimu.trim_messages</code>, <code>aimu.summarize_messages</code>, <code>aimu.count_tokens</code>, and
+  <code>aimu.aio.summarize_messages</code> still work and point at the new home.</li>
+<li><strong>New: ready-made compactions and <code>chain</code>.</strong> <code>compaction.mask(max_tokens, **options)</code> and
+  <code>compaction.trim(max_tokens, **options)</code> return a compaction with the strategy's settings bound, so
+  <code>Agent(compaction=compaction.trim(8000))</code> replaces a hand-written lambda; options are checked when the
+  compaction is made, so a misspelled one raises then. <code>compaction.chain(a, b, ...)</code> runs several in
+  order, each on the previous one's result. There is deliberately no ready-made summarizing compaction:
+  as one it would call the summarizer on every request (#19).</li>
+<li><strong>New: <code>compaction.mask_messages</code> replaces old content in place instead of dropping it.</strong> Every message
+  keeps its place and role; old content becomes a note naming the message ("[Message 12, the result of
+  search, is not shown here, to save context. get_message(12) returns it in full.]"), until the list
+  fits. It masks the cheapest content first (<code>compaction.MASK_ORDER</code>): tool results, then images, then
+  assistant text (and tool-call arguments over 200 characters), then user text, oldest first within
+  each, never the task, the system messages, or the last <code>keep_last</code>. Because nothing is removed or
+  added, a masked request has the history's own shape: roles alternate wherever they did and a tool call
+  keeps its result. <code>note=</code> replaces the wording. A note still costs tokens, so masking slows growth
+  without bounding it; <code>chain(mask(n), trim(n))</code> is the shape to start from, with the mask first since
+  its notes number messages in the full history.</li>
+<li><strong>New: <code>get_message</code> comes with any compaction.</strong> An agent run with a compaction now carries one more
+  tool, <code>get_message(index, offset=1, max_chars=8000)</code> (<code>aimu.tools.builtin.make_history_tools</code>), which
+  returns a message from the agent's own history in full: what a mask's note replaced, in windows for a
+  long one, with its images. It is added without being listed, since a note naming a tool the model
+  cannot call would only produce a refusal, and it reads nothing the agent was not already shown. It sits
+  ahead of any tool-group tail, and an agent whose own tools include a <code>get_message</code> is refused while it
+  has a compaction. The spawn tools need nothing new: each spawned worker is an <code>Agent</code> with the
+  compaction, so it carries the tool and can read back its own history, which exists nowhere else.</li>
+<li><strong>Change: the context-overflow error messages</strong> now point at <code>aimu.context.compaction</code> instead of
+  the old function paths.</li>
+</ul>
 <h3 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New: <code>aimu.tools.ToolResult</code>, so a tool can hand the model an image.</strong> Both tool loops built a
@@ -8329,7 +8388,7 @@ not this stub.
   that exited early raised <code>BrokenPipeError</code>, and an interrupt during the write surfaced as
   <code>BrokenPipeError</code> instead of <code>KeyboardInterrupt</code>. <code>run_command</code> sends no stdin and was unaffected.</li>
 </ul>
-<h3 id="context">Context<a class="headerlink" href="#context" title="Permanent link">&para;</a></h3>
+<h3 id="context_1">Context<a class="headerlink" href="#context_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Change (breaking): <code>trim_messages</code> keeps the first message after the system messages, by
   default.</strong> New <code>keep_first</code> parameter, default <code>1</code>, the head-side mirror of <code>keep_last</code>, extended
