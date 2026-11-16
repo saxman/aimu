@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.40.0 (2026-11-16): tool calls announced as they start, tools that return images, request-time compaction, and `aimu.context.compaction`
 
 ### Agents
 
