@@ -3255,6 +3255,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unreleased
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Unreleased">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#packaging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Packaging
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v0401-2026-11-16-reading-a-stored-web-page-works-on-python-311-and-312" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4262,7 +4290,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#packaging" class="md-nav__link">
+  <a href="#packaging_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Packaging
@@ -4351,7 +4379,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#packaging_1" class="md-nav__link">
+  <a href="#packaging_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Packaging
@@ -5770,6 +5798,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Unreleased
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Unreleased">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#packaging" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Packaging
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v0401-2026-11-16-reading-a-stored-web-page-works-on-python-311-and-312" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -6777,7 +6833,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#packaging" class="md-nav__link">
+  <a href="#packaging_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         Packaging
@@ -6866,7 +6922,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#packaging_1" class="md-nav__link">
+  <a href="#packaging_2" class="md-nav__link">
     <span class="md-ellipsis">
       
         Packaging
@@ -8250,6 +8306,18 @@ not this stub.
 -->
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
+<h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
+<h3 id="packaging">Packaging<a class="headerlink" href="#packaging" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>Change: AIMU requires Python 3.14 or newer.</strong> <code>requires-python</code> moves from <code>&gt;=3.11</code> to <code>&gt;=3.14</code>, and
+  ruff's target from <code>py311</code> to <code>py314</code>. Nothing in AIMU needs a 3.14 feature; the floor moves so that the
+  one version the suite runs on is the only version AIMU claims. 0.39.0 shipped <code>Path.read_text(newline=)</code>,
+  which exists only from Python 3.13, and it broke reading a stored web page on 3.11 and 3.12 with nothing in
+  AIMU's own testing to notice (fixed in 0.40.1, the last release supporting 3.11). Every extra, including
+  <code>llamacpp</code>, installs and passes the suite on 3.14. At the <code>py314</code> target <code>ruff format</code> writes PEP 758's
+  unparenthesized <code>except A, B:</code>, so thirteen modules changed that syntax and nothing else. Stay on 0.40.x
+  if you need an older Python.</li>
+</ul>
 <h2 id="v0401-2026-11-16-reading-a-stored-web-page-works-on-python-311-and-312">v0.40.1 (2026-11-16): reading a stored web page works on Python 3.11 and 3.12<a class="headerlink" href="#v0401-2026-11-16-reading-a-stored-web-page-works-on-python-311-and-312" title="Permanent link">&para;</a></h2>
 <h3 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h3>
 <ul>
@@ -10029,7 +10097,7 @@ release. Breaking changes are free before 1.0 and expensive after, so it ships n
   This is the mirror image of the <code>aimu.Agent</code> bug v0.19.0 fixed, and safe for the opposite reason: there the name was importable <em>only</em> under <code>TYPE_CHECKING</code>, so it raised <code>AttributeError</code> at runtime; here the runtime path is the <code>__getattr__</code> that was always there, and the block that never executes exists purely so a static reader can see the name too. Verified rather than assumed: no heavy module (<code>torch</code>, <code>transformers</code>, <code>diffusers</code>, <code>fastmcp</code>, <code>llama_cpp</code>, <code>pandas</code>) appears in <code>sys.modules</code> after an import, and <code>import aimu.models</code> / <code>from aimu import aio</code> stay at 0.26s / 0.82s.
   <code>mkdocs</code> aborts on the first bad reference, so CI only ever named one symbol. There were 24: <code>aimu.models</code> (17), <code>aimu.prompts</code> (4), <code>aimu.tools</code> (2), <code>aimu.skills</code> (1). All are fixed together rather than one red deploy at a time. <code>aimu.models</code> uses the <code>X as X</code> redundant-alias re-export form, since it builds <code>__all__</code> dynamically inside its <code>HAS_*</code> guards -- invisible to ruff for the same reason the names were invisible to griffe.</li>
 </ul>
-<h3 id="packaging">Packaging<a class="headerlink" href="#packaging" title="Permanent link">&para;</a></h3>
+<h3 id="packaging_1">Packaging<a class="headerlink" href="#packaging_1" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>New</strong> <strong>Releases publish from CI on a version tag</strong> (<code>.github/workflows/publish.yml</code>). Pushing <code>vX.Y.Z</code> now builds, tests, and uploads; previously a release meant building locally and running <code>twine upload</code> against a token in <code>~/.pypirc</code>, so shipping depended on one machine's credential. Two jobs: <code>test</code> installs <code>[all,dev]</code> and runs ruff plus the full suite, and <code>publish</code> needs it, so a red suite blocks the upload. Authentication is PyPI trusted publishing over OIDC -- no token is stored in the repository, and only the <code>publish</code> job holds <code>id-token: write</code> (the workflow's top-level default is no permissions at all). The tag is also asserted against <code>pyproject</code>'s version, which catches a forgotten <code>dev</code> suffix before it becomes a version number that cannot be reused.
   <strong>The gate is ruff, not the test suite.</strong> It was designed to run the full suite first, and that is still the right shape -- but the suite does not currently survive a hosted Linux runner: it dies at the same test every time (<code>tests/test_images_api.py</code>, ~45% in) with <strong>exit code 143, SIGTERM</strong>, no assertion failure and no exit of its own. Something terminates the process. That reproduces across four runs and is unrelated to packaging, so blocking releases on it would mean not releasing at all. Two candidate causes were measured and ruled out: disk (the runner has 145 GB and was 28% used) and a dependency-resolution difference (fixed separately -- pip had been backtracking to <code>deepeval</code> 2.6.6, which imports <code>langchain</code> without declaring it, and since deepeval registers a <code>pytest11</code> plugin that killed the suite at startup; CI now installs the committed <code>uv.lock</code>).
@@ -10107,7 +10175,7 @@ release. Breaking changes are free before 1.0 and expensive after, so it ships n
 <li><strong>Change (breaking)</strong> <strong><code>HAS_*</code> now means "installed," not "imported cleanly."</strong> Checking <code>find_spec</code> instead of actually importing is what makes the flags cheap, but it changes what a <code>True</code> promises. A dependency that is present but broken (an ABI clash among <code>onnxruntime</code>/<code>grpcio</code>/<code>protobuf</code>, say) used to fail its import silently and leave the flag <code>False</code>, so AIMU treated that provider as simply not installed and any caller checking the flag skipped it without incident. The same broken install now reports <code>True</code> and raises at first real use instead. An absent dependency is unaffected -- it still yields <code>None</code> for the provider symbol -- only the installed-but-broken case moves from a quiet skip to a loud failure.
   <strong>What you must do</strong>: if any of your code relied on a <code>HAS_*</code> flag going <code>False</code> to paper over a provider whose install had quietly rotted, that no longer happens. Fix the install, or if you genuinely want to keep skipping that provider without repairing it, wrap the specific call site in its own <code>try</code>/<code>except ImportError</code>. The change is deliberate: reporting a broken dependency as merely "absent" hid a real failure behind a state that looks identical to "never installed," and a provider that used to work should not go on looking healthy once it can't.</li>
 </ul>
-<h3 id="packaging_1">Packaging<a class="headerlink" href="#packaging_1" title="Permanent link">&para;</a></h3>
+<h3 id="packaging_2">Packaging<a class="headerlink" href="#packaging_2" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>Change (breaking)</strong> <strong><code>chromadb</code> and <code>sqlalchemy</code> move to new <code>[memory]</code> and <code>[prompts]</code> extras</strong>, both folded into <code>[all]</code>. <code>pip install aimu</code> no longer pulls <code>onnxruntime</code>, <code>grpcio</code>, <code>opentelemetry</code>, and <code>posthog</code> for a vector store most callers never touch. Core is now <code>fastmcp</code>, <code>tinydb</code>, <code>requests</code>, <code>python-dotenv</code>, <code>pydantic&gt;=2</code>, plus Windows-only <code>tzdata</code>. <code>nest_asyncio</code> and <code>watchdog</code> were declared dependencies that nothing in the package imported; both are dropped outright.
   <strong>What you must do</strong>: if your code touches <code>aimu.memory.SemanticMemoryStore</code>, install <code>aimu[memory]</code>; if it touches <code>aimu.prompts.catalog.PromptCatalog</code>, install <code>aimu[prompts]</code>. Without the extra, importing either now raises <code>ImportError</code> naming exactly what to install. The guard checks the failing import's own module name (<code>exc.name</code>), not a bare <code>except ImportError</code>, so a <code>chromadb</code> or <code>sqlalchemy</code> that is installed but broken reports its own error instead of the useless "install the extra you already have." <code>aimu.memory.DocumentStore</code> -- a plain path-based store that never touches a vector database -- stays importable without <code>[memory]</code>; <code>SemanticMemoryStore</code> is resolved lazily inside <code>aimu/memory/__init__.py</code> so it no longer forces <code>chromadb</code> on everyone who imports the package.
