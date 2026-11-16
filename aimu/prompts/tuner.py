@@ -237,7 +237,7 @@ class PromptTuner(ABC):
         model = self.model_client.model
         try:
             model_id = model.value[0]
-        except (AttributeError, TypeError, IndexError):
+        except AttributeError, TypeError, IndexError:
             model_id = str(model)
 
         catalog.store_prompt(Prompt(name=prompt_name, model_id=model_id, prompt=prompt, metrics=metrics))

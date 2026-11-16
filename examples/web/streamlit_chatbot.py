@@ -136,7 +136,7 @@ def _maybe_render_audio(path_str, key_suffix):
     """Display st.audio() + download button when ``path_str`` is a valid audio file path."""
     try:
         p = Path(str(path_str).strip())
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return
     if not p.exists() or not p.is_file() or p.suffix.lower() not in _AUDIO_EXTENSIONS:
         return
@@ -159,7 +159,7 @@ def _maybe_render_image(path_str, key_suffix):
     """Display an image with a download button when ``path_str`` is a valid image file path."""
     try:
         p = Path(str(path_str).strip())
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return
     if not p.exists() or not p.is_file() or p.suffix.lower() not in _IMAGE_EXTENSIONS:
         return

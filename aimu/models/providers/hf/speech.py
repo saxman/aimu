@@ -303,7 +303,7 @@ class HuggingFaceSpeechClient(BaseSpeechClient):
                     self._xvectors_cache = load_dataset(_SPEECHT5_XVECTORS, split="validation")
                 device = next(self._pipe.parameters()).device
                 speaker_embedding = torch.tensor(self._xvectors_cache[idx]["xvector"]).unsqueeze(0).to(device)
-            except (ValueError, IndexError):
+            except ValueError, IndexError:
                 logger.warning("Invalid SpeechT5 voice index %r; using default embedding.", voice)
                 speaker_embedding = self._default_speaker_embedding
         else:
@@ -336,7 +336,7 @@ class HuggingFaceSpeechClient(BaseSpeechClient):
 
                 device = next(self._pipe.parameters()).device
                 inputs = {k: v.to(device) if isinstance(v, torch.Tensor) else v for k, v in inputs.items()}
-            except (ImportError, StopIteration):
+            except ImportError, StopIteration:
                 pass
             speech_values = self._pipe.generate(**inputs, do_sample=True)
             sr = self._pipe.generation_config.sample_rate

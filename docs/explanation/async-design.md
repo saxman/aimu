@@ -40,7 +40,7 @@ Every sync class has an async twin in `aimu.aio`: `Agent`, `SkillAgent`, `Chain`
 
 ## Decision 3: Python 3.11+ with `asyncio.TaskGroup`
 
-The Python floor is `>=3.11`. `asyncio.TaskGroup`, `asyncio.timeout()`, and native `ExceptionGroup` are used inside `aimu.aio`. No `anyio` in new code. (The existing sync `MCPClient` still uses `anyio.start_blocking_portal()`; that's unchanged.)
+The Python floor this decision needed is `>=3.11`, and it was AIMU's floor through 0.40.x. From 0.41.0 the floor is `>=3.14`, for a reason unrelated to concurrency: the suite runs on one Python, and 0.39.0 shipped a call that exists only from 3.13 (`Path.read_text(newline=)`), which broke 3.11 and 3.12 with nothing in AIMU's own testing to notice. Claiming only the version that is tested closes that gap. `asyncio.TaskGroup`, `asyncio.timeout()`, and native `ExceptionGroup` are used inside `aimu.aio`. No `anyio` in new code. (The existing sync `MCPClient` still uses `anyio.start_blocking_portal()`; that's unchanged.)
 
 **Why:** structured concurrency in plain stdlib. `TaskGroup` cancels in-flight siblings cleanly when one task fails and surfaces all errors as an `ExceptionGroup`. Python 3.10 EOL is October 2026; 3.11 has been stable since October 2022.
 

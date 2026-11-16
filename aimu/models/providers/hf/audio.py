@@ -261,7 +261,7 @@ class HuggingFaceAudioClient(BaseAudioClient):
             gen_kwargs: dict[str, Any] = {}
             if seed is not None:
                 gen_kwargs["generator"] = torch.Generator(device=device).manual_seed(seed)
-        except (ImportError, StopIteration):
+        except ImportError, StopIteration:
             gen_kwargs = {}
 
         max_new_tokens = int(duration_s * _MUSICGEN_TOKENS_PER_SECOND)

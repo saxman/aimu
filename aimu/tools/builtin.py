@@ -75,7 +75,7 @@ def _resolve_zone(name: str) -> Optional[ZoneInfo]:
     """Returns the zone for an IANA key, or None if the key is unknown or malformed."""
     try:
         return ZoneInfo(name)
-    except (ZoneInfoNotFoundError, ValueError):
+    except ZoneInfoNotFoundError, ValueError:
         return None
 
 
@@ -1455,7 +1455,7 @@ def _fetch_document(url: str) -> str:
     # of failing outright.
     try:
         text = body.decode(response.encoding or "utf-8", errors="replace")
-    except (LookupError, TypeError):
+    except LookupError, TypeError:
         text = body.decode("utf-8", errors="replace")
     if kind == "text":
         return text

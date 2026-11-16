@@ -481,7 +481,7 @@ def clear_hf_cache(model: Any = None) -> None:
                 elif hasattr(model, "value"):
                     for key in [k for k in registry if k[0] == model.value]:
                         del registry[key]
-        except (ImportError, AttributeError):
+        except ImportError, AttributeError:
             pass
 
     gc.collect()
@@ -522,7 +522,7 @@ def clear_llamacpp_cache(model: Any = None) -> None:
             elif hasattr(model, "value"):
                 for key in [k for k in registry if k[0] == model.value]:
                     del registry[key]
-    except (ImportError, AttributeError):
+    except ImportError, AttributeError:
         pass
 
     gc.collect()

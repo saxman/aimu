@@ -26,7 +26,7 @@ def parse_json_response(text: str, schema: type | None = None) -> dict | Any:
     # Strategy 1: raw parse
     try:
         parsed = json.loads(text.strip())
-    except (json.JSONDecodeError, ValueError):
+    except json.JSONDecodeError, ValueError:
         pass
 
     # Strategy 2: fenced code block
@@ -35,7 +35,7 @@ def parse_json_response(text: str, schema: type | None = None) -> dict | Any:
         if match:
             try:
                 parsed = json.loads(match.group(1).strip())
-            except (json.JSONDecodeError, ValueError):
+            except json.JSONDecodeError, ValueError:
                 pass
 
     # Strategy 3: {…} substring
@@ -45,7 +45,7 @@ def parse_json_response(text: str, schema: type | None = None) -> dict | Any:
         if start != -1 and end > start:
             try:
                 parsed = json.loads(text[start : end + 1])
-            except (json.JSONDecodeError, ValueError):
+            except json.JSONDecodeError, ValueError:
                 pass
 
     if parsed is None:
@@ -138,7 +138,7 @@ def extract_tool_calls(messages: list[dict]) -> list[dict]:
             if isinstance(args_raw, str):
                 try:
                     arguments = json.loads(args_raw)
-                except (json.JSONDecodeError, ValueError):
+                except json.JSONDecodeError, ValueError:
                     arguments = {"_raw": args_raw}
             else:
                 arguments = args_raw

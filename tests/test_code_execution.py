@@ -534,7 +534,7 @@ def test_interrupt_while_feeding_stdin_kills_the_child_instead_of_orphaning_it(m
         # Only reachable when the guard regressed and the child is still alive.
         try:
             os.killpg(os.getpgid(pid), signal.SIGKILL)
-        except (ProcessLookupError, PermissionError):
+        except ProcessLookupError, PermissionError:
             pass
 
 

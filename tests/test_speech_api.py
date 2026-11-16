@@ -37,7 +37,7 @@ def _real_present(name: str) -> bool:
 
     try:
         return importlib.util.find_spec(name) is not None
-    except (ImportError, ValueError):
+    except ImportError, ValueError:
         return False
 
 

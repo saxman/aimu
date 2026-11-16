@@ -72,7 +72,7 @@ def _check_reader_arity(inbox: "Inbox", agent_name: Optional[str]) -> None:
     """
     try:
         reader_signature = inspect.signature(inbox.reader)
-    except (TypeError, ValueError):
+    except TypeError, ValueError:
         return
     # Deliberately a second try: `bind` reports an arity mismatch with TypeError, and so does
     # `signature` on something it cannot introspect. One combined try would swallow the mismatch

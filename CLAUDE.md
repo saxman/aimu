@@ -46,7 +46,7 @@ When reviewing a proposed change, ask which principle it serves and which (if an
 
 ### Python version
 
-AIMU requires **Python 3.11+**. The async surface (`aimu.aio`) uses `asyncio.TaskGroup`, `asyncio.timeout`, and native `ExceptionGroup`, all of which require 3.11. Ruff target is `py311`; tests use `pytest-asyncio` in `asyncio_mode = "auto"` with session-scoped event loops.
+AIMU requires **Python 3.14+** (from 0.41.0; 0.40.x supports 3.11+). The async surface (`aimu.aio`) needs only 3.11 (`asyncio.TaskGroup`, `asyncio.timeout`, native `ExceptionGroup`); the floor is 3.14 so the version the suite runs on is the only version AIMU claims, after 0.39.0 shipped a 3.13-only call that broke 3.11 and 3.12 unnoticed. Ruff target is `py314`, so `ruff format` writes PEP 758's unparenthesized `except A, B:`; tests use `pytest-asyncio` in `asyncio_mode = "auto"` with session-scoped event loops.
 
 ### Installation
 

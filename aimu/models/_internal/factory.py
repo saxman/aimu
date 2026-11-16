@@ -39,7 +39,7 @@ def installed(dep: str) -> bool:
     """
     try:
         return importlib.util.find_spec(dep) is not None
-    except (ImportError, ValueError):
+    except ImportError, ValueError:
         return False
 
 

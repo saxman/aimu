@@ -15,7 +15,7 @@ Once you've finished, the [how-to guides](../how-to/index.md) cover specific tas
 
 ## What you'll need
 
-- Python 3.11+
+- Python 3.14+
 - One model backend. The tutorials use **Ollama** because it's local and free, but every snippet works with any provider; just swap the model string:
 
   ```python

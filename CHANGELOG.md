@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Packaging
+
+- **Change: AIMU requires Python 3.14 or newer.** `requires-python` moves from `>=3.11` to `>=3.14`, and
+  ruff's target from `py311` to `py314`. Nothing in AIMU needs a 3.14 feature; the floor moves so that the
+  one version the suite runs on is the only version AIMU claims. 0.39.0 shipped `Path.read_text(newline=)`,
+  which exists only from Python 3.13, and it broke reading a stored web page on 3.11 and 3.12 with nothing in
+  AIMU's own testing to notice (fixed in 0.40.1, the last release supporting 3.11). Every extra, including
+  `llamacpp`, installs and passes the suite on 3.14. At the `py314` target `ruff format` writes PEP 758's
+  unparenthesized `except A, B:`, so thirteen modules changed that syntax and nothing else. Stay on 0.40.x
+  if you need an older Python.
+
 ## v0.40.1 (2026-11-16): reading a stored web page works on Python 3.11 and 3.12
 
 ### Tools
