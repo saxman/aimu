@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.40.1 (2026-11-16): reading a stored web page works on Python 3.11 and 3.12
+
+### Tools
+
+- **Fix: `read_page` and `find_in_page` failed on Python 3.11 and 3.12 when pages are stored on disk.**
+  `make_page_tools(directory=...)` read a stored page with `Path.read_text(newline="")`, and `read_text`
+  takes `newline=` only from Python 3.13, so every read of a stored page raised `TypeError` on the older
+  versions AIMU supports. It now opens the file with `open(..., newline="")`, which keeps `"\r\n"` as
+  written on every version. Present since 0.39.0, which introduced the page store. It went unnoticed
+  because AIMU's suite runs on 3.13 and newer; Kokua's CI, which tests 3.11 and 3.12 against AIMU's main
+  branch, caught it. This release's suite was run on Python 3.11 before tagging.
+
 ## v0.40.0 (2026-11-16): tool calls announced as they start, tools that return images, request-time compaction, and `aimu.context.compaction`
 
 ### Agents

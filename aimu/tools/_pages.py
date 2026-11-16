@@ -78,8 +78,10 @@ class PageStore:
         if self._directory is None:
             return self._pages.get(handle)
         try:
-            # newline="" keeps "\r\n" as written, so offsets match the text the page was ranked on.
-            text = (self._directory / f"{handle}.md").read_text(encoding="utf-8", newline="")
+            # newline="" keeps "\r\n" as written, so offsets match the text the page was ranked on. open()
+            # rather than Path.read_text(), which takes newline= only from Python 3.13.
+            with open(self._directory / f"{handle}.md", encoding="utf-8", newline="") as file:
+                text = file.read()
             meta = json.loads((self._directory / f"{handle}.json").read_text(encoding="utf-8"))
         except FileNotFoundError:
             return None
