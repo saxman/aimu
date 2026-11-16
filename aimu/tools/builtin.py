@@ -24,7 +24,7 @@ import sys
 import tempfile
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any, Callable, NamedTuple, Optional
+from typing import TYPE_CHECKING, Any, Callable, NamedTuple, Optional, Union
 from urllib.parse import quote, urljoin, urlparse
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -55,6 +55,10 @@ from . import _execute_python_worker
 from ._documents import DocumentConversionError, html_to_markdown, pdf_to_markdown
 from ._pages import OUTLINE_LIMIT, PageStore, chunks, outline
 from .decorator import tool
+
+if TYPE_CHECKING:
+    # Annotation-only: importing aimu.models here would run it while aimu.tools is mid-import.
+    from aimu.models import BaseModelClient, Model
 
 _logger = logging.getLogger(__name__)
 
@@ -2779,7 +2783,7 @@ def _subagent_result(agent_type: Optional[str], answer: str, watch: _RunEndingWa
 
 
 def make_subagent_tool(
-    model,
+    model: Union[str, Model, BaseModelClient],
     *,
     system_message: str = DEFAULT_SUBAGENT_SYSTEM_MESSAGE,
     tools: Optional[list[Callable]] = None,

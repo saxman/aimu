@@ -9,7 +9,7 @@ generation.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol, Union
 
 from aimu.agents._tool_loop import new_run_id
 from aimu.events import EventSink
@@ -56,6 +56,7 @@ if TYPE_CHECKING:
     # __future__ import annotations`, so a module-level import here is unnecessary rather than unsafe,
     # but there is no reason to pay for it when the sync twin's identical import has to avoid it.
     from aimu.agents.inbox import Inbox
+    from aimu.models import BaseModelClient, Model
 
 logger = logging.getLogger(__name__)
 
@@ -312,7 +313,7 @@ def _fresh_async_subagent_client(model):
 
 
 def make_async_subagent_tool(
-    model,
+    model: Union[str, Model, BaseModelClient],
     *,
     system_message: str = DEFAULT_SUBAGENT_SYSTEM_MESSAGE,
     tools: Optional[list[Callable]] = None,

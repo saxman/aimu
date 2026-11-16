@@ -13,6 +13,18 @@
   unparenthesized `except A, B:`, so thirteen modules changed that syntax and nothing else. Stay on 0.40.x
   if you need an older Python.
 
+### Docs
+
+- **Fix: the docs site's broken links, and CI now builds it strictly.** The site's changelog page includes
+  this file verbatim, so a link written relative to the repository (`docs/how-to/observe-a-run.md`,
+  `notebooks/27-observing-runs.qmd`, `aimu/aio/_base.py`) resolved on GitHub and nowhere on the site: 24
+  such links, now absolute like the rest of this file (site pages under `saxman.github.io/aimu/`, source
+  files on GitHub). The provider matrix linked a `switch-providers` anchor that no longer existed, and
+  `make_subagent_tool` / `make_async_subagent_tool` now annotate `model`, whose absence was the API
+  reference's one build warning. `docs/contributing.md` already said to run `mkdocs build --strict`, but the
+  deploy workflow ran it without `--strict`, which is how all of this accumulated unseen; it is strict now,
+  so a broken link fails the deploy instead of publishing.
+
 ## v0.40.1 (2026-11-16): reading a stored web page works on Python 3.11 and 3.12
 
 ### Tools
@@ -56,7 +68,7 @@
   since it runs after that is appended; and `summarize_messages` as a compaction calls the summarizer
   on every request, over a growing stretch of history, so it suits a manual edit better. A
   "trigger at 75%, trim to 50%" headroom compaction no longer buys several turns, because the history
-  it trims from keeps growing; [Context management](docs/explanation/context-management.md) shows a
+  it trims from keeps growing; [Context management](https://saxman.github.io/aimu/explanation/context-management/) shows a
   stepped trim that does.
 
 ### Context
@@ -246,7 +258,7 @@
 
 ### Documentation
 
-- **New: [docs/explanation/context-management.md](docs/explanation/context-management.md).** The
+- **New: [docs/explanation/context-management.md](https://saxman.github.io/aimu/explanation/context-management/).** The
   how-to covered what `trim_messages`, `summarize_messages`, and `compaction=` do, but not what they
   cost the model. Three of those costs read as model faults rather than errors. Trimming drops a tool
   call along with its result, so the model loses the record that it acted and may repeat the call.
@@ -653,8 +665,8 @@
 ### Documentation
 
 - **New: the inbox has a how-to and a notebook**, which the feature has not had since it shipped
-  under its old name in 0.33.0: [docs/how-to/use-an-inbox.md](docs/how-to/use-an-inbox.md) and
-  [notebook 29](notebooks/29-agent-inbox.qmd). Before this, the only prose was incidental: the
+  under its old name in 0.33.0: [docs/how-to/use-an-inbox.md](https://saxman.github.io/aimu/how-to/use-an-inbox/) and
+  [notebook 29](https://saxman.github.io/aimu/notebooks/29-agent-inbox.html). Before this, the only prose was incidental: the
   `INBOX` phase in the stream-phase table, the `"inbox"` key in the spawn-roster page's list of
   spec keys, and the `Inbox` protocol's own docstring in the API reference. Each is accurate and
   none of them answers "how do I message a run that is already going", so the capability was
@@ -1261,7 +1273,7 @@
   factory's tier rather than the spec that built it, since it serves the whole roster again.
   Both surfaces: `make_subagent_tool` and `make_async_subagent_tool`.
   Tests: `tests/test_subagent_tools.py`, `tests/test_aio_subagent_tools.py`.
-  How-to: [docs/how-to/spawn-subagents.md](docs/how-to/spawn-subagents.md).
+  How-to: [docs/how-to/spawn-subagents.md](https://saxman.github.io/aimu/how-to/spawn-subagents/).
 
 ### Models
 
@@ -1590,7 +1602,7 @@
 - **New** **`make_subagent_tool` and `make_async_subagent_tool` take an `events=` parameter.** A
   spawn tool builds a fresh client per call so that concurrent spawns share no state, and that
   same freshness is what keeps it outside the client family a run's scoped `events=` override
-  reaches (see [docs/how-to/observe-a-run.md](docs/how-to/observe-a-run.md)'s "shared client
+  reaches (see [docs/how-to/observe-a-run.md](https://saxman.github.io/aimu/how-to/observe-a-run/)'s "shared client
   under concurrent workers" section): a spawned child's model turns went unreported to any
   caller-attached sink, with nothing raised anywhere to say so. A caller measuring what a whole
   turn cost (in tokens, in requests, in wall time) silently under-counted every delegation.
@@ -1650,9 +1662,9 @@ release. Breaking changes are free before 1.0 and expensive after, so it ships n
 
 ### Documentation
 
-- **Docs** [docs/explanation/thinking-and-context.md](docs/explanation/thinking-and-context.md) names both spellings where it lists how each provider family separates reasoning from the answer. The page previously described only two routes (inline `<think>` tags, and a dedicated field on the native-thinking providers), which left the case above undocumented as well as unhandled.
+- **Docs** [docs/explanation/thinking-and-context.md](https://saxman.github.io/aimu/explanation/thinking-and-context/) names both spellings where it lists how each provider family separates reasoning from the answer. The page previously described only two routes (inline `<think>` tags, and a dedicated field on the native-thinking providers), which left the case above undocumented as well as unhandled.
 
-- **Docs** [docs/explanation/architecture.md](docs/explanation/architecture.md) and [docs/how-to/observe-a-run.md](docs/how-to/observe-a-run.md) name the tool-call `arguments` adaptation where each already lists what changes between `chat()` and the wire. The architecture page's list of request-time adaptations covered only providers needing a *different* wire format (Anthropic blocks, Ollama image fields, HF PIL images), which read as though the OpenAI-format paths adapt nothing.
+- **Docs** [docs/explanation/architecture.md](https://saxman.github.io/aimu/explanation/architecture/) and [docs/how-to/observe-a-run.md](https://saxman.github.io/aimu/how-to/observe-a-run/) name the tool-call `arguments` adaptation where each already lists what changes between `chat()` and the wire. The architecture page's list of request-time adaptations covered only providers needing a *different* wire format (Anthropic blocks, Ollama image fields, HF PIL images), which read as though the OpenAI-format paths adapt nothing.
 
 ## v0.22.0 (2026-08-24): one meaning for `max_iterations`, and a sink that survives concurrency
 
@@ -1689,7 +1701,7 @@ Two pre-1.0 breaking corrections, both deferred out of v0.21.0 and recorded in t
 - **Change (breaking)** **`ContextCompacted.dropped` no longer shares object identity with `client.messages`.** The event now carries copies of the removed messages. A prior test asserted `event.dropped[0] is old_messages[0]` with a comment calling the aliasing deliberate; it wasn't safe to keep once compaction and turn-tagging could interleave -- a later in-place write (the provenance key an agent loop adds to a message after the fact) could otherwise mutate an event a sink had already received and logged. If anything correlated dropped messages by identity rather than content/equality, that comparison now fails; compare on content instead.
 - **Known gap, pinned by test:** an event sink attached to agents that share one `model_client` and run concurrently drops and misorders events -- `Parallel.from_client` builds every worker over one shared client, so it hits this. Give each worker its own client to avoid it. See `test_KNOWN_GAP_parallel_from_client_shared_events_sink_drops_events`.
 - **Known gap:** a `client.chat(schema=...)` call emits only `RequestPrepared`; turn events are not emitted on the structured-output path, since that path makes exactly one call and returns before `ModelTurnStarted` would fire. Inside an `Agent.run(schema=...)`, the run is still bracketed by `RunStarted`/`RunFinished`.
-- **Docs** [docs/how-to/observe-a-run.md](docs/how-to/observe-a-run.md) plus reference pages for `aimu.events` ([docs/reference/api/events.md](docs/reference/api/events.md)). Sending events to an OpenTelemetry collector is documented as an adapter a caller writes over `EventSink` -- OTel is not a new AIMU dependency. [notebooks/27-observing-runs.qmd](notebooks/27-observing-runs.qmd) is the runnable companion, since `aimu.events` was otherwise the one subsystem in the `notebooks/` collection without a demo: `log_events` first (the fastest payoff), then the event vocabulary, client-level emission with no agent involved, `client.last_request`, agent and workflow wiring, a custom token-tallying sink, and an OpenTelemetry adapter labelled an example rather than a dependency -- plus both known gaps above, as callouts rather than omissions.
+- **Docs** [docs/how-to/observe-a-run.md](https://saxman.github.io/aimu/how-to/observe-a-run/) plus reference pages for `aimu.events` ([docs/reference/api/events.md](https://saxman.github.io/aimu/reference/api/events/)). Sending events to an OpenTelemetry collector is documented as an adapter a caller writes over `EventSink` -- OTel is not a new AIMU dependency. [notebooks/27-observing-runs.qmd](https://saxman.github.io/aimu/notebooks/27-observing-runs.html) is the runnable companion, since `aimu.events` was otherwise the one subsystem in the `notebooks/` collection without a demo: `log_events` first (the fastest payoff), then the event vocabulary, client-level emission with no agent involved, `client.last_request`, agent and workflow wiring, a custom token-tallying sink, and an OpenTelemetry adapter labelled an example rather than a dependency -- plus both known gaps above, as callouts rather than omissions.
 
 ### Context Management
 
@@ -1700,7 +1712,7 @@ Two pre-1.0 breaking corrections, both deferred out of v0.21.0 and recorded in t
   ```
   `Agent(compaction=...)` (plus a per-run `run(compaction=...)` override) calls the given callable with `client.messages` before each model turn and adopts its result if changed. **The invariant that justifies all of this existing:** compaction must never orphan a `tool` message from the `assistant` message carrying its `tool_calls` -- every provider rejects that shape, and it is exactly what a naive `messages[-n:]` slice produces. `trim_messages` and `summarize_messages` both treat a tool-call turn and its results as one indivisible group, extending a `keep_last` boundary outward to the group edge rather than splitting it. An applied compaction announces itself twice: a `ContextCompacted` event carrying the removed messages (see above), and a `WARNING` log for callers who attached no sink at all -- compaction rewriting history under a caller who isn't watching is exactly the kind of silent behavior this release's own theme argues against.
 - **Known limitation, stated rather than hidden:** `count_tokens`'s default counter is an estimate (`len(text) // 4` over each message JSON-serialized, AIMU's own inert bookkeeping keys stripped first), typically wrong by 20-30% for any specific model's real tokenizer. Exact counts exist only after the fact, via `client.last_usage` following a real call. Pass `counter=` with a real tokenizer when accuracy matters more than a zero-dependency default.
-- **Docs** [docs/how-to/manage-context.md](docs/how-to/manage-context.md) plus [docs/reference/api/context.md](docs/reference/api/context.md). [notebooks/28-managing-context.qmd](notebooks/28-managing-context.qmd) is the runnable companion, for the same reason `aimu.context` needed one: `count_tokens` and its honesty caveat, `trim_messages` and the tool-pairing invariant, `keep_last` counting messages rather than exchanges, `summarize_messages`, `Agent(compaction=...)` announcing a drop twice, and `ContextOverflowError` with a recovery recipe.
+- **Docs** [docs/how-to/manage-context.md](https://saxman.github.io/aimu/how-to/manage-context/) plus [docs/reference/api/context.md](https://saxman.github.io/aimu/reference/api/context/). [notebooks/28-managing-context.qmd](https://saxman.github.io/aimu/notebooks/28-managing-context.html) is the runnable companion, for the same reason `aimu.context` needed one: `count_tokens` and its honesty caveat, `trim_messages` and the tool-pairing invariant, `keep_last` counting messages rather than exchanges, `summarize_messages`, `Agent(compaction=...)` announcing a drop twice, and `ContextOverflowError` with a recovery recipe.
 
 ### Models
 
@@ -1717,7 +1729,7 @@ Two pre-1.0 breaking corrections, both deferred out of v0.21.0 and recorded in t
 
 ### Agents
 
-- **Docs** **The skill-script input guidance names `SkillAgent(script_env=...)`**, the field v0.20.0 shipped without updating the prose around it. Two places routed a reader to `build_skills_server(manager, env=...)`, and one of them ([docs/how-to/build-personal-assistant.md](docs/how-to/build-personal-assistant.md)) did so in a section whose own example constructs an `aio.SkillAgent` -- which builds that server internally, so the argument named there was unreachable from the setup being described. Corrected there and in [notebooks/08-agent-skills.qmd](notebooks/08-agent-skills.qmd), with `build_skills_server(manager, env=...)` kept for a host that builds the server itself; [docs/how-to/use-skills.md](docs/how-to/use-skills.md) now names how the environment arrives rather than only that a script can read one. Notebook 08 gains a runnable subsection: a script reading `REPORT_DIR`, called through a bare skills server (`REPORT_DIR unset`, the quiet failure the field prevents), then through `env=`, then through an agent carrying `script_env=`.
+- **Docs** **The skill-script input guidance names `SkillAgent(script_env=...)`**, the field v0.20.0 shipped without updating the prose around it. Two places routed a reader to `build_skills_server(manager, env=...)`, and one of them ([docs/how-to/build-personal-assistant.md](https://saxman.github.io/aimu/how-to/build-personal-assistant/)) did so in a section whose own example constructs an `aio.SkillAgent` -- which builds that server internally, so the argument named there was unreachable from the setup being described. Corrected there and in [notebooks/08-agent-skills.qmd](https://saxman.github.io/aimu/notebooks/08-agent-skills.html), with `build_skills_server(manager, env=...)` kept for a host that builds the server itself; [docs/how-to/use-skills.md](https://saxman.github.io/aimu/how-to/use-skills/) now names how the environment arrives rather than only that a script can read one. Notebook 08 gains a runnable subsection: a script reading `REPORT_DIR`, called through a bare skills server (`REPORT_DIR unset`, the quiet failure the field prevents), then through `env=`, then through an agent carrying `script_env=`.
 
 ### Documentation
 
@@ -1758,7 +1770,7 @@ Two pre-1.0 breaking corrections, both deferred out of v0.21.0 and recorded in t
   string to ImageClient instead.
   ```
   This is the modality-side match for the text `resolve_model_enum()` wording above. It is deliberately weaker: that one parses the string and can say *which* unrepresentable form it found (endpoint vs ad-hoc), while the modality path has no extended grammar to parse and cannot tell an ad-hoc id from a typo, so it offers both readings. Behavior is unchanged; every one of these calls raised before and raises now. Tests: `tests/test_images_api.py`, `tests/test_embeddings_api.py`.
-- **Docs** **The local-discovery probes are documented as endpoint-blind.** `available_text_models()`, the omitted-`model` default, and ambiguous-bare-name resolution all run before any client exists, so a per-client `host=` or `base_url=` is invisible to them: Ollama discovery reads `OLLAMA_HOST` (else `127.0.0.1:11434`) and the OpenAI-compat probes try each provider's *default* `base_url`. Stated in the `available_text_models` / `resolve_default_text_model` docstrings, the `_ollama_installed_names` probe itself, and [docs/how-to/switch-providers.md](docs/how-to/switch-providers.md). Export `OLLAMA_HOST` when discovery should consider a remote server too.
+- **Docs** **The local-discovery probes are documented as endpoint-blind.** `available_text_models()`, the omitted-`model` default, and ambiguous-bare-name resolution all run before any client exists, so a per-client `host=` or `base_url=` is invisible to them: Ollama discovery reads `OLLAMA_HOST` (else `127.0.0.1:11434`) and the OpenAI-compat probes try each provider's *default* `base_url`. Stated in the `available_text_models` / `resolve_default_text_model` docstrings, the `_ollama_installed_names` probe itself, and [docs/how-to/switch-providers.md](https://saxman.github.io/aimu/how-to/switch-providers/). Export `OLLAMA_HOST` when discovery should consider a remote server too.
 - **Change** **Intrinsic model capabilities move out of nine per-provider catalogs into one shared `MODEL_FACTS` table** (`aimu/models/_catalog.py`, private). `tools`/`thinking`/`vision`, `thinking_levels`/`thinking_optional`, and a card's `generation_kwargs`/`nonthinking_generation_kwargs` are properties of the *weights*, not of who serves them, so restating them per catalog was how they drifted (see the `PHI_4_MINI` rename below for a real instance this migration would have caught). Every local-runtime catalog (`OllamaModel`, `HuggingFaceModel`, `LlamaCppModel`, and the seven `*OpenAIModel` local-server catalogs) now declares a `Wire(id)` per member instead of a full `ModelSpec(...)`; `Wire` resolves against `MODEL_FACTS`, keyed on the cross-provider enum-member name, at class-construction time. A serving path that cannot deliver an intrinsic capability the facts declare overrides it explicitly with a `why=` (e.g. `Wire(id, why="no mmproj projector loaded by default", vision=False)`) -- an override without `why=` raises at import time, so a silent capability mismatch is no longer possible to introduce by hand. Cloud catalogs (`AnthropicModel`, `OpenAIModel`, `GeminiModel`) are single-provider and unaffected; they still declare a bare `ModelSpec(...)` directly. See the `PHI_4_MINI` rename below for the characterization test this migration let retire, and the "Adding New Models" section in `CLAUDE.md` for the new two-step procedure (add the facts once, then wire each catalog that serves the model).
 - **Change (breaking)** **Sampling profiles now propagate to catalogs that previously declared none of their own.** `MODEL_FACTS` holds one `generation_kwargs` / `nonthinking_generation_kwargs` pair per model name, and every local-runtime catalog now resolves through it -- so a catalog that never wrote a card profile (every `*OpenAIModel` local-server catalog, for every thinking model they serve) now merges the same values a catalog that *did* declare one already used. This is the goal of the migration, not a side effect of it, but it changes the request every affected model sends, silently, and deserves calling out on its own: 58 members across nine catalogs gained a profile they did not have on the previous commit (74 individual field changes, since 16 of those gained both a thinking-mode and an instruct-mode profile). Counted by resolving every non-cloud catalog member at `2be71b6` and at this commit and diffing the two.
   The sharpest case: `VLLMOpenAIModel.QWEN_3_5_9B` (a member the parity fill below also adds new) draws its facts from a catalog that, like every OpenAI-compat local-server catalog, never declared a sampling profile at all -- so absent this migration it would merge to the library's own tier-1 fallback, `{max_tokens: 1024, temperature: 0.1}`, near-deterministic sampling nobody asked for. It now merges to
@@ -2057,9 +2069,9 @@ Two pre-1.0 breaking corrections, both deferred out of v0.21.0 and recorded in t
 ### Internal
 
 - **Change** **De-duplicated identical sync/async code into shared homes** (no public API or behavior change). Three blocks that were byte-for-byte identical between the sync surface and its `aimu.aio` twin now live in one place, continuing the established sharing pattern (`_ChatStateMixin`, `_internal/streaming.py`, the composed provider format adapters, the shared tool-loop terminal classification) rather than inverting the sync/async dependency:
-  1. The tool-call recording helpers (`_prepare_tool_calls`, `_append_assistant_tool_calls`, `_record_tool_calls`) and structured-request resolution (`_structured_request`) moved from `BaseModelClient` ([aimu/models/_base/text.py](aimu/models/_base/text.py)) and `AsyncBaseModelClient` ([aimu/aio/_base.py](aimu/aio/_base.py)) into the shared `_ChatStateMixin` ([aimu/models/_internal/chat_state.py](aimu/models/_internal/chat_state.py)) that both already inherit.
-  2. The `async`-free members of the tool-loop engine (`__init__`, `_current_tools`, `_pending`, `_tag_injected`, `_wrap_up_prompt`, `_tool_call_kwargs`, `_not_approved`) extracted into a new `_BaseToolLoop` in [aimu/agents/_tool_loop.py](aimu/agents/_tool_loop.py), subclassed by both `_ToolLoop` and `aimu.aio._tool_loop._AsyncToolLoop`; only the loop drivers and dispatch (threads vs `asyncio.TaskGroup`, `await`) stay per-surface.
-  3. The near-identical in-process async wrappers `AsyncHuggingFaceClient` / `AsyncLlamaCppClient` reduced to ~5-line subclasses of a new `_AsyncInProcessClient` ([aimu/aio/providers/_inprocess.py](aimu/aio/providers/_inprocess.py)) that holds the state-sharing properties, `_generate`/`_chat`, and `_stream_via_thread` (each subclass sets only `MODELS` + `_SYNC_CLASS`; the wrap-refusal error is preserved).
+  1. The tool-call recording helpers (`_prepare_tool_calls`, `_append_assistant_tool_calls`, `_record_tool_calls`) and structured-request resolution (`_structured_request`) moved from `BaseModelClient` ([aimu/models/_base/text.py](https://github.com/saxman/aimu/blob/main/aimu/models/_base/text.py)) and `AsyncBaseModelClient` ([aimu/aio/_base.py](https://github.com/saxman/aimu/blob/main/aimu/aio/_base.py)) into the shared `_ChatStateMixin` ([aimu/models/_internal/chat_state.py](https://github.com/saxman/aimu/blob/main/aimu/models/_internal/chat_state.py)) that both already inherit.
+  2. The `async`-free members of the tool-loop engine (`__init__`, `_current_tools`, `_pending`, `_tag_injected`, `_wrap_up_prompt`, `_tool_call_kwargs`, `_not_approved`) extracted into a new `_BaseToolLoop` in [aimu/agents/_tool_loop.py](https://github.com/saxman/aimu/blob/main/aimu/agents/_tool_loop.py), subclassed by both `_ToolLoop` and `aimu.aio._tool_loop._AsyncToolLoop`; only the loop drivers and dispatch (threads vs `asyncio.TaskGroup`, `await`) stay per-surface.
+  3. The near-identical in-process async wrappers `AsyncHuggingFaceClient` / `AsyncLlamaCppClient` reduced to ~5-line subclasses of a new `_AsyncInProcessClient` ([aimu/aio/providers/_inprocess.py](https://github.com/saxman/aimu/blob/main/aimu/aio/providers/_inprocess.py)) that holds the state-sharing properties, `_generate`/`_chat`, and `_stream_via_thread` (each subclass sets only `MODELS` + `_SYNC_CLASS`; the wrap-refusal error is preserved).
 
   Net −339 lines. Verified by the existing mock suites (models, structured, agents, tools, decorator, approval, provenance, checkpointing — sync + async).
 
@@ -2283,7 +2295,7 @@ Two pre-1.0 breaking corrections, both deferred out of v0.21.0 and recorded in t
 - **New** `ThinkingStyle` enum (`ENABLED` / `ADAPTIVE`) carried as a per-member extra on `AnthropicModel` (analogous to HuggingFace's `ToolCallFormat`). `AnthropicClient._thinking_kwargs()` builds the request accordingly: `ENABLED` → `{"type": "enabled", "budget_tokens": N}`; `ADAPTIVE` → `{"type": "adaptive", "display": "summarized"}` with `temperature`/`top_p`/`top_k` dropped. Opus 4.7+ and Fable 5 are adaptive-only (the `enabled` form 400s on them); Opus 4.6, Sonnet 4.6, and Haiku 4.5 use the budget form.
 - **Fix** `CLAUDE_HAIKU_4_5` now correctly has `thinking=True`. Haiku 4.5 supports extended thinking via the `enabled`/`budget_tokens` form (previously omitted, so thinking tests silently skipped).
 - Adaptive models decide per request whether to think and may emit none on simple prompts; the thinking tests use a multi-step reasoning prompt and assert thinking emission rather than an exact answer.
-- **Docs** Updated the [model matrix](reference/model-matrix.md#anthropic-anthropicmodel), [provider matrix](reference/provider-matrix.md), [add a new model](how-to/add-new-model.md#anthropic-provider-specific-extras), and CLAUDE.md (Thinking Models, AnthropicClient notes) to cover the two thinking styles and the new models.
+- **Docs** Updated the [model matrix](https://saxman.github.io/aimu/reference/model-matrix/#anthropic-anthropicmodel), [provider matrix](https://saxman.github.io/aimu/reference/provider-matrix/), [add a new model](https://saxman.github.io/aimu/how-to/add-new-model/#anthropic-provider-specific-extras), and CLAUDE.md (Thinking Models, AnthropicClient notes) to cover the two thinking styles and the new models.
 - **Docs** Added an "Adaptive vs. budget thinking" section to `notebooks/01 - Model Client.ipynb` (section C) demonstrating `ThinkingStyle` and adaptive models skipping thinking on trivial prompts.
 
 ### Dependencies
@@ -2306,7 +2318,7 @@ Two pre-1.0 breaking corrections, both deferred out of v0.21.0 and recorded in t
 ### Breaking changes
 
 - **Breaking** Removed the `model_client.mcp_client` attribute. MCP tools now integrate through the single `model_client.tools` registry: call `MCPClient(...).as_tools()` (sync) or `await aio.MCPClient.connect(...).as_tools()` (async) to turn a server's tools into `@tool`-style callables, then add them to `tools` (constructor `Agent(tools=...)`, `client.tools = ...`, or the per-call `chat(tools=...)` / `run(tools=...)` override). Migration: replace `client.mcp_client = mcp` with `client.tools = mcp.as_tools()` (concatenate with `@tool` functions as needed, e.g. `builtin.web + mcp.as_tools()`). Two consequences: dispatch is now one by-name lookup over `tools`, so on a name collision the **last** entry wins (previously Python `@tool` always beat a same-named MCP tool; to preserve that, append the Python tool *after* `mcp.as_tools()`); and `MCPClient.get_tools()` is no longer called on every `chat()` (the tool list is snapshotted by `as_tools()`), so call `as_tools()` again to pick up server-side tool changes. `SkillAgent` and the internal dispatch (`_handle_tool_calls(tool_calls)`, `_call_plain_tool(tc, tc_id)`, both of which lost their `tools` parameter) were updated accordingly. The `MCPClient` class, its `get_tools()` / `call_tool()` / `ping()`, and the `aio.MCPClient` parallel are unchanged.
-- **Breaking** `system_message` is no longer immutable after the first `chat()`. The setter is now always live: assigning it mid-conversation rewrites the `{"role": "system"}` entry in `messages` in place (re-conditioning the model on the new prompt while preserving history), inserts one if absent, or removes it on `None`. Before the first chat it still just seeds the value. The previous behaviour raised `RuntimeError`; code that caught that error to gate a `reset()` can now assign directly. To change the prompt *and* drop history, use `reset(system_message="new")`. Two consequences are accepted by design: the transcript becomes counterfactual (prior assistant turns predate the new prompt), and there is no longer a guard against silently re-conditioning a `ModelClient` shared by another agent's in-flight conversation, so don't share a live-conversation client across agents that each set `system_message`. The `_system_message_locked` flag has been removed. See [System message lifecycle](explanation/system-message-lifecycle.md).
+- **Breaking** `system_message` is no longer immutable after the first `chat()`. The setter is now always live: assigning it mid-conversation rewrites the `{"role": "system"}` entry in `messages` in place (re-conditioning the model on the new prompt while preserving history), inserts one if absent, or removes it on `None`. Before the first chat it still just seeds the value. The previous behaviour raised `RuntimeError`; code that caught that error to gate a `reset()` can now assign directly. To change the prompt *and* drop history, use `reset(system_message="new")`. Two consequences are accepted by design: the transcript becomes counterfactual (prior assistant turns predate the new prompt), and there is no longer a guard against silently re-conditioning a `ModelClient` shared by another agent's in-flight conversation, so don't share a live-conversation client across agents that each set `system_message`. The `_system_message_locked` flag has been removed. See [System message lifecycle](https://saxman.github.io/aimu/explanation/system-message-lifecycle/).
 
 ### Models
 
