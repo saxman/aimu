@@ -2525,15 +2525,20 @@ def make_document_tools(store):
         paths = store.list_paths()
         # Files the user placed in the directory that are not text can never become documents.
         # Reporting them here is the only way the model can tell the user why one is missing.
-        unreadable = store.unreadable_paths() if hasattr(store, "unreadable_paths") else []
+        if hasattr(store, "unreadable"):
+            unreadable = store.unreadable()
+        else:
+            unreadable = (
+                {p: "not UTF-8 text" for p in store.unreadable_paths()} if hasattr(store, "unreadable_paths") else {}
+            )
         listing = "\n".join(f"- {p}" for p in paths) if paths else "No documents stored."
         if unreadable:
-            listing += (
-                f"\n\nNote: {len(unreadable)} file(s) in the document directory could not be read, "
-                "because documents must be UTF-8 text: "
-                + ", ".join(unreadable)
-                + ". Tell the user to export these to Markdown or plain text."
-            )
+            listing += f"\n\nNote: {len(unreadable)} file(s) in the document directory could not be read:\n"
+            listing += "\n".join(f"- {p}: {reason}" for p, reason in unreadable.items())
+            if any(reason == "not UTF-8 text" for reason in unreadable.values()):
+                listing += (
+                    "\nFor files that are not UTF-8 text, tell the user to export them to Markdown or plain text."
+                )
         return listing
 
     @tool

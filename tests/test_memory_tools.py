@@ -476,6 +476,19 @@ def test_list_documents_reports_unreadable_files(tmp_path):
     assert "could not be read" in result
 
 
+def test_list_documents_names_a_scanned_pdf_with_its_reason(tmp_path):
+    from tests.test_documents import _blank_pdf
+
+    store = DocumentStore(persist_path=str(tmp_path))
+    (tmp_path / "scan.pdf").write_bytes(_blank_pdf())
+
+    result = _by_name(make_document_tools(store), "list_documents")()
+
+    assert "/scan.pdf" in result
+    assert "OCR" in result
+    assert "export" not in result.lower()
+
+
 def test_list_documents_says_nothing_about_unreadable_when_there_are_none(doc_tools):
     save = _by_name(doc_tools, "save_document")
     save("/a.md", "one")

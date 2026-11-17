@@ -25,6 +25,18 @@
   deploy workflow ran it without `--strict`, which is how all of this accumulated unseen; it is strict now,
   so a broken link fails the deploy instead of publishing.
 
+### Memory
+
+- **Change: DocumentStore reads PDFs.** A `.pdf` in a persistent store's directory was skipped as non-UTF-8
+  text (logged, and named by `list_documents`). It is now converted to Markdown on read, with a `## Page N`
+  heading per page, by the same extractor `get_web_content` uses, so `read`, `list_paths`, and
+  `search_full_text` see it like any other document. PDFs are read-only: `write` and `edit` on a path ending
+  `.pdf` raise `ValueError`, since a PDF cannot be written back from Markdown. A scanned (no text layer) or
+  password-protected PDF stays unreadable, and now says why: the new `DocumentStore.unreadable()` returns
+  `{path: reason}`, `unreadable_paths()` is its sorted keys, and `list_documents` names each file with its
+  reason. The advice to export to Markdown now appears only for files that are not UTF-8 text. See
+  [Use document memory](https://saxman.github.io/aimu/how-to/use-document-memory/).
+
 ## v0.40.1 (2026-11-16): reading a stored web page works on Python 3.11 and 3.12
 
 ### Tools

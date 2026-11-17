@@ -36,9 +36,12 @@ store.list_paths()
 
 Two rules govern what counts as a document:
 
-- **UTF-8 text only.** A PDF, an image, or any other non-text file is skipped and logged at
-  `WARNING` naming the file, so a document that will never appear says so instead of vanishing.
-  Convert it to text (or Markdown) first.
+- **UTF-8 text and PDFs.** A PDF is converted to Markdown when read (one `## Page N` heading per page), so
+  it can be read and searched like any document, but it is read-only: `write` and `edit` on a `.pdf` path
+  raise `ValueError`. Any other non-text file, and a PDF with no text layer (scanned) or a password, is
+  skipped and logged at `WARNING` naming the file, so a document that will never appear says so instead of
+  vanishing. `store.unreadable()` returns `{path: reason}` for each, and `list_documents` shows the agent the
+  same. For a non-text file, convert it to text (or Markdown) first; a scanned PDF needs OCR.
 - **Dot-files and dot-directories are ignored**, silently: `.DS_Store`, `.git/`, `.gitkeep` are
   not documents anyone placed there.
 

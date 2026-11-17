@@ -26,6 +26,7 @@ import uuid
 from typing import Optional
 
 from aimu.memory.base import MemoryStore, synchronized
+from aimu.tools._documents import DocumentConversionError, pdf_to_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -68,9 +69,9 @@ class DocumentStore(MemoryStore):
         self._persist_path = persist_path
         # Ephemeral backing store; unused when persist_path is set (disk is authoritative then).
         self._docs: dict[str, str] = {}
-        # Absolute paths already reported as unreadable, so a scan on every list/search call
-        # warns once per file rather than on every turn.
-        self._warned_unreadable: set[str] = set()
+        # Absolute path -> why it could not be read. Doubles as the already-warned set, so a scan on
+        # every list/search call warns once per file rather than on every turn.
+        self._unreadable_reasons: dict[str, str] = {}
         # Serializes the public methods so the in-memory dict + on-disk files stay consistent when the
         # store is shared across concurrent turns (which dispatch sync tools from worker threads).
         # Re-entrant because public methods call each other (edit -> read + write, store -> write).
@@ -113,27 +114,36 @@ class DocumentStore(MemoryStore):
         """Whether *path* names a file eligible to be a document in this store."""
         return not self._is_hidden(path) and os.path.isfile(self._abs_path(path))
 
-    def _read_file(self, abs_file: str) -> Optional[str]:
-        """Return the text of *abs_file*, or *None* if it is not a readable UTF-8 document.
+    @staticmethod
+    def _is_pdf(path: str) -> bool:
+        return path.lower().endswith(".pdf")
 
-        Documents are text.  A file that is not (a PDF, an image, a partially written file) is
-        skipped rather than aborting the scan, but never silently: it is logged once per path so
-        a document that will never appear is visible to whoever put it there.
+    def _read_file(self, abs_file: str) -> Optional[str]:
+        """Return the text of *abs_file*, or *None* if it cannot be read as a document.
+
+        Documents are UTF-8 text, plus PDFs, which are converted to Markdown on read. Anything else
+        (an image, a scanned or encrypted PDF, a partially written file) is skipped rather than
+        aborting the scan, but never silently: the reason is recorded for :meth:`unreadable` and
+        logged once per path, so a document that will never appear is visible to whoever put it there.
         """
         try:
+            if self._is_pdf(abs_file):
+                with open(abs_file, "rb") as f:
+                    return pdf_to_markdown(f.read())
             with open(abs_file, encoding="utf-8") as f:
                 return f.read()
-        except (UnicodeDecodeError, OSError) as exc:
-            if abs_file not in self._warned_unreadable:
-                self._warned_unreadable.add(abs_file)
+        except (DocumentConversionError, UnicodeDecodeError, OSError) as exc:
+            reason = str(exc) if isinstance(exc, DocumentConversionError) else "not UTF-8 text"
+            if abs_file not in self._unreadable_reasons:
                 logger.warning("Skipping unreadable document %s: %s", abs_file, exc)
+            self._unreadable_reasons[abs_file] = reason
             return None
 
-    def _scan_disk(self, collect_unreadable: Optional[list[str]] = None) -> dict[str, str]:
+    def _scan_disk(self, collect_unreadable: Optional[dict[str, str]] = None) -> dict[str, str]:
         """Read every document under persist_path into a fresh path -> content mapping.
 
-        Pass *collect_unreadable* to also gather the memory paths of files that exist in the
-        directory but are not readable UTF-8 text.
+        Pass *collect_unreadable* to also gather the memory paths (with reasons) of files that exist
+        in the directory but cannot be read as documents.
         """
         docs: dict[str, str] = {}
         for dirpath, dirnames, filenames in os.walk(self._persist_path):
@@ -149,7 +159,7 @@ class DocumentStore(MemoryStore):
                 content = self._read_file(abs_file)
                 if content is None:
                     if collect_unreadable is not None:
-                        collect_unreadable.append(mem_path)
+                        collect_unreadable[mem_path] = self._unreadable_reasons[abs_file]
                     continue
                 docs[mem_path] = content
         return docs
@@ -183,10 +193,12 @@ class DocumentStore(MemoryStore):
             content: Text content to store (≤ 100 KB recommended).
         """
         path = self._normalize(path)
+        if self._is_pdf(path):
+            raise ValueError(f"PDFs are read-only: {path} can be read and searched, not written.")
         if self._persist_path:
             self._write_to_disk(path, content)
             # A path that was unreadable may now be a valid document; let it warn again if not.
-            self._warned_unreadable.discard(self._abs_path(path))
+            self._unreadable_reasons.pop(self._abs_path(path), None)
         else:
             self._docs[path] = content
 
@@ -233,6 +245,8 @@ class DocumentStore(MemoryStore):
             KeyError:   If no document exists at *path*.
             ValueError: If *old_str* is absent, or appears more than once.
         """
+        if self._is_pdf(self._normalize(path)):
+            raise ValueError(f"PDFs are read-only: {self._normalize(path)} can be read and searched, not written.")
         content = self.read(path)
         occurrences = content.count(old_str)
         if occurrences == 0:
@@ -284,26 +298,33 @@ class DocumentStore(MemoryStore):
         return matches[:n_results]
 
     @synchronized
-    def unreadable_paths(self) -> list[str]:
-        """Return the paths of files in the store's directory that are not readable as text.
+    def unreadable(self) -> dict[str, str]:
+        """Return the files in the store's directory that cannot be read as documents, with why.
 
-        These are files someone put in the directory that can never become documents (a PDF, a
-        Word export, a binary artifact).  They are excluded from :meth:`list_paths` and
-        :meth:`search_full_text`, so this is what lets a caller tell the difference between "you
-        gave me nothing" and "what you gave me is not text" -- the distinction an agent needs in
-        order to say something useful back.  Dot-files are not reported: they are not documents
-        anyone placed here.
+        These are files someone put in the directory that never become documents: a scanned or
+        password-protected PDF, a Word export, a binary artifact. They are excluded from
+        :meth:`list_paths` and :meth:`search_full_text`, so this is what lets a caller tell the
+        difference between "you gave me nothing" and "what you gave me cannot be read", and say why.
+        Dot-files are not reported: they are not documents anyone placed here.
 
-        Rescans the directory; returns ``[]`` for an ephemeral store, which has no directory.
+        Rescans the directory; returns ``{}`` for an ephemeral store, which has no directory.
 
         Returns:
-            Sorted list of memory paths.
+            Mapping of normalized memory path to a human-readable reason.
         """
         if not self._persist_path:
-            return []
-        unreadable: list[str] = []
+            return {}
+        unreadable: dict[str, str] = {}
         self._scan_disk(collect_unreadable=unreadable)
-        return sorted(unreadable)
+        return unreadable
+
+    @synchronized
+    def unreadable_paths(self) -> list[str]:
+        """Return the sorted memory paths of files that cannot be read as documents.
+
+        See :meth:`unreadable` for the reasons.
+        """
+        return sorted(self.unreadable())
 
     # ------------------------------------------------------------------
     # MemoryStore abstract interface
@@ -349,7 +370,7 @@ class DocumentStore(MemoryStore):
         identifier = self._normalize(identifier)
         if self._persist_path:
             self._delete_from_disk(identifier)
-            self._warned_unreadable.discard(self._abs_path(identifier))
+            self._unreadable_reasons.pop(self._abs_path(identifier), None)
         else:
             self._docs.pop(identifier, None)
 
