@@ -19,6 +19,8 @@ Retrieval-augmented generation primitives: plain functions over the
 
 ::: aimu.rag.bm25_scores
 
+::: aimu.rag.reciprocal_rank_fusion
+
 ## Reranking
 
 ::: aimu.rag.rerank

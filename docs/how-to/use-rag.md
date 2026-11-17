@@ -110,15 +110,19 @@ Any `MemoryStore` works with `ingest` / `retrieve`:
   choice. Pair it with a chosen embedding model via `embedding_client=` (see
   [Embed text](use-embeddings.md)).
 - `DocumentStore`: case-insensitive substring search; no embeddings, good for exact-term
-  lookup or when you can't run an embedding model.
+  lookup or when you can't run an embedding model. For a folder of files it also has its own
+  passage index that cites file and heading or page; see
+  [Search document folders](search-document-folders.md).
 
 ## Scope
 
 `aimu.rag` ships the chunk/retrieve/rerank primitives only. Document **loaders** (PDF,
 HTML, etc.) are intentionally not included. The built-in `read_file` and `get_web_content`
 tools, or any library that returns text, feed `ingest` directly. Chunks are stored as
-plain strings (the `MemoryStore` contract), so per-chunk metadata (source, page) is not
-currently carried.
+plain strings (the `MemoryStore` contract), so `ingest` and `retrieve` carry no per-chunk
+metadata. Where you need to cite a source, `DocumentStore` indexes a folder itself and
+returns `Passage` records with the file and the heading or page; see
+[Search document folders](search-document-folders.md).
 
 ## See also
 

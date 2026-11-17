@@ -51,6 +51,9 @@ For a *read-only* folder of reference material, consider `builtin.fs` (`list_dir
 `write_file` and `edit_file`. `DocumentStore` earns its keep when the
 agent also writes back.
 
+To search a folder by passage (which file, which heading or page) with optional vectors, see
+[Search document folders](search-document-folders.md).
+
 ## Edit existing documents
 
 ```python

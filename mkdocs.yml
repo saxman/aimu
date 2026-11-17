@@ -135,6 +135,7 @@ nav:
       - Use sessions (multi-user): how-to/use-sessions.md
       - Use semantic memory: how-to/use-semantic-memory.md
       - Use document memory: how-to/use-document-memory.md
+      - Search document folders: how-to/search-document-folders.md
       - Retrieval-augmented generation: how-to/use-rag.md
       - Use LLMs inside tools: how-to/using-llms-inside-tools.md
       - Build an orchestrator: how-to/build-orchestrator.md

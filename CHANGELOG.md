@@ -113,8 +113,9 @@
   copies as `also in: collection:path`, and ends with a note when a searched index is still being built,
   its embedding model has failed, or it has another problem (named with its collection), since an incomplete
   search otherwise reads as one that found nothing; it never raises. With several collections held, its
-  excerpt pointers and `read_document`'s truncation marker name the collection the next call needs. `list_documents()` names each collection and whether it is writable before listing its
-  paths and its unreadable files with their reasons. `save_document` keeps
+  excerpt pointers and `read_document`'s truncation marker name the collection the next call needs.
+  `list_documents()` names each collection and whether it is writable before listing its paths and its
+  unreadable files with their reasons. `save_document` keeps
   [`make_document_tools`](https://github.com/saxman/aimu/blob/main/aimu/tools/builtin.py)' read-before-replace
   guard, keyed by collection and content digest, so a full read in one folder never permits replacing the
   same text in another. PDFs are read-only. Re-exported from `aimu.aio.tools.builtin`.
