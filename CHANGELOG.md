@@ -25,6 +25,164 @@
   deploy workflow ran it without `--strict`, which is how all of this accumulated unseen; it is strict now,
   so a broken link fails the deploy instead of publishing.
 
+### Memory
+
+- **New: `search_collections` searches several `DocumentStore`s as one.** `aimu.memory.search_collections(stores,
+  query, n_results=8, *, rerank=False)` takes a `{collection: store}` mapping, asks each store for its
+  ranked passages, and fuses the rankings by reciprocal rank, so stores of different sizes need no common
+  score scale. Each result is a `CollectionPassage(collection, passage, also_in)`; a passage held by several
+  stores (the same document text, location, and chunk, such as one paper filed twice) is returned once, with
+  the other `(collection, path)` holders in `also_in`. `rerank=True` reorders the fused top `2 * n_results`
+  with the cross-encoder from [`aimu.rag.rerank`](https://github.com/saxman/aimu/blob/main/aimu/rag/rerank.py).
+  An empty mapping returns `[]`. `on_error=callback` skips a store whose search raises, calling
+  `callback(collection, exception)` and searching the rest; without it, the exception propagates.
+- **Change: DocumentStore reads PDFs.** A `.pdf` in a persistent store's directory was skipped as non-UTF-8
+  text (logged, and named by `list_documents`). It is now converted to Markdown on read, with a `## Page N`
+  heading per page, by the same extractor `get_web_content` uses, so `read`, `list_paths`, and
+  `search_full_text` see it like any other document. PDFs are read-only: `write` and `edit` on a path ending
+  `.pdf` raise `ValueError`, since a PDF cannot be written back from Markdown. A scanned (no text layer) or
+  password-protected PDF stays unreadable, and now says why: the new `DocumentStore.unreadable()` returns
+  `{path: reason}`, `unreadable_paths()` is its sorted keys, and `list_documents` names each file with its
+  reason. The advice to export to Markdown now appears only for files that are not UTF-8 text. See
+  [Use document memory](https://saxman.github.io/aimu/how-to/use-document-memory/).
+- **New: DocumentStore chooses its document types, lists without reading, and expands `~`.**
+  `DocumentStore(extensions=(".md", ".markdown", ".txt", ".pdf"))` makes only files with those suffixes
+  (matched case-insensitively) candidates at all: any other file is not listed, not reported unreadable, not
+  counted by `index_status()`, and `write` refuses its path with `ValueError`. The default, `None`, keeps every
+  file a candidate as before. `listing(prefix=None)` returns `DocumentListing(paths, unreadable)` from the
+  folder's metadata alone, opening no file: a file is listed as a document unless its size is over
+  `max_file_bytes` or an earlier read (a search, an index build, `read`, `unreadable()`) found it unreadable
+  and it has not changed since, so it costs a walk on a folder of thousands of notes, where `list_paths` reads
+  every file and extracts every PDF. `unreadable_reason(path)` says why a file that exists is not a readable
+  document, or `None`, which is what tells "nothing there" from "something there you cannot read" before a
+  write would replace it. `persist_path` and `index_path` expand `~`, so `DocumentStore("~/Vault")` is the
+  home-directory folder rather than a directory named `~` under the working directory.
+- **New: DocumentStore passage search.** `DocumentStore.search_passages(query, n_results=8)` returns
+  `Passage(path, location, text, score, digest)` records: chunks of about 1200 characters, each heading section
+  or PDF page chunked on its own, so `location` is a heading path (`"Methods > Sampling"`) or `"page 3"`, ranked
+  by SQLite FTS5's BM25. Where `search_full_text` returns whole documents holding a substring, this answers
+  which part of which file. Any query is accepted: only its words reach FTS5, each quoted, so `CRISPR-Cas13`,
+  a stray `"`, or `(a OR b)` never raises, and common English words are dropped. The index is a derived cache,
+  never written into the folder: in memory by default, or at `DocumentStore(index_path=...)/index.sqlite3`, where
+  it survives a restart. A metadata walk before each search re-chunks only files whose size or modification time
+  changed and drops files that are gone, so an edit made in another program is searchable at once. `write`,
+  `edit`, and `delete` update it directly. `index_status()` returns `IndexStatus(files, indexed, embedded,
+  unreadable, problems, failed)` with `complete` and `error` properties, and `close()` releases the database;
+  `index_status(refresh=False)` reports on the last walk instead of walking again, for a caller that has just
+  searched. One process per `index_path`: two sharing one would each rebuild over the other's rows. `Passage`,
+  `IndexStatus`, and `IndexProblem` are exported from `aimu.memory`. A store nobody searches builds no index.
+- **Change: DocumentStore reads less, refuses symlinks out of its folder, and writes atomically.** An unchanged
+  PDF (same `st_mtime_ns` and size) is no longer re-extracted by every `list_paths` / `search_full_text` /
+  `unreadable()` rescan, which made a folder of hundreds of papers re-parse all of them per call; a file's
+  failure to read is held the same way. A file the process may not open now gives the operating system's reason
+  instead of "not UTF-8 text", so `list_documents` no longer tells the user to export it to Markdown. A file
+  over `max_file_bytes` (default 50,000,000) is unreadable with the reason "too large to index". A file whose
+  real path lies outside the folder (a symlink out of it) is skipped, and `read` treats it as missing, while
+  `write`, `edit`, and `delete` through such a path raise `ValueError`. `write` goes to a temp file in the same
+  directory and `os.replace`s it in, so an editor or a concurrent scan never sees a half-written document; a
+  file's permissions are kept, and an in-folder symlink is written through rather than replaced.
+- **New: DocumentStore hybrid passage search.** `DocumentStore(embedding_client=...)` adds vector search to
+  `search_passages`: each passage is embedded (`input_type="document"`, 32 per call) into a Chroma collection
+  beside the keyword index, the query is embedded with `input_type="query"`, and the keyword and vector top
+  `max(4 * n_results, 50)` are fused by reciprocal rank (k=60), so a passage that says the same thing in other
+  words is found alongside one that names the query's terms. It needs the `[memory]` extra (chromadb), imported
+  on the first search, whose `ImportError` names `aimu[memory]`; without a client the search is keyword-only as
+  before. Vectors are keyed by content (`digest:n`), so a copy of a document is not embedded twice, and a vector
+  is used only while some file still holds the text it came from. The embedding model's id is recorded, and
+  opening the index with a different model, or the same model at a different output width (`dimensions`),
+  rebuilds the vectors rather than mixing two spaces. Chroma is opened with its anonymized telemetry off.
+  **A first build no longer blocks a search**: a refresh indexes changed files for up to 2 seconds, then one
+  background thread indexes the rest and does all embedding, a file at a time, so `read`, `write`, and
+  searches interleave with it. A search meanwhile ranks what is indexed so far, never a changed file's
+  previous text, and does no indexing of its own while the thread is running. `index_status()` says how far
+  along it is: `IndexStatus` gains `vectors` (whether a client is configured), `complete` now also needs every
+  indexed document embedded when it is, and `problems`, a tuple of `IndexProblem(kind, message)`, reports
+  each thing wrong by kind: `"embedding"` (the model failed to load or embed, or `vectors/` failed to open;
+  search stays keyword-only and nothing raises. A failed embedding is retried by the next search, a failed
+  open by the first search after `TRANSIENT_RETRY_SECONDS`, a minute), `"file"` (files that failed to index, inline or in the
+  thread, each left out until it changes; `IndexStatus.failed` counts them, and they do not keep `complete`
+  False or count toward `make_collection_tools`' "indexing in progress" note, which would otherwise ask the
+  model to wait for work that will never finish), and `"worker"` (the thread stopped on a failure outside any one
+  file; kept until a job succeeds, so the search that restarts the thread does not erase it). `error` is every
+  message joined. `close()` stops the thread. A damaged `index.sqlite3` or `vectors/` (SQLite's "not a database"
+  or "malformed", or a Chroma migration this chromadb does not recognize), or a vector collection left empty
+  while the manifest says files are embedded, is logged and rebuilt once on open instead of failing every
+  search. Any other failure to open `vectors/` (locked, unreadable, a full disk) deletes nothing: the index
+  runs keyword-only with an `"embedding"` problem naming `vectors/` and the error, the first search after a
+  minute tries the open again, and once it succeeds the vectors are used as they were, since re-embedding a
+  large folder can take hours. The note also says deleting `vectors/` rebuilds it, for damage the open did not
+  recognize as damage. See [Search document folders](https://saxman.github.io/aimu/how-to/search-document-folders/).
+- **Change: DocumentStore reads do not wait on each other.** Every public method used to hold the store's
+  lock for its whole call, so one PDF's extraction (seconds, for a long paper) held up every read, write, and
+  search of the store. Reading a file and extracting a PDF now happen outside the lock, which is taken only to
+  consult and fill the caches; writes (`write`, `edit`, `delete`, `store`) are still serialized, so `edit`
+  stays atomic, and searches serialize with each other. A file that changed while it was extracted is not
+  cached. A file that could not be opened (a permission change, a cloud-synced file not downloaded yet), which
+  changes nothing the index keys on, is retried by the index a minute later rather than left out until its
+  modification time moves.
+- **Change: DocumentStore is harder to stop with one bad file.** Any exception from extracting one PDF
+  (pypdf raises `KeyError` and others on a malformed file, not only its own error) makes that file unreadable
+  with the exception as its reason, instead of propagating out of `list_paths`, `search_full_text`, or a search.
+  The same holds for a file the index fails to process during a search's own indexing pass: it is recorded as
+  a `"file"` problem, not raised from that search and every one after it.
+  `write` refuses content over `max_file_bytes` once encoded as UTF-8 (`ValueError`, nothing written), since the
+  store could not read it back. The passage index records its layout as SQLite's `user_version` and rebuilds
+  an index written by an older layout (the keyword-only index of the entry above is rebuilt once, on first
+  open). A file touched without changing (same text, new mtime) keeps its passages and vectors.
+- **Change: SemanticMemoryStore opens Chroma with anonymized telemetry off.** It and the passage index both
+  open their client through one helper passing `Settings(anonymized_telemetry=False)`, since a local memory
+  store has no reason to send anything off the machine. (chromadb 1.5's telemetry client is already a no-op;
+  the setting makes the intent hold on any version.) If the process already holds a Chroma client opened with
+  other settings, Chroma refuses a second with different ones, so the store then joins the existing client
+  with its settings rather than raising.
+
+### RAG
+
+- **New: `aimu.rag.reciprocal_rank_fusion(rankings, *, k=60)`.** Merges several rankings of string keys into
+  one by `sum(1 / (k + rank))`, returning `(key, score)` pairs best first, ties in first-appearance order. It
+  uses ranks alone, which is what lets a keyword ranking and a vector ranking be combined without putting BM25
+  scores and cosine distances on one scale; `DocumentStore.search_passages` fuses its two halves with it.
+
+### Tools
+
+- **New: `make_collection_tools` gives an agent several document folders at once.**
+  `aimu.tools.builtin.make_collection_tools(stores, *, writable=(), rerank=False, descriptions=None)` takes a
+  `{collection: DocumentStore}` mapping (a notes vault, a work vault, an assistant's own folder) and returns
+  `list_documents`, `read_document`, and `search_documents`, plus `save_document` and `edit_document` only
+  when `writable` names a collection, so an agent given read-only folders holds no tool that writes. Each
+  tool takes a `collection` argument, which may be omitted only when one collection is held; a miss, an
+  unknown collection, or a write to a read-only one (`Refusing: the 'work' collection is read-only`) is a
+  returned message. `search_documents(query, collections=None, n_results=8)` ranks passages across every held
+  collection with `search_collections`, citing each as `[collection] path (heading or page)` with any other
+  copies as `also in: collection:path`, and ends with a note when a searched index is still being built,
+  its embedding model has failed, or it has another problem (named with its collection), since an incomplete
+  search otherwise reads as one that found nothing; it never raises. A store whose embedding is failing
+  reports its keyword progress, or nothing once that is done, rather than an embedding count that is not
+  moving, and a collection whose search fails is skipped and named in a note while the others' results are
+  returned. With several collections held, its excerpt pointers and `read_document`'s truncation marker name
+  the collection the next call needs, quoted so that any path makes a valid call. `list_documents()` names
+  each collection, whether it is writable, and its entry in `descriptions` (what it holds, for the model to
+  choose by; a key naming no held collection is a `ValueError`, as in `writable`) before listing its paths and its unreadable files with their
+  reasons, from the folder's metadata (`DocumentStore.listing`), so it reads no file; it shows at most 200
+  paths per collection, then how many it left out and the folders below the prefix with their sizes, so the
+  model can narrow with `prefix`. `save_document` keeps
+  [`make_document_tools`](https://github.com/saxman/aimu/blob/main/aimu/tools/builtin.py)' read-before-replace
+  guard, keyed by collection and content digest, so a full read in one folder never permits replacing the
+  same text in another. PDFs are read-only. Re-exported from `aimu.aio.tools.builtin`.
+- **Fix: a `list[T]` tool parameter declares its items when `T` has a JSON type.** `@tool` described every
+  list as a bare `{"type": "array"}`, which Gemini rejects as a function declaration. A list whose element
+  is `str`, `int`, `float`, `bool`, `list`, `dict` (subscripted or not), a `Literal[...]`, or another such
+  typed list now carries `"items"` (`list[str]` is `{"type": "array", "items": {"type": "string"}}`).
+  Every other element type (`Any`, a dataclass or model, `int | None`) stays a bare array, as before, since
+  guessing would tell the model to send strings the argument validator then rejects.
+- **Fix: `save_document` no longer replaces a file it cannot read.** `make_document_tools`' `save_document`
+  checked for an existing document with `store.read`, which raises `KeyError` for a file that is there but
+  unreadable (not UTF-8, over `max_file_bytes`, permission denied, a cloud file not downloaded) exactly as
+  for one that is absent, so the read-before-replace guard was skipped and the file overwritten unseen. It
+  now asks `DocumentStore.unreadable_reason` and refuses, naming why, as `make_collection_tools`' does.
+  `read_document` in both says why such a file cannot be read instead of "No document found". A truncated
+  search excerpt's pointer quotes its path with `repr`, so a path holding an apostrophe still makes a valid call.
+
 ## v0.40.1 (2026-11-16): reading a stored web page works on Python 3.11 and 3.12
 
 ### Tools

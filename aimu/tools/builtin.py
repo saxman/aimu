@@ -57,7 +57,10 @@ from ._pages import OUTLINE_LIMIT, PageStore, chunks, outline
 from .decorator import tool
 
 if TYPE_CHECKING:
-    # Annotation-only: importing aimu.models here would run it while aimu.tools is mid-import.
+    # Annotation-only: importing aimu.models (or aimu.memory) here would run it while aimu.tools is mid-import.
+    from collections.abc import Collection, Mapping
+
+    from aimu.memory import DocumentStore
     from aimu.models import BaseModelClient, Model
 
 _logger = logging.getLogger(__name__)
@@ -2362,17 +2365,51 @@ def make_retrieval_tool(store, *, n_results: int = 5):
 # A whole document per match turns one search over a corpus of papers into a context-window
 # flood. Excerpt instead, and name the tool that returns the rest.
 SEARCH_EXCERPT_CHARS = 1500
+# Paths make_collection_tools' list_documents shows per collection. A vault of a few thousand notes
+# listed whole is tens of thousands of tokens, most of a small model's context, for a list the model
+# then has to narrow anyway; past this, it says how many it left out and which folders to narrow to.
+LIST_DOCUMENTS_LIMIT = 200
 
 
-def _excerpt(content: str, path: str) -> str:
-    """Return *content*, or its head plus a pointer to the tool that returns the whole thing."""
+def _excerpt(content: str, path: str, *, call: str = "") -> str:
+    """Return *content*, or its head plus a pointer to the tool call that returns the whole thing.
+
+    *call* replaces ``read_document({path!r})`` for a tool that needs more than a path to find it again.
+    """
     if len(content) <= SEARCH_EXCERPT_CHARS:
         return content
     return (
         content[:SEARCH_EXCERPT_CHARS]
         + f"\n... (excerpt of {len(content)} characters; "
-        + f"call read_document('{path}') to read it, paging with offset if it is long)"
+        + f"call {call or f'read_document({path!r})'} to read it, paging with offset if it is long)"
     )
+
+
+def _unreadable_reason(store, path: str) -> str | None:
+    """Why a file at *path* exists but cannot be read, for a store that can say (a DocumentStore can)."""
+    reason = getattr(store, "unreadable_reason", None)
+    return reason(path) if reason is not None else None
+
+
+def _refuse_unreadable(path: str, reason: str, where: str = "") -> str:
+    return (
+        f"Refusing to replace {path}{where}: a file is already there that cannot be read ({reason}), so "
+        "replacing it would destroy content you have never seen. Nothing was written."
+    )
+
+
+def _folders_under(paths: list[str], prefix: str) -> dict[str, int]:
+    """How many of *paths* lie in each folder one level below *prefix*'s folder, for a narrowing hint."""
+    segments = [segment for segment in prefix.split("/") if segment]
+    # "/Papers/" names a folder whole; the last segment of "/Papers/attn" is part of a name, not a folder.
+    depth = len(segments) if prefix.endswith("/") else max(len(segments) - 1, 0)
+    counts: dict[str, int] = {}
+    for path in paths:
+        folders = [segment for segment in path.split("/") if segment][:-1]
+        if len(folders) > depth:
+            folder = "/" + "/".join(folders[: depth + 1]) + "/"
+            counts[folder] = counts.get(folder, 0) + 1
+    return dict(sorted(counts.items()))
 
 
 def make_document_tools(store):
@@ -2425,6 +2462,10 @@ def make_document_tools(store):
             existing = store.read(path)
         except KeyError:
             existing = None
+            # read() also raises for a file that is there but unreadable, which a write would destroy unseen.
+            reason = _unreadable_reason(store, path)
+            if reason:
+                return _refuse_unreadable(path, reason)
 
         if existing is not None and digest(existing) not in shown_whole:
             total = len(existing.splitlines())
@@ -2499,7 +2540,8 @@ def make_document_tools(store):
         try:
             content = store.read(path)
         except KeyError:
-            return f"No document found at {path}."
+            reason = _unreadable_reason(store, path)
+            return f"{path} cannot be read: {reason}." if reason else f"No document found at {path}."
         lines = content.splitlines()
         # An empty document read from the top is a legitimate whole-document read.
         if offset > len(lines) and offset > 1:
@@ -2525,15 +2567,20 @@ def make_document_tools(store):
         paths = store.list_paths()
         # Files the user placed in the directory that are not text can never become documents.
         # Reporting them here is the only way the model can tell the user why one is missing.
-        unreadable = store.unreadable_paths() if hasattr(store, "unreadable_paths") else []
+        if hasattr(store, "unreadable"):
+            unreadable = store.unreadable()
+        else:
+            unreadable = (
+                {p: "not UTF-8 text" for p in store.unreadable_paths()} if hasattr(store, "unreadable_paths") else {}
+            )
         listing = "\n".join(f"- {p}" for p in paths) if paths else "No documents stored."
         if unreadable:
-            listing += (
-                f"\n\nNote: {len(unreadable)} file(s) in the document directory could not be read, "
-                "because documents must be UTF-8 text: "
-                + ", ".join(unreadable)
-                + ". Tell the user to export these to Markdown or plain text."
-            )
+            listing += f"\n\nNote: {len(unreadable)} file(s) in the document directory could not be read:\n"
+            listing += "\n".join(f"- {p}: {reason}" for p, reason in unreadable.items())
+            if any(reason == "not UTF-8 text" for reason in unreadable.values()):
+                listing += (
+                    "\nFor files that are not UTF-8 text, tell the user to export them to Markdown or plain text."
+                )
         return listing
 
     @tool
@@ -2553,6 +2600,364 @@ def make_document_tools(store):
         return "\n\n".join(f"{m['path']}:\n{_excerpt(m['content'], m['path'])}" for m in matches)
 
     return [save_document, read_document, edit_document, list_documents, search_documents]
+
+
+def make_collection_tools(
+    stores: Mapping[str, DocumentStore],
+    *,
+    writable: Collection[str] = (),
+    rerank: bool = False,
+    descriptions: Mapping[str, str] | None = None,
+) -> list:
+    """Build ``list_documents``, ``read_document``, and ``search_documents`` over several named document
+    stores, plus ``save_document`` and ``edit_document`` when any of them is *writable*.
+
+    Where :func:`make_document_tools` binds one :class:`~aimu.memory.DocumentStore`, this binds a mapping of
+    them, each a *collection* (a personal notes vault, a work vault, an assistant's own folder). Every tool
+    but search takes a ``collection`` argument, which may be omitted only when one collection is held, and
+    ``search_documents`` ranks passages across all of them at once through
+    :func:`aimu.memory.search_collections`, citing each by collection, path, and heading or PDF page::
+
+        stores = {"personal": DocumentStore("~/Vault"), "kokua": DocumentStore("~/.kokua/documents")}
+        agent = Agent(client, tools=make_collection_tools(stores, writable=["kokua"]))
+
+    The tool names are :func:`make_document_tools`' names, so an agent carries one set or the other, not
+    both. The write tools exist only when *writable* names a collection, so an agent given read-only
+    collections holds no tool that writes; a write naming a read-only collection is refused by name. The
+    read-before-replace guard on ``save_document`` is :func:`make_document_tools`' own, keyed by
+    ``(collection, content digest)`` so a full read in one collection never permits replacing a copy of
+    the same text in another. Every miss, including a failing search, is a returned message, not a raise.
+
+    Args:
+        stores: Collection name to store. Its order is the order collections are listed in, and breaks
+            ranking ties in search.
+        writable: Names of the collections the write tools may change. Must be keys of *stores*.
+        rerank: Rerank each search's fused results with a cross-encoder (needs the ``[hf]`` extra).
+        descriptions: Collection name to what it holds, shown beside that collection in ``list_documents``'
+            overview (``- work (read-only): Quarterly plans.``), which is where the model decides which
+            collection a question belongs to. Must be keys of *stores*; a collection left out has none.
+
+    Returns:
+        ``[list_documents, read_document, search_documents]``, then ``[save_document, edit_document]`` when
+        *writable* is non-empty.
+
+    Raises:
+        ValueError: If *stores* is empty, or *writable* or *descriptions* names a collection *stores* does
+            not hold.
+    """
+    # Late: aimu.memory imports aimu.tools, which is mid-import while this module loads.
+    from aimu.memory import search_collections
+
+    stores = dict(stores)
+    writable = frozenset(writable)
+    if not stores:
+        raise ValueError("make_collection_tools needs at least one collection")
+    descriptions = dict(descriptions or {})
+    for argument, names in (("writable", writable), ("descriptions", descriptions.keys())):
+        unheld = sorted(set(names) - stores.keys())
+        if unheld:
+            raise ValueError(f"{argument} names collections that are not in stores: {', '.join(unheld)}")
+    held = ", ".join(stores)
+
+    def reread(path: str, collection: str) -> str:
+        """The read_document call a pointer names; collection may be left out only when it is the only one."""
+        return f"read_document({path!r}, collection={collection!r})" if len(stores) > 1 else "read_document"
+
+    # (collection, digest) of every document text shown to the model in full: make_document_tools'
+    # read-before-replace guard, with the collection in the key because two collections can hold one text.
+    shown_whole: set[tuple[str, str]] = set()
+
+    def digest(content: str) -> str:
+        return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+    def access(name: str) -> str:
+        return "writable" if name in writable else "read-only"
+
+    def overview_line(name: str) -> str:
+        line = f"- {name} ({access(name)})"
+        return f"{line}: {descriptions[name]}" if descriptions.get(name) else line
+
+    def resolve(collection: str) -> tuple[str, DocumentStore] | str:
+        """The named collection and its store, or the message that says why there is none."""
+        if not collection:
+            if len(stores) == 1:
+                return next(iter(stores.items()))
+            return f"Name a collection: several are held ({held}), so pass collection as one of them."
+        if collection not in stores:
+            return f"No collection named '{collection}'. The collections held are: {held}."
+        return collection, stores[collection]
+
+    def resolve_writable(collection: str) -> tuple[str, DocumentStore] | str:
+        resolved = resolve(collection)
+        if isinstance(resolved, str):
+            return resolved
+        if resolved[0] not in writable:
+            return (
+                f"Refusing: the '{resolved[0]}' collection is read-only, so nothing was written. "
+                f"Writable collections: {', '.join(name for name in stores if name in writable)}."
+            )
+        return resolved
+
+    @tool
+    def list_documents(collection: str = "", prefix: str = "") -> str:
+        """List document paths by collection.
+
+        With no collection, names every held collection, whether it is writable or read-only, and what it
+        holds where that is described, then lists each one's paths. Collections are folders the user adds files to directly, so call this
+        before concluding a document does not exist. Files found unreadable are listed with why. A large
+        collection is listed in part, with its folders and their sizes: narrow to one with prefix.
+
+        Args:
+            collection: List only this collection. Omit to list them all.
+            prefix: Only list paths starting with this, e.g. "/Papers/".
+        """
+        if collection:
+            resolved = resolve(collection)
+            if isinstance(resolved, str):
+                return resolved
+            listed = [resolved]
+            sections = []
+        else:
+            listed = list(stores.items())
+            sections = ["Collections:\n" + "\n".join(overview_line(name) for name in stores)]
+        advise_export = False
+        for name, store in listed:
+            # From the folder's metadata: reading a vault's every file to list it would extract every PDF.
+            paths, unreadable = store.listing(prefix or None)
+            empty = f"No documents under {prefix}." if prefix else "No documents."
+            shown = paths[:LIST_DOCUMENTS_LIMIT]
+            section = f"{name}:\n" + ("\n".join(f"- {path}" for path in shown) if paths else empty)
+            if len(paths) > len(shown):
+                folders = ", ".join(f"{folder} ({count})" for folder, count in _folders_under(paths, prefix).items())
+                section += (
+                    f"\nNote: {len(paths) - len(shown)} more documents not listed. Call list_documents again "
+                    f"with collection='{name}' and a prefix to see them"
+                    + (f"; the folders are: {folders}." if folders else ".")
+                )
+            # Reported because a file the user placed in the folder that never becomes a document is otherwise
+            # indistinguishable, to the model, from one that was never placed there.
+            if unreadable:
+                reasons = list(unreadable.items())
+                section += f"\nNote: {len(unreadable)} file(s) in {name} could not be read:\n"
+                section += "\n".join(f"- {path}: {reason}" for path, reason in reasons[:LIST_DOCUMENTS_LIMIT])
+                if len(reasons) > LIST_DOCUMENTS_LIMIT:
+                    section += f"\n... and {len(reasons) - LIST_DOCUMENTS_LIMIT} more"
+                advise_export = advise_export or "not UTF-8 text" in unreadable.values()
+            sections.append(section)
+        listing = "\n\n".join(sections)
+        if advise_export:
+            listing += "\n\nFor files that are not UTF-8 text, tell the user to export them to Markdown or plain text."
+        return listing
+
+    @tool
+    def read_document(path: str, collection: str = "", max_lines: int = 2000, offset: int = 1) -> str:
+        """Read a document by path, up to max_lines lines starting at line offset.
+
+        If the result says it was truncated, call again with the offset it names before drawing any
+        conclusion from it: a partial document reads exactly like a complete one. A PDF reads as its
+        extracted text.
+
+        Args:
+            path: The document's path in its collection, e.g. "/Papers/attention.pdf".
+            collection: The collection holding it. May be omitted only when one collection is held.
+            max_lines: Maximum number of lines to return (default 2000).
+            offset: 1-indexed line to start reading from (default 1, the start).
+        """
+        complaint = _window_complaint(offset=offset, limit=max_lines, limit_name="max_lines", unit="line")
+        if complaint:
+            return complaint
+        resolved = resolve(collection)
+        if isinstance(resolved, str):
+            return resolved
+        name, store = resolved
+        try:
+            content = store.read(path)
+        except KeyError:
+            reason = store.unreadable_reason(path)
+            if reason:
+                return f"{path} in the '{name}' collection cannot be read: {reason}."
+            return f"No document found at {path} in the '{name}' collection."
+        lines = content.splitlines()
+        if offset > len(lines) and offset > 1:
+            return _past_end(offset=offset, total=len(lines), unit="line", describe=path)
+        # As in make_document_tools: a whole read permits a later replacement, and a windowed one revokes it.
+        if offset == 1 and len(lines) <= max_lines:
+            shown_whole.add((name, digest(content)))
+        else:
+            shown_whole.discard((name, digest(content)))
+        return _window(lines, offset=offset, limit=max_lines, unit="line", tool=reread(path, name), join="\n")
+
+    @tool
+    def search_documents(query: str, collections: list[str] | None = None, n_results: int = 8) -> str:
+        """Search documents for the passages most relevant to a query, best first.
+
+        Searches every held collection unless collections narrows it. Each result cites its collection,
+        path, and heading or PDF page, then the passage; read_document returns the whole document. Pass
+        the result's [collection] to read_document as its collection. A note at the end says when results
+        may be incomplete.
+
+        Args:
+            query: A question or keywords.
+            collections: Names of the collections to search. Omit to search them all.
+            n_results: Maximum number of passages to return (default 8).
+        """
+        if collections:
+            unknown = [name for name in collections if name not in stores]
+            if unknown:
+                named = ", ".join(f"'{name}'" for name in unknown)
+                return f"No collection named {named}. The collections held are: {held}."
+            selected = {name: store for name, store in stores.items() if name in collections}
+        else:
+            selected = stores
+        if n_results < 1:
+            return f"n_results must be 1 or greater, got {n_results}"
+        failures: dict[str, Exception] = {}
+        try:
+            found = search_collections(selected, query, n_results, rerank=rerank, on_error=failures.__setitem__)
+        except Exception as exc:
+            return f"Search failed, so there are no results: {type(exc).__name__}: {exc}"
+        notes = [
+            f"Note: could not search '{name}' ({type(exc).__name__}: {exc}); these results are from the "
+            "other collections only."
+            for name, exc in failures.items()
+        ]
+        statuses = {}
+        for name, store in selected.items():
+            if name in failures:
+                continue
+            try:
+                # The search just refreshed this index; refreshing again would walk the folder a second time.
+                statuses[name] = store.index_status(refresh=False)
+            except Exception as exc:
+                notes.append(
+                    f"Note: could not tell whether '{name}' is fully indexed ({type(exc).__name__}: {exc}); "
+                    "its results may be incomplete."
+                )
+
+        blocks = []
+        for result in found:
+            passage = result.passage
+            header = f"[{result.collection}] {passage.path}"
+            if passage.location:
+                header += f" ({passage.location})"
+            call = reread(passage.path, result.collection) if len(stores) > 1 else ""
+            block = f"{header}\n{_excerpt(passage.text.strip(), passage.path, call=call)}"
+            if result.also_in:
+                block += "\nalso in: " + ", ".join(f"{name}:{path}" for name, path in result.also_in)
+            blocks.append(block)
+        if not blocks:
+            blocks.append("No matching passages found.")
+
+        # Without these, a search over an index still being built reads as a search that found nothing. A
+        # store whose embedding is failing is embedding nothing, so its progress is keyword indexing alone,
+        # and once that is done there is nothing to wait for: the semantic-search note below says why. Files
+        # that failed to index are left out of both numbers for the same reason; the problem note names them.
+        embedding, keyword = [], []
+        for status in statuses.values():
+            if status.complete:
+                continue
+            if status.vectors and not status.has_problem("embedding"):
+                embedding.append(status)
+            elif status.indexed < status.files - status.failed:
+                keyword.append(status)
+        counts = []
+        if embedding:
+            done, total = sum(s.embedded for s in embedding), sum(s.files - s.failed for s in embedding)
+            counts.append(f"{done} of {total} files embedded")
+        if keyword:
+            done, total = sum(s.indexed for s in keyword), sum(s.files - s.failed for s in keyword)
+            counts.append(f"{done} of {total} files indexed")
+        if counts:
+            blocks.append(f"Note: indexing in progress ({', '.join(counts)}); results may be incomplete.")
+        problems = []
+        for name, status in statuses.items():
+            for problem in status.problems:
+                if problem.kind == "embedding" and status.vectors:
+                    problems.append(
+                        f"Note: semantic search is unavailable ({problem.message}); these are keyword matches only."
+                    )
+                else:
+                    problems.append(f"Note: indexing problem in '{name}': {problem.message}")
+        # A shared embedding model failing in several collections is one note, not one per collection.
+        blocks.extend(dict.fromkeys(problems))
+        blocks.extend(notes)
+        return "\n\n".join(blocks)
+
+    @tool
+    def save_document(path: str, content: str, collection: str = "") -> str:
+        """Save a document in a writable collection, creating it or replacing the whole thing.
+
+        content becomes the entire document, so everything not repeated in it is deleted. Replacing a
+        document you have not read in full is refused: to change part of one, use edit_document. PDFs are
+        read-only.
+
+        Args:
+            path: The document's path in its collection, e.g. "/notes/standup.md".
+            content: The full text of the document.
+            collection: The collection to save in. May be omitted only when one collection is held.
+        """
+        resolved = resolve_writable(collection)
+        if isinstance(resolved, str):
+            return resolved
+        name, store = resolved
+        # A PDF is left to the store's own refusal: these would send the model to read it, which cannot help.
+        is_pdf = path.strip().lower().endswith(".pdf")
+        try:
+            existing = store.read(path)
+        except KeyError:
+            existing = None
+            # read() also raises for a file that is there but unreadable, which a write would destroy unseen.
+            reason = None if is_pdf else store.unreadable_reason(path)
+            if reason:
+                return _refuse_unreadable(path, reason, f" in the '{name}' collection")
+        if existing is not None and not is_pdf and (name, digest(existing)) not in shown_whole:
+            total = len(existing.splitlines())
+            return (
+                f"Refusing to replace {path} in the '{name}' collection: you have not been shown its current "
+                f"text in full ({total} {'line' if total == 1 else 'lines'}), so a replacement would delete "
+                "content you have never seen. Read it in full first (read_document with max_lines at least "
+                f"{total}), or use edit_document to change part of it without replacing the rest."
+            )
+        try:
+            store.write(path, content)
+        except ValueError as exc:
+            return str(exc)
+        shown_whole.add((name, digest(content)))
+        return f"Saved {path} in the '{name}' collection."
+
+    @tool
+    def edit_document(path: str, old_str: str, new_str: str, collection: str = "") -> str:
+        """Replace one exact occurrence of old_str with new_str in a document in a writable collection.
+
+        Use this rather than save_document to change part of a document: it leaves the rest untouched and
+        needs no re-reading. old_str must appear exactly once; if it appears zero times or several, nothing
+        is written. PDFs are read-only.
+
+        Args:
+            path: The document's path in its collection, e.g. "/notes/standup.md".
+            old_str: Exact text to find, unique within the document.
+            new_str: Text to replace it with. Pass an empty string to delete it.
+            collection: The collection holding it. May be omitted only when one collection is held.
+        """
+        resolved = resolve_writable(collection)
+        if isinstance(resolved, str):
+            return resolved
+        name, store = resolved
+        try:
+            before = store.read(path)
+            store.edit(path, old_str, new_str)
+        except KeyError:
+            return f"No document found at {path} in the '{name}' collection."
+        except ValueError as exc:
+            return str(exc)
+        if (name, digest(before)) in shown_whole:
+            shown_whole.add((name, digest(store.read(path))))
+        return f"Edited {path} in the '{name}' collection: replaced 1 occurrence."
+
+    tools = [list_documents, read_document, search_documents]
+    if writable:
+        tools += [save_document, edit_document]
+    return tools
 
 
 DEFAULT_SUBAGENT_SYSTEM_MESSAGE = (

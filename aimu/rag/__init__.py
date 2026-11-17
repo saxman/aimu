@@ -10,12 +10,14 @@ splitter / loader class hierarchy. The typical flow:
     context = format_context(chunks)               # join for the prompt
     answer = client.chat(f"Context:\\n{context}\\n\\nQuestion: what is X?")
 
-`bm25_scores` ranks text against a query with no model or dependency. `rerank` (optional, needs the `[hf]` extra) re-scores a wide candidate set with a
+`bm25_scores` ranks text against a query with no model or dependency, and `reciprocal_rank_fusion` merges
+several rankings (keyword and vector, say) by rank alone. `rerank` (optional, needs the `[hf]` extra) re-scores a wide candidate set with a
 cross-encoder. `make_retrieval_tool(store)` (in :mod:`aimu.tools.builtin`) wraps `retrieve`
 as an agent tool.
 """
 
 from .bm25 import bm25_scores
+from .fusion import reciprocal_rank_fusion
 from .pipeline import format_context, ingest, retrieve
 from .rerank import rerank
 from .splitter import split_text
@@ -27,4 +29,5 @@ __all__ = [
     "format_context",
     "rerank",
     "bm25_scores",
+    "reciprocal_rank_fusion",
 ]

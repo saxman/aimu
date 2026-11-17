@@ -2,6 +2,9 @@
 Tests for the @tool decorator and Python-function tool dispatch through Agent.
 """
 
+import dataclasses
+from typing import Any, Literal
+
 import pytest
 
 from aimu.agents import Agent
@@ -115,7 +118,7 @@ def test_tool_decorator_arg_continuation_lines_are_joined():
 
 
 def test_tool_decorator_literal_becomes_enum():
-    from typing import Literal, Optional
+    from typing import Optional
 
     @tool
     def f(mode: Literal["once", "daily", "weekly"], flag: Optional[Literal["a", "b"]] = None):
@@ -210,6 +213,65 @@ def test_tool_maps_list_and_dict_generics():
     props = f.__tool_spec__["function"]["parameters"]["properties"]
     assert props["items"]["type"] == "array"
     assert props["meta"]["type"] == "object"
+
+
+def test_typed_list_schema_names_its_items():
+    # Gemini rejects an array parameter declared without "items".
+    @tool
+    def f(names: list[str], maybe: list[int] | None = None, bare: list = ()) -> str:
+        """OK."""
+        return ""
+
+    props = f.__tool_spec__["function"]["parameters"]["properties"]
+    assert props["names"] == {"type": "array", "items": {"type": "string"}}
+    assert props["maybe"] == {"type": "array", "items": {"type": "integer"}}
+    assert props["bare"] == {"type": "array"}
+
+
+@dataclasses.dataclass
+class _Point:
+    x: int
+    y: int
+
+
+def test_list_items_only_for_element_types_with_a_schema():
+    # An element with no JSON type of its own keeps the bare array: falling back to "string" would tell
+    # the model to send strings, which a list[_Point] adapter then rejects at dispatch.
+    @tool
+    def f(
+        anything: list[Any],
+        points: list[_Point],
+        optional_items: list[int | None],
+        choices: list[Literal["a", "b"]],
+        nested: list[list[str]],
+        nested_unknown: list[list[Any]],
+        records: list[dict[str, int]],
+    ) -> str:
+        """OK."""
+        return ""
+
+    props = f.__tool_spec__["function"]["parameters"]["properties"]
+    assert props["anything"] == {"type": "array"}
+    assert props["points"] == {"type": "array"}
+    assert props["optional_items"] == {"type": "array"}
+    assert props["choices"] == {"type": "array", "items": {"enum": ["a", "b"], "type": "string"}}
+    assert props["nested"] == {"type": "array", "items": {"type": "array", "items": {"type": "string"}}}
+    assert props["nested_unknown"] == {"type": "array", "items": {"type": "array"}}
+    assert props["records"] == {"type": "array", "items": {"type": "object"}}
+
+    # The bare schema still dispatches: the adapter, not the schema, validates the elements.
+    assert coerce_tool_arguments(
+        f,
+        {
+            "anything": [1, "a"],
+            "points": [{"x": 1, "y": 2}],
+            "optional_items": [None, 1],
+            "choices": ["a"],
+            "nested": [["s"]],
+            "nested_unknown": [[1]],
+            "records": [{"k": 1}],
+        },
+    )["points"] == [_Point(1, 2)]
 
 
 # ---------------------------------------------------------------------------

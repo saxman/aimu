@@ -476,6 +476,19 @@ def test_list_documents_reports_unreadable_files(tmp_path):
     assert "could not be read" in result
 
 
+def test_list_documents_names_a_scanned_pdf_with_its_reason(tmp_path):
+    from tests.test_documents import _blank_pdf
+
+    store = DocumentStore(persist_path=str(tmp_path))
+    (tmp_path / "scan.pdf").write_bytes(_blank_pdf())
+
+    result = _by_name(make_document_tools(store), "list_documents")()
+
+    assert "/scan.pdf" in result
+    assert "OCR" in result
+    assert "export" not in result.lower()
+
+
 def test_list_documents_says_nothing_about_unreadable_when_there_are_none(doc_tools):
     save = _by_name(doc_tools, "save_document")
     save("/a.md", "one")
@@ -503,3 +516,687 @@ def test_search_documents_does_not_truncate_a_short_document(doc_tools):
 
     assert "the gate code is 4242" in result
     assert "read_document" not in result
+
+
+# ---------------------------------------------------------------------------
+# make_collection_tools: several named DocumentStores behind one tool set
+# ---------------------------------------------------------------------------
+
+
+from aimu.memory import IndexProblem, IndexStatus  # noqa: E402
+from aimu.tools.builtin import make_collection_tools  # noqa: E402
+
+
+def _collection_tools(stores, **kwargs):
+    return {t.__tool_spec__["function"]["name"]: t for t in make_collection_tools(stores, **kwargs)}
+
+
+def _two_collections():
+    personal, work = DocumentStore(), DocumentStore()
+    personal.write("/a.md", "personal a")
+    work.write("/a.md", "work a")
+    return {"personal": personal, "work": work}
+
+
+def test_write_tools_only_when_something_is_writable():
+    stores = _two_collections()
+    read_only = make_collection_tools(stores)
+    assert [t.__name__ for t in read_only] == ["list_documents", "read_document", "search_documents"]
+
+    writable = make_collection_tools(stores, writable=["work"])
+    assert [t.__name__ for t in writable] == [
+        "list_documents",
+        "read_document",
+        "search_documents",
+        "save_document",
+        "edit_document",
+    ]
+    for t in writable:
+        assert t.__tool_is_async__ is False
+
+    with pytest.raises(ValueError, match="nowhere"):
+        make_collection_tools(stores, writable=["nowhere"])
+
+
+def test_list_documents_describes_each_collection_it_was_given_a_description_for():
+    """What a collection is for is the host's to say, and the overview is where the model decides which
+    collection a question belongs to, so a description rides on that collection's line."""
+    tools = _collection_tools(_two_collections(), writable=["work"], descriptions={"personal": "Research notes."})
+
+    overview = tools["list_documents"]().split("\n\n")[0]
+    assert overview.splitlines() == [
+        "Collections:",
+        "- personal (read-only): Research notes.",
+        "- work (writable)",
+    ]
+    # A listing narrowed to one collection has no overview to describe.
+    assert "Research notes." not in tools["list_documents"](collection="personal")
+
+
+def test_descriptions_must_name_held_collections():
+    with pytest.raises(ValueError, match="nowhere"):
+        make_collection_tools(_two_collections(), descriptions={"nowhere": "Not held."})
+
+
+def test_omitted_collection_resolves_when_only_one_is_held():
+    store = DocumentStore()
+    store.write("/a.md", "only one")
+    tools = _collection_tools({"kokua": store}, writable=["kokua"])
+
+    assert tools["read_document"]("/a.md") == "only one"
+    assert tools["edit_document"]("/a.md", "one", "two").startswith("Edited /a.md")
+    assert store.read("/a.md") == "only two"
+    assert tools["save_document"]("/b.md", "new").startswith("Saved /b.md")
+    assert store.read("/b.md") == "new"
+
+
+def test_omitted_collection_with_several_names_them():
+    tools = _collection_tools(_two_collections(), writable=["work"])
+
+    assert "personal, work" in tools["read_document"]("/a.md")
+    assert "personal, work" in tools["save_document"]("/b.md", "x")
+    assert "personal, work" in tools["edit_document"]("/a.md", "a", "b")
+    # The collection that was named is the one read.
+    assert tools["read_document"]("/a.md", collection="work") == "work a"
+    assert tools["read_document"]("/a.md", collection="personal") == "personal a"
+
+
+def test_unknown_collection_names_the_held_ones():
+    tools = _collection_tools(_two_collections(), writable=["work"])
+
+    for result in (
+        tools["read_document"]("/a.md", collection="vault"),
+        tools["list_documents"](collection="vault"),
+        tools["search_documents"]("a", collections=["vault"]),
+        tools["save_document"]("/a.md", "x", collection="vault"),
+    ):
+        assert "'vault'" in result
+        assert "personal, work" in result
+
+
+def test_write_to_read_only_collection_is_refused_by_name():
+    stores = _two_collections()
+    tools = _collection_tools(stores, writable=["personal"])
+
+    edit_document = tools["edit_document"]
+    assert edit_document("/a.md", "x", "y", collection="work").startswith(
+        "Refusing: the 'work' collection is read-only"
+    )
+    assert tools["save_document"]("/new.md", "x", collection="work").startswith(
+        "Refusing: the 'work' collection is read-only"
+    )
+    assert stores["work"].list_paths() == ["/a.md"]
+    assert stores["work"].read("/a.md") == "work a"
+
+
+def test_pdf_write_refused_as_text(tmp_path):
+    from tests.test_documents import minimal_pdf
+
+    (tmp_path / "paper.pdf").write_bytes(minimal_pdf(["glacier melt"]))
+    store = DocumentStore(persist_path=str(tmp_path))
+    tools = _collection_tools({"vault": store}, writable=["vault"])
+
+    assert "glacier melt" in tools["read_document"]("/paper.pdf")  # read in full, so the guard is satisfied
+    for result in (
+        tools["save_document"]("/paper.pdf", "replaced"),
+        tools["edit_document"]("/paper.pdf", "glacier", "ice"),
+        tools["save_document"]("/new.pdf", "fresh"),
+    ):
+        assert result.startswith("PDFs are read-only")
+    assert (tmp_path / "paper.pdf").read_bytes() == minimal_pdf(["glacier melt"])
+    assert not (tmp_path / "new.pdf").exists()
+
+
+def test_pdf_write_is_refused_as_read_only_even_unread(tmp_path):
+    # The read-before-replace refusal would be the wrong lesson here: reading the PDF would not help.
+    from tests.test_documents import minimal_pdf
+
+    (tmp_path / "paper.pdf").write_bytes(minimal_pdf(["glacier melt"]))
+    tools = _collection_tools({"vault": DocumentStore(persist_path=str(tmp_path))}, writable=["vault"])
+
+    assert tools["save_document"]("/paper.pdf", "replaced").startswith("PDFs are read-only")
+
+
+def test_search_result_format():
+    personal, work, kokua = DocumentStore(), DocumentStore(), DocumentStore()
+    paper = "# Methods\nglacier melt rates were measured weekly\n"
+    personal.write("/paper.md", paper)
+    work.write("/paper.md", paper)
+    kokua.write("/notes.md", "no heading here, glacier talk")
+    tools = _collection_tools({"personal": personal, "work": work, "kokua": kokua})
+
+    result = tools["search_documents"]("glacier melt")
+
+    blocks = result.split("\n\n")
+    assert blocks[0].splitlines()[0] == "[personal] /paper.md (Methods)"
+    assert "glacier melt rates were measured weekly" in blocks[0]
+    assert "also in: work:/paper.md" in blocks[0]
+    assert any(block.splitlines()[0] == "[kokua] /notes.md" for block in blocks)
+    assert "Note:" not in result  # ephemeral keyword-only stores are complete once searched
+
+    # Narrowed to one collection, the other is neither searched nor cited.
+    narrowed = tools["search_documents"]("glacier melt", collections=["work"])
+    assert narrowed.splitlines()[0] == "[work] /paper.md (Methods)"
+    assert "personal" not in narrowed and "kokua" not in narrowed
+
+    # Incomplete indexes are summed across the searched stores that are incomplete.
+    personal.index_status = lambda **_: IndexStatus(files=10, indexed=10, embedded=3, unreadable={}, vectors=True)
+    work.index_status = lambda **_: IndexStatus(files=4, indexed=4, embedded=1, unreadable={}, vectors=True)
+    result = tools["search_documents"]("glacier melt")
+    assert result.endswith("Note: indexing in progress (4 of 14 files embedded); results may be incomplete.")
+
+    # Without vectors, the count is of indexed files.
+    personal.index_status = lambda **_: IndexStatus(files=10, indexed=6, embedded=0, unreadable={})
+    work.index_status = lambda **_: IndexStatus(files=4, indexed=4, embedded=0, unreadable={})
+    result = tools["search_documents"]("glacier melt")
+    assert "Note: indexing in progress (6 of 10 files indexed); results may be incomplete." in result
+
+    # An embedding failure on a store with vectors is the semantic-search note, its error verbatim.
+    embedding_error = "Embedding failed, so search is keyword-only until it succeeds: RuntimeError: model down"
+    personal.index_status = lambda **_: IndexStatus(
+        files=1,
+        indexed=1,
+        embedded=1,
+        unreadable={},
+        problems=(IndexProblem("embedding", embedding_error),),
+        vectors=True,
+    )
+    result = tools["search_documents"]("glacier melt")
+    assert f"Note: semantic search is unavailable ({embedding_error}); these are keyword matches only." in result
+    assert "indexing problem" not in result
+    assert "indexing in progress" not in result
+
+
+def test_search_names_a_non_embedding_index_problem_by_collection():
+    personal, work = DocumentStore(), DocumentStore()
+    personal.write("/a.md", "glacier")
+    work.write("/b.md", "glacier")
+    tools = _collection_tools({"personal": personal, "work": work})
+
+    stopped = "Background indexing stopped: OperationalError: database is locked"
+    work.index_status = lambda **_: IndexStatus(
+        files=1, indexed=1, embedded=0, unreadable={}, problems=(IndexProblem("worker", stopped),)
+    )
+    result = tools["search_documents"]("glacier")
+    assert f"Note: indexing problem in 'work': {stopped}" in result
+    assert "semantic search" not in result
+
+    # One status can carry both kinds; each is reported as what it is.
+    embedding = "Embedding the query failed, so search is keyword-only: RuntimeError: gone; really gone"
+    failed = "Could not index /c.md: OperationalError: disk I/O error"
+    work.index_status = lambda **_: IndexStatus(
+        files=1,
+        indexed=1,
+        embedded=1,
+        unreadable={},
+        problems=(IndexProblem("embedding", embedding), IndexProblem("file", failed)),
+        vectors=True,
+    )
+    result = tools["search_documents"]("glacier")
+    assert f"Note: semantic search is unavailable ({embedding}); these are keyword matches only." in result
+    assert f"Note: indexing problem in 'work': {failed}" in result
+
+
+def test_index_problem_notes_match_the_real_index_wording(tmp_path, monkeypatch):
+    # The notes follow each problem's kind; this pins the kinds the real index assigns, and their wording.
+    pytest.importorskip("chromadb")
+    import aimu.memory._index as index_module
+    from tests.test_document_index import FakeEmbedder
+
+    (tmp_path / "vectors").mkdir()
+    (tmp_path / "vectors" / "a.md").write_text("ribosome notes")
+    embedded = DocumentStore(
+        persist_path=str(tmp_path / "vectors"),
+        index_path=str(tmp_path / "vectors-index"),
+        embedding_client=FakeEmbedder(error=RuntimeError("model download failed")),
+    )
+    embedded.search_passages("ribosome")
+    embedded._index.wait_until_embedded(5)
+
+    monkeypatch.setattr(index_module, "INLINE_INDEX_SECONDS", 0.0)
+    real_chunk_document = index_module.chunk_document
+
+    def chunk_document(path, text, **kwargs):
+        if "poison" in text:
+            raise RuntimeError("cannot chunk")
+        return real_chunk_document(path, text, **kwargs)
+
+    monkeypatch.setattr(index_module, "chunk_document", chunk_document)
+    (tmp_path / "keyword").mkdir()
+    (tmp_path / "keyword" / "bad.md").write_text("poison ribosome")
+    keyword = DocumentStore(persist_path=str(tmp_path / "keyword"))
+    keyword.index_status()
+    keyword._index.wait_until_embedded(5)
+
+    result = _collection_tools({"vectors": embedded, "keyword": keyword})["search_documents"]("ribosome")
+    embedded.close()
+    keyword.close()
+
+    assert "Note: semantic search is unavailable (Embedding failed" in result
+    assert "model download failed); these are keyword matches only." in result
+    assert "Note: indexing problem in 'keyword': Could not index /bad.md" in result
+    assert "indexing problem in 'vectors'" not in result
+
+
+def test_pointers_name_the_collection_when_several_are_held():
+    from aimu.memory import Passage
+
+    personal, work = DocumentStore(), DocumentStore()
+    # The chunker keeps real passages under the excerpt cap, so a longer one is stubbed in to reach the pointer.
+    long_passage = Passage(path="/long.md", location="", text="glacier " * 400, score=1.0, digest="d")
+    personal.search_passages = lambda query, n_results=8: [long_passage]
+    work.write("/lines.md", "\n".join(f"line {i}" for i in range(50)))
+    tools = _collection_tools({"personal": personal, "work": work})
+
+    search = tools["search_documents"]("glacier", collections=["personal"])
+    assert "call read_document('/long.md', collection='personal')" in search
+    window = tools["read_document"]("/lines.md", collection="work", max_lines=10)
+    assert "call read_document('/lines.md', collection='work') with offset=11" in window
+
+    # With one collection, collection may be omitted, so the pointers stay as make_document_tools writes them.
+    single = _collection_tools({"personal": personal})
+    assert "call read_document('/long.md')" in single["search_documents"]("glacier")
+    single_window = _collection_tools({"work": work})["read_document"]("/lines.md", max_lines=10)
+    assert "call read_document with offset=11" in single_window
+
+
+def test_also_in_names_a_second_copy_in_the_same_collection():
+    store = DocumentStore()
+    store.write("/paper.md", "glacier melt rates")
+    store.write("/copy/paper.md", "glacier melt rates")
+    tools = _collection_tools({"personal": store})
+
+    result = tools["search_documents"]("glacier")
+
+    assert result.count("[personal]") == 1
+    assert "also in: personal:/" in result
+
+
+def test_search_with_no_match_still_carries_its_notes():
+    store = DocumentStore()
+    store.write("/a.md", "alpha")
+    store.index_status = lambda **_: IndexStatus(files=5, indexed=2, embedded=0, unreadable={})
+    result = _collection_tools({"personal": store})["search_documents"]("zebra")
+
+    assert result.startswith("No matching passages found")
+    assert "Note: indexing in progress (2 of 5 files indexed)" in result
+
+
+def test_a_failing_collection_is_skipped_and_named():
+    stores = _two_collections()
+
+    def broken(query, n_results=8):
+        raise RuntimeError("index database is locked")
+
+    stores["work"].search_passages = broken
+    result = _collection_tools(stores)["search_documents"]("personal")
+
+    assert result.startswith("[personal] /a.md")
+    assert "Note: could not search 'work' (RuntimeError: index database is locked)" in result
+
+
+def test_a_failing_status_keeps_the_results():
+    stores = _two_collections()
+
+    def broken(**_):
+        raise RuntimeError("status unavailable")
+
+    stores["work"].index_status = broken
+    result = _collection_tools(stores)["search_documents"]("personal")
+
+    assert result.startswith("[personal] /a.md")
+    assert "'work'" in result and "status unavailable" in result
+
+
+def test_a_failure_of_the_whole_search_is_returned_not_raised(monkeypatch):
+    import aimu.memory as memory
+
+    def broken(*args, **kwargs):
+        raise ImportError("rerank needs the [hf] extra")
+
+    monkeypatch.setattr(memory, "search_collections", broken)
+    result = _collection_tools(_two_collections())["search_documents"]("a")
+
+    assert result.startswith("Search failed") and "[hf]" in result
+
+
+def test_search_rejects_a_bad_n_results():
+    result = _collection_tools(_two_collections())["search_documents"]("a", n_results=0)
+    assert "n_results" in result
+
+
+def test_guard_is_per_collection():
+    personal, kokua = DocumentStore(), DocumentStore()
+    personal.write("/a.md", "same text")
+    kokua.write("/a.md", "same text")
+    tools = _collection_tools({"personal": personal, "kokua": kokua}, writable=["personal", "kokua"])
+
+    assert tools["read_document"]("/a.md", collection="personal") == "same text"
+
+    refused = tools["save_document"]("/a.md", "replaced", collection="kokua")
+    assert refused.startswith("Refusing to replace /a.md")
+    assert kokua.read("/a.md") == "same text"
+    assert tools["save_document"]("/a.md", "replaced", collection="personal").startswith("Saved")
+    assert personal.read("/a.md") == "replaced"
+
+
+def test_windowed_read_revokes_and_edit_carries_the_guard():
+    store = DocumentStore()
+    store.write("/long.md", "\n".join(f"line {i}" for i in range(100)))
+    tools = _collection_tools({"kokua": store}, writable=["kokua"])
+
+    tools["read_document"]("/long.md", max_lines=500)
+    tools["edit_document"]("/long.md", "line 7\n", "line seven\n")
+    assert tools["save_document"]("/long.md", "short").startswith("Saved")
+
+    store.write("/long.md", "\n".join(f"line {i}" for i in range(100)))
+    tools["read_document"]("/long.md", max_lines=500)
+    tools["read_document"]("/long.md", max_lines=10)
+    assert tools["save_document"]("/long.md", "short").startswith("Refusing to replace")
+
+
+def test_edit_misses_are_returned():
+    store = DocumentStore()
+    store.write("/a.md", "x x")
+    tools = _collection_tools({"kokua": store}, writable=["kokua"])
+
+    assert "No document found at /missing.md" in tools["edit_document"]("/missing.md", "a", "b")
+    assert "appears 2 times" in tools["edit_document"]("/a.md", "x", "y")
+    assert "not found" in tools["edit_document"]("/a.md", "zebra", "y")
+    assert "No document found at /missing.md" in tools["read_document"]("/missing.md")
+    assert "past the end" in tools["read_document"]("/a.md", offset=5)
+
+
+def test_list_documents_reports_unreadable_with_reasons(tmp_path):
+    from tests.test_documents import _blank_pdf
+
+    (tmp_path / "vault").mkdir()
+    (tmp_path / "vault" / "notes.md").write_text("keep me")
+    (tmp_path / "vault" / "scan.pdf").write_bytes(_blank_pdf())
+    (tmp_path / "vault" / "export.docx").write_bytes(b"\xff\xfe\x00binary")
+    vault = DocumentStore(persist_path=str(tmp_path / "vault"))
+    kokua = DocumentStore()
+    kokua.write("/plan.md", "the plan")
+    tools = _collection_tools({"vault": vault, "kokua": kokua}, writable=["kokua"])
+
+    # Listing reads no file, so it reports the reasons a read has found: here, a search's index build.
+    assert "could not be read" not in tools["list_documents"]()
+    tools["search_documents"]("keep")
+    listing = tools["list_documents"]()
+
+    # The held collections come first, with what each permits.
+    head = listing.split("\n\n")[0]
+    assert "vault (read-only)" in head and "kokua (writable)" in head
+    assert head.index("vault") < head.index("kokua")
+    assert listing.index("/notes.md") < listing.index("/plan.md")
+    assert "/scan.pdf" in listing and "OCR" in listing
+    assert "/export.docx: not UTF-8 text" in listing
+    assert "export them to Markdown" in listing
+
+    one = tools["list_documents"](collection="kokua")
+    assert "/plan.md" in one and "/notes.md" not in one and "could not be read" not in one
+
+
+def test_list_documents_keeps_export_advice_for_text_reasons_only(tmp_path):
+    from tests.test_documents import _blank_pdf
+
+    (tmp_path / "scan.pdf").write_bytes(_blank_pdf())
+    tools = _collection_tools({"vault": DocumentStore(persist_path=str(tmp_path))})
+
+    tools["search_documents"]("anything")
+    listing = tools["list_documents"]()
+    assert "/scan.pdf" in listing and "could not be read" in listing
+    assert "export" not in listing.lower()
+
+
+def test_list_documents_filters_by_prefix():
+    store = DocumentStore()
+    store.write("/papers/a.md", "a")
+    store.write("/notes/b.md", "b")
+    tools = _collection_tools({"vault": store})
+
+    listing = tools["list_documents"](collection="vault", prefix="/papers")
+    assert "/papers/a.md" in listing and "/notes/b.md" not in listing
+    assert "No documents" in tools["list_documents"](prefix="/nowhere")
+
+
+def test_collection_tools_are_re_exported_for_async():
+    from aimu.aio.tools import builtin as aio_builtin
+
+    assert aio_builtin.make_collection_tools is make_collection_tools
+
+
+# ---------------------------------------------------------------------------
+# Final review: vault-scale listing, honest notes, safe saves
+# ---------------------------------------------------------------------------
+
+
+def test_list_documents_caps_each_collection_and_says_how_to_narrow():
+    store = DocumentStore()
+    for number in range(150):
+        store.write(f"/Papers/p{number:03}.md", "x")
+        store.write(f"/Daily/d{number:03}.md", "x")
+    small = DocumentStore()
+    small.write("/a.md", "x")
+    tools = _collection_tools({"vault": store, "kokua": small})
+
+    listing = tools["list_documents"]()
+    vault = listing.split("\n\nkokua:")[0]
+    assert vault.count("\n- /") == 200
+    assert "100 more documents not listed" in vault
+    assert "prefix" in vault and "/Daily/ (150)" in vault and "/Papers/ (150)" in vault
+    assert "- /a.md" in listing
+
+    narrowed = tools["list_documents"](collection="vault", prefix="/Papers/")
+    assert narrowed.count("\n- /") == 150 and "not listed" not in narrowed
+
+
+def test_list_documents_reads_no_file(tmp_path, monkeypatch):
+    import aimu.memory.document_store as document_store_module
+    from tests.test_documents import minimal_pdf
+
+    for number in range(3):
+        (tmp_path / f"p{number}.pdf").write_bytes(minimal_pdf(["glacier"]))
+    calls = []
+    monkeypatch.setattr(document_store_module, "pdf_to_markdown", lambda data: calls.append(1) or "x")
+    listing = _collection_tools({"vault": DocumentStore(persist_path=str(tmp_path))})["list_documents"]()
+
+    assert "/p0.pdf" in listing and "/p2.pdf" in listing
+    assert calls == []
+
+
+def test_in_progress_note_leaves_out_a_store_whose_embedding_fails():
+    personal, work = DocumentStore(), DocumentStore()
+    personal.write("/a.md", "glacier")
+    work.write("/b.md", "glacier")
+    tools = _collection_tools({"personal": personal, "work": work})
+    failing = "Embedding failed, so search is keyword-only until it succeeds: RuntimeError: offline"
+    problems = (IndexProblem("embedding", failing),)
+
+    # Keyword indexing complete, embedding failing: nothing is in progress, so there is nothing to wait for.
+    personal.index_status = lambda **_: IndexStatus(
+        files=5, indexed=5, embedded=0, unreadable={}, problems=problems, vectors=True
+    )
+    result = tools["search_documents"]("glacier")
+    assert "indexing in progress" not in result
+    assert "semantic search is unavailable" in result
+
+    # Keyword indexing still running: its progress is the note, not embedding progress that is not happening.
+    personal.index_status = lambda **_: IndexStatus(
+        files=5, indexed=2, embedded=0, unreadable={}, problems=problems, vectors=True
+    )
+    work.index_status = lambda **_: IndexStatus(files=4, indexed=4, embedded=1, unreadable={}, vectors=True)
+    result = tools["search_documents"]("glacier")
+    assert "Note: indexing in progress (1 of 4 files embedded, 2 of 5 files indexed)" in result
+
+
+def test_in_progress_note_leaves_out_permanently_failed_files():
+    personal, work = DocumentStore(), DocumentStore()
+    personal.write("/a.md", "glacier")
+    work.write("/b.md", "glacier")
+    tools = _collection_tools({"personal": personal, "work": work})
+    failed = "Could not index /c.md: RuntimeError: cannot chunk"
+    problems = (IndexProblem("file", failed),)
+
+    # The only gap is a file that failed: nothing is in progress, and the problem note says why.
+    personal.index_status = lambda **_: IndexStatus(
+        files=3, indexed=2, embedded=2, unreadable={}, problems=problems, failed=1, vectors=True
+    )
+    work.index_status = lambda **_: IndexStatus(files=2, indexed=1, embedded=0, unreadable={}, failed=1)
+    result = tools["search_documents"]("glacier")
+    assert "indexing in progress" not in result
+    assert f"Note: indexing problem in 'personal': {failed}" in result
+
+    # Work still to do is counted, without the failed files in either number.
+    personal.index_status = lambda **_: IndexStatus(
+        files=4, indexed=3, embedded=1, unreadable={}, problems=problems, failed=1, vectors=True
+    )
+    work.index_status = lambda **_: IndexStatus(files=5, indexed=2, embedded=0, unreadable={}, failed=1)
+    result = tools["search_documents"]("glacier")
+    assert "Note: indexing in progress (1 of 3 files embedded, 2 of 4 files indexed)" in result
+
+    # A stopped worker's files are still pending and retried on the next search, so they stay in progress.
+    stopped = (IndexProblem("worker", "Background indexing stopped: OperationalError: database is locked"),)
+    personal.index_status = lambda **_: IndexStatus(files=3, indexed=1, embedded=0, unreadable={}, problems=stopped)
+    work.index_status = lambda **_: IndexStatus(files=1, indexed=1, embedded=0, unreadable={})
+    result = tools["search_documents"]("glacier")
+    assert "Note: indexing in progress (1 of 3 files indexed)" in result
+
+
+@pytest.mark.parametrize("vectors", [False, True])
+def test_a_permanently_failed_file_is_a_problem_not_progress(tmp_path, monkeypatch, vectors):
+    import aimu.memory._index as index_module
+    from tests.test_document_index import FakeEmbedder
+
+    if vectors:
+        pytest.importorskip("chromadb")
+    real_chunk_document = index_module.chunk_document
+
+    def chunk_document(path, text, **kwargs):
+        if "poison" in text:
+            raise RuntimeError("cannot chunk")
+        return real_chunk_document(path, text, **kwargs)
+
+    monkeypatch.setattr(index_module, "chunk_document", chunk_document)
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "good.md").write_text("glacier melt")
+    (tmp_path / "docs" / "bad.md").write_text("poison glacier")
+    store = DocumentStore(
+        persist_path=str(tmp_path / "docs"),
+        index_path=str(tmp_path / "index"),
+        embedding_client=FakeEmbedder() if vectors else None,
+    )
+    store.index_status()
+    store._index.wait_until_embedded(5)
+    tools = _collection_tools({"vault": store})
+    for _ in range(2):
+        result = tools["search_documents"]("glacier")
+        assert "indexing in progress" not in result
+        assert "Note: indexing problem in 'vault': Could not index /bad.md: RuntimeError: cannot chunk" in result
+    store.close()
+
+
+def test_an_offline_first_build_says_semantic_search_is_unavailable_not_in_progress(tmp_path):
+    pytest.importorskip("chromadb")
+    from tests.test_document_index import FakeEmbedder
+
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("ribosome notes")
+    store = DocumentStore(
+        persist_path=str(tmp_path / "docs"),
+        index_path=str(tmp_path / "index"),
+        embedding_client=FakeEmbedder(error=RuntimeError("model download failed")),
+    )
+    tools = _collection_tools({"vault": store})
+    tools["search_documents"]("ribosome")
+    store._index.wait_until_embedded(5)
+
+    result = tools["search_documents"]("ribosome")
+    store.close()
+    assert result.startswith("[vault] /a.md")
+    assert "semantic search is unavailable" in result and "model download failed" in result
+    assert "embedded" not in result and "in progress" not in result
+
+
+def test_a_worker_error_reaches_the_search_note(tmp_path, monkeypatch):
+    import threading
+
+    import aimu.memory._index as index_module
+    from aimu.memory._index import PassageIndex
+
+    monkeypatch.setattr(index_module, "INLINE_INDEX_SECONDS", 0.0)
+    (tmp_path / "a.md").write_text("glacier")
+    real_next_job = PassageIndex._next_job
+    worker_calls = []
+
+    def next_job(self):
+        if threading.current_thread().name == index_module.WORKER_THREAD_NAME:
+            worker_calls.append(1)
+            if len(worker_calls) == 1:
+                raise RuntimeError("database is locked")
+        return real_next_job(self)
+
+    monkeypatch.setattr(PassageIndex, "_next_job", next_job)
+    store = DocumentStore(persist_path=str(tmp_path))
+    release = threading.Event()
+    real_load = store._load
+    monkeypatch.setattr(store, "_load", lambda path: release.wait(10) and real_load(path))
+    tools = _collection_tools({"vault": store})
+    try:
+        store.index_status()
+        store._index.wait_until_embedded(5)
+        result = tools["search_documents"]("glacier")
+    finally:
+        release.set()
+    store._index.wait_until_embedded(5)
+    store.close()
+    assert "Note: indexing problem in 'vault': Background indexing stopped: RuntimeError: database is locked" in result
+
+
+@pytest.mark.parametrize("factory", ["document", "collection"])
+def test_save_document_refuses_to_replace_a_file_it_cannot_read(tmp_path, factory):
+    (tmp_path / "bin.md").write_bytes(b"\xff\xfe\x00binary")
+    store = DocumentStore(persist_path=str(tmp_path))
+    if factory == "document":
+        save = _by_name(make_document_tools(store), "save_document")
+    else:
+        save = _collection_tools({"vault": store}, writable=["vault"])["save_document"]
+
+    result = save("/bin.md", "replacement")
+
+    assert result.startswith("Refusing to replace /bin.md")
+    assert "not UTF-8 text" in result and "nothing was written" in result.lower()
+    assert (tmp_path / "bin.md").read_bytes() == b"\xff\xfe\x00binary"
+    assert save("/new.md", "fresh").startswith("Saved")
+
+
+@pytest.mark.parametrize("factory", ["document", "collection"])
+def test_read_document_says_why_a_file_cannot_be_read(tmp_path, factory):
+    (tmp_path / "bin.md").write_bytes(b"\xff\xfe\x00binary")
+    store = DocumentStore(persist_path=str(tmp_path))
+    if factory == "document":
+        read = _by_name(make_document_tools(store), "read_document")
+    else:
+        read = _collection_tools({"vault": store})["read_document"]
+
+    result = read("/bin.md")
+    assert "/bin.md" in result and "cannot be read" in result and "not UTF-8 text" in result
+    assert "No document found" in read("/missing.md")
+
+
+def test_pointers_quote_a_path_with_an_apostrophe():
+    from aimu.memory import Passage
+
+    personal, work = DocumentStore(), DocumentStore()
+    long_passage = Passage(path="/Paul's notes.md", location="", text="glacier " * 400, score=1.0, digest="d")
+    personal.search_passages = lambda query, n_results=8: [long_passage]
+    tools = _collection_tools({"personal": personal, "work": work})
+
+    search = tools["search_documents"]("glacier", collections=["personal"])
+    assert """call read_document("/Paul's notes.md", collection='personal')""" in search
+
+
+def test_search_documents_tells_the_model_to_pass_the_cited_collection():
+    tools = _collection_tools(_two_collections())
+    description = tools["search_documents"].__tool_spec__["function"]["description"]
+    assert "read_document" in description and "[collection]" in description

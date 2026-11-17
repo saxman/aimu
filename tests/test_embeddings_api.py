@@ -88,6 +88,15 @@ def test_factory_unknown_provider_string():
         EmbeddingClient("madeup:model")
 
 
+def test_factory_exposes_spec():
+    from aimu.models import EmbeddingClient
+
+    inner = SimpleNamespace(spec=EmbeddingSpec("stub-embedder", dimensions=3))
+    client = EmbeddingClient.__new__(EmbeddingClient)
+    client._client = inner
+    assert client.spec is inner.spec and client.spec.id == "stub-embedder"
+
+
 def test_factory_builds_openai_from_enum_and_string():
     _require_openai()
     from aimu.models import EmbeddingClient, OpenAIEmbeddingModel

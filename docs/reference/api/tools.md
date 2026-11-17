@@ -127,6 +127,8 @@ than of a tool, and a list named for it would promise what it cannot deliver.
 Bind a tool to a specific resource (a memory store, a knowledge base) or policy (a command's
 environment allowlist) instead of a process-wide singleton.
 
+::: aimu.tools.builtin.make_collection_tools
+
 ::: aimu.tools.builtin.make_command_tool
 
 ::: aimu.tools.builtin.make_history_tools

@@ -36,9 +36,12 @@ store.list_paths()
 
 Two rules govern what counts as a document:
 
-- **UTF-8 text only.** A PDF, an image, or any other non-text file is skipped and logged at
-  `WARNING` naming the file, so a document that will never appear says so instead of vanishing.
-  Convert it to text (or Markdown) first.
+- **UTF-8 text and PDFs.** A PDF is converted to Markdown when read (one `## Page N` heading per page), so
+  it can be read and searched like any document, but it is read-only: `write` and `edit` on a `.pdf` path
+  raise `ValueError`. Any other non-text file, and a PDF with no text layer (scanned) or a password, is
+  skipped and logged at `WARNING` naming the file, so a document that will never appear says so instead of
+  vanishing. `store.unreadable()` returns `{path: reason}` for each, and `list_documents` shows the agent the
+  same. For a non-text file, convert it to text (or Markdown) first; a scanned PDF needs OCR.
 - **Dot-files and dot-directories are ignored**, silently: `.DS_Store`, `.git/`, `.gitkeep` are
   not documents anyone placed there.
 
@@ -47,6 +50,9 @@ For a *read-only* folder of reference material, consider `builtin.fs` (`list_dir
 `builtin.select(builtin.fs, exclude=builtin.unscoped)`, since `builtin.fs` itself now carries
 `write_file` and `edit_file`. `DocumentStore` earns its keep when the
 agent also writes back.
+
+To search a folder by passage (which file, which heading or page) with optional vectors, see
+[Search document folders](search-document-folders.md).
 
 ## Edit existing documents
 
@@ -134,6 +140,11 @@ matches, so the permission lapses. The tracking is per `make_document_tools(...)
 in-process, so two agents over one store each answer for what they have read. A programmatic
 caller is unaffected -- `store.write()` has no such guard, because the caller holds the
 document and the tools exist to keep a *model* from discarding text it has never seen.
+
+`save_document` also refuses to replace a file that is in the folder but cannot be read (not UTF-8,
+over `max_file_bytes`, or one the process may not open), naming why: `read_document` cannot show it,
+so a replacement would destroy it unseen. `store.unreadable_reason(path)` is what tells that file from
+a path with nothing there, which `store.read` cannot, since it raises `KeyError` for both.
 
 ## Expose as MCP tools
 

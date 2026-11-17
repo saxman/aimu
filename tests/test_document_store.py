@@ -6,6 +6,7 @@ import pytest
 
 import aimu.memory.document_mcp as document_mcp
 from aimu.memory import DocumentStore
+from tests.test_documents import _blank_pdf, _encrypted_pdf, minimal_pdf
 
 
 # ---------------------------------------------------------------------------
@@ -535,3 +536,37 @@ def test_unreadable_paths_excludes_dot_files(tmp_path):
 
 def test_unreadable_paths_empty_for_ephemeral_store():
     assert DocumentStore().unreadable_paths() == []
+
+
+def test_pdf_reads_as_extracted_text(tmp_path):
+    (tmp_path / "paper.pdf").write_bytes(minimal_pdf(["Alpha results", "Beta methods"]))
+    store = DocumentStore(persist_path=str(tmp_path))
+    assert "/paper.pdf" in store.list_paths()
+    text = store.read("/paper.pdf")
+    assert "## Page 1" in text and "Alpha results" in text and "## Page 2" in text
+
+
+def test_pdf_write_and_edit_refused(tmp_path):
+    (tmp_path / "paper.pdf").write_bytes(minimal_pdf(["x"]))
+    store = DocumentStore(persist_path=str(tmp_path))
+    with pytest.raises(ValueError, match="PDFs are read-only"):
+        store.write("/paper.pdf", "y")
+    with pytest.raises(ValueError, match="PDFs are read-only"):
+        store.edit("/Paper.PDF", "x", "y")
+    with pytest.raises(ValueError, match="PDFs are read-only"):
+        store.edit("/missing.pdf", "x", "y")
+
+
+def test_scanned_and_encrypted_pdfs_are_unreadable_with_reason(tmp_path):
+    (tmp_path / "scan.pdf").write_bytes(_blank_pdf())
+    (tmp_path / "locked.pdf").write_bytes(_encrypted_pdf(minimal_pdf(["s"]), "u", "o"))
+    store = DocumentStore(persist_path=str(tmp_path))
+    reasons = store.unreadable()
+    assert "OCR" in reasons["/scan.pdf"] and "password" in reasons["/locked.pdf"]
+    assert store.unreadable_paths() == ["/locked.pdf", "/scan.pdf"]
+    assert "/scan.pdf" not in store.list_paths()
+
+
+def test_non_utf8_text_file_reason(tmp_path):
+    (tmp_path / "notes.txt").write_bytes(b"\xe9\xff\x00")
+    assert DocumentStore(persist_path=str(tmp_path)).unreadable() == {"/notes.txt": "not UTF-8 text"}
