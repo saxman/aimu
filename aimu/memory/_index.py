@@ -112,7 +112,8 @@ class IndexProblem:
     Attributes:
         kind: ``"embedding"``: the embedding model failed to load or to embed, so search is keyword-only
             until it succeeds (each refresh retries); or the vector store could not be opened for a reason
-            other than damage, so search is keyword-only until the index is reopened. ``"file"``: files the index failed to process, each
+            other than damage, so search is keyword-only until it opens (a refresh retries it once
+            :data:`TRANSIENT_RETRY_SECONDS` have passed). ``"file"``: files the index failed to process, each
             left out until it changes (the message names the first and counts the rest). ``"worker"``:
             the background build stopped on a failure outside any one file; the next refresh restarts it.
         message: What happened, in a sentence fit to show a person or a model.
@@ -367,7 +368,8 @@ class PassageIndex:
     malformed, or a ``vectors/`` holding no vectors while the manifest says files are embedded) is logged and
     rebuilt once, on open, rather than raising from every search: it is a cache of the folder. A ``vectors/``
     that fails to open for any other reason (locked, unreadable, a full disk) is kept, since re-embedding a
-    large folder can take hours: the index runs keyword-only and reports why in :meth:`status`.
+    large folder can take hours: the index runs keyword-only, reports why in :meth:`status`, and a refresh tries
+    opening it again once :data:`TRANSIENT_RETRY_SECONDS` have passed.
 
     Raises:
         ImportError: If *embedding_client* is given and chromadb (the ``[memory]`` extra) is not installed.
@@ -395,8 +397,10 @@ class PassageIndex:
         # Why the worker stopped short of its work, outside any one file. Kept until a job succeeds, so the
         # refresh that restarts the worker does not erase it before anyone has read it.
         self._worker_error: str | None = None
-        # Why vectors/ could not be opened, when that was not damage; the index is keyword-only until reopened.
+        # Why vectors/ could not be opened, when that was not damage, and when a refresh may try again (None:
+        # not open-able again in this process, an in-memory index). The index is keyword-only meanwhile.
         self._vectors_error: str | None = None
+        self._vectors_retry_at: float | None = None
         self._index_path = index_path
         if index_path is not None:
             os.makedirs(index_path, exist_ok=True)
@@ -458,8 +462,8 @@ class PassageIndex:
         """Open the vector collection, deleting and recreating ``vectors/`` once if Chroma finds it damaged.
 
         Any other failure (a locked database, an I/O error, a full disk) leaves ``vectors/`` and the
-        manifest's ``embedded`` flags alone: the index runs keyword-only, :meth:`status` reports why, and the
-        next open finds the vectors where they were. Returns ``(None, None)`` in that case.
+        manifest's ``embedded`` flags alone: the index runs keyword-only, :meth:`status` reports why, and
+        :meth:`_reopen_vectors_if_due` finds the vectors where they were. Returns ``(None, None)`` in that case.
         """
         client = None
         for attempt in (1, 2):
@@ -479,12 +483,7 @@ class PassageIndex:
                     # A client that failed to start stays in chromadb's cache and would fail the next open too.
                     forget_system(_vectors_path(self._index_path))
                 if self._index_path is None or attempt == 2 or not _vectors_damaged(exc):
-                    self._vectors_error = (
-                        "The vector index could not be opened, so search is keyword-only until the index is "
-                        f"reopened: {type(exc).__name__}: {exc}"
-                    )
-                    logger.warning("%s", self._vectors_error)
-                    self._collection = None
+                    self._record_vectors_failure(exc)
                     return None, None
                 logger.warning(
                     "The passage index's vectors at %s are damaged (%s: %s); rebuilding them.",
@@ -496,6 +495,35 @@ class PassageIndex:
                 with self._lock, self._connection:
                     self._connection.execute("UPDATE files SET embedded = 0")
         raise AssertionError("unreachable")
+
+    def _record_vectors_failure(self, exc: Exception) -> None:
+        """Run keyword-only after a failed vector open, and say why, where, and when it is tried again."""
+        self._collection = None
+        if self._index_path is None:
+            self._vectors_error = (
+                "The vector index could not be opened, so search is keyword-only until the index is reopened: "
+                f"{type(exc).__name__}: {exc}"
+            )
+        else:
+            self._vectors_retry_at = time.monotonic() + TRANSIENT_RETRY_SECONDS
+            # Named because the failure may be damage the classifier did not recognize, which only deleting fixes.
+            self._vectors_error = (
+                f"The vector index at {_vectors_path(self._index_path)} could not be opened, so search is "
+                f"keyword-only until it opens (tried again after {TRANSIENT_RETRY_SECONDS:g} seconds): "
+                f"{type(exc).__name__}: {exc}. If it stays unopenable, deleting it rebuilds the vectors."
+            )
+        logger.warning("%s", self._vectors_error)
+
+    def _reopen_vectors_if_due(self) -> None:
+        """Try ``vectors/`` again once a failed open's retry time has passed. Called with the lock held."""
+        if self._vectors_retry_at is None or self._closed or time.monotonic() < self._vectors_retry_at:
+            return
+        self._vectors_error = self._vectors_retry_at = None
+        client, _ = self._open_vectors_once_more_if_damaged()
+        if client is not None:
+            # The finalizer registered when the index opened holds no client, and this one needs releasing too.
+            self._closer.detach()
+            self._closer = weakref.finalize(self, _release, self._connection, client, None)
 
     def _create_schema(self) -> None:
         (version,) = self._connection.execute("PRAGMA user_version").fetchone()
@@ -617,6 +645,8 @@ class PassageIndex:
     def finish_refresh(self, plan: tuple[float, list[tuple[str, _PendingFile]]]) -> None:
         """The indexing half of :meth:`refresh`: index *plan*'s files until its deadline, then start the worker."""
         deadline, inline = plan
+        with self._lock:
+            self._reopen_vectors_if_due()
         for path, entry in inline:
             if time.monotonic() >= deadline:
                 break

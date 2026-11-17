@@ -97,8 +97,9 @@ for problem in status.problems:
 
 A problem's `kind` says what it means for a search:
 
-- `"embedding"`: the embedding model failed to load or to embed. Searches are keyword-only until it works, and
-  each search retries it. Nothing raises.
+- `"embedding"`: the embedding model failed to load or to embed, and each search retries it; or the stored
+  vectors could not be opened, and the first search after a minute (`TRANSIENT_RETRY_SECONDS`) tries again.
+  Either way searches are keyword-only until it works. Nothing raises.
 - `"file"`: files the index failed to process (`failed` counts them). Each is left out until it changes, so it is
   not work in progress and does not keep `complete` False; the message names the first.
 - `"worker"`: the background thread stopped on a failure outside any one file. The next search restarts it, and
@@ -163,6 +164,7 @@ rebuild time, and editing, adding, or removing a file in the folder is picked up
 is damaged when it is opened (a database that is not one or is malformed, or vectors missing while the index says
 they exist) is logged and rebuilt once rather than failing every search. Vectors that fail to open for any other
 reason (a locked database, an I/O error, a full disk) are kept, since re-embedding a large folder can take hours:
-search runs keyword-only, `index_status()` reports it as an `"embedding"` problem, and the next time the store
-opens its index it uses the vectors where they were. Do not edit the index by hand. Nothing leaves the machine: the vectors are kept in
+search runs keyword-only, `index_status()` reports it as an `"embedding"` problem naming the vectors directory,
+and the first search after a minute tries the open again and, once it succeeds, uses the vectors where they were.
+If the problem persists, deleting that directory rebuilds the vectors. Do not edit the index by hand. Nothing leaves the machine: the vectors are kept in
 Chroma, opened with its anonymized telemetry off, and the embedding model is whichever client you pass.

@@ -1420,6 +1420,50 @@ def test_vectors_that_fail_to_open_without_damage_are_kept(tmp_path, monkeypatch
     third.close()
 
 
+def test_vectors_that_failed_to_open_are_retried_once_due(tmp_path, monkeypatch):
+    pytest.importorskip("chromadb")
+    from chromadb.errors import InternalError
+
+    first = _vector_store(tmp_path, FakeEmbedder(), a="structure prediction of polypeptides", b="glacier melt")
+    first.index_status()
+    assert first._index.wait_until_embedded(5)
+    first.close()
+
+    real_open_vectors = index_module._open_vectors
+    opens = []
+
+    def failing_open_vectors(index_path):
+        opens.append(index_path)
+        raise InternalError("error returned from database: (code: 5) database is locked")
+
+    monkeypatch.setattr(index_module, "_open_vectors", failing_open_vectors)
+    embedder = FakeEmbedder()
+    store = _vector_store(tmp_path, embedder)
+    status = store.index_status()
+    # The note says where the vectors are and how to recover if this was damage after all.
+    vectors = str(tmp_path / "index" / "vectors")
+    assert vectors in status.error and "deleting it rebuilds the vectors" in status.error
+    # Not due yet: later searches stay keyword-only without opening Chroma again.
+    store.search_passages("glacier")
+    store.index_status()
+    assert len(opens) == 1
+
+    monkeypatch.setattr(index_module, "TRANSIENT_RETRY_SECONDS", 0.0)
+    store._index._vectors_retry_at = time.monotonic()
+    store.search_passages("glacier")
+    assert len(opens) == 2 and store.index_status().has_problem("embedding")
+
+    monkeypatch.setattr(index_module, "_open_vectors", real_open_vectors)
+    assert store.search_passages("protein folding")[0].path == "/a.md"
+    status = store.index_status()
+    assert (status.embedded, status.problems) == (2, ())
+    assert store._index.wait_until_embedded(5)
+    # The existing vectors were reused: queries were embedded, no document was.
+    assert {input_type for input_type, _ in embedder.calls} == {"query"}
+    store.close()
+    assert store._index is None
+
+
 def test_only_damage_counts_as_damaged_vectors():
     pytest.importorskip("chromadb")
     from chromadb.errors import InternalError

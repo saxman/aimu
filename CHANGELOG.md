@@ -97,8 +97,9 @@
   previous text, and does no indexing of its own while the thread is running. `index_status()` says how far
   along it is: `IndexStatus` gains `vectors` (whether a client is configured), `complete` now also needs every
   indexed document embedded when it is, and `problems`, a tuple of `IndexProblem(kind, message)`, reports
-  each thing wrong by kind: `"embedding"` (the model failed to load or embed; search stays keyword-only,
-  nothing raises, and the next search retries), `"file"` (files that failed to index, inline or in the
+  each thing wrong by kind: `"embedding"` (the model failed to load or embed, or `vectors/` failed to open;
+  search stays keyword-only and nothing raises. A failed embedding is retried by the next search, a failed
+  open by the first search after `TRANSIENT_RETRY_SECONDS`, a minute), `"file"` (files that failed to index, inline or in the
   thread, each left out until it changes; `IndexStatus.failed` counts them, and they do not keep `complete`
   False or count toward `make_collection_tools`' "indexing in progress" note, which would otherwise ask the
   model to wait for work that will never finish), and `"worker"` (the thread stopped on a failure outside any one
@@ -107,8 +108,10 @@
   or "malformed", or a Chroma migration this chromadb does not recognize), or a vector collection left empty
   while the manifest says files are embedded, is logged and rebuilt once on open instead of failing every
   search. Any other failure to open `vectors/` (locked, unreadable, a full disk) deletes nothing: the index
-  runs keyword-only with an `"embedding"` problem saying why, and the next open uses the vectors as they were,
-  since re-embedding a large folder can take hours. See [Search document folders](https://saxman.github.io/aimu/how-to/search-document-folders/).
+  runs keyword-only with an `"embedding"` problem naming `vectors/` and the error, the first search after a
+  minute tries the open again, and once it succeeds the vectors are used as they were, since re-embedding a
+  large folder can take hours. The note also says deleting `vectors/` rebuilds it, for damage the open did not
+  recognize as damage. See [Search document folders](https://saxman.github.io/aimu/how-to/search-document-folders/).
 - **Change: DocumentStore reads do not wait on each other.** Every public method used to hold the store's
   lock for its whole call, so one PDF's extraction (seconds, for a long paper) held up every read, write, and
   search of the store. Reading a file and extracting a PDF now happen outside the lock, which is taken only to
