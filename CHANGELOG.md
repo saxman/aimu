@@ -118,9 +118,12 @@
   [`make_document_tools`](https://github.com/saxman/aimu/blob/main/aimu/tools/builtin.py)' read-before-replace
   guard, keyed by collection and content digest, so a full read in one folder never permits replacing the
   same text in another. PDFs are read-only. Re-exported from `aimu.aio.tools.builtin`.
-- **Fix: a `list[T]` tool parameter declares its items.** `@tool` described `list[str]` as a bare
-  `{"type": "array"}`, which Gemini rejects as a function declaration. A typed list now carries
-  `"items"` (`{"type": "array", "items": {"type": "string"}}`); a bare `list` is unchanged.
+- **Fix: a `list[T]` tool parameter declares its items when `T` has a JSON type.** `@tool` described every
+  list as a bare `{"type": "array"}`, which Gemini rejects as a function declaration. A list whose element
+  is `str`, `int`, `float`, `bool`, `list`, `dict` (subscripted or not), a `Literal[...]`, or another such
+  typed list now carries `"items"` (`list[str]` is `{"type": "array", "items": {"type": "string"}}`).
+  Every other element type (`Any`, a dataclass or model, `int | None`) stays a bare array, as before, since
+  guessing would tell the model to send strings the argument validator then rejects.
 
 ## v0.40.1 (2026-11-16): reading a stored web page works on Python 3.11 and 3.12
 
