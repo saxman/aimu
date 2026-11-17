@@ -101,9 +101,12 @@
   nothing raises, and the next search retries), `"file"` (files that failed to index, inline or in the
   thread, each left out until it changes), and `"worker"` (the thread stopped on a failure outside any one
   file; kept until a job succeeds, so the search that restarts the thread does not erase it). `error` is every
-  message joined. `close()` stops the thread. A damaged `index.sqlite3` or `vectors/`, or a vector collection
-  left empty while the manifest says files are embedded, is logged and rebuilt once on open instead of failing
-  every search. See [Search document folders](https://saxman.github.io/aimu/how-to/search-document-folders/).
+  message joined. `close()` stops the thread. A damaged `index.sqlite3` or `vectors/` (SQLite's "not a database"
+  or "malformed", or a Chroma migration this chromadb does not recognize), or a vector collection left empty
+  while the manifest says files are embedded, is logged and rebuilt once on open instead of failing every
+  search. Any other failure to open `vectors/` (locked, unreadable, a full disk) deletes nothing: the index
+  runs keyword-only with an `"embedding"` problem saying why, and the next open uses the vectors as they were,
+  since re-embedding a large folder can take hours. See [Search document folders](https://saxman.github.io/aimu/how-to/search-document-folders/).
 - **Change: DocumentStore reads do not wait on each other.** Every public method used to hold the store's
   lock for its whole call, so one PDF's extraction (seconds, for a long paper) held up every read, write, and
   search of the store. Reading a file and extracting a PDF now happen outside the lock, which is taken only to

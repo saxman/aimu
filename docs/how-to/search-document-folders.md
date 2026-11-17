@@ -157,6 +157,9 @@ a file that exists but cannot be read. An agent carries either this set or `make
 
 The index is a derived cache. Everything in it is rebuilt from the files, so deleting `index_path` costs only
 rebuild time, and editing, adding, or removing a file in the folder is picked up on the next search. An index that
-cannot be read when it is opened (a damaged database, or vectors missing or unreadable) is logged and rebuilt once
-rather than failing every search. Do not edit the index by hand. Nothing leaves the machine: the vectors are kept in
+is damaged when it is opened (a database that is not one or is malformed, or vectors missing while the index says
+they exist) is logged and rebuilt once rather than failing every search. Vectors that fail to open for any other
+reason (a locked database, an I/O error, a full disk) are kept, since re-embedding a large folder can take hours:
+search runs keyword-only, `index_status()` reports it as an `"embedding"` problem, and the next time the store
+opens its index it uses the vectors where they were. Do not edit the index by hand. Nothing leaves the machine: the vectors are kept in
 Chroma, opened with its anonymized telemetry off, and the embedding model is whichever client you pass.

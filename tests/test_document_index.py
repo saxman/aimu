@@ -1331,6 +1331,87 @@ def test_a_corrupt_vector_index_is_rebuilt(tmp_path, caplog):
     store.close()
 
 
+@pytest.mark.parametrize(
+    "error",
+    [
+        OSError(28, "No space left on device"),
+        sqlite3.OperationalError("database is locked"),
+        "error returned from database: (code: 5) database is locked",
+        "error returned from database: (code: 14) unable to open database file",
+    ],
+)
+def test_vectors_that_fail_to_open_without_damage_are_kept(tmp_path, monkeypatch, error):
+    pytest.importorskip("chromadb")
+    from chromadb.errors import InternalError
+
+    if isinstance(error, str):
+        error = InternalError(error)
+    first = _vector_store(tmp_path, FakeEmbedder(), a="structure prediction of polypeptides", b="glacier melt")
+    first.index_status()
+    assert first._index.wait_until_embedded(5)
+    first.close()
+    vectors_before = _all_files(tmp_path / "index" / "vectors")
+
+    real_open_vectors = index_module._open_vectors
+
+    def failing_open_vectors(index_path):
+        raise error
+
+    monkeypatch.setattr(index_module, "_open_vectors", failing_open_vectors)
+    embedder = FakeEmbedder()
+    second = _vector_store(tmp_path, embedder)
+    status = second.index_status()
+    assert second._index.wait_until_embedded(5) is False
+    assert [problem.kind for problem in status.problems] == ["embedding"]
+    assert "keyword-only" in status.error and str(error) in status.error
+    assert status.embedded == 0 and status.indexed == 2
+    # Keyword search still works, and nothing was embedded against a collection that is not open.
+    assert [hit.path for hit in second.search_passages("glacier")] == ["/b.md"]
+    assert embedder.calls == []
+    second.close()
+    assert _all_files(tmp_path / "index" / "vectors") == vectors_before
+    check = sqlite3.connect(tmp_path / "index" / "index.sqlite3")
+    try:
+        assert check.execute("SELECT path, embedded FROM files ORDER BY path").fetchall() == [
+            ("/a.md", 1),
+            ("/b.md", 1),
+        ]
+    finally:
+        check.close()
+
+    monkeypatch.setattr(index_module, "_open_vectors", real_open_vectors)
+    embedder = FakeEmbedder()
+    third = _vector_store(tmp_path, embedder)
+    status = third.index_status()
+    assert (status.embedded, status.problems) == (2, ())
+    # The existing vectors answer a paraphrase: only the query was embedded, no document.
+    assert third.search_passages("protein folding")[0].path == "/a.md"
+    assert [input_type for input_type, _ in embedder.calls] == ["query"]
+    third.close()
+
+
+def test_only_damage_counts_as_damaged_vectors():
+    pytest.importorskip("chromadb")
+    from chromadb.errors import InternalError
+
+    damaged = [
+        InternalError("error returned from database: (code: 26) file is not a database"),
+        InternalError("error returned from database: (code: 11) database disk image is malformed"),
+        # An extended result code (SQLITE_CORRUPT_INDEX) is damage too: its low byte is SQLITE_CORRUPT.
+        InternalError("error returned from database: (code: 779) database disk image is malformed"),
+        InternalError("Inconsistent hash: db=bogus, source=38352d725ad1c16074fac420b22b4633"),
+    ]
+    sound = [
+        InternalError("error returned from database: (code: 5) database is locked"),
+        InternalError("error returned from database: (code: 1544) attempt to write a readonly database"),
+        InternalError("File exists (os error 17)"),
+        OSError(5, "Input/output error"),
+        RuntimeError("file is not a database"),
+    ]
+    assert [index_module._vectors_damaged(exc) for exc in damaged] == [True] * len(damaged)
+    assert [index_module._vectors_damaged(exc) for exc in sound] == [False] * len(sound)
+
+
 def test_vectors_lost_while_the_manifest_says_embedded_are_rebuilt(tmp_path, caplog):
     import shutil
 

@@ -111,7 +111,8 @@ class IndexProblem:
 
     Attributes:
         kind: ``"embedding"``: the embedding model failed to load or to embed, so search is keyword-only
-            until it succeeds (each refresh retries). ``"file"``: files the index failed to process, each
+            until it succeeds (each refresh retries); or the vector store could not be opened for a reason
+            other than damage, so search is keyword-only until the index is reopened. ``"file"``: files the index failed to process, each
             left out until it changes (the message names the first and counts the rest). ``"worker"``:
             the background build stopped on a failure outside any one file; the next refresh restarts it.
         message: What happened, in a sentence fit to show a person or a model.
@@ -276,6 +277,37 @@ def _is_corrupt(exc: sqlite3.DatabaseError) -> bool:
     return getattr(exc, "sqlite_errorname", None) in {"SQLITE_CORRUPT", "SQLITE_NOTADB"}
 
 
+# How chromadb 1.x's Rust core reports a SQLite failure: an InternalError whose message carries the result code.
+_CHROMA_SQLITE_CODE = re.compile(r"\(code: (\d+)\)")
+_SQLITE_CORRUPT, _SQLITE_NOTADB = 11, 26
+
+
+def _vectors_damaged(exc: Exception) -> bool:
+    """Whether *exc*, raised opening ``vectors/``, says Chroma's files are damaged or from an incompatible schema.
+
+    The vector counterpart of :func:`_is_corrupt`, and as conservative: only damage is repaired by deleting
+    ``vectors/``, and deleting it for a locked database or a full disk throws away vectors that can take
+    hours to recompute. chromadb 1.x raises one type, ``InternalError``, for damage and for every other
+    database failure alike, so the SQLite result code in its message is what tells them apart; matching
+    text is a fallback the type leaves no way around. A migration whose recorded hash disagrees with the
+    installed chromadb's is a schema this chromadb will never open, which is damage for this purpose.
+    """
+    if isinstance(exc, sqlite3.DatabaseError):
+        return _is_corrupt(exc)
+    try:
+        from chromadb.errors import InternalError
+    except ImportError:
+        return False
+    if not isinstance(exc, InternalError):
+        return False
+    message = str(exc)
+    if message.startswith("Inconsistent hash"):
+        return True
+    match = _CHROMA_SQLITE_CODE.search(message)
+    # An extended result code (SQLITE_CORRUPT_INDEX is 779) carries its primary code in the low byte.
+    return match is not None and int(match.group(1)) & 0xFF in {_SQLITE_CORRUPT, _SQLITE_NOTADB}
+
+
 def _release(connection: sqlite3.Connection, client: Any, private_collection: str | None) -> None:
     connection.close()
     if client is None:
@@ -323,9 +355,11 @@ class PassageIndex:
             opening the index with a different model or width starts its vectors over, since vectors of two
             models are not comparable.
 
-    An index directory that cannot be read (a damaged ``index.sqlite3``, a ``vectors/`` Chroma cannot open,
-    or one holding no vectors while the manifest says files are embedded) is logged and rebuilt once, on
-    open, rather than raising from every search: it is a cache of the folder.
+    An index directory that is damaged (an ``index.sqlite3`` or a ``vectors/`` that is not a database or is
+    malformed, or a ``vectors/`` holding no vectors while the manifest says files are embedded) is logged and
+    rebuilt once, on open, rather than raising from every search: it is a cache of the folder. A ``vectors/``
+    that fails to open for any other reason (locked, unreadable, a full disk) is kept, since re-embedding a
+    large folder can take hours: the index runs keyword-only and reports why in :meth:`status`.
 
     Raises:
         ImportError: If *embedding_client* is given and chromadb (the ``[memory]`` extra) is not installed.
@@ -353,6 +387,8 @@ class PassageIndex:
         # Why the worker stopped short of its work, outside any one file. Kept until a job succeeds, so the
         # refresh that restarts the worker does not erase it before anyone has read it.
         self._worker_error: str | None = None
+        # Why vectors/ could not be opened, when that was not damage; the index is keyword-only until reopened.
+        self._vectors_error: str | None = None
         self._index_path = index_path
         if index_path is not None:
             os.makedirs(index_path, exist_ok=True)
@@ -410,8 +446,13 @@ class PassageIndex:
         forget_system(path)
         shutil.rmtree(path, ignore_errors=True)
 
-    def _open_vectors_once_more_if_damaged(self) -> tuple[Any, str]:
-        """Open the vector collection, deleting and recreating ``vectors/`` once if Chroma cannot open it."""
+    def _open_vectors_once_more_if_damaged(self) -> tuple[Any, str | None]:
+        """Open the vector collection, deleting and recreating ``vectors/`` once if Chroma finds it damaged.
+
+        Any other failure (a locked database, an I/O error, a full disk) leaves ``vectors/`` and the
+        manifest's ``embedded`` flags alone: the index runs keyword-only, :meth:`status` reports why, and the
+        next open finds the vectors where they were. Returns ``(None, None)`` in that case.
+        """
         client = None
         for attempt in (1, 2):
             try:
@@ -426,10 +467,19 @@ class PassageIndex:
                     with contextlib.suppress(Exception):
                         close_client(client)
                     client = None
-                if self._index_path is None or attempt == 2:
-                    raise
+                elif self._index_path is not None:
+                    # A client that failed to start stays in chromadb's cache and would fail the next open too.
+                    forget_system(_vectors_path(self._index_path))
+                if self._index_path is None or attempt == 2 or not _vectors_damaged(exc):
+                    self._vectors_error = (
+                        "The vector index could not be opened, so search is keyword-only until the index is "
+                        f"reopened: {type(exc).__name__}: {exc}"
+                    )
+                    logger.warning("%s", self._vectors_error)
+                    self._collection = None
+                    return None, None
                 logger.warning(
-                    "The passage index's vectors at %s cannot be opened (%s: %s); rebuilding them.",
+                    "The passage index's vectors at %s are damaged (%s: %s); rebuilding them.",
                     _vectors_path(self._index_path),
                     type(exc).__name__,
                     exc,
@@ -736,11 +786,13 @@ class PassageIndex:
         with self._lock:
             files = len(self._signatures) - len(self._unloadable)
             embedded = 0
-            if self._embedder is not None:
+            if self._collection is not None:
                 rows = self._connection.execute("SELECT path FROM files WHERE embedded = 1")
                 embedded = sum(1 for (path,) in rows if path not in self._pending and path not in self._failed)
             problems = []
-            if self._embedding_error:
+            if self._vectors_error:
+                problems.append(IndexProblem("embedding", self._vectors_error))
+            elif self._embedding_error:
                 problems.append(IndexProblem("embedding", self._embedding_error))
             if self._worker_error:
                 problems.append(IndexProblem("worker", self._worker_error))
@@ -834,7 +886,7 @@ class PassageIndex:
         if self._pending:
             path, entry = next(iter(self._pending.items()))
             return functools.partial(self._index_one, path, entry)
-        if self._embedder is None or self._embedding_paused:
+        if self._collection is None or self._embedding_paused:
             return None
         rows = self._connection.execute("SELECT path, digest, first_rowid, chunks FROM files WHERE embedded = 0")
         for path, digest, first_rowid, chunks in rows:
