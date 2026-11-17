@@ -138,7 +138,7 @@
 ### Tools
 
 - **New: `make_collection_tools` gives an agent several document folders at once.**
-  `aimu.tools.builtin.make_collection_tools(stores, *, writable=(), rerank=False)` takes a
+  `aimu.tools.builtin.make_collection_tools(stores, *, writable=(), rerank=False, descriptions=None)` takes a
   `{collection: DocumentStore}` mapping (a notes vault, a work vault, an assistant's own folder) and returns
   `list_documents`, `read_document`, and `search_documents`, plus `save_document` and `edit_document` only
   when `writable` names a collection, so an agent given read-only folders holds no tool that writes. Each
@@ -153,7 +153,8 @@
   moving, and a collection whose search fails is skipped and named in a note while the others' results are
   returned. With several collections held, its excerpt pointers and `read_document`'s truncation marker name
   the collection the next call needs, quoted so that any path makes a valid call. `list_documents()` names
-  each collection and whether it is writable before listing its paths and its unreadable files with their
+  each collection, whether it is writable, and its entry in `descriptions` (what it holds, for the model to
+  choose by; a key naming no held collection is a `ValueError`, as in `writable`) before listing its paths and its unreadable files with their
   reasons, from the folder's metadata (`DocumentStore.listing`), so it reads no file; it shows at most 200
   paths per collection, then how many it left out and the folders below the prefix with their sizes, so the
   model can narrow with `prefix`. `save_document` keeps

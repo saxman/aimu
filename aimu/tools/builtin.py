@@ -2603,7 +2603,11 @@ def make_document_tools(store):
 
 
 def make_collection_tools(
-    stores: Mapping[str, DocumentStore], *, writable: Collection[str] = (), rerank: bool = False
+    stores: Mapping[str, DocumentStore],
+    *,
+    writable: Collection[str] = (),
+    rerank: bool = False,
+    descriptions: Mapping[str, str] | None = None,
 ) -> list:
     """Build ``list_documents``, ``read_document``, and ``search_documents`` over several named document
     stores, plus ``save_document`` and ``edit_document`` when any of them is *writable*.
@@ -2629,13 +2633,17 @@ def make_collection_tools(
             ranking ties in search.
         writable: Names of the collections the write tools may change. Must be keys of *stores*.
         rerank: Rerank each search's fused results with a cross-encoder (needs the ``[hf]`` extra).
+        descriptions: Collection name to what it holds, shown beside that collection in ``list_documents``'
+            overview (``- work (read-only): Quarterly plans.``), which is where the model decides which
+            collection a question belongs to. Must be keys of *stores*; a collection left out has none.
 
     Returns:
         ``[list_documents, read_document, search_documents]``, then ``[save_document, edit_document]`` when
         *writable* is non-empty.
 
     Raises:
-        ValueError: If *stores* is empty, or *writable* names a collection *stores* does not hold.
+        ValueError: If *stores* is empty, or *writable* or *descriptions* names a collection *stores* does
+            not hold.
     """
     # Late: aimu.memory imports aimu.tools, which is mid-import while this module loads.
     from aimu.memory import search_collections
@@ -2644,9 +2652,11 @@ def make_collection_tools(
     writable = frozenset(writable)
     if not stores:
         raise ValueError("make_collection_tools needs at least one collection")
-    unheld = sorted(writable - stores.keys())
-    if unheld:
-        raise ValueError(f"writable names collections that are not in stores: {', '.join(unheld)}")
+    descriptions = dict(descriptions or {})
+    for argument, names in (("writable", writable), ("descriptions", descriptions.keys())):
+        unheld = sorted(set(names) - stores.keys())
+        if unheld:
+            raise ValueError(f"{argument} names collections that are not in stores: {', '.join(unheld)}")
     held = ", ".join(stores)
 
     def reread(path: str, collection: str) -> str:
@@ -2662,6 +2672,10 @@ def make_collection_tools(
 
     def access(name: str) -> str:
         return "writable" if name in writable else "read-only"
+
+    def overview_line(name: str) -> str:
+        line = f"- {name} ({access(name)})"
+        return f"{line}: {descriptions[name]}" if descriptions.get(name) else line
 
     def resolve(collection: str) -> tuple[str, DocumentStore] | str:
         """The named collection and its store, or the message that says why there is none."""
@@ -2688,8 +2702,8 @@ def make_collection_tools(
     def list_documents(collection: str = "", prefix: str = "") -> str:
         """List document paths by collection.
 
-        With no collection, names every held collection and whether it is writable or read-only, then
-        lists each one's paths. Collections are folders the user adds files to directly, so call this
+        With no collection, names every held collection, whether it is writable or read-only, and what it
+        holds where that is described, then lists each one's paths. Collections are folders the user adds files to directly, so call this
         before concluding a document does not exist. Files found unreadable are listed with why. A large
         collection is listed in part, with its folders and their sizes: narrow to one with prefix.
 
@@ -2705,7 +2719,7 @@ def make_collection_tools(
             sections = []
         else:
             listed = list(stores.items())
-            sections = ["Collections:\n" + "\n".join(f"- {name} ({access(name)})" for name in stores)]
+            sections = ["Collections:\n" + "\n".join(overview_line(name) for name in stores)]
         advise_export = False
         for name, store in listed:
             # From the folder's metadata: reading a vault's every file to list it would extract every PDF.

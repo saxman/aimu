@@ -558,6 +558,26 @@ def test_write_tools_only_when_something_is_writable():
         make_collection_tools(stores, writable=["nowhere"])
 
 
+def test_list_documents_describes_each_collection_it_was_given_a_description_for():
+    """What a collection is for is the host's to say, and the overview is where the model decides which
+    collection a question belongs to, so a description rides on that collection's line."""
+    tools = _collection_tools(_two_collections(), writable=["work"], descriptions={"personal": "Research notes."})
+
+    overview = tools["list_documents"]().split("\n\n")[0]
+    assert overview.splitlines() == [
+        "Collections:",
+        "- personal (read-only): Research notes.",
+        "- work (writable)",
+    ]
+    # A listing narrowed to one collection has no overview to describe.
+    assert "Research notes." not in tools["list_documents"](collection="personal")
+
+
+def test_descriptions_must_name_held_collections():
+    with pytest.raises(ValueError, match="nowhere"):
+        make_collection_tools(_two_collections(), descriptions={"nowhere": "Not held."})
+
+
 def test_omitted_collection_resolves_when_only_one_is_held():
     store = DocumentStore()
     store.write("/a.md", "only one")

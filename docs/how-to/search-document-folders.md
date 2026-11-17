@@ -138,11 +138,13 @@ To give an agent the same folders, use `make_collection_tools`, the multi-folder
 ```python
 from aimu.tools.builtin import make_collection_tools
 
-agent.tools += make_collection_tools(stores, writable=["work"])
+agent.tools += make_collection_tools(stores, writable=["work"], descriptions={"work": "Quarterly plans and reviews."})
 ```
 
 It returns `list_documents`, `read_document`, and `search_documents`, plus `save_document` and `edit_document`
-only for the collections named in `writable`, so an agent given read-only folders holds no tool that writes. Its
+only for the collections named in `writable`, so an agent given read-only folders holds no tool that writes.
+`descriptions` puts what each collection holds beside its name in `list_documents`' overview, which is where the
+model chooses a collection. Its
 search ends with a note when an index is still building or has a problem, so an incomplete search does not read as
 one that found nothing; a collection whose search fails is skipped and named in a note while the others' results
 come back (`search_collections(..., on_error=...)` does the same for your own code). `list_documents` lists from the
