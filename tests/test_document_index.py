@@ -994,3 +994,12 @@ def test_rerank_keeps_distinct_passages_with_identical_text(monkeypatch):
     monkeypatch.setattr(document_store_module, "rerank_texts", lambda query, documents, **kw: list(documents))
     results = search_collections(stores, "glacier", rerank=True)
     assert sorted(r.passage.path for r in results) == ["/one.md", "/two.md"]
+
+
+def test_two_chunks_of_one_section_in_one_store_both_appear():
+    sentences = " ".join(f"Glacier ice melt observation number {n} was recorded." for n in range(60))
+    stores = {"a": _store_with(long=f"# Long\n\n{sentences}")}
+    results = search_collections(stores, "glacier", n_results=8)
+    assert len(results) >= 2
+    assert len({r.passage.text for r in results}) == len(results)
+    assert len({r.passage.location for r in results}) == 1

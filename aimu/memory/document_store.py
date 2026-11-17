@@ -659,7 +659,7 @@ class CollectionPassage:
         collection: The key of the store the passage was found in.
         passage: The passage itself.
         also_in: ``(collection, path)`` for every *other* file holding this same passage (same document
-            digest and location), so one copy of a file kept in two collections is reported once.
+            digest, location, and text), so one copy of a file kept in two collections is reported once.
     """
 
     collection: str
@@ -696,20 +696,21 @@ def search_collections(
     for collection, store in stores.items():
         ranking = []
         for passage in store.search_passages(query, pool):
-            key = f"{collection}\0{passage.path}\0{passage.location}"
+            # The text is part of the key: one long section is several chunks sharing a path and location.
+            key = f"{collection}\0{passage.path}\0{passage.location}\0{passage.text}"
             passages[key] = (collection, passage)
             ranking.append(key)
         rankings.append(ranking)
 
-    holders: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    holders: dict[tuple[str, str, str], list[tuple[str, str]]] = {}
     for collection, passage in passages.values():
-        holders.setdefault((passage.digest, passage.location), []).append((collection, passage.path))
+        holders.setdefault((passage.digest, passage.location, passage.text), []).append((collection, passage.path))
 
     kept: list[CollectionPassage] = []
-    seen: set[tuple[str, str]] = set()
+    seen: set[tuple[str, str, str]] = set()
     for key, _ in reciprocal_rank_fusion(rankings):
         collection, passage = passages[key]
-        identity = (passage.digest, passage.location)
+        identity = (passage.digest, passage.location, passage.text)
         if identity in seen:
             continue
         seen.add(identity)
