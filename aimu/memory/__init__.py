@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 # base, document_store, and the passage index are chromadb-free, so they stay eager.
 from ._index import IndexStatus, Passage
 from .base import MemoryStore
-from .document_store import DocumentStore
+from .document_store import CollectionPassage, DocumentStore, search_collections
 
 if TYPE_CHECKING:
     from .semantic_store import SemanticMemoryStore
@@ -23,4 +23,12 @@ def __getattr__(name: str):
     return getattr(import_module(module_name, __name__), name)
 
 
-__all__ = ["MemoryStore", "SemanticMemoryStore", "DocumentStore", "Passage", "IndexStatus"]
+__all__ = [
+    "MemoryStore",
+    "SemanticMemoryStore",
+    "DocumentStore",
+    "Passage",
+    "IndexStatus",
+    "CollectionPassage",
+    "search_collections",
+]

@@ -27,6 +27,14 @@
 
 ### Memory
 
+- **New: `search_collections` searches several `DocumentStore`s as one.** `aimu.memory.search_collections(stores,
+  query, n_results=8, *, rerank=False)` takes a `{collection: store}` mapping, asks each store for its
+  ranked passages, and fuses the rankings by reciprocal rank, so stores of different sizes need no common
+  score scale. Each result is a `CollectionPassage(collection, passage, also_in)`; a passage held by several
+  stores (the same document text at the same location, such as one paper filed twice) is returned once, with
+  the other `(collection, path)` holders in `also_in`. `rerank=True` reorders the fused top `2 * n_results`
+  with the cross-encoder from [`aimu.rag.rerank`](https://github.com/saxman/aimu/blob/main/aimu/rag/rerank.py).
+  An empty mapping returns `[]`.
 - **Change: DocumentStore reads PDFs.** A `.pdf` in a persistent store's directory was skipped as non-UTF-8
   text (logged, and named by `list_documents`). It is now converted to Markdown on read, with a `## Page N`
   heading per page, by the same extractor `get_web_content` uses, so `read`, `list_paths`, and

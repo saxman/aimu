@@ -31,10 +31,13 @@ import posixpath
 import shutil
 import threading
 import uuid
-from typing import Any, Optional
+from dataclasses import dataclass
+from typing import Any, Mapping, Optional
 
 from aimu.memory._index import IndexStatus, Passage, PassageIndex
 from aimu.memory.base import MemoryStore, synchronized
+from aimu.rag import reciprocal_rank_fusion
+from aimu.rag import rerank as rerank_texts
 from aimu.tools._documents import DocumentConversionError, pdf_to_markdown
 
 logger = logging.getLogger(__name__)
@@ -646,3 +649,80 @@ class DocumentStore(MemoryStore):
     def list_all(self) -> list[str]:
         """Return all memory paths (sorted)."""
         return self.list_paths()
+
+
+@dataclass(frozen=True)
+class CollectionPassage:
+    """A passage from :func:`search_collections`, labeled with the collection it came from.
+
+    Attributes:
+        collection: The key of the store the passage was found in.
+        passage: The passage itself.
+        also_in: ``(collection, path)`` for every *other* file holding this same passage (same document
+            digest and location), so one copy of a file kept in two collections is reported once.
+    """
+
+    collection: str
+    passage: Passage
+    also_in: tuple[tuple[str, str], ...] = ()
+
+
+def search_collections(
+    stores: Mapping[str, DocumentStore], query: str, n_results: int = 8, *, rerank: bool = False
+) -> list[CollectionPassage]:
+    """
+    Search several stores at once and return one ranking of passages, each labeled with its collection.
+
+    Each store ranks its own passages (:meth:`DocumentStore.search_passages`); the rankings are merged
+    by reciprocal rank fusion, which uses only ranks, so stores of different sizes and scoring need no
+    common scale. A passage held by several stores (the same document text at the same location, e.g. one
+    paper filed in two collections) is returned once, at its best rank, with the others in ``also_in``.
+
+    Args:
+        stores:    Collection name to store. The mapping's order breaks ties and orders ``also_in``.
+        query:     Natural-language or keyword query.
+        n_results: Maximum number of passages to return.
+        rerank:    Reorder the fused top ``2 * n_results`` passages with a cross-encoder
+                   (:func:`aimu.rag.rerank`), which needs the ``[rag]`` extra.
+
+    Returns:
+        :class:`CollectionPassage` records, best first. An empty *stores* returns ``[]``.
+    """
+    if not stores:
+        return []
+    pool = max(4 * n_results, 50)
+    passages: dict[str, tuple[str, Passage]] = {}
+    rankings: list[list[str]] = []
+    for collection, store in stores.items():
+        ranking = []
+        for passage in store.search_passages(query, pool):
+            key = f"{collection}\0{passage.path}\0{passage.location}"
+            passages[key] = (collection, passage)
+            ranking.append(key)
+        rankings.append(ranking)
+
+    holders: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    for collection, passage in passages.values():
+        holders.setdefault((passage.digest, passage.location), []).append((collection, passage.path))
+
+    kept: list[CollectionPassage] = []
+    seen: set[tuple[str, str]] = set()
+    for key, _ in reciprocal_rank_fusion(rankings):
+        collection, passage = passages[key]
+        identity = (passage.digest, passage.location)
+        if identity in seen:
+            continue
+        seen.add(identity)
+        others = tuple(holder for holder in holders[identity] if holder != (collection, passage.path))
+        kept.append(CollectionPassage(collection, passage, others))
+
+    if rerank and kept:
+        candidates = kept[: 2 * n_results]
+        pending = list(candidates)
+        reordered = []
+        for text in rerank_texts(query, [c.passage.text for c in candidates]):
+            match = next(c for c in pending if c.passage.text == text)
+            pending.remove(match)
+            reordered.append(match)
+        kept = reordered
+    return kept[:n_results]

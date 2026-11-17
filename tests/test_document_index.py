@@ -20,7 +20,7 @@ import pytest
 
 import aimu.memory._index as index_module
 import aimu.memory.document_store as document_store_module
-from aimu.memory import DocumentStore, IndexStatus, Passage
+from aimu.memory import DocumentStore, IndexStatus, Passage, search_collections
 from aimu.memory._index import PassageIndex, chunk_document
 from aimu.models import EmbeddingSpec
 from aimu.tools.builtin import make_document_tools
@@ -917,3 +917,80 @@ def test_close_stops_the_worker_mid_build(tmp_path):
     closer.join(timeout=10)
     assert not closer.is_alive() and _index_threads() == []
     assert index._worker is None
+
+
+def _store_with(**documents: str) -> DocumentStore:
+    store = DocumentStore()
+    for path, text in documents.items():
+        store.write(f"/{path}.md", text)
+    return store
+
+
+def test_cross_store_results_are_labeled_and_fused():
+    stores = {
+        "personal": _store_with(glaciers="# Glaciers\n\nGlacier ice melt is accelerating."),
+        "work": _store_with(ribosomes="# Ribosomes\n\nRibosome translation of glacier proteins."),
+    }
+    results = search_collections(stores, "glacier")
+    assert {result.collection for result in results} == {"personal", "work"}
+    by_collection = {result.collection: result for result in results}
+    assert by_collection["personal"].passage.path == "/glaciers.md"
+    assert by_collection["work"].passage.path == "/ribosomes.md"
+    assert all(result.also_in == () for result in results)
+    assert len(search_collections(stores, "glacier", n_results=1)) == 1
+
+
+def test_empty_stores_return_nothing():
+    assert search_collections({}, "glacier") == []
+
+
+def test_same_file_in_two_stores_appears_once():
+    text = "# Paper\n\nProtein folding results."
+    stores = {
+        "personal": _store_with(paper=text),
+        "work": _store_with(paper=text),
+    }
+    results = search_collections(stores, "protein folding")
+    assert len(results) == 1
+    only = results[0]
+    other = "work" if only.collection == "personal" else "personal"
+    assert only.also_in == ((other, "/paper.md"),)
+
+
+def test_same_text_in_a_different_location_is_not_collapsed():
+    stores = {
+        "personal": _store_with(paper="# Intro\n\nProtein folding results."),
+        "work": _store_with(paper="# Intro\n\nProtein folding results.", extra="# Other\n\nProtein folding too."),
+    }
+    results = search_collections(stores, "protein folding")
+    assert {(r.collection, r.passage.path) for r in results} >= {("work", "/extra.md")}
+    assert len([r for r in results if r.passage.path == "/paper.md"]) == 1
+
+
+def test_rerank_reorders_with_stubbed_cross_encoder(monkeypatch):
+    stores = {
+        "a": _store_with(short="# Short\n\nglacier glacier glacier glacier"),
+        "b": _store_with(long="# Long\n\nglacier " + "and so on " * 5),
+    }
+    plain = search_collections(stores, "glacier")
+    assert plain[0].passage.path == "/short.md"
+
+    calls = []
+
+    def longest_first(query, documents, *, model=None, top_n=None):
+        calls.append((query, list(documents)))
+        return sorted(documents, key=len, reverse=True)
+
+    monkeypatch.setattr(document_store_module, "rerank_texts", longest_first)
+    reranked = search_collections(stores, "glacier", rerank=True)
+    assert [r.passage.path for r in reranked] == ["/long.md", "/short.md"]
+    assert calls[0][0] == "glacier"
+
+
+def test_rerank_keeps_distinct_passages_with_identical_text(monkeypatch):
+    stores = {
+        "a": _store_with(one="# One\n\nglacier ice", two="# Two\n\nglacier ice"),
+    }
+    monkeypatch.setattr(document_store_module, "rerank_texts", lambda query, documents, **kw: list(documents))
+    results = search_collections(stores, "glacier", rerank=True)
+    assert sorted(r.passage.path for r in results) == ["/one.md", "/two.md"]
