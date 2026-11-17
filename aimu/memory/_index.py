@@ -19,27 +19,33 @@ returning whole documents. Two rankings cover them:
 A first build can be long (extracting hundreds of PDFs, embedding tens of thousands of passages), and a
 search must not wait for it. A refresh indexes changed files inline for :data:`INLINE_INDEX_SECONDS`, then
 leaves the rest to one background worker thread, which also does all embedding. The worker takes the
-index's lock (and, to read a file, the store's) one file at a time, so reads, writes, and searches
-interleave with it, and a search meanwhile ranks what is indexed so far while :meth:`PassageIndex.status`
-says how far along the build is. The worker exits once there is nothing left to do.
+index's lock one file at a time, and never while reading a file, so reads, writes, and searches interleave
+with it, and a search meanwhile ranks what is indexed so far while :meth:`PassageIndex.status` says how far
+along the build is. The worker exits once there is nothing left to do.
+
+One process per index directory: SQLite and Chroma would both let a second process open it, and the two
+would each rebuild over the other's rows.
 """
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import functools
 import hashlib
 import logging
 import os
 import re
+import shutil
 import sqlite3
 import threading
 import time
 import uuid
 import weakref
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Literal, Mapping
 
+from aimu.memory._chroma import close_client, forget_system, open_client
 from aimu.rag.bm25 import STOPWORDS
 from aimu.rag.fusion import reciprocal_rank_fusion
 from aimu.rag.splitter import split_text
@@ -52,6 +58,8 @@ logger = logging.getLogger(__name__)
 SCHEMA_VERSION = 1
 # How long a refresh indexes changed files itself before leaving the rest to the background worker.
 INLINE_INDEX_SECONDS = 2.0
+# How long a file that could not be opened (TransientLoadError) waits before a refresh tries it again.
+TRANSIENT_RETRY_SECONDS = 60.0
 # Passages per embedding call.
 EMBEDDING_BATCH_SIZE = 32
 WORKER_THREAD_NAME = "aimu-passage-index"
@@ -88,6 +96,31 @@ class Passage:
     digest: str
 
 
+class TransientLoadError(Exception):
+    """Raised by a refresh's *load* for a file that could not be opened now but may be later.
+
+    A permission change, or a cloud-synced file not downloaded yet, leaves the file's ``(mtime, size)`` as it
+    was, so a file that failed this way is retried after :data:`TRANSIENT_RETRY_SECONDS` rather than when it
+    changes. The message is the reason.
+    """
+
+
+@dataclass(frozen=True)
+class IndexProblem:
+    """One thing wrong with an index, as :attr:`IndexStatus.problems` reports it.
+
+    Attributes:
+        kind: ``"embedding"``: the embedding model failed to load or to embed, so search is keyword-only
+            until it succeeds (each refresh retries). ``"file"``: files the index failed to process, each
+            left out until it changes (the message names the first and counts the rest). ``"worker"``:
+            the background build stopped on a failure outside any one file; the next refresh restarts it.
+        message: What happened, in a sentence fit to show a person or a model.
+    """
+
+    kind: Literal["embedding", "file", "worker"]
+    message: str
+
+
 @dataclass(frozen=True)
 class IndexStatus:
     """How much of a document folder the index covers.
@@ -97,9 +130,7 @@ class IndexStatus:
         indexed: Documents whose current text is keyword-searchable. Below *files* while a build is running.
         embedded: Indexed documents whose passages also have vectors (always 0 when *vectors* is False).
         unreadable: Files in the folder that cannot be documents, mapped to why.
-        error: What is wrong, if anything: the embedding model failing to load or to embed (search is then
-            keyword-only, and the next refresh retries it), or files the index failed to process (each
-            left out of the index, and retried once it changes).
+        problems: What is wrong, if anything, one :class:`IndexProblem` per kind.
         vectors: Whether the index has an embedding client, so *embedded* counts toward *complete*.
     """
 
@@ -107,13 +138,22 @@ class IndexStatus:
     indexed: int
     embedded: int
     unreadable: dict[str, str]
-    error: str | None = None
+    problems: tuple[IndexProblem, ...] = ()
     vectors: bool = False
 
     @property
     def complete(self) -> bool:
         """Whether every document is fully searchable, so a search that finds nothing found nothing."""
         return self.indexed == self.files and (not self.vectors or self.embedded == self.indexed)
+
+    @property
+    def error(self) -> str | None:
+        """Every problem's message, joined by ``"; "``, or None when there are none."""
+        return "; ".join(problem.message for problem in self.problems) or None
+
+    def has_problem(self, kind: str) -> bool:
+        """Whether a problem of *kind* (``"embedding"``, ``"file"``, ``"worker"``) is reported."""
+        return any(problem.kind == kind for problem in self.problems)
 
 
 def _strip_frontmatter(text: str) -> str:
@@ -193,7 +233,7 @@ def _match_expression(query: str) -> str | None:
 
 
 def _open_vectors(index_path: str | None) -> tuple[Any, str]:
-    """A Chroma client for the index's vectors, and the name of its collection.
+    """A Chroma client for the index's vectors (telemetry off), and the name of its collection.
 
     Chroma is the ``[memory]`` extra, so it is imported only when vector search is asked for. In-memory
     Chroma clients share one store per process, so an in-memory index takes a collection name of its own.
@@ -207,14 +247,42 @@ def _open_vectors(index_path: str | None) -> tuple[Any, str]:
             "DocumentStore vector search requires the [memory] extra (chromadb): pip install 'aimu[memory]'"
         ) from exc
     if index_path is None:
-        return chromadb.EphemeralClient(), f"{_COLLECTION}-{uuid.uuid4().hex}"
-    return chromadb.PersistentClient(path=os.path.join(index_path, "vectors")), _COLLECTION
+        return open_client(chromadb, None), f"{_COLLECTION}-{uuid.uuid4().hex}"
+    return open_client(chromadb, _vectors_path(index_path)), _COLLECTION
+
+
+def _vectors_path(index_path: str) -> str:
+    return os.path.join(index_path, "vectors")
+
+
+def _embedding_identity(embedder: Any | None) -> str | None:
+    """What the index records as its embedding model: the model's id, and its output width when known.
+
+    The width is part of it because one model can be truncated to several (Matryoshka models, through
+    ``dimensions=``), and vectors of two widths cannot share a collection.
+    """
+    if embedder is None:
+        return None
+    dimensions = getattr(embedder, "dimensions", None)
+    return embedder.spec.id if dimensions is None else f"{embedder.spec.id} ({dimensions} dimensions)"
+
+
+def _is_corrupt(exc: sqlite3.DatabaseError) -> bool:
+    """Whether *exc* says the database file itself is damaged, not merely busy or unreachable.
+
+    Only damage is repaired by deleting the file. A locked database belongs to someone else, and an I/O
+    error is the disk's problem; deleting either would destroy an index that is fine.
+    """
+    return getattr(exc, "sqlite_errorname", None) in {"SQLITE_CORRUPT", "SQLITE_NOTADB"}
 
 
 def _release(connection: sqlite3.Connection, client: Any, private_collection: str | None) -> None:
     connection.close()
+    if client is None:
+        return
     if private_collection is not None:
         client.delete_collection(private_collection)
+    close_client(client)
 
 
 @dataclass(eq=False)
@@ -251,8 +319,13 @@ class PassageIndex:
         index_path: Directory for ``index.sqlite3`` (and ``vectors/``), created if missing. *None* keeps the
             index in memory.
         embedding_client: An AIMU embedding client (``embed(texts, input_type=...)`` and ``spec.id``), or
-            *None* for keyword search alone. ``spec.id`` is recorded, and opening the index with a
-            different model starts its vectors over, since vectors of two models are not comparable.
+            *None* for keyword search alone. ``spec.id`` and the client's ``dimensions`` are recorded, and
+            opening the index with a different model or width starts its vectors over, since vectors of two
+            models are not comparable.
+
+    An index directory that cannot be read (a damaged ``index.sqlite3``, a ``vectors/`` Chroma cannot open,
+    or one holding no vectors while the manifest says files are embedded) is logged and rebuilt once, on
+    open, rather than raising from every search: it is a cache of the folder.
 
     Raises:
         ImportError: If *embedding_client* is given and chromadb (the ``[memory]`` extra) is not installed.
@@ -266,35 +339,105 @@ class PassageIndex:
         # The folder as of the last refresh, path -> (mtime, size); status() counts files from it.
         self._signatures: dict[str, tuple[float, int]] = {}
         self._pending: dict[str, _PendingFile] = {}
-        # Paths whose load returned None, with the signature it did so at. Not retried until that changes.
-        self._unloadable: dict[str, tuple[float, int]] = {}
-        # Paths the worker failed to index, with the signature and why. Not retried until it changes.
+        # Paths whose load found no document, with the signature it did so at and, for a TransientLoadError,
+        # when to try again (None: not until the signature changes).
+        self._unloadable: dict[str, tuple[tuple[float, int], float | None]] = {}
+        # Paths that failed to index (inline or in the worker), with the signature and why. Not retried until
+        # it changes.
         self._failed: dict[str, tuple[tuple[float, int], str]] = {}
         self._worker: threading.Thread | None = None
         self._closed = False
         # Set when embedding fails, so the worker stops trying until the next refresh or update.
         self._embedding_paused = False
         self._embedding_error: str | None = None
-        # Why the worker stopped short of its work, outside any one file. Cleared when a refresh restarts it.
+        # Why the worker stopped short of its work, outside any one file. Kept until a job succeeds, so the
+        # refresh that restarts the worker does not erase it before anyone has read it.
         self._worker_error: str | None = None
-        client, collection_name = _open_vectors(index_path) if embedding_client is not None else (None, None)
-        if index_path is None:
-            database = ":memory:"
-        else:
+        self._index_path = index_path
+        if index_path is not None:
             os.makedirs(index_path, exist_ok=True)
-            database = os.path.join(index_path, "index.sqlite3")
-        self._connection = sqlite3.connect(database, check_same_thread=False)
+        self._connection = self._open_database()
+        client, collection_name = None, None
+        try:
+            if embedding_client is not None:
+                client, collection_name = self._open_vectors_once_more_if_damaged()
+            else:
+                with self._lock, self._connection:
+                    self._collection = self._open_collection(None, None)
+        except BaseException:
+            _release(self._connection, client, None)
+            raise
         # A store dropped without close() would otherwise leave the connection to the garbage collector,
         # which closes it with a ResourceWarning.
         private_collection = collection_name if index_path is None else None
         self._closer = weakref.finalize(self, _release, self._connection, client, private_collection)
-        with self._lock, self._connection:
-            self._create_schema()
-            self._collection = self._open_collection(client, collection_name)
 
     # ------------------------------------------------------------------
     # Opening
     # ------------------------------------------------------------------
+
+    def _open_database(self) -> sqlite3.Connection:
+        """Connect to ``index.sqlite3`` and bring its schema up to date, rebuilding it once if it is damaged."""
+        if self._index_path is None:
+            database = ":memory:"
+        else:
+            database = os.path.join(self._index_path, "index.sqlite3")
+        for attempt in (1, 2):
+            self._connection = sqlite3.connect(database, check_same_thread=False)
+            try:
+                with self._lock, self._connection:
+                    self._create_schema()
+                return self._connection
+            except sqlite3.DatabaseError as exc:
+                self._connection.close()
+                if self._index_path is None or attempt == 2 or not _is_corrupt(exc):
+                    raise
+                logger.warning(
+                    "The passage index at %s cannot be read (%s: %s); rebuilding it from the folder.",
+                    database,
+                    type(exc).__name__,
+                    exc,
+                )
+                for suffix in ("", "-wal", "-shm", "-journal"):
+                    with contextlib.suppress(FileNotFoundError):
+                        os.remove(database + suffix)
+                # The vectors are content-addressed through the manifest just deleted, so they go too.
+                self._discard_vectors()
+        raise AssertionError("unreachable")
+
+    def _discard_vectors(self) -> None:
+        path = _vectors_path(self._index_path)
+        forget_system(path)
+        shutil.rmtree(path, ignore_errors=True)
+
+    def _open_vectors_once_more_if_damaged(self) -> tuple[Any, str]:
+        """Open the vector collection, deleting and recreating ``vectors/`` once if Chroma cannot open it."""
+        client = None
+        for attempt in (1, 2):
+            try:
+                client, name = _open_vectors(self._index_path)
+                with self._lock, self._connection:
+                    self._collection = self._open_collection(client, name)
+                return client, name
+            except ImportError:
+                raise
+            except Exception as exc:
+                if client is not None:
+                    with contextlib.suppress(Exception):
+                        close_client(client)
+                    client = None
+                if self._index_path is None or attempt == 2:
+                    raise
+                logger.warning(
+                    "The passage index's vectors at %s cannot be opened (%s: %s); rebuilding them.",
+                    _vectors_path(self._index_path),
+                    type(exc).__name__,
+                    exc,
+                )
+                self._discard_vectors()
+                with self._lock, self._connection:
+                    self._connection.execute("UPDATE files SET embedded = 0")
+        raise AssertionError("unreachable")
 
     def _create_schema(self) -> None:
         (version,) = self._connection.execute("PRAGMA user_version").fetchone()
@@ -317,7 +460,7 @@ class PassageIndex:
         """The vector collection, emptied first if the recorded embedding model is not this one."""
         row = self._connection.execute("SELECT value FROM meta WHERE key = 'embedding_model'").fetchone()
         recorded = row[0] if row else None
-        wanted = self._embedder.spec.id if self._embedder is not None else None
+        wanted = _embedding_identity(self._embedder)
         if recorded != wanted:
             # Opened without a client, the vectors cannot be deleted (chromadb may not even be installed), so
             # the manifest stops vouching for them instead, and the next open with a client starts over.
@@ -331,28 +474,54 @@ class PassageIndex:
         if recorded != wanted and name in {collection.name for collection in client.list_collections()}:
             client.delete_collection(name)
         # No embedding function: the index embeds passages and queries itself, with the input_type each needs.
-        return client.get_or_create_collection(name, metadata={"hnsw:space": "cosine"}, embedding_function=None)
+        collection = client.get_or_create_collection(name, metadata={"hnsw:space": "cosine"}, embedding_function=None)
+        vouched = self._connection.execute("SELECT 1 FROM files WHERE embedded = 1 AND chunks > 0 LIMIT 1").fetchone()
+        if vouched is not None and collection.count() == 0:
+            # vectors/ deleted, or replaced, behind the manifest's back: searching it would find nothing.
+            logger.warning("The passage index's vectors are missing; rebuilding them.")
+            self._connection.execute("UPDATE files SET embedded = 0")
+        return collection
 
     # ------------------------------------------------------------------
     # Keeping in step with the folder
     # ------------------------------------------------------------------
 
     def refresh(self, files: Mapping[str, tuple[float, int]], load: Callable[[str], str | None]) -> None:
-        """Bring the index in step with *files*, re-chunking only what changed.
+        """Bring the index in step with *files*, re-chunking only what changed: :meth:`plan_refresh`, then
+        :meth:`finish_refresh`.
 
         Changed files are indexed here until :data:`INLINE_INDEX_SECONDS` have passed, and by the worker
         after that; so is all embedding. While the worker is already running, changed files go straight to
         it, so a search during a long build pays for the metadata walk and not another inline budget. A
-        refresh also retries embedding that failed.
+        refresh also retries embedding that failed. A file that fails to index is recorded the same way
+        here as in the worker (:attr:`IndexStatus.problems`), never raised, so one bad file cannot fail
+        every search.
 
         Args:
             files: Every document in the folder now, mapped to its ``(mtime, size)``.
             load: Returns a document's text, or None when it cannot be read or is gone. A None removes the
-                document from the index rather than raising: a file deleted between the metadata walk and
-                its read is simply not a document any more. Called from the worker thread too, so it must
-                be safe to call from any thread.
+                document from the index rather than raising (a file deleted between the metadata walk and
+                its read is simply not a document any more), and it is not loaded again until it changes.
+                Raise :class:`TransientLoadError` instead for a failure that may pass without the file
+                changing. Called from the worker thread too, so it must be safe to call from any thread.
         """
-        deadline = time.monotonic() + INLINE_INDEX_SECONDS
+        self.finish_refresh(self.plan_refresh(files, load))
+
+    def plan_refresh(
+        self, files: Mapping[str, tuple[float, int]], load: Callable[[str], str | None]
+    ) -> tuple[float, list[tuple[str, _PendingFile]]]:
+        """The bookkeeping half of :meth:`refresh`: drop vanished files and decide what to index.
+
+        Quick, and reads no file. Split from :meth:`finish_refresh` so a caller can hold a lock of its own
+        across the walk that produced *files* and this, and no write lands between them: a write made after
+        the walk but before this would otherwise be undone as a file the walk did not see.
+
+        Returns:
+            What :meth:`finish_refresh` needs: the inline deadline and the files to index inline (none while
+            the worker is running).
+        """
+        now = time.monotonic()
+        deadline = now + INLINE_INDEX_SECONDS
         with self._lock, self._connection:
             indexed = {
                 path: (mtime, size)
@@ -363,8 +532,13 @@ class PassageIndex:
             pending: dict[str, _PendingFile] = {}
             for path, signature in files.items():
                 failed = self._failed.get(path)
-                if indexed.get(path) == signature or self._unloadable.get(path) == signature:
+                unloadable = self._unloadable.get(path)
+                if indexed.get(path) == signature:
                     continue
+                if unloadable is not None and unloadable[0] == signature:
+                    retry_at = unloadable[1]
+                    if retry_at is None or retry_at > now:
+                        continue
                 if failed is not None and failed[0] == signature:
                     continue
                 earlier = self._pending.get(path)
@@ -372,15 +546,23 @@ class PassageIndex:
                 pending[path] = earlier if keep else _PendingFile(signature, load)
             self._signatures = dict(files)
             self._pending = pending
-            self._unloadable = {path: sig for path, sig in self._unloadable.items() if files.get(path) == sig}
+            self._unloadable = {
+                path: entry
+                for path, entry in self._unloadable.items()
+                if files.get(path) == entry[0] and path not in pending
+            }
             self._failed = {path: failure for path, failure in self._failed.items() if files.get(path) == failure[0]}
             self._embedding_paused = False
-            self._worker_error = None
-            inline = self._worker is None
-        for path, entry in list(pending.items()) if inline else []:
+            inline = list(pending.items()) if self._worker is None else []
+        return deadline, inline
+
+    def finish_refresh(self, plan: tuple[float, list[tuple[str, _PendingFile]]]) -> None:
+        """The indexing half of :meth:`refresh`: index *plan*'s files until its deadline, then start the worker."""
+        deadline, inline = plan
+        for path, entry in inline:
             if time.monotonic() >= deadline:
                 break
-            self._store_loaded(path, entry, entry.load(path))
+            self._index_one(path, entry)
         with self._lock:
             self._start_worker()
 
@@ -414,7 +596,7 @@ class PassageIndex:
             with self._connection:
                 if text is None:
                     self._delete(path)
-                    self._unloadable[path] = entry.signature
+                    self._unloadable[path] = (entry.signature, None)
                 else:
                     self._write(path, text, *entry.signature)
             # Only once written: if the write raises, the entry is still pending for whoever handles that.
@@ -557,17 +739,21 @@ class PassageIndex:
             if self._embedder is not None:
                 rows = self._connection.execute("SELECT path FROM files WHERE embedded = 1")
                 embedded = sum(1 for (path,) in rows if path not in self._pending and path not in self._failed)
-            problems = [problem for problem in (self._embedding_error, self._worker_error) if problem]
+            problems = []
+            if self._embedding_error:
+                problems.append(IndexProblem("embedding", self._embedding_error))
+            if self._worker_error:
+                problems.append(IndexProblem("worker", self._worker_error))
             if self._failed:
                 path, (_, reason) = next(iter(self._failed.items()))
                 others = f" and {len(self._failed) - 1} other file(s)" if len(self._failed) > 1 else ""
-                problems.append(f"Could not index {path}{others}: {reason}")
+                problems.append(IndexProblem("file", f"Could not index {path}{others}: {reason}"))
             return IndexStatus(
                 files=files,
                 indexed=files - len(self._pending) - len(self._failed),
                 embedded=embedded,
                 unreadable={},
-                error="; ".join(problems) or None,
+                problems=tuple(problems),
                 vectors=self._embedder is not None,
             )
 
@@ -602,14 +788,22 @@ class PassageIndex:
 
     def _start_worker(self) -> None:
         """Start the worker if there is work and none is running. Called with the lock held."""
-        if self._worker is None and not self._closed and self._next_job() is not None:
-            self._worker = threading.Thread(target=self._run, name=WORKER_THREAD_NAME, daemon=True)
-            self._worker.start()
+        if self._worker is not None or self._closed:
+            return
+        if self._next_job() is None:
+            # A worker that stopped on a failure left nothing undone, so the failure no longer matters.
+            self._worker_error = None
+            return
+        self._worker = threading.Thread(target=self._run, name=WORKER_THREAD_NAME, daemon=True)
+        self._worker.start()
 
     def _run(self) -> None:
+        finished_a_job = False
         try:
             while True:
                 with self._lock:
+                    if finished_a_job:
+                        self._worker_error = None
                     job = None if self._closed else self._next_job()
                     if job is None:
                         # Cleared under the same lock hold that found no work, so work added a moment
@@ -618,6 +812,7 @@ class PassageIndex:
                         self._idle.notify_all()
                         return
                 job()
+                finished_a_job = True
         except Exception as exc:
             # A failure outside any one file (the database, say). Raising would only reach threading.excepthook,
             # and carrying on could fail the same way forever, so the worker records it and stops; the next
@@ -638,7 +833,7 @@ class PassageIndex:
         """The next file to index, else the next document to embed, else None. Called with the lock held."""
         if self._pending:
             path, entry = next(iter(self._pending.items()))
-            return functools.partial(self._index_in_background, path, entry)
+            return functools.partial(self._index_one, path, entry)
         if self._embedder is None or self._embedding_paused:
             return None
         rows = self._connection.execute("SELECT path, digest, first_rowid, chunks FROM files WHERE embedded = 0")
@@ -652,12 +847,26 @@ class PassageIndex:
             return functools.partial(self._embed_document, digest, passages)
         return None
 
-    def _index_in_background(self, path: str, entry: _PendingFile) -> None:
+    def _index_one(self, path: str, entry: _PendingFile) -> None:
+        """Load and index one pending file, inline or in the worker, recording a failure rather than raising.
+
+        Raised, a failure would reach a search's caller on every search (inline) or ``threading.excepthook``
+        (in the worker), and the file would be retried forever either way. So it is recorded for status()
+        and the file left out until it changes, or, for a :class:`TransientLoadError`, until it is due again.
+        """
         try:
             self._store_loaded(path, entry, entry.load(path))
+        except TransientLoadError:
+            with self._lock:
+                if self._closed or self._pending.get(path) is not entry:
+                    return
+                with self._connection:
+                    # The file changed since it was indexed (it would not be pending otherwise), so its rows
+                    # hold text the folder no longer has.
+                    self._delete(path)
+                del self._pending[path]
+                self._unloadable[path] = (entry.signature, time.monotonic() + TRANSIENT_RETRY_SECONDS)
         except Exception as exc:
-            # Inline, a failure raises to the caller. Here nobody would see it, and the file would be retried
-            # forever, so it is recorded for status() and the file left out until it changes.
             logger.exception("Could not index %s", path)
             with self._lock:
                 if self._pending.get(path) is entry:

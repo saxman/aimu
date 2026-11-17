@@ -31,16 +31,65 @@ import posixpath
 import shutil
 import threading
 import uuid
+from collections.abc import Callable, Collection
 from dataclasses import dataclass
-from typing import Any, Mapping, Optional
+from typing import Any, Mapping, NamedTuple, Optional
 
-from aimu.memory._index import IndexStatus, Passage, PassageIndex
+from aimu.memory._index import IndexStatus, Passage, PassageIndex, TransientLoadError
 from aimu.memory.base import MemoryStore, synchronized
 from aimu.rag import reciprocal_rank_fusion
 from aimu.rag import rerank as rerank_texts
 from aimu.tools._documents import DocumentConversionError, pdf_to_markdown
 
 logger = logging.getLogger(__name__)
+
+# A file's (st_mtime_ns, st_size): what tells an unchanged file from a changed one without reading it.
+_Signature = tuple[int, int]
+
+
+class DocumentListing(NamedTuple):
+    """What :meth:`DocumentStore.listing` returns.
+
+    Attributes:
+        paths: Sorted memory paths of the folder's documents, including any not read yet.
+        unreadable: Memory path to reason, for the files already found not to be documents.
+    """
+
+    paths: list[str]
+    unreadable: dict[str, str]
+
+
+class _Read(NamedTuple):
+    """One attempt to read a file: its text, or why there is none and whether that may pass on its own."""
+
+    text: Optional[str]
+    reason: Optional[str] = None
+    transient: bool = False
+
+
+def _extract_pdf(data: bytes) -> tuple[Optional[str], Optional[str]]:
+    """A PDF's Markdown and None, or None and the reason it has none."""
+    try:
+        return pdf_to_markdown(data), None
+    except Exception as exc:
+        # pypdf raises far more than DocumentConversionError on a malformed file (KeyError, ValueError,
+        # struct.error, ...), and one bad paper must not stop the rest of a folder being read.
+        if isinstance(exc, DocumentConversionError):
+            return None, str(exc)
+        return None, f"could not extract text from this PDF ({type(exc).__name__}: {exc})"
+
+
+def _suffixes(extensions: Optional[Collection[str]]) -> Optional[tuple[str, ...]]:
+    """*extensions* as lowercase dotted suffixes (``"md"`` and ``".MD"`` both become ``".md"``)."""
+    if extensions is None:
+        return None
+    if isinstance(extensions, str):
+        # Iterating one string would allow every file ending in any of its letters.
+        raise TypeError(f"extensions takes a collection of suffixes, such as ('.md', '.pdf'), not {extensions!r}")
+    suffixes = tuple(sorted({"." + str(suffix).strip().lower().lstrip(".") for suffix in extensions}))
+    if not suffixes or "." in suffixes:
+        raise ValueError(f"extensions must name at least one suffix, such as '.md'; got {list(extensions)!r}")
+    return suffixes
 
 
 class DocumentStore(MemoryStore):
@@ -51,10 +100,11 @@ class DocumentStore(MemoryStore):
     with :class:`SemanticMemoryStore` in any application, and adds the richer
     path-based API in the spirit of Anthropic's memory tool (not its interface).
 
-    Thread-safe: every public method is serialized on a re-entrant per-instance
-    lock, so the in-memory dict and on-disk files stay consistent when the store
-    is shared across concurrent threads or turns (``edit`` -> ``read`` + ``write``
-    stays atomic).
+    Thread-safe. Writes (``write``, ``edit``, ``delete``, ``store``) are serialized on a re-entrant
+    per-instance lock, so ``edit`` -> ``read`` + ``write`` stays atomic. Reads are not serialized behind
+    each other: reading a file, and extracting a PDF's text, happen outside the lock, which is taken only to
+    consult and fill the caches, so one slow PDF never holds up a read or a write of another file. Searches
+    of the passage index are serialized with each other.
 
     With *persist_path* set, the directory is the single source of truth: reads,
     listings, and searches hit the filesystem on each call, so a document copied
@@ -66,17 +116,22 @@ class DocumentStore(MemoryStore):
     it), which also cannot be written or deleted through the store.
 
     Args:
-        persist_path: Root directory for persistent storage.  If *None* the
+        persist_path: Root directory for persistent storage, ``~`` expanded.  If *None* the
             store is ephemeral (in-memory only).
-        index_path: Directory for the passage index behind :meth:`search_passages`.
+        index_path: Directory for the passage index behind :meth:`search_passages`, ``~`` expanded.
             *None* keeps it in memory, rebuilt on the first search of each process.
             Must lie outside *persist_path*: the index is derived from the folder
-            and never written into it.
+            and never written into it. One process per *index_path*: two processes sharing one would
+            each rebuild over the other's rows.
         embedding_client: An AIMU embedding client (``aimu.embedding_client(...)``) to add vector search to
             :meth:`search_passages`, fused with its keyword ranking. Needs the ``[memory]`` extra
             (chromadb), imported on the first search. *None* (the default) searches by keyword alone.
         max_file_bytes: Files larger than this are unreadable rather than read, and :meth:`write`
             refuses content that would make one.
+        extensions: The file suffixes that are documents, matched case-insensitively, e.g.
+            ``(".md", ".markdown", ".txt", ".pdf")``. A file with any other suffix is not a candidate at
+            all: not listed, not reported unreadable, not counted, not readable or writable through the
+            store. *None* (the default) makes every file a candidate.
 
     Examples:
         >>> store = DocumentStore()
@@ -95,30 +150,37 @@ class DocumentStore(MemoryStore):
         index_path: Optional[str] = None,
         embedding_client: Optional[Any] = None,
         max_file_bytes: int = 50_000_000,
+        extensions: Optional[Collection[str]] = None,
     ):
-        self._persist_path = persist_path
-        self._index_path = index_path
+        self._persist_path = os.path.expanduser(persist_path) if persist_path else persist_path
+        self._index_path = os.path.expanduser(index_path) if index_path else index_path
         self._embedding_client = embedding_client
         self._max_file_bytes = max_file_bytes
+        self._extensions = _suffixes(extensions)
         # Created on the first search_passages / index_status, so a store nobody searches costs nothing.
         self._index: Optional[PassageIndex] = None
+        # The memory paths the last index refresh walked; index_status(refresh=False) reports on these.
+        self._indexed_paths: Collection[str] = ()
         # Ephemeral backing store; unused when persist_path is set (disk is authoritative then).
         self._docs: dict[str, str] = {}
-        # Absolute path -> why it could not be read. Doubles as the already-warned set, so a scan on
-        # every list/search call warns once per file rather than on every turn.
-        self._unreadable_reasons: dict[str, str] = {}
-        # Absolute path -> ((st_mtime_ns, st_size), text or None, reason or None). Holds what is costly to
-        # recompute on every scan: a PDF's extraction, and any file's failure to read. Plain text files are
-        # cheap to reread and are not held, so the cache stays the size of the PDFs, not of the folder.
-        self._extractions: dict[str, tuple[tuple[int, int], Optional[str], Optional[str]]] = {}
-        # Serializes the public methods so the in-memory dict + on-disk files stay consistent when the
-        # store is shared across concurrent turns (which dispatch sync tools from worker threads).
-        # Re-entrant because public methods call each other (edit -> read + write, store -> write).
+        # Absolute path -> (signature it was found at, why it could not be read). The signature is None for
+        # a failure to open the file, which says nothing about its contents and stands until a read works.
+        # Doubles as the already-warned set, so a scan on every list/search call warns once per file.
+        self._unreadable_reasons: dict[str, tuple[Optional[_Signature], str]] = {}
+        # Absolute path -> (signature, text or None, reason or None). Holds what is costly to recompute on
+        # every scan: a PDF's extraction, and any file's failure to decode. Plain text files are cheap to
+        # reread and are not held, so the cache stays the size of the PDFs, not of the folder.
+        self._extractions: dict[str, tuple[_Signature, Optional[str], Optional[str]]] = {}
+        # Guards the in-memory dict, the two caches above, and write atomicity. Re-entrant because public
+        # methods call each other (edit -> read + write, store -> write). Held only briefly by reads.
         self._lock = threading.RLock()
-        if persist_path:
-            os.makedirs(persist_path, exist_ok=True)
-            self._real_root = os.path.realpath(persist_path)
-            if index_path and self._is_inside_root(index_path):
+        # Serializes refreshing and searching the passage index: two searches never index the same files
+        # twice, and close() never releases the index under a search. Taken before self._lock, never after.
+        self._search_lock = threading.RLock()
+        if self._persist_path:
+            os.makedirs(self._persist_path, exist_ok=True)
+            self._real_root = os.path.realpath(self._persist_path)
+            if self._index_path and self._is_inside_root(self._index_path):
                 raise ValueError(
                     f"index_path {index_path!r} must be outside the document folder {persist_path!r}: "
                     "the index is derived from the folder, and would otherwise be scanned as part of it."
@@ -155,6 +217,10 @@ class DocumentStore(MemoryStore):
         """
         return any(segment.startswith(".") for segment in path.split("/") if segment)
 
+    def _is_candidate(self, path: str) -> bool:
+        """Whether *path*'s suffix is one this store's *extensions* allow (always, when it has none)."""
+        return self._extensions is None or path.lower().endswith(self._extensions)
+
     def _is_inside_root(self, abs_path: str) -> bool:
         """Whether *abs_path*, symlinks resolved, lies inside the document folder."""
         real = os.path.realpath(abs_path)
@@ -170,14 +236,30 @@ class DocumentStore(MemoryStore):
     def _is_document(self, path: str) -> bool:
         """Whether *path* names a file eligible to be a document in this store."""
         abs_file = self._abs_path(path)
-        return not self._is_hidden(path) and os.path.isfile(abs_file) and self._is_inside_root(abs_file)
+        return (
+            not self._is_hidden(path)
+            and self._is_candidate(path)
+            and os.path.isfile(abs_file)
+            and self._is_inside_root(abs_file)
+        )
 
     @staticmethod
     def _is_pdf(path: str) -> bool:
         return path.lower().endswith(".pdf")
 
-    def _read_file(self, abs_file: str) -> Optional[str]:
-        """Return the text of *abs_file*, or *None* if it cannot be read as a document.
+    @staticmethod
+    def _signature(abs_file: str) -> Optional[_Signature]:
+        try:
+            stat = os.stat(abs_file)
+        except OSError:
+            return None
+        return (stat.st_mtime_ns, stat.st_size)
+
+    def _too_large(self, size: int) -> str:
+        return f"too large to index ({size} bytes; the limit is {self._max_file_bytes})"
+
+    def _read(self, abs_file: str) -> _Read:
+        """Read *abs_file* as a document: its text, or why it is not one.
 
         Documents are UTF-8 text, plus PDFs, which are converted to Markdown on read. Anything else
         (an image, a scanned or encrypted PDF, a file over *max_file_bytes*, one the process may not
@@ -185,79 +267,92 @@ class DocumentStore(MemoryStore):
         :meth:`unreadable` and logged once per path, so a document that will never appear is visible
         to whoever put it there. A file that vanished since the walk found it is simply gone, not
         unreadable. An unchanged file (same ``st_mtime_ns`` and ``st_size``) is never extracted twice.
+
+        The read and the extraction run without the store's lock, which is taken only to consult and fill
+        the caches: a PDF can take seconds to extract, and holding the lock for it would hold up every
+        other read and write. A file that changed while it was being extracted is not cached.
         """
         try:
             stat = os.stat(abs_file)
         except FileNotFoundError:
-            self._extractions.pop(abs_file, None)
-            self._unreadable_reasons.pop(abs_file, None)
-            return None
+            with self._lock:
+                self._extractions.pop(abs_file, None)
+                self._unreadable_reasons.pop(abs_file, None)
+            return _Read(None)
         except OSError as exc:
-            return self._unreadable(abs_file, str(exc))
-        if stat.st_size > self._max_file_bytes:
-            return self._unreadable(
-                abs_file, f"too large to index ({stat.st_size} bytes; the limit is {self._max_file_bytes})"
-            )
+            return self._unreadable(abs_file, None, str(exc), transient=True)
         signature = (stat.st_mtime_ns, stat.st_size)
-        cached = self._extractions.get(abs_file)
+        if stat.st_size > self._max_file_bytes:
+            return self._unreadable(abs_file, signature, self._too_large(stat.st_size))
+        with self._lock:
+            cached = self._extractions.get(abs_file)
         if cached is not None and cached[0] == signature:
             _, text, reason = cached
-            return self._readable(abs_file, text) if reason is None else self._unreadable(abs_file, reason)
+            return self._readable(abs_file, text) if reason is None else self._unreadable(abs_file, signature, reason)
+        is_pdf = self._is_pdf(abs_file)
+        text, reason = None, None
         try:
-            if self._is_pdf(abs_file):
+            if is_pdf:
                 with open(abs_file, "rb") as f:
                     data = f.read()
-                return self._extract_pdf(abs_file, signature, data)
-            with open(abs_file, encoding="utf-8") as f:
-                return self._readable(abs_file, f.read())
-        except UnicodeDecodeError:
-            self._extractions[abs_file] = (signature, None, "not UTF-8 text")
-            return self._unreadable(abs_file, "not UTF-8 text")
-        except OSError as exc:
-            # Not cached: a permission change moves ctime, not the mtime the cache is keyed on.
-            return self._unreadable(abs_file, str(exc))
-
-    def _extract_pdf(self, abs_file: str, signature: tuple[int, int], data: bytes) -> Optional[str]:
-        """Convert a PDF's bytes to Markdown, caching the text or the reason it has none."""
-        try:
-            text = pdf_to_markdown(data)
-        except Exception as exc:
-            # pypdf raises far more than DocumentConversionError on a malformed file (KeyError, ValueError,
-            # struct.error, ...), and one bad paper must not stop the rest of a folder being read.
-            if isinstance(exc, DocumentConversionError):
-                reason = str(exc)
+                text, reason = _extract_pdf(data)
             else:
-                reason = f"could not extract text from this PDF ({type(exc).__name__}: {exc})"
-            self._extractions[abs_file] = (signature, None, reason)
-            return self._unreadable(abs_file, reason)
-        self._extractions[abs_file] = (signature, text, None)
-        return self._readable(abs_file, text)
+                with open(abs_file, encoding="utf-8") as f:
+                    text = f.read()
+        except UnicodeDecodeError:
+            reason = "not UTF-8 text"
+        except OSError as exc:
+            # Not cached: a permission change, or a cloud file being downloaded, moves nothing the cache is
+            # keyed on, so it would stand after the file became readable.
+            return self._unreadable(abs_file, None, str(exc), transient=True)
+        if is_pdf or reason is not None:
+            with self._lock:
+                if self._signature(abs_file) == signature:
+                    self._extractions[abs_file] = (signature, text, reason)
+        return self._readable(abs_file, text) if reason is None else self._unreadable(abs_file, signature, reason)
 
-    def _readable(self, abs_file: str, text: str) -> str:
+    def _read_file(self, abs_file: str) -> Optional[str]:
+        """The text of *abs_file*, or None if it cannot be read as a document (see :meth:`_read`)."""
+        return self._read(abs_file).text
+
+    def _readable(self, abs_file: str, text: str) -> _Read:
         """Return *text*, forgetting any earlier reason *abs_file* was unreadable: it is readable now."""
-        self._unreadable_reasons.pop(abs_file, None)
-        return text
+        with self._lock:
+            self._unreadable_reasons.pop(abs_file, None)
+        return _Read(text)
 
-    def _unreadable(self, abs_file: str, reason: str) -> None:
-        """Record why *abs_file* is not a document, warning the first time, and return None for the caller."""
-        if abs_file not in self._unreadable_reasons:
-            logger.warning("Skipping unreadable document %s: %s", abs_file, reason)
-        self._unreadable_reasons[abs_file] = reason
-        return None
+    def _unreadable(
+        self, abs_file: str, signature: Optional[_Signature], reason: str, *, transient: bool = False
+    ) -> _Read:
+        """Record why *abs_file* is not a document, warning the first time."""
+        with self._lock:
+            if abs_file not in self._unreadable_reasons:
+                logger.warning("Skipping unreadable document %s: %s", abs_file, reason)
+            self._unreadable_reasons[abs_file] = (signature, reason)
+        return _Read(None, reason, transient)
+
+    def _reason_on_record(self, abs_file: str, signature: Optional[_Signature]) -> Optional[str]:
+        """Why *abs_file* was last found unreadable, unless it has changed since. Called with the lock held."""
+        recorded = self._unreadable_reasons.get(abs_file)
+        if recorded is None:
+            return None
+        found_at, reason = recorded
+        return reason if found_at is None or found_at == signature else None
 
     def _walk(self) -> list[tuple[str, str]]:
         """Every candidate document under persist_path, as ``(memory path, absolute path)`` pairs.
 
         Dot-files and dot-directories are skipped, and so is a file symlink resolving outside the
-        folder. Directory symlinks are never descended (``os.walk``'s default), so the file itself is
-        the only place a walk can leave the folder. Drops extraction-cache entries for files that are gone.
+        folder, and a file whose suffix *extensions* does not allow. Directory symlinks are never descended
+        (``os.walk``'s default), so the file itself is the only place a walk can leave the folder. Reads no
+        file's contents. Drops extraction-cache entries for files that are gone.
         """
         found: list[tuple[str, str]] = []
         for dirpath, dirnames, filenames in os.walk(self._persist_path):
             # Prune dot-directories in place so os.walk never descends into them.
             dirnames[:] = [d for d in dirnames if not d.startswith(".")]
             for filename in filenames:
-                if filename.startswith("."):
+                if filename.startswith(".") or not self._is_candidate(filename):
                     continue
                 abs_file = os.path.join(dirpath, filename)
                 if os.path.islink(abs_file) and not self._is_inside_root(abs_file):
@@ -266,8 +361,9 @@ class DocumentStore(MemoryStore):
                 # Normalise to forward-slash memory paths with leading slash.
                 found.append((self._normalize(rel.replace(os.sep, "/")), abs_file))
         present = {abs_file for _, abs_file in found}
-        for gone in self._extractions.keys() - present:
-            del self._extractions[gone]
+        with self._lock:
+            for gone in self._extractions.keys() - present:
+                del self._extractions[gone]
         return found
 
     def _scan_disk(self, collect_unreadable: Optional[dict[str, str]] = None) -> dict[str, str]:
@@ -278,16 +374,19 @@ class DocumentStore(MemoryStore):
         """
         docs: dict[str, str] = {}
         for mem_path, abs_file in self._walk():
-            content = self._read_file(abs_file)
-            if content is not None:
-                docs[mem_path] = content
-            elif collect_unreadable is not None and abs_file in self._unreadable_reasons:
-                collect_unreadable[mem_path] = self._unreadable_reasons[abs_file]
+            result = self._read(abs_file)
+            if result.text is not None:
+                docs[mem_path] = result.text
+            elif collect_unreadable is not None and result.reason is not None:
+                collect_unreadable[mem_path] = result.reason
         return docs
 
     def _documents(self) -> dict[str, str]:
         """Current contents of the store: the directory when persistent, the dict otherwise."""
-        return self._scan_disk() if self._persist_path else dict(self._docs)
+        if self._persist_path:
+            return self._scan_disk()
+        with self._lock:
+            return dict(self._docs)
 
     def _write_to_disk(self, path: str, content: str) -> None:
         """Write *content* atomically: a reader (an editor, a concurrent scan) sees the old file or the new one.
@@ -326,7 +425,8 @@ class DocumentStore(MemoryStore):
         "mtime" is a constant and its writes reach the index directly.
         """
         if not self._persist_path:
-            return {path: (0.0, len(content)) for path, content in self._docs.items()}
+            with self._lock:
+                return {path: (0.0, len(content)) for path, content in self._docs.items()}
         files: dict[str, tuple[float, int]] = {}
         for mem_path, abs_file in self._walk():
             try:
@@ -337,36 +437,54 @@ class DocumentStore(MemoryStore):
         return files
 
     def _load(self, path: str) -> Optional[str]:
+        """One document's text for the passage index, from any thread; None if it is not a document.
+
+        Raises:
+            TransientLoadError: If the file could not be opened, which may pass without the file changing.
+        """
         if not self._persist_path:
-            return self._docs.get(path)
-        return self._read_file(self._abs_path(path))
+            with self._lock:
+                return self._docs.get(path)
+        result = self._read(self._abs_path(path))
+        if result.transient:
+            raise TransientLoadError(result.reason)
+        return result.text
 
-    def _locked_load(self, path: str) -> Optional[str]:
-        """:meth:`_load` under the store's lock, for one file: the index's worker thread reads through this."""
-        with self._lock:
-            return self._load(path)
-
-    def _refreshed_index(self) -> tuple[PassageIndex, dict[str, str]]:
-        """The passage index, created on first use and brought in step with the folder.
+    def _refreshed_index(self, refresh: bool = True) -> tuple[PassageIndex, dict[str, str]]:
+        """The passage index, created on first use and, unless *refresh* is False, brought in step with the folder.
 
         Also returns the folder's unreadable files, with reasons, from what reading them recorded. The index
         does not reread a file that failed until it changes, and part of a build may still be in the
         worker's hands, so the reasons on record are the answer, not what this refresh happened to read.
+        Called with the search lock held.
         """
         if self._index is None:
-            self._index = PassageIndex(self._index_path, self._embedding_client)
-        files = self._file_metadata()
-        self._index.refresh(files, self._locked_load)
+            with self._lock:
+                self._index = PassageIndex(self._index_path, self._embedding_client)
+            refresh = True
+        index = self._index
+        if refresh:
+            # The walk and the refresh's bookkeeping share one hold of the store's lock, so a write cannot
+            # land between them and be undone as a file the walk did not see. Indexing, which reads files,
+            # comes after, without it.
+            with self._lock:
+                files = self._file_metadata()
+                plan = index.plan_refresh(files, self._load)
+            index.finish_refresh(plan)
+            self._indexed_paths = files.keys()
         unreadable: dict[str, str] = {}
         if self._persist_path:
-            for path in files:
-                reason = self._unreadable_reasons.get(self._abs_path(path))
+            for path in self._indexed_paths:
+                abs_file = self._abs_path(path)
+                signature = self._signature(abs_file)
+                with self._lock:
+                    reason = self._reason_on_record(abs_file, signature)
                 if reason is not None:
                     unreadable[path] = reason
-        return self._index, unreadable
+        return index, unreadable
 
     def _index_document(self, path: str, content: str) -> None:
-        """Bring an existing index up to date with a write the store just made."""
+        """Bring an existing index up to date with a write the store just made. Called with the lock held."""
         if self._index is None:
             return
         if not self._persist_path:
@@ -396,12 +514,17 @@ class DocumentStore(MemoryStore):
             content: Text content to store (≤ 100 KB recommended).
 
         Raises:
-            ValueError: If *path* is a PDF, if it resolves outside the folder, or if *content* is over
-                *max_file_bytes* once encoded as UTF-8.
+            ValueError: If *path* is a PDF, if its suffix is not one of the store's *extensions*, if it
+                resolves outside the folder, or if *content* is over *max_file_bytes* once encoded as UTF-8.
         """
         path = self._normalize(path)
         if self._is_pdf(path):
             raise ValueError(f"PDFs are read-only: {path} can be read and searched, not written.")
+        if not self._is_candidate(path):
+            raise ValueError(
+                f"{path} is not a document type this store holds ({', '.join(self._extensions)}), "
+                "so nothing was written."
+            )
         size = len(content.encode("utf-8"))
         if size > self._max_file_bytes:
             raise ValueError(
@@ -417,13 +540,13 @@ class DocumentStore(MemoryStore):
             self._docs[path] = content
         self._index_document(path, content)
 
-    @synchronized
     def read(self, path: str) -> str:
         """
         Return the content of the document at *path*.
 
         Raises:
-            KeyError: If no document exists at *path*.
+            KeyError: If no document exists at *path*. :meth:`unreadable_reason` says whether a file is
+                there that is not one.
         """
         path = self._normalize(path)
         if self._persist_path:
@@ -432,9 +555,10 @@ class DocumentStore(MemoryStore):
             if content is None:
                 raise KeyError(path)
             return content
-        if path not in self._docs:
-            raise KeyError(path)
-        return self._docs[path]
+        with self._lock:
+            if path not in self._docs:
+                raise KeyError(path)
+            return self._docs[path]
 
     @synchronized
     def edit(self, path: str, old_str: str, new_str: str) -> None:
@@ -476,10 +600,13 @@ class DocumentStore(MemoryStore):
             )
         self.write(path, content.replace(old_str, new_str))
 
-    @synchronized
     def list_paths(self, prefix: Optional[str] = None) -> list[str]:
         """
         Return all memory paths, optionally filtered by *prefix*.
+
+        Reads every file to leave out the ones that are not documents, which on a large folder is slow
+        the first time (each PDF is extracted) and afterwards still opens every text file. To list a large
+        folder, :meth:`listing` reads nothing.
 
         Args:
             prefix: Only return paths that start with this string.
@@ -493,7 +620,49 @@ class DocumentStore(MemoryStore):
             paths = [p for p in paths if p.startswith(self._normalize(prefix))]
         return paths
 
-    @synchronized
+    def listing(self, prefix: Optional[str] = None) -> DocumentListing:
+        """
+        List the folder from its metadata alone: no file is opened, so this costs a walk however large it is.
+
+        Where :meth:`list_paths` reads every file to leave out the ones that are not documents, this lists
+        every candidate file as a document unless it is already known not to be one: over
+        *max_file_bytes* (from its size), or found unreadable by an earlier read (a search, an index
+        build, :meth:`read`, :meth:`unreadable`) and unchanged since. So a file nothing has read yet is
+        listed, and turns up in *unreadable* once something has read it.
+
+        Args:
+            prefix: Only list paths that start with this string.
+
+        Returns:
+            A :class:`DocumentListing` of ``(paths, unreadable)``; an ephemeral store has no unreadable files.
+        """
+        wanted = self._normalize(prefix) if prefix else None
+        if not self._persist_path:
+            with self._lock:
+                paths = sorted(self._docs)
+            return DocumentListing([p for p in paths if wanted is None or p.startswith(wanted)], {})
+        paths, unreadable = [], {}
+        for mem_path, abs_file in sorted(self._walk()):
+            if wanted is not None and not mem_path.startswith(wanted):
+                continue
+            try:
+                stat = os.stat(abs_file)
+            except FileNotFoundError:
+                continue
+            except OSError as exc:
+                unreadable[mem_path] = str(exc)
+                continue
+            if stat.st_size > self._max_file_bytes:
+                unreadable[mem_path] = self._too_large(stat.st_size)
+                continue
+            with self._lock:
+                reason = self._reason_on_record(abs_file, (stat.st_mtime_ns, stat.st_size))
+            if reason is None:
+                paths.append(mem_path)
+            else:
+                unreadable[mem_path] = reason
+        return DocumentListing(paths, unreadable)
+
     def search_full_text(self, query: str, n_results: int = 10) -> list[dict]:
         """
         Case-insensitive substring search across all document contents.
@@ -514,7 +683,6 @@ class DocumentStore(MemoryStore):
         ]
         return matches[:n_results]
 
-    @synchronized
     def unreadable(self) -> dict[str, str]:
         """Return the files in the store's directory that cannot be read as documents, with why.
 
@@ -522,9 +690,11 @@ class DocumentStore(MemoryStore):
         password-protected PDF, a Word export, a binary artifact. They are excluded from
         :meth:`list_paths` and :meth:`search_full_text`, so this is what lets a caller tell the
         difference between "you gave me nothing" and "what you gave me cannot be read", and say why.
-        Dot-files are not reported: they are not documents anyone placed here.
+        Dot-files are not reported: they are not documents anyone placed here, and nor are files
+        whose suffix *extensions* does not allow.
 
-        Rescans the directory; returns ``{}`` for an ephemeral store, which has no directory.
+        Rescans the directory, reading every file; returns ``{}`` for an ephemeral store, which has no
+        directory. :meth:`listing` reports the reasons already on record without reading.
 
         Returns:
             Mapping of normalized memory path to a human-readable reason.
@@ -535,7 +705,28 @@ class DocumentStore(MemoryStore):
         self._scan_disk(collect_unreadable=unreadable)
         return unreadable
 
-    @synchronized
+    def unreadable_reason(self, path: str) -> Optional[str]:
+        """Why the file at *path* exists but is not a readable document, or None if it is one or is absent.
+
+        :meth:`read` raises ``KeyError`` for both a missing document and a file it cannot read; this tells
+        them apart, which is what a caller about to write to *path* needs, since writing would replace a
+        file it cannot see. Reads the one file. A file whose suffix *extensions* does not allow is no
+        candidate, so it gets None: :meth:`write` refuses that path anyway.
+        """
+        path = self._normalize(path)
+        if not self._persist_path or not self._is_candidate(path):
+            return None
+        abs_file = self._abs_path(path)
+        if not os.path.lexists(abs_file):
+            return None
+        if not self._is_inside_root(abs_file):
+            return "it resolves outside the document folder"
+        if self._is_hidden(path):
+            return "it is a dot-file, which this store ignores"
+        if os.path.isdir(abs_file):
+            return "it is a folder"
+        return self._read(abs_file).reason
+
     def search_passages(self, query: str, n_results: int = 8) -> list[Passage]:
         """
         Rank passages of every document against *query*, best first.
@@ -547,13 +738,15 @@ class DocumentStore(MemoryStore):
         With an *embedding_client*, passages are also ranked by vector similarity, which finds one that
         says the same thing in other words, and the two rankings are fused by reciprocal rank (see
         :func:`aimu.rag.reciprocal_rank_fusion`). A failing embedding model makes the search keyword-only
-        and is reported by :meth:`index_status`; it does not raise.
+        and is reported by :meth:`index_status`; it does not raise, and neither does a file that fails to
+        index, which is left out and reported the same way.
 
         The folder is the source of truth. A metadata walk before each search re-indexes only files
         whose size or modification time changed, so a file edited, added, or deleted out-of-band is
-        reflected at once. The index is built on the first call. A large build, and all embedding, carry
-        on in a background thread, so a search during one ranks what is indexed so far; check
-        :meth:`index_status` to tell a partial answer from a complete one.
+        reflected at once. A file that could not be opened (its permissions, or a cloud-synced file not
+        downloaded yet) is tried again a minute later, changed or not. The index is built on the first
+        call. A large build, and all embedding, carry on in a background thread, so a search during one
+        ranks what is indexed so far; check :meth:`index_status` to tell a partial answer from a complete one.
 
         Args:
             query:     Natural-language or keyword query.
@@ -565,28 +758,34 @@ class DocumentStore(MemoryStore):
         Raises:
             ImportError: If an *embedding_client* was given and chromadb is not installed.
         """
-        index, _ = self._refreshed_index()
-        return index.search(query, n_results)
+        with self._search_lock:
+            index, _ = self._refreshed_index()
+            return index.search(query, n_results)
 
-    @synchronized
-    def index_status(self) -> IndexStatus:
-        """Refresh the passage index and report how much of the store it covers, and what it cannot read."""
-        index, unreadable = self._refreshed_index()
-        return dataclasses.replace(index.status(), unreadable=unreadable)
+    def index_status(self, *, refresh: bool = True) -> IndexStatus:
+        """Report how much of the store the passage index covers, and what it cannot read.
+
+        Args:
+            refresh: Bring the index in step with the folder first (a metadata walk). Pass False straight
+                after a search, which has just done that, to report on the same walk; the first call
+                refreshes regardless, since there is no index before it.
+        """
+        with self._search_lock:
+            index, unreadable = self._refreshed_index(refresh)
+            return dataclasses.replace(index.status(), unreadable=unreadable)
 
     def close(self) -> None:
         """Stop the passage index's background work and release its database, if one was opened.
 
         The store stays usable; the next search reopens the index.
         """
-        # Not @synchronized: the index's worker takes this store's lock to read a file, so stopping the
-        # worker while holding that lock would wait on a thread that is waiting on this one.
-        with self._lock:
+        with self._search_lock, self._lock:
             index, self._index = self._index, None
+        # Closed with neither lock held: the index's worker takes this store's lock to read a file, so
+        # stopping the worker while holding it would wait on a thread that is waiting on this one.
         if index is not None:
             index.close()
 
-    @synchronized
     def unreadable_paths(self) -> list[str]:
         """Return the sorted memory paths of files that cannot be read as documents.
 
@@ -611,7 +810,6 @@ class DocumentStore(MemoryStore):
         path = f"/note-{uuid.uuid4()}.md"
         self.write(path, content)
 
-    @synchronized
     def search(self, query: str, n_results: int = 10) -> list[str]:
         """
         Full-text search; returns a list of matching content strings.
@@ -630,12 +828,15 @@ class DocumentStore(MemoryStore):
         """
         Delete the document at *identifier* (treated as a memory path).
 
-        No-op if the path does not exist.
+        No-op if the path does not exist, or names a file whose suffix *extensions* does not allow, which is
+        no document of this store's.
 
         Args:
             identifier: Memory path of the document to remove.
         """
         identifier = self._normalize(identifier)
+        if not self._is_candidate(identifier):
+            return
         if self._persist_path:
             self._delete_from_disk(identifier)
             self._unreadable_reasons.pop(self._abs_path(identifier), None)
@@ -645,7 +846,6 @@ class DocumentStore(MemoryStore):
         if self._index is not None:
             self._index.remove(identifier)
 
-    @synchronized
     def list_all(self) -> list[str]:
         """Return all memory paths (sorted)."""
         return self.list_paths()
@@ -668,7 +868,12 @@ class CollectionPassage:
 
 
 def search_collections(
-    stores: Mapping[str, DocumentStore], query: str, n_results: int = 8, *, rerank: bool = False
+    stores: Mapping[str, DocumentStore],
+    query: str,
+    n_results: int = 8,
+    *,
+    rerank: bool = False,
+    on_error: Optional[Callable[[str, Exception], None]] = None,
 ) -> list[CollectionPassage]:
     """
     Search several stores at once and return one ranking of passages, each labeled with its collection.
@@ -684,6 +889,9 @@ def search_collections(
         n_results: Maximum number of passages to return.
         rerank:    Reorder the fused top ``2 * n_results`` passages with a cross-encoder
                    (:func:`aimu.rag.rerank`), which needs the ``[hf]`` extra.
+        on_error:  Called with a collection's name and the exception when its store's search raises; that
+                   store is then left out and the rest are still searched. Without it, the exception
+                   propagates, so one broken store fails the whole search.
 
     Returns:
         :class:`CollectionPassage` records, best first. An empty *stores* returns ``[]``.
@@ -694,8 +902,15 @@ def search_collections(
     passages: dict[str, tuple[str, Passage]] = {}
     rankings: list[list[str]] = []
     for collection, store in stores.items():
+        try:
+            found = store.search_passages(query, pool)
+        except Exception as exc:
+            if on_error is None:
+                raise
+            on_error(collection, exc)
+            continue
         ranking = []
-        for passage in store.search_passages(query, pool):
+        for passage in found:
             # The text is part of the key: one long section is several chunks sharing a path and location.
             key = f"{collection}\0{passage.path}\0{passage.location}\0{passage.text}"
             passages[key] = (collection, passage)

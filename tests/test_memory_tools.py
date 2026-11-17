@@ -523,7 +523,7 @@ def test_search_documents_does_not_truncate_a_short_document(doc_tools):
 # ---------------------------------------------------------------------------
 
 
-from aimu.memory import IndexStatus  # noqa: E402
+from aimu.memory import IndexProblem, IndexStatus  # noqa: E402
 from aimu.tools.builtin import make_collection_tools  # noqa: E402
 
 
@@ -660,21 +660,26 @@ def test_search_result_format():
     assert "personal" not in narrowed and "kokua" not in narrowed
 
     # Incomplete indexes are summed across the searched stores that are incomplete.
-    personal.index_status = lambda: IndexStatus(files=10, indexed=10, embedded=3, unreadable={}, vectors=True)
-    work.index_status = lambda: IndexStatus(files=4, indexed=4, embedded=1, unreadable={}, vectors=True)
+    personal.index_status = lambda **_: IndexStatus(files=10, indexed=10, embedded=3, unreadable={}, vectors=True)
+    work.index_status = lambda **_: IndexStatus(files=4, indexed=4, embedded=1, unreadable={}, vectors=True)
     result = tools["search_documents"]("glacier melt")
     assert result.endswith("Note: indexing in progress (4 of 14 files embedded); results may be incomplete.")
 
     # Without vectors, the count is of indexed files.
-    personal.index_status = lambda: IndexStatus(files=10, indexed=6, embedded=0, unreadable={})
-    work.index_status = lambda: IndexStatus(files=4, indexed=4, embedded=0, unreadable={})
+    personal.index_status = lambda **_: IndexStatus(files=10, indexed=6, embedded=0, unreadable={})
+    work.index_status = lambda **_: IndexStatus(files=4, indexed=4, embedded=0, unreadable={})
     result = tools["search_documents"]("glacier melt")
     assert "Note: indexing in progress (6 of 10 files indexed); results may be incomplete." in result
 
     # An embedding failure on a store with vectors is the semantic-search note, its error verbatim.
     embedding_error = "Embedding failed, so search is keyword-only until it succeeds: RuntimeError: model down"
-    personal.index_status = lambda: IndexStatus(
-        files=1, indexed=1, embedded=1, unreadable={}, error=embedding_error, vectors=True
+    personal.index_status = lambda **_: IndexStatus(
+        files=1,
+        indexed=1,
+        embedded=1,
+        unreadable={},
+        problems=(IndexProblem("embedding", embedding_error),),
+        vectors=True,
     )
     result = tools["search_documents"]("glacier melt")
     assert f"Note: semantic search is unavailable ({embedding_error}); these are keyword matches only." in result
@@ -689,7 +694,9 @@ def test_search_names_a_non_embedding_index_problem_by_collection():
     tools = _collection_tools({"personal": personal, "work": work})
 
     stopped = "Background indexing stopped: OperationalError: database is locked"
-    work.index_status = lambda: IndexStatus(files=1, indexed=1, embedded=0, unreadable={}, error=stopped)
+    work.index_status = lambda **_: IndexStatus(
+        files=1, indexed=1, embedded=0, unreadable={}, problems=(IndexProblem("worker", stopped),)
+    )
     result = tools["search_documents"]("glacier")
     assert f"Note: indexing problem in 'work': {stopped}" in result
     assert "semantic search" not in result
@@ -697,8 +704,13 @@ def test_search_names_a_non_embedding_index_problem_by_collection():
     # One status can carry both kinds; each is reported as what it is.
     embedding = "Embedding the query failed, so search is keyword-only: RuntimeError: gone; really gone"
     failed = "Could not index /c.md: OperationalError: disk I/O error"
-    work.index_status = lambda: IndexStatus(
-        files=1, indexed=1, embedded=1, unreadable={}, error=f"{embedding}; {failed}", vectors=True
+    work.index_status = lambda **_: IndexStatus(
+        files=1,
+        indexed=1,
+        embedded=1,
+        unreadable={},
+        problems=(IndexProblem("embedding", embedding), IndexProblem("file", failed)),
+        vectors=True,
     )
     result = tools["search_documents"]("glacier")
     assert f"Note: semantic search is unavailable ({embedding}); these are keyword matches only." in result
@@ -783,7 +795,7 @@ def test_also_in_names_a_second_copy_in_the_same_collection():
 def test_search_with_no_match_still_carries_its_notes():
     store = DocumentStore()
     store.write("/a.md", "alpha")
-    store.index_status = lambda: IndexStatus(files=5, indexed=2, embedded=0, unreadable={})
+    store.index_status = lambda **_: IndexStatus(files=5, indexed=2, embedded=0, unreadable={})
     result = _collection_tools({"personal": store})["search_documents"]("zebra")
 
     assert result.startswith("No matching passages found")

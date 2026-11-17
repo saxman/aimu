@@ -18,6 +18,7 @@ except ImportError as exc:  # pragma: no cover - exercised via tests/test_option
         raise
     raise ImportError("SemanticMemoryStore requires the [memory] extra (chromadb): pip install 'aimu[memory]'") from exc
 
+from aimu.memory._chroma import open_client
 from aimu.memory.base import MemoryStore, synchronized
 
 
@@ -95,10 +96,7 @@ class SemanticMemoryStore(MemoryStore):
         persist_path: Optional[str] = None,
         embedding_client: Optional[Any] = None,
     ):
-        if persist_path:
-            self._client = chromadb.PersistentClient(path=persist_path)
-        else:
-            self._client = chromadb.EphemeralClient()
+        self._client = open_client(chromadb, persist_path or None)
 
         collection_kwargs: dict[str, Any] = {
             "name": collection_name,

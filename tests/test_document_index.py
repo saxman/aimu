@@ -662,13 +662,13 @@ def test_a_pending_file_hides_its_superseded_text(tmp_path, monkeypatch):
 
     # Hold the worker before it reads the rewritten file, outside the store's lock so the search can run.
     release = threading.Event()
-    real_load = store._locked_load
+    real_load = store._load
 
     def gated_load(path):
         release.wait(10)
         return real_load(path)
 
-    monkeypatch.setattr(store, "_locked_load", gated_load)
+    monkeypatch.setattr(store, "_load", gated_load)
     note = tmp_path / "docs" / "a.md"
     note.write_text("soil sampling notes")
     os.utime(note, (time.time() + 5, time.time() + 5))
@@ -693,19 +693,22 @@ def test_a_search_during_a_background_build_does_not_index_inline_again(tmp_path
         (tmp_path / f"n{number}.md").write_text(f"shared note {number}")
     store = DocumentStore(persist_path=str(tmp_path))
     real_load = store._load
+    loaded_by: list[str] = []
 
     def slow_load(path):
+        loaded_by.append(threading.current_thread().name)
         time.sleep(0.025)
         return real_load(path)
 
     monkeypatch.setattr(store, "_load", slow_load)
     store.search_passages("shared")
     assert store._index._worker is not None
-    # The worker has about 0.7 s of files left. Another search costs the walk and at most one file's wait
-    # for the store's lock, not a second 0.3 s inline pass.
-    started = time.monotonic()
+    # The worker has about 0.7 s of files left. Another search hands changed files to it and loads none on
+    # the searching thread, rather than spending a second inline budget.
+    caller = threading.current_thread().name
+    inline_before = loaded_by.count(caller)
     store.search_passages("shared")
-    assert time.monotonic() - started < 0.15
+    assert loaded_by.count(caller) == inline_before
     assert store._index.wait_until_embedded(10)
     assert store.index_status().complete
     store.close()
@@ -1003,3 +1006,392 @@ def test_two_chunks_of_one_section_in_one_store_both_appear():
     assert len(results) >= 2
     assert len({r.passage.text for r in results}) == len(results)
     assert len({r.passage.location for r in results}) == 1
+
+
+# ---------------------------------------------------------------------------
+# Final review: vault scale, lock discipline, and honest status
+# ---------------------------------------------------------------------------
+
+
+def test_an_inline_failure_on_one_file_is_recorded_not_raised(tmp_path, monkeypatch):
+    # The default inline budget, so the failure happens in the search's own pass rather than the worker's.
+    (tmp_path / "bad.md").write_text("poison")
+    (tmp_path / "good.md").write_text("fine words")
+    chunked = []
+    real_chunk_document = index_module.chunk_document
+
+    def chunk_document(path, text, **kwargs):
+        chunked.append(path)
+        if "poison" in text:
+            raise sqlite3.OperationalError("disk I/O error")
+        return real_chunk_document(path, text, **kwargs)
+
+    monkeypatch.setattr(index_module, "chunk_document", chunk_document)
+    store = DocumentStore(persist_path=str(tmp_path))
+    assert [hit.path for hit in store.search_passages("fine")] == ["/good.md"]
+    assert [hit.path for hit in store.search_passages("fine")] == ["/good.md"]
+    assert chunked.count("/bad.md") == 1
+    status = store.index_status()
+    assert (status.files, status.indexed) == (2, 1)
+    assert [problem.kind for problem in status.problems] == ["file"]
+    assert "/bad.md" in status.problems[0].message and "disk I/O error" in status.error
+    store.close()
+
+
+@pytest.mark.parametrize("operation", ["read", "search_passages", "list_paths"])
+def test_a_slow_pdf_extraction_does_not_block_another_file(tmp_path, monkeypatch, operation):
+    (tmp_path / "slow.pdf").write_bytes(minimal_pdf(["alpha"]))
+    (tmp_path / "a.md").write_text("quick")
+    started, release = threading.Event(), threading.Event()
+    real_pdf_to_markdown = document_store_module.pdf_to_markdown
+
+    def slow_pdf_to_markdown(data):
+        started.set()
+        release.wait(10)
+        return real_pdf_to_markdown(data)
+
+    monkeypatch.setattr(document_store_module, "pdf_to_markdown", slow_pdf_to_markdown)
+    store = DocumentStore(persist_path=str(tmp_path))
+    calls = {
+        "read": lambda: store.read("/slow.pdf"),
+        "search_passages": lambda: store.search_passages("alpha"),
+        "list_paths": store.list_paths,
+    }
+    extracting = threading.Thread(target=calls[operation])
+    extracting.start()
+    try:
+        assert started.wait(5)
+        done = []
+
+        def read_and_write():
+            done.append(store.read("/a.md"))
+            store.write("/b.md", "written meanwhile")
+            done.append(store.read("/b.md"))
+
+        other = threading.Thread(target=read_and_write)
+        other.start()
+        other.join(timeout=2)
+        assert done == ["quick", "written meanwhile"]
+    finally:
+        release.set()
+        extracting.join(timeout=10)
+        other.join(timeout=10)
+    assert "alpha" in store.read("/slow.pdf")
+    store.close()
+
+
+def test_an_extraction_of_a_file_that_changed_meanwhile_is_not_cached(tmp_path, monkeypatch):
+    pdf = tmp_path / "p.pdf"
+    pdf.write_bytes(minimal_pdf(["alpha"]))
+    real_pdf_to_markdown = document_store_module.pdf_to_markdown
+
+    def rewriting_pdf_to_markdown(data):
+        text = real_pdf_to_markdown(data)
+        pdf.write_bytes(minimal_pdf(["alpha", "beta"]))
+        os.utime(pdf, (time.time() + 5, time.time() + 5))
+        return text
+
+    monkeypatch.setattr(document_store_module, "pdf_to_markdown", rewriting_pdf_to_markdown)
+    store = DocumentStore(persist_path=str(tmp_path))
+    store.read("/p.pdf")
+    assert str(pdf) not in store._extractions
+
+
+def test_a_file_that_could_not_be_opened_is_retried_without_changing(tmp_path, monkeypatch):
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
+        pytest.skip("root can read a file with no permissions")
+    monkeypatch.setattr(index_module, "TRANSIENT_RETRY_SECONDS", 0.0, raising=False)
+    locked = tmp_path / "locked.md"
+    locked.write_text("ribosome notes")
+    os.chmod(locked, 0)
+    store = DocumentStore(persist_path=str(tmp_path))
+    try:
+        assert store.search_passages("ribosome") == []
+        assert "Permission denied" in store.index_status().unreadable["/locked.md"]
+    finally:
+        # chmod moves the ctime, not the (mtime, size) the index keys on, so nothing about the file changed.
+        os.chmod(locked, 0o600)
+    assert [hit.path for hit in store.search_passages("ribosome")] == ["/locked.md"]
+    status = store.index_status()
+    assert status.unreadable == {} and status.complete
+    store.close()
+
+
+def test_a_transient_failure_waits_before_it_is_retried(tmp_path, monkeypatch):
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
+        pytest.skip("root can read a file with no permissions")
+    locked = tmp_path / "locked.md"
+    locked.write_text("ribosome notes")
+    os.chmod(locked, 0)
+    store = DocumentStore(persist_path=str(tmp_path))
+    loads = []
+    real_load = store._load
+    monkeypatch.setattr(store, "_load", lambda path: loads.append(path) or real_load(path))
+    try:
+        store.search_passages("ribosome")
+        store.search_passages("ribosome")
+        assert loads == ["/locked.md"]
+    finally:
+        os.chmod(locked, 0o600)
+    store.close()
+
+
+def test_a_file_that_is_not_text_is_not_read_again(tmp_path, monkeypatch):
+    (tmp_path / "bin.md").write_bytes(b"\xff\xfe\x00")
+    monkeypatch.setattr(index_module, "TRANSIENT_RETRY_SECONDS", 0.0, raising=False)
+    store = DocumentStore(persist_path=str(tmp_path))
+    loads = []
+    real_load = store._load
+    monkeypatch.setattr(store, "_load", lambda path: loads.append(path) or real_load(path))
+    store.search_passages("x")
+    store.search_passages("x")
+    assert loads == ["/bin.md"]
+    assert store.index_status().unreadable == {"/bin.md": "not UTF-8 text"}
+    store.close()
+
+
+def test_extensions_limit_which_files_are_documents(tmp_path):
+    (tmp_path / "a.md").write_text("alpha")
+    (tmp_path / "B.TXT").write_text("alpha two")
+    (tmp_path / "c.json").write_text('{"alpha": 1}')
+    (tmp_path / "d.docx").write_bytes(b"\xff\xfe\x00")
+    (tmp_path / "p.PDF").write_bytes(minimal_pdf(["alpha"]))
+    store = DocumentStore(persist_path=str(tmp_path), extensions=["md", ".txt", ".PDF"])
+    assert store.list_paths() == ["/B.TXT", "/a.md", "/p.PDF"]
+    assert store.unreadable() == {}
+    assert store.listing().paths == ["/B.TXT", "/a.md", "/p.PDF"]
+    status = store.index_status()
+    assert status.files == 3 and status.unreadable == {} and status.complete
+    assert {hit.path for hit in store.search_passages("alpha")} == {"/a.md", "/B.TXT", "/p.PDF"}
+    with pytest.raises(KeyError):
+        store.read("/c.json")
+    assert store.unreadable_reason("/c.json") is None
+    with pytest.raises(ValueError, match=r"\.json"):
+        store.write("/new.json", "{}")
+    assert not (tmp_path / "new.json").exists()
+    store.close()
+
+    every = DocumentStore(persist_path=str(tmp_path))
+    assert "/c.json" in every.list_paths() and "/d.docx" in every.unreadable()
+
+
+def test_extensions_must_be_a_collection_of_suffixes(tmp_path):
+    with pytest.raises(TypeError):
+        DocumentStore(persist_path=str(tmp_path), extensions=".md")
+    with pytest.raises(ValueError):
+        DocumentStore(persist_path=str(tmp_path), extensions=[])
+
+
+def test_paths_expand_the_home_directory(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.chdir(tmp_path)
+    store = DocumentStore("~/Vault", index_path="~/index")
+    store.write("/a.md", "alpha")
+    assert store.search_passages("alpha")[0].path == "/a.md"
+    store.close()
+    assert (home / "Vault" / "a.md").read_text() == "alpha"
+    assert (home / "index" / "index.sqlite3").exists()
+    assert not (tmp_path / "~").exists()
+
+
+def test_listing_reads_no_file_contents(tmp_path, monkeypatch):
+    (tmp_path / "a.md").write_text("alpha")
+    (tmp_path / "p.pdf").write_bytes(minimal_pdf(["alpha"]))
+    (tmp_path / "bin.md").write_bytes(b"\xff\xfe\x00")
+    (tmp_path / "big.md").write_text("x" * 20_000)
+    store = DocumentStore(persist_path=str(tmp_path), max_file_bytes=10_000)
+    # Reading records why bin.md is no document; the listing reports that reason without reading again.
+    assert "/bin.md" in store.unreadable()
+
+    def no_reading(*args, **kwargs):
+        raise AssertionError("listing read a file")
+
+    monkeypatch.setattr(document_store_module, "open", no_reading, raising=False)
+    monkeypatch.setattr(document_store_module, "pdf_to_markdown", no_reading)
+    listing = store.listing()
+    assert listing.paths == ["/a.md", "/p.pdf"]
+    assert listing.unreadable["/bin.md"] == "not UTF-8 text"
+    assert "too large" in listing.unreadable["/big.md"]
+    assert store.listing(prefix="/b").paths == []
+    assert sorted(store.listing(prefix="/b").unreadable) == ["/big.md", "/bin.md"]
+    assert DocumentStore().listing() == ([], {})
+
+
+def test_a_fresh_store_over_a_persisted_index_lists_without_extracting(tmp_path, monkeypatch):
+    folder = tmp_path / "docs"
+    folder.mkdir()
+    (folder / "p.pdf").write_bytes(minimal_pdf(["alpha"]))
+    first = DocumentStore(persist_path=str(folder), index_path=str(tmp_path / "index"))
+    first.index_status()
+    first.close()
+    calls = []
+    monkeypatch.setattr(document_store_module, "pdf_to_markdown", lambda data: calls.append(1) or "x")
+    second = DocumentStore(persist_path=str(folder), index_path=str(tmp_path / "index"))
+    assert second.listing().paths == ["/p.pdf"]
+    assert second.index_status().complete
+    assert calls == []
+    second.close()
+
+
+def test_unreadable_reason_names_why_an_existing_file_is_no_document(tmp_path):
+    (tmp_path / "a.md").write_text("alpha")
+    (tmp_path / "bin.md").write_bytes(b"\xff\xfe\x00")
+    store = DocumentStore(persist_path=str(tmp_path))
+    assert store.unreadable_reason("/a.md") is None
+    assert store.unreadable_reason("/missing.md") is None
+    assert store.unreadable_reason("bin.md") == "not UTF-8 text"
+    assert DocumentStore().unreadable_reason("/a.md") is None
+
+
+def test_an_embedding_failure_is_a_structured_problem(tmp_path):
+    store = _vector_store(tmp_path, FakeEmbedder(error=RuntimeError("model download failed")), a="ribosome notes")
+    store.search_passages("ribosome")
+    assert not store._index.wait_until_embedded(5)
+    status = store.index_status()
+    assert [problem.kind for problem in status.problems] == ["embedding"]
+    assert "model download failed" in status.problems[0].message
+    assert status.error == status.problems[0].message
+    store.close()
+
+
+def test_a_worker_error_survives_the_next_status(tmp_path, monkeypatch):
+    monkeypatch.setattr(index_module, "INLINE_INDEX_SECONDS", 0.0)
+    (tmp_path / "a.md").write_text("alpha")
+    real_next_job = PassageIndex._next_job
+    worker_calls = []
+
+    def next_job(self):
+        if threading.current_thread().name == index_module.WORKER_THREAD_NAME:
+            worker_calls.append(1)
+            if len(worker_calls) == 1:
+                raise sqlite3.OperationalError("database is locked")
+        return real_next_job(self)
+
+    monkeypatch.setattr(PassageIndex, "_next_job", next_job)
+    store = DocumentStore(persist_path=str(tmp_path))
+    release = threading.Event()
+    real_load = store._load
+
+    def gated_load(path):
+        release.wait(10)
+        return real_load(path)
+
+    monkeypatch.setattr(store, "_load", gated_load)
+    try:
+        store.index_status()
+        assert not store._index.wait_until_embedded(5)
+        # This refresh restarts the worker, which is now held reading a.md: nothing has succeeded since the
+        # failure, so the failure is still the news.
+        for _ in range(2):
+            status = store.index_status()
+            assert [problem.kind for problem in status.problems] == ["worker"]
+            assert "database is locked" in status.error
+    finally:
+        release.set()
+    assert store._index.wait_until_embedded(5)
+    assert store.index_status().problems == ()
+    store.close()
+
+
+def test_status_without_refresh_reports_the_last_refresh(tmp_path):
+    (tmp_path / "a.md").write_text("alpha")
+    store = DocumentStore(persist_path=str(tmp_path))
+    store.search_passages("alpha")
+    (tmp_path / "b.md").write_text("beta")
+    assert store.index_status(refresh=False).files == 1
+    assert store.index_status().files == 2
+    store.close()
+
+
+def test_a_corrupt_keyword_index_is_rebuilt(tmp_path, caplog):
+    folder, index_dir = tmp_path / "docs", tmp_path / "index"
+    folder.mkdir()
+    index_dir.mkdir()
+    (folder / "a.md").write_text("photosynthesis notes")
+    (index_dir / "index.sqlite3").write_bytes(b"not a database " * 100)
+    store = DocumentStore(persist_path=str(folder), index_path=str(index_dir))
+    assert [hit.path for hit in store.search_passages("photosynthesis")] == ["/a.md"]
+    assert "rebuilding" in caplog.text
+    store.close()
+
+
+def test_a_corrupt_vector_index_is_rebuilt(tmp_path, caplog):
+    pytest.importorskip("chromadb")
+    folder, index_dir = tmp_path / "docs", tmp_path / "index"
+    folder.mkdir()
+    (index_dir / "vectors").mkdir(parents=True)
+    (folder / "a.md").write_text("structure prediction of polypeptides")
+    (index_dir / "vectors" / "chroma.sqlite3").write_bytes(b"not a database " * 100)
+    store = DocumentStore(persist_path=str(folder), index_path=str(index_dir), embedding_client=FakeEmbedder())
+    store.index_status()
+    assert store._index.wait_until_embedded(5)
+    assert store.search_passages("protein folding")[0].path == "/a.md"
+    assert "rebuilding" in caplog.text
+    store.close()
+
+
+def test_vectors_lost_while_the_manifest_says_embedded_are_rebuilt(tmp_path, caplog):
+    import shutil
+
+    first = _vector_store(tmp_path, FakeEmbedder(), a="protein folding", b="glacier melt")
+    first.index_status()
+    assert first._index.wait_until_embedded(5)
+    first.close()
+    shutil.rmtree(tmp_path / "index" / "vectors")
+
+    release = threading.Event()
+    second = _vector_store(tmp_path, FakeEmbedder(block=release))
+    try:
+        assert second.index_status().embedded == 0
+    finally:
+        release.set()
+    assert second._index.wait_until_embedded(5)
+    assert second.search_passages("polypeptides")[0].path == "/a.md"
+    assert "vectors" in caplog.text
+    second.close()
+
+
+def test_changing_embedding_dimensions_rebuilds_vectors(tmp_path):
+    wide = FakeEmbedder("fake-1")
+    wide.dimensions = 8
+    first = _vector_store(tmp_path, wide, a="protein folding")
+    first.index_status()
+    assert first._index.wait_until_embedded(5)
+    first.close()
+
+    release = threading.Event()
+    narrow = FakeEmbedder("fake-1", block=release)
+    narrow.dimensions = 4
+    second = _vector_store(tmp_path, narrow)
+    try:
+        assert second.index_status().embedded == 0
+        assert second._index._collection.count() == 0
+    finally:
+        release.set()
+    assert second._index.wait_until_embedded(5)
+    second.close()
+
+
+def test_vector_clients_send_no_telemetry(tmp_path):
+    pytest.importorskip("chromadb")
+    from aimu.memory import SemanticMemoryStore
+
+    for client, _ in (index_module._open_vectors(None), index_module._open_vectors(str(tmp_path))):
+        assert client.get_settings().anonymized_telemetry is False
+    assert SemanticMemoryStore()._client.get_settings().anonymized_telemetry is False
+
+
+def test_a_failing_store_is_skipped_and_reported():
+    stores = {"good": _store_with(a="glacier ice"), "bad": _store_with(b="glacier melt")}
+
+    def broken(query, n_results=8):
+        raise RuntimeError("index database is locked")
+
+    stores["bad"].search_passages = broken
+    with pytest.raises(RuntimeError):
+        search_collections(stores, "glacier")
+    failures = {}
+    results = search_collections(stores, "glacier", on_error=lambda name, exc: failures.setdefault(name, exc))
+    assert [result.collection for result in results] == ["good"]
+    assert isinstance(failures["bad"], RuntimeError)

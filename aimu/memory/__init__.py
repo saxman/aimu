@@ -2,9 +2,9 @@ from importlib import import_module
 from typing import TYPE_CHECKING
 
 # base, document_store, and the passage index are chromadb-free, so they stay eager.
-from ._index import IndexStatus, Passage
+from ._index import IndexProblem, IndexStatus, Passage
 from .base import MemoryStore
-from .document_store import CollectionPassage, DocumentStore, search_collections
+from .document_store import CollectionPassage, DocumentListing, DocumentStore, search_collections
 
 if TYPE_CHECKING:
     from .semantic_store import SemanticMemoryStore
@@ -29,6 +29,8 @@ __all__ = [
     "DocumentStore",
     "Passage",
     "IndexStatus",
+    "IndexProblem",
+    "DocumentListing",
     "CollectionPassage",
     "search_collections",
 ]
