@@ -2365,27 +2365,51 @@ def make_retrieval_tool(store, *, n_results: int = 5):
 # A whole document per match turns one search over a corpus of papers into a context-window
 # flood. Excerpt instead, and name the tool that returns the rest.
 SEARCH_EXCERPT_CHARS = 1500
+# Paths make_collection_tools' list_documents shows per collection. A vault of a few thousand notes
+# listed whole is tens of thousands of tokens, most of a small model's context, for a list the model
+# then has to narrow anyway; past this, it says how many it left out and which folders to narrow to.
+LIST_DOCUMENTS_LIMIT = 200
 
 
 def _excerpt(content: str, path: str, *, call: str = "") -> str:
     """Return *content*, or its head plus a pointer to the tool call that returns the whole thing.
 
-    *call* replaces ``read_document('{path}')`` for a tool that needs more than a path to find it again.
+    *call* replaces ``read_document({path!r})`` for a tool that needs more than a path to find it again.
     """
     if len(content) <= SEARCH_EXCERPT_CHARS:
         return content
     return (
         content[:SEARCH_EXCERPT_CHARS]
         + f"\n... (excerpt of {len(content)} characters; "
-        + f"call {call or f"read_document('{path}')"} to read it, paging with offset if it is long)"
+        + f"call {call or f'read_document({path!r})'} to read it, paging with offset if it is long)"
     )
 
 
-# IndexStatus.error is one string: the index's embedding problem first, then any others, joined by "; ".
-# Only the fixed wording aimu.memory._index opens each kind with tells them apart, so these follow it, and
-# tests/test_memory_tools.py pins them against the real index's messages.
-_EMBEDDING_PROBLEM_PREFIX = "Embedding "
-_INDEX_PROBLEM_BOUNDARY = re.compile(r"; (?=Background indexing stopped: |Could not index )")
+def _unreadable_reason(store, path: str) -> str | None:
+    """Why a file at *path* exists but cannot be read, for a store that can say (a DocumentStore can)."""
+    reason = getattr(store, "unreadable_reason", None)
+    return reason(path) if reason is not None else None
+
+
+def _refuse_unreadable(path: str, reason: str, where: str = "") -> str:
+    return (
+        f"Refusing to replace {path}{where}: a file is already there that cannot be read ({reason}), so "
+        "replacing it would destroy content you have never seen. Nothing was written."
+    )
+
+
+def _folders_under(paths: list[str], prefix: str) -> dict[str, int]:
+    """How many of *paths* lie in each folder one level below *prefix*'s folder, for a narrowing hint."""
+    segments = [segment for segment in prefix.split("/") if segment]
+    # "/Papers/" names a folder whole; the last segment of "/Papers/attn" is part of a name, not a folder.
+    depth = len(segments) if prefix.endswith("/") else max(len(segments) - 1, 0)
+    counts: dict[str, int] = {}
+    for path in paths:
+        folders = [segment for segment in path.split("/") if segment][:-1]
+        if len(folders) > depth:
+            folder = "/" + "/".join(folders[: depth + 1]) + "/"
+            counts[folder] = counts.get(folder, 0) + 1
+    return dict(sorted(counts.items()))
 
 
 def make_document_tools(store):
@@ -2438,6 +2462,10 @@ def make_document_tools(store):
             existing = store.read(path)
         except KeyError:
             existing = None
+            # read() also raises for a file that is there but unreadable, which a write would destroy unseen.
+            reason = _unreadable_reason(store, path)
+            if reason:
+                return _refuse_unreadable(path, reason)
 
         if existing is not None and digest(existing) not in shown_whole:
             total = len(existing.splitlines())
@@ -2512,7 +2540,8 @@ def make_document_tools(store):
         try:
             content = store.read(path)
         except KeyError:
-            return f"No document found at {path}."
+            reason = _unreadable_reason(store, path)
+            return f"{path} cannot be read: {reason}." if reason else f"No document found at {path}."
         lines = content.splitlines()
         # An empty document read from the top is a legitimate whole-document read.
         if offset > len(lines) and offset > 1:
@@ -2622,7 +2651,7 @@ def make_collection_tools(
 
     def reread(path: str, collection: str) -> str:
         """The read_document call a pointer names; collection may be left out only when it is the only one."""
-        return f"read_document('{path}', collection='{collection}')" if len(stores) > 1 else "read_document"
+        return f"read_document({path!r}, collection={collection!r})" if len(stores) > 1 else "read_document"
 
     # (collection, digest) of every document text shown to the model in full: make_document_tools'
     # read-before-replace guard, with the collection in the key because two collections can hold one text.
@@ -2661,7 +2690,8 @@ def make_collection_tools(
 
         With no collection, names every held collection and whether it is writable or read-only, then
         lists each one's paths. Collections are folders the user adds files to directly, so call this
-        before concluding a document does not exist. Files that cannot be read are listed with why.
+        before concluding a document does not exist. Files found unreadable are listed with why. A large
+        collection is listed in part, with its folders and their sizes: narrow to one with prefix.
 
         Args:
             collection: List only this collection. Omit to list them all.
@@ -2678,15 +2708,26 @@ def make_collection_tools(
             sections = ["Collections:\n" + "\n".join(f"- {name} ({access(name)})" for name in stores)]
         advise_export = False
         for name, store in listed:
-            paths = store.list_paths(prefix or None)
+            # From the folder's metadata: reading a vault's every file to list it would extract every PDF.
+            paths, unreadable = store.listing(prefix or None)
             empty = f"No documents under {prefix}." if prefix else "No documents."
-            section = f"{name}:\n" + ("\n".join(f"- {path}" for path in paths) if paths else empty)
+            shown = paths[:LIST_DOCUMENTS_LIMIT]
+            section = f"{name}:\n" + ("\n".join(f"- {path}" for path in shown) if paths else empty)
+            if len(paths) > len(shown):
+                folders = ", ".join(f"{folder} ({count})" for folder, count in _folders_under(paths, prefix).items())
+                section += (
+                    f"\nNote: {len(paths) - len(shown)} more documents not listed. Call list_documents again "
+                    f"with collection='{name}' and a prefix to see them"
+                    + (f"; the folders are: {folders}." if folders else ".")
+                )
             # Reported because a file the user placed in the folder that never becomes a document is otherwise
             # indistinguishable, to the model, from one that was never placed there.
-            unreadable = store.unreadable()
             if unreadable:
+                reasons = list(unreadable.items())
                 section += f"\nNote: {len(unreadable)} file(s) in {name} could not be read:\n"
-                section += "\n".join(f"- {path}: {reason}" for path, reason in unreadable.items())
+                section += "\n".join(f"- {path}: {reason}" for path, reason in reasons[:LIST_DOCUMENTS_LIMIT])
+                if len(reasons) > LIST_DOCUMENTS_LIMIT:
+                    section += f"\n... and {len(reasons) - LIST_DOCUMENTS_LIMIT} more"
                 advise_export = advise_export or "not UTF-8 text" in unreadable.values()
             sections.append(section)
         listing = "\n\n".join(sections)
@@ -2718,6 +2759,9 @@ def make_collection_tools(
         try:
             content = store.read(path)
         except KeyError:
+            reason = store.unreadable_reason(path)
+            if reason:
+                return f"{path} in the '{name}' collection cannot be read: {reason}."
             return f"No document found at {path} in the '{name}' collection."
         lines = content.splitlines()
         if offset > len(lines) and offset > 1:
@@ -2734,8 +2778,9 @@ def make_collection_tools(
         """Search documents for the passages most relevant to a query, best first.
 
         Searches every held collection unless collections narrows it. Each result cites its collection,
-        path, and heading or PDF page, then the passage; read_document returns the whole document. A note
-        at the end says when results may be incomplete.
+        path, and heading or PDF page, then the passage; read_document returns the whole document. Pass
+        the result's [collection] to read_document as its collection. A note at the end says when results
+        may be incomplete.
 
         Args:
             query: A question or keywords.
@@ -2752,11 +2797,28 @@ def make_collection_tools(
             selected = stores
         if n_results < 1:
             return f"n_results must be 1 or greater, got {n_results}"
+        failures: dict[str, Exception] = {}
         try:
-            found = search_collections(selected, query, n_results, rerank=rerank)
-            statuses = {name: store.index_status() for name, store in selected.items()}
+            found = search_collections(selected, query, n_results, rerank=rerank, on_error=failures.__setitem__)
         except Exception as exc:
             return f"Search failed, so there are no results: {type(exc).__name__}: {exc}"
+        notes = [
+            f"Note: could not search '{name}' ({type(exc).__name__}: {exc}); these results are from the "
+            "other collections only."
+            for name, exc in failures.items()
+        ]
+        statuses = {}
+        for name, store in selected.items():
+            if name in failures:
+                continue
+            try:
+                # The search just refreshed this index; refreshing again would walk the folder a second time.
+                statuses[name] = store.index_status(refresh=False)
+            except Exception as exc:
+                notes.append(
+                    f"Note: could not tell whether '{name}' is fully indexed ({type(exc).__name__}: {exc}); "
+                    "its results may be incomplete."
+                )
 
         blocks = []
         for result in found:
@@ -2772,14 +2834,21 @@ def make_collection_tools(
         if not blocks:
             blocks.append("No matching passages found.")
 
-        # Without these, a search over an index still being built reads as a search that found nothing.
-        incomplete = [status for status in statuses.values() if not status.complete]
+        # Without these, a search over an index still being built reads as a search that found nothing. A
+        # store whose embedding is failing is embedding nothing, so its progress is keyword indexing alone,
+        # and once that is done there is nothing to wait for: the semantic-search note below says why.
+        embedding, keyword = [], []
+        for status in statuses.values():
+            if status.complete:
+                continue
+            if status.vectors and not status.has_problem("embedding"):
+                embedding.append(status)
+            elif status.indexed < status.files:
+                keyword.append(status)
         counts = []
-        embedding = [status for status in incomplete if status.vectors]
         if embedding:
             done, total = sum(s.embedded for s in embedding), sum(s.files for s in embedding)
             counts.append(f"{done} of {total} files embedded")
-        keyword = [status for status in incomplete if not status.vectors]
         if keyword:
             done, total = sum(s.indexed for s in keyword), sum(s.files for s in keyword)
             counts.append(f"{done} of {total} files indexed")
@@ -2787,17 +2856,16 @@ def make_collection_tools(
             blocks.append(f"Note: indexing in progress ({', '.join(counts)}); results may be incomplete.")
         problems = []
         for name, status in statuses.items():
-            for problem in _INDEX_PROBLEM_BOUNDARY.split(status.error or ""):
-                if not problem:
-                    continue
-                if status.vectors and problem.startswith(_EMBEDDING_PROBLEM_PREFIX):
+            for problem in status.problems:
+                if problem.kind == "embedding" and status.vectors:
                     problems.append(
-                        f"Note: semantic search is unavailable ({problem}); these are keyword matches only."
+                        f"Note: semantic search is unavailable ({problem.message}); these are keyword matches only."
                     )
                 else:
-                    problems.append(f"Note: indexing problem in '{name}': {problem}")
+                    problems.append(f"Note: indexing problem in '{name}': {problem.message}")
         # A shared embedding model failing in several collections is one note, not one per collection.
         blocks.extend(dict.fromkeys(problems))
+        blocks.extend(notes)
         return "\n\n".join(blocks)
 
     @tool
@@ -2817,12 +2885,16 @@ def make_collection_tools(
         if isinstance(resolved, str):
             return resolved
         name, store = resolved
+        # A PDF is left to the store's own refusal: these would send the model to read it, which cannot help.
+        is_pdf = path.strip().lower().endswith(".pdf")
         try:
             existing = store.read(path)
         except KeyError:
             existing = None
-        # A PDF is left to the store's own refusal: this one would send the model to read it, which cannot help.
-        is_pdf = path.strip().lower().endswith(".pdf")
+            # read() also raises for a file that is there but unreadable, which a write would destroy unseen.
+            reason = None if is_pdf else store.unreadable_reason(path)
+            if reason:
+                return _refuse_unreadable(path, reason, f" in the '{name}' collection")
         if existing is not None and not is_pdf and (name, digest(existing)) not in shown_whole:
             total = len(existing.splitlines())
             return (
