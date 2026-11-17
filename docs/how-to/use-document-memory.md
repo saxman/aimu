@@ -141,6 +141,11 @@ in-process, so two agents over one store each answer for what they have read. A 
 caller is unaffected -- `store.write()` has no such guard, because the caller holds the
 document and the tools exist to keep a *model* from discarding text it has never seen.
 
+`save_document` also refuses to replace a file that is in the folder but cannot be read (not UTF-8,
+over `max_file_bytes`, or one the process may not open), naming why: `read_document` cannot show it,
+so a replacement would destroy it unseen. `store.unreadable_reason(path)` is what tells that file from
+a path with nothing there, which `store.read` cannot, since it raises `KeyError` for both.
+
 ## Expose as MCP tools
 
 ```bash

@@ -18,7 +18,7 @@ def store():
 
 
 def test_stores_are_thread_safe_under_concurrent_writes(tmp_path):
-    """Both stores serialize their public methods (a threading.RLock), so concurrent writes from
+    """Both stores serialize their writes (a threading.RLock), so concurrent writes from
     worker threads -- as happens when an async agent dispatches sync memory tools via
     asyncio.to_thread across concurrent turns -- neither lose updates nor corrupt state."""
     for make_store in (

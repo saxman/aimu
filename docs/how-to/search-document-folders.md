@@ -24,7 +24,24 @@ better match and comparable only within one search.
 `index_path` is where the index lives, and it must be **outside** the folder: a `ValueError` is raised if it lies
 inside, so the index is never mistaken for a document. Leave it as `None` and the index is held in memory and
 rebuilt each run. Nothing is built until the first `search_passages` or `index_status` call, so a store nobody
-searches pays nothing.
+searches pays nothing. Both paths expand `~`. Give each index directory to **one process**: two processes sharing
+one would each rebuild over the other's rows.
+
+## Choose which files are documents
+
+By default every file in the folder is a candidate, and one that is not text (an image, a Word export) is reported
+as unreadable. A notes vault holds plenty of files that are not notes, so name the kinds that are:
+
+```python
+store = DocumentStore(
+    "~/Vault",
+    index_path="~/.cache/aimu/vault-index",
+    extensions=(".md", ".markdown", ".txt", ".pdf"),
+)
+```
+
+Suffixes match case-insensitively, with or without the leading dot. Any other file is not a candidate at all: it
+is not listed, not reported unreadable, not counted, and `write` refuses its path.
 
 Any query is accepted. Only its words reach the index, so punctuation or search syntax in a user's question never
 raises, and common English words are ignored.
@@ -62,8 +79,8 @@ folder. Check progress with `index_status()`:
 ```python
 status = store.index_status()
 print(f"{status.indexed}/{status.files} indexed, {status.embedded} embedded")
-if status.error:
-    print(status.error)
+for problem in status.problems:
+    print(problem.kind, problem.message)
 ```
 
 | Field | Meaning |
@@ -73,12 +90,22 @@ if status.error:
 | `unreadable` | Files that cannot be documents, as a dict of path to reason |
 | `embedded` | Indexed documents that also have vectors (0 without an embedding client) |
 | `vectors` | Whether the store has an embedding client, so `embedded` counts toward `complete` |
-| `error` | What is wrong, if anything: the embedding model failing, or files the index could not process |
+| `problems` | What is wrong, as `IndexProblem(kind, message)` records (see below); `()` when nothing is |
+| `error` | Every problem's message joined into one string, or `None` |
 | `complete` | `True` when every document is indexed (and embedded, if `vectors`) |
 
-An embedding failure never raises into a search: it falls back to keyword-only results and `error` says why. A
-file that changed since it was last indexed is never returned with its old text. Call `store.close()` when you are
-done to stop the background thread; it also exits on its own when idle.
+A problem's `kind` says what it means for a search:
+
+- `"embedding"`: the embedding model failed to load or to embed. Searches are keyword-only until it works, and
+  each search retries it. Nothing raises.
+- `"file"`: files the index failed to process. Each is left out until it changes; the message names the first.
+- `"worker"`: the background thread stopped on a failure outside any one file. The next search restarts it, and
+  the problem stays reported until the thread gets work done again.
+
+A file that changed since it was last indexed is never returned with its old text. A file that could not be opened
+(a permission change, or a cloud-synced file not downloaded yet) is tried again a minute later, changed or not.
+`index_status(refresh=False)` reports on the last search's walk of the folder instead of walking it again. Call
+`store.close()` when you are done to stop the background thread; it also exits on its own when idle.
 
 ## PDFs
 
@@ -116,11 +143,18 @@ agent.tools += make_collection_tools(stores, writable=["work"])
 
 It returns `list_documents`, `read_document`, and `search_documents`, plus `save_document` and `edit_document`
 only for the collections named in `writable`, so an agent given read-only folders holds no tool that writes. Its
-search ends with a note when an index is still building or has an error, so an incomplete search does not read as
-one that found nothing. An agent carries either this set or `make_document_tools`', not both.
+search ends with a note when an index is still building or has a problem, so an incomplete search does not read as
+one that found nothing; a collection whose search fails is skipped and named in a note while the others' results
+come back (`search_collections(..., on_error=...)` does the same for your own code). `list_documents` lists from the
+folder's metadata (`DocumentStore.listing`), opening no file, and shows at most 200 paths per collection, then the
+folders below the prefix with their sizes so the model can narrow. A file nothing has read yet is listed as a
+document; once a search has read it, an unreadable one is listed with its reason. `save_document` refuses to replace
+a file that exists but cannot be read. An agent carries either this set or `make_document_tools`', not both.
 
 ## The folder stays the source of truth
 
 The index is a derived cache. Everything in it is rebuilt from the files, so deleting `index_path` costs only
-rebuild time, and editing, adding, or removing a file in the folder is picked up on the next search. Do not
-edit the index by hand.
+rebuild time, and editing, adding, or removing a file in the folder is picked up on the next search. An index that
+cannot be read when it is opened (a damaged database, or vectors missing or unreadable) is logged and rebuilt once
+rather than failing every search. Do not edit the index by hand. Nothing leaves the machine: the vectors are kept in
+Chroma, opened with its anonymized telemetry off, and the embedding model is whichever client you pass.
