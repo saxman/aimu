@@ -69,10 +69,12 @@
   opening the index with a different model rebuilds the vectors rather than mixing two spaces. **A first build
   no longer blocks a search**: a refresh indexes changed files for up to 2 seconds, then one background thread
   indexes the rest and does all embedding, a file at a time, so `read`, `write`, and searches interleave with
-  it, and a search meanwhile ranks what is indexed so far. `index_status()` says how far along it is:
+  it. A search meanwhile ranks what is indexed so far, never a changed file's previous text, and does no
+  indexing of its own while the thread is running. `index_status()` says how far along it is:
   `IndexStatus` gains `vectors` (whether a client is configured), `complete` now also needs every indexed
-  document embedded when it is, and `error` reports an embedding model that failed to load or embed, in which
-  case search stays keyword-only, nothing raises, and the next search retries. `close()` stops the thread. See
+  document embedded when it is, and `error` reports an embedding model that failed to load or embed (search
+  stays keyword-only, nothing raises, and the next search retries) and any file the background thread failed
+  to index (left out until it changes). `close()` stops the thread. See
   [Use document memory](https://saxman.github.io/aimu/how-to/use-document-memory/).
 - **Change: DocumentStore is harder to stop with one bad file.** Any exception from extracting one PDF
   (pypdf raises `KeyError` and others on a malformed file, not only its own error) makes that file unreadable

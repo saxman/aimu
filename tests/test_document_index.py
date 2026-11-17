@@ -630,33 +630,146 @@ def test_embedding_batches_hold_at_most_the_batch_size(tmp_path):
 
 def test_stale_vector_hits_are_dropped(tmp_path):
     embedder = FakeEmbedder()
-    store = _vector_store(tmp_path, embedder, a="protein folding", b="glacier melt")
+    store = _vector_store(tmp_path, embedder, a="glacier melt", b="soil sampling")
     store.index_status()
     assert store._index.wait_until_embedded(5)
-    old_digest = store.search_passages("protein folding")[0].digest
+    index = store._index
+    # A vector for text no file holds (left by a crash, or by a write this index never saw), naming a real
+    # path and lying nearer the query than any current passage. Injected with no refresh after it, so
+    # nothing but the hit's resolution through the manifest stands between it and the results.
+    gone = hashlib.sha256(b"protein folding, since deleted").hexdigest()
+    query_vector = embedder.embed("protein folding", input_type="query")
+    index._collection.upsert(
+        ids=[f"{gone}:0"], embeddings=[query_vector], metadatas=[{"digest": gone, "location": "", "path": "/a.md"}]
+    )
+    with index._lock:
+        vector_hits = index._vector_hits(query_vector, 50)
+    assert index._collection.get(ids=[f"{gone}:0"])["ids"] == [f"{gone}:0"]
+    assert sorted(hit.path for _, hit in vector_hits) == ["/a.md", "/b.md"]
+    hits = index.search("protein folding", 8)
+    assert hits and gone not in {hit.digest for hit in hits}
+    folder = tmp_path / "docs"
+    for hit in hits:
+        assert hit.digest == hashlib.sha256((folder / hit.path.lstrip("/")).read_text().encode()).hexdigest()
+    store.close()
 
+
+def test_a_pending_file_hides_its_superseded_text(tmp_path, monkeypatch):
+    monkeypatch.setattr(index_module, "INLINE_INDEX_SECONDS", 0.0)
+    store = _vector_store(tmp_path, FakeEmbedder(), a="protein folding notes", b="glacier melt")
+    store.index_status()
+    assert store._index.wait_until_embedded(5)
+
+    # Hold the worker before it reads the rewritten file, outside the store's lock so the search can run.
     release = threading.Event()
-    embedder.block = release
+    real_load = store._locked_load
+
+    def gated_load(path):
+        release.wait(10)
+        return real_load(path)
+
+    monkeypatch.setattr(store, "_locked_load", gated_load)
     note = tmp_path / "docs" / "a.md"
-    note.write_text("soil sampling, rewritten")
+    note.write_text("soil sampling notes")
     os.utime(note, (time.time() + 5, time.time() + 5))
     try:
-        # A vector left behind for the old text (by a crash, or a write this index did not make) still
-        # matches the query best, and must not come back as a passage the file no longer holds.
-        index = store._index
-        index._collection.upsert(
-            ids=[f"{old_digest}:0"],
-            embeddings=[embedder.embed("protein folding", input_type="query")],
-            metadatas=[{"digest": old_digest, "location": ""}],
-        )
+        # The manifest still holds a's old text, matched by both the keyword ("protein") and the vector half.
         hits = store.search_passages("protein folding")
-        assert hits and old_digest not in {hit.digest for hit in hits}
-        folder = tmp_path / "docs"
-        for hit in hits:
-            assert hit.digest == hashlib.sha256((folder / hit.path.lstrip("/")).read_text().encode()).hexdigest()
+        assert "/a.md" not in {hit.path for hit in hits}
+        assert store._index.keyword_search("protein", 8) == []
+        status = store._index.status()
+        assert (status.files, status.indexed) == (2, 1)
     finally:
         release.set()
     assert store._index.wait_until_embedded(5)
+    hits = store.search_passages("soil")
+    assert hits[0].path == "/a.md" and hits[0].text == "soil sampling notes"
+    store.close()
+
+
+def test_a_search_during_a_background_build_does_not_index_inline_again(tmp_path, monkeypatch):
+    monkeypatch.setattr(index_module, "INLINE_INDEX_SECONDS", 0.3)
+    for number in range(40):
+        (tmp_path / f"n{number}.md").write_text(f"shared note {number}")
+    store = DocumentStore(persist_path=str(tmp_path))
+    real_load = store._load
+
+    def slow_load(path):
+        time.sleep(0.025)
+        return real_load(path)
+
+    monkeypatch.setattr(store, "_load", slow_load)
+    store.search_passages("shared")
+    assert store._index._worker is not None
+    # The worker has about 0.7 s of files left. Another search costs the walk and at most one file's wait
+    # for the store's lock, not a second 0.3 s inline pass.
+    started = time.monotonic()
+    store.search_passages("shared")
+    assert time.monotonic() - started < 0.15
+    assert store._index.wait_until_embedded(10)
+    assert store.index_status().complete
+    store.close()
+
+
+@pytest.mark.filterwarnings("error::pytest.PytestUnhandledThreadExceptionWarning")
+def test_a_worker_failure_on_one_file_is_recorded_not_retried(tmp_path, monkeypatch):
+    monkeypatch.setattr(index_module, "INLINE_INDEX_SECONDS", 0.0)
+    (tmp_path / "bad.md").write_text("poison")
+    (tmp_path / "good.md").write_text("fine words")
+    chunked = []
+    real_chunk_document = index_module.chunk_document
+
+    def chunk_document(path, text, **kwargs):
+        chunked.append(path)
+        if "poison" in text:
+            raise sqlite3.OperationalError("disk I/O error")
+        return real_chunk_document(path, text, **kwargs)
+
+    monkeypatch.setattr(index_module, "chunk_document", chunk_document)
+    store = DocumentStore(persist_path=str(tmp_path))
+    store.index_status()
+    assert not store._index.wait_until_embedded(5)
+    status = store.index_status()
+    assert (status.files, status.indexed) == (2, 1) and not status.complete
+    assert "/bad.md" in status.error and "OperationalError: disk I/O error" in status.error
+    assert not store._index.wait_until_embedded(5)
+    assert chunked.count("/bad.md") == 1
+    assert [hit.path for hit in store.search_passages("fine")] == ["/good.md"]
+
+    bad = tmp_path / "bad.md"
+    bad.write_text("cured text")
+    os.utime(bad, (time.time() + 5, time.time() + 5))
+    store.index_status()
+    assert store._index.wait_until_embedded(5)
+    status = store.index_status()
+    assert status.complete and status.error is None
+    store.close()
+
+
+@pytest.mark.filterwarnings("error::pytest.PytestUnhandledThreadExceptionWarning")
+def test_a_worker_failure_outside_a_file_stops_the_worker_and_is_reported(tmp_path, monkeypatch):
+    monkeypatch.setattr(index_module, "INLINE_INDEX_SECONDS", 0.0)
+    (tmp_path / "a.md").write_text("alpha")
+    real_next_job = PassageIndex._next_job
+    calls = []
+
+    def next_job(self):
+        calls.append(1)
+        # The first call is refresh deciding to start the worker; the second is the worker's own.
+        if len(calls) == 2:
+            raise sqlite3.OperationalError("database is locked")
+        return real_next_job(self)
+
+    monkeypatch.setattr(PassageIndex, "_next_job", next_job)
+    store = DocumentStore(persist_path=str(tmp_path))
+    store.index_status()
+    assert not store._index.wait_until_embedded(5)
+    assert "OperationalError: database is locked" in store._index.status().error
+    assert store._index._worker is None
+
+    store.index_status()
+    assert store._index.wait_until_embedded(5)
+    assert store.index_status().error is None
     store.close()
 
 

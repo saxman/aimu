@@ -97,8 +97,9 @@ class IndexStatus:
         indexed: Documents whose current text is keyword-searchable. Below *files* while a build is running.
         embedded: Indexed documents whose passages also have vectors (always 0 when *vectors* is False).
         unreadable: Files in the folder that cannot be documents, mapped to why.
-        error: Why vector search is not working, if it is not (the embedding model failed to load or to
-            embed). Keyword search is unaffected, and the index retries on the next refresh.
+        error: What is wrong, if anything: the embedding model failing to load or to embed (search is then
+            keyword-only, and the next refresh retries it), or files the index failed to process (each
+            left out of the index, and retried once it changes).
         vectors: Whether the index has an embedding client, so *embedded* counts toward *complete*.
     """
 
@@ -267,11 +268,15 @@ class PassageIndex:
         self._pending: dict[str, _PendingFile] = {}
         # Paths whose load returned None, with the signature it did so at. Not retried until that changes.
         self._unloadable: dict[str, tuple[float, int]] = {}
+        # Paths the worker failed to index, with the signature and why. Not retried until it changes.
+        self._failed: dict[str, tuple[tuple[float, int], str]] = {}
         self._worker: threading.Thread | None = None
         self._closed = False
         # Set when embedding fails, so the worker stops trying until the next refresh or update.
         self._embedding_paused = False
-        self._error: str | None = None
+        self._embedding_error: str | None = None
+        # Why the worker stopped short of its work, outside any one file. Cleared when a refresh restarts it.
+        self._worker_error: str | None = None
         client, collection_name = _open_vectors(index_path) if embedding_client is not None else (None, None)
         if index_path is None:
             database = ":memory:"
@@ -336,7 +341,9 @@ class PassageIndex:
         """Bring the index in step with *files*, re-chunking only what changed.
 
         Changed files are indexed here until :data:`INLINE_INDEX_SECONDS` have passed, and by the worker
-        after that; so is all embedding. A refresh also retries embedding that failed.
+        after that; so is all embedding. While the worker is already running, changed files go straight to
+        it, so a search during a long build pays for the metadata walk and not another inline budget. A
+        refresh also retries embedding that failed.
 
         Args:
             files: Every document in the folder now, mapped to its ``(mtime, size)``.
@@ -355,7 +362,10 @@ class PassageIndex:
                 self._delete(path)
             pending: dict[str, _PendingFile] = {}
             for path, signature in files.items():
+                failed = self._failed.get(path)
                 if indexed.get(path) == signature or self._unloadable.get(path) == signature:
+                    continue
+                if failed is not None and failed[0] == signature:
                     continue
                 earlier = self._pending.get(path)
                 keep = earlier is not None and earlier.signature == signature
@@ -363,8 +373,11 @@ class PassageIndex:
             self._signatures = dict(files)
             self._pending = pending
             self._unloadable = {path: sig for path, sig in self._unloadable.items() if files.get(path) == sig}
+            self._failed = {path: failure for path, failure in self._failed.items() if files.get(path) == failure[0]}
             self._embedding_paused = False
-        for path, entry in list(pending.items()):
+            self._worker_error = None
+            inline = self._worker is None
+        for path, entry in list(pending.items()) if inline else []:
             if time.monotonic() >= deadline:
                 break
             self._store_loaded(path, entry, entry.load(path))
@@ -378,6 +391,7 @@ class PassageIndex:
                 self._write(path, text, mtime, size)
             self._pending.pop(path, None)
             self._unloadable.pop(path, None)
+            self._failed.pop(path, None)
             self._signatures[path] = (mtime, size)
             self._embedding_paused = False
             self._start_worker()
@@ -389,6 +403,7 @@ class PassageIndex:
                 self._delete(path)
             self._pending.pop(path, None)
             self._unloadable.pop(path, None)
+            self._failed.pop(path, None)
             self._signatures.pop(path, None)
 
     def _store_loaded(self, path: str, entry: _PendingFile, text: str | None) -> None:
@@ -396,13 +411,14 @@ class PassageIndex:
         with self._lock:
             if self._closed or self._pending.get(path) is not entry:
                 return
-            del self._pending[path]
             with self._connection:
                 if text is None:
                     self._delete(path)
                     self._unloadable[path] = entry.signature
                 else:
                     self._write(path, text, *entry.signature)
+            # Only once written: if the write raises, the entry is still pending for whoever handles that.
+            del self._pending[path]
 
     def _write(self, path: str, text: str, mtime: float, size: int) -> None:
         digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
@@ -449,7 +465,7 @@ class PassageIndex:
     def keyword_search(self, query: str, limit: int) -> list[Passage]:
         """Up to *limit* passages matching *query*'s words, best BM25 score first. Never raises on syntax."""
         with self._lock:
-            return [passage for _, passage in self._keyword_hits(query, limit)]
+            return [passage for _, passage in self._current(self._keyword_hits(query, limit))]
 
     def search(self, query: str, limit: int) -> list[Passage]:
         """Up to *limit* passages for *query*, best first: keyword and vector rankings fused, once vectors exist.
@@ -462,7 +478,7 @@ class PassageIndex:
             return []
         candidates = max(4 * limit, 50)
         with self._lock:
-            keyword = self._keyword_hits(query, candidates)
+            keyword = self._current(self._keyword_hits(query, candidates))
             use_vectors = self._collection is not None and self._collection.count() > 0
         if not use_vectors:
             return [passage for _, passage in keyword[:limit]]
@@ -472,15 +488,26 @@ class PassageIndex:
             message = f"Embedding the query failed, so search is keyword-only: {type(exc).__name__}: {exc}"
             logger.warning("%s", message)
             with self._lock:
-                self._error = message
+                self._embedding_error = message
             return [passage for _, passage in keyword[:limit]]
         with self._lock:
             if not self._embedding_paused:
-                self._error = None
-            vector = self._vector_hits(query_vector, candidates)
+                self._embedding_error = None
+            # Filtered again: a file may have become pending while the query was being embedded.
+            keyword = self._current(keyword)
+            vector = self._current(self._vector_hits(query_vector, candidates))
         found = dict(vector) | dict(keyword)
         fused = reciprocal_rank_fusion([[str(rowid) for rowid, _ in keyword], [str(rowid) for rowid, _ in vector]])
         return [dataclasses.replace(found[int(key)], score=score) for key, score in fused[:limit]]
+
+    def _current(self, hits: list[tuple[int, Passage]]) -> list[tuple[int, Passage]]:
+        """*hits* without passages of files awaiting re-indexing. Called with the lock held.
+
+        A pending or failed file's manifest row still holds its previous text, which the folder no longer
+        has. Until it is re-indexed the file counts as not indexed (``status().indexed`` already says so),
+        so none of that text is returned as if the file held it.
+        """
+        return [(rowid, hit) for rowid, hit in hits if hit.path not in self._pending and hit.path not in self._failed]
 
     def _keyword_hits(self, query: str, limit: int) -> list[tuple[int, Passage]]:
         expression = _match_expression(query)
@@ -529,13 +556,18 @@ class PassageIndex:
             embedded = 0
             if self._embedder is not None:
                 rows = self._connection.execute("SELECT path FROM files WHERE embedded = 1")
-                embedded = sum(1 for (path,) in rows if path not in self._pending)
+                embedded = sum(1 for (path,) in rows if path not in self._pending and path not in self._failed)
+            problems = [problem for problem in (self._embedding_error, self._worker_error) if problem]
+            if self._failed:
+                path, (_, reason) = next(iter(self._failed.items()))
+                others = f" and {len(self._failed) - 1} other file(s)" if len(self._failed) > 1 else ""
+                problems.append(f"Could not index {path}{others}: {reason}")
             return IndexStatus(
                 files=files,
-                indexed=files - len(self._pending),
+                indexed=files - len(self._pending) - len(self._failed),
                 embedded=embedded,
                 unreadable={},
-                error=self._error,
+                error="; ".join(problems) or None,
                 vectors=self._embedder is not None,
             )
 
@@ -586,6 +618,16 @@ class PassageIndex:
                         self._idle.notify_all()
                         return
                 job()
+        except Exception as exc:
+            # A failure outside any one file (the database, say). Raising would only reach threading.excepthook,
+            # and carrying on could fail the same way forever, so the worker records it and stops; the next
+            # refresh starts it again.
+            message = f"Background indexing stopped: {type(exc).__name__}: {exc}"
+            logger.exception("%s", message)
+            with self._lock:
+                self._worker_error = message
+                self._worker = None
+                self._idle.notify_all()
         except BaseException:
             with self._lock:
                 self._worker = None
@@ -612,13 +654,15 @@ class PassageIndex:
 
     def _index_in_background(self, path: str, entry: _PendingFile) -> None:
         try:
-            text = entry.load(path)
-        except Exception:
-            # Inline, a failing load raises to the caller. Here nobody would see it, and the file would be
-            # retried forever, so it is logged and treated as unreadable until it changes.
-            logger.exception("Could not read %s for the passage index", path)
-            text = None
-        self._store_loaded(path, entry, text)
+            self._store_loaded(path, entry, entry.load(path))
+        except Exception as exc:
+            # Inline, a failure raises to the caller. Here nobody would see it, and the file would be retried
+            # forever, so it is recorded for status() and the file left out until it changes.
+            logger.exception("Could not index %s", path)
+            with self._lock:
+                if self._pending.get(path) is entry:
+                    del self._pending[path]
+                    self._failed[path] = (entry.signature, f"{type(exc).__name__}: {exc}")
 
     def _embed_document(self, digest: str, passages: list[tuple[str, str]]) -> None:
         """Embed one document's passages, in batches, and store the vectors if its text is still current."""
@@ -645,11 +689,11 @@ class PassageIndex:
                     )
                 with self._connection:
                     self._connection.execute("UPDATE files SET embedded = 1 WHERE digest = ?", (digest,))
-                self._error = None
+                self._embedding_error = None
         except Exception as exc:
             message = f"Embedding failed, so search is keyword-only until it succeeds: {type(exc).__name__}: {exc}"
             with self._lock:
-                if message != self._error:
+                if message != self._embedding_error:
                     logger.warning("%s", message)
-                self._error = message
+                self._embedding_error = message
                 self._embedding_paused = True
