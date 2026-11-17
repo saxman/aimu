@@ -231,3 +231,36 @@ def test_bm25_stopwords_can_be_disabled():
     from aimu.rag import bm25_scores
 
     assert bm25_scores("the", ["the dog"], stopwords=frozenset())[0] > 0
+
+
+# ---------------------------------------------------------------------------
+# reciprocal_rank_fusion
+# ---------------------------------------------------------------------------
+
+
+def test_rrf_merges_rankings():
+    from aimu.rag import reciprocal_rank_fusion
+
+    assert [key for key, _ in reciprocal_rank_fusion([["a", "b"], ["b", "c"]])] == ["b", "a", "c"]
+
+
+def test_rrf_scores_are_reciprocal_ranks_summed():
+    from aimu.rag import reciprocal_rank_fusion
+
+    fused = dict(reciprocal_rank_fusion([["a", "b"], ["b"]], k=10))
+    assert fused == pytest.approx({"a": 1 / 11, "b": 1 / 12 + 1 / 11})
+
+
+def test_rrf_breaks_ties_by_first_appearance():
+    from aimu.rag import reciprocal_rank_fusion
+
+    assert [key for key, _ in reciprocal_rank_fusion([["x", "y"], ["y", "x"]])] == ["x", "y"]
+
+
+def test_rrf_counts_a_key_once_per_ranking_and_handles_empty_input():
+    from aimu.rag import reciprocal_rank_fusion
+
+    assert reciprocal_rank_fusion([]) == [] and reciprocal_rank_fusion([[], []]) == []
+    assert dict(reciprocal_rank_fusion([["a", "a"]], k=1)) == pytest.approx({"a": 1 / 2})
+    with pytest.raises(ValueError, match="k"):
+        reciprocal_rank_fusion([["a"]], k=-1)

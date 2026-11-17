@@ -1,12 +1,18 @@
-"""Tests for DocumentStore's passage index (keyword half) and the store changes it relies on.
+"""Tests for DocumentStore's passage index and the store changes it relies on.
 
-Mock-only: no model, no network. The index is SQLite FTS5, in memory or in a temp directory.
+Mock-only: no model, no network. The keyword half is SQLite FTS5 and the vector half Chroma, each in memory
+or in a temp directory, with :class:`FakeEmbedder` standing in for an embedding model. Background work is
+awaited with ``wait_until_embedded`` and ``threading.Event``, never with a sleep.
 """
 
 from __future__ import annotations
 
+import builtins
 import hashlib
 import os
+import re
+import sqlite3
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -16,12 +22,75 @@ import aimu.memory._index as index_module
 import aimu.memory.document_store as document_store_module
 from aimu.memory import DocumentStore, IndexStatus, Passage
 from aimu.memory._index import PassageIndex, chunk_document
+from aimu.models import EmbeddingSpec
 from aimu.tools.builtin import make_document_tools
 from tests.test_documents import minimal_pdf
 
 
 def _all_files(root) -> set[str]:
     return {os.path.join(dirpath, name) for dirpath, _, names in os.walk(root) for name in names}
+
+
+class FakeEmbedder:
+    """A deterministic embedding client: bag-of-words vectors over a fixed vocabulary.
+
+    Each group in ``VOCABULARY`` is one dimension, so words of a group are synonyms to it: "protein folding"
+    and "structure prediction of polypeptides" embed to the same direction, while sharing no keyword. Words
+    outside the vocabulary are ignored, and a text with none of its words lands on a last "other" dimension,
+    so no vector is zero (cosine distance is undefined for one).
+
+    Args:
+        model_id: The ``spec.id`` an index records as its embedding model. ``spec.id`` stays settable.
+        block: When given, a document embed waits for this event (bounded, so a failing test cannot hang).
+            Queries are never blocked: a search embeds its query inline, and blocking it would block the
+            search under test rather than the background build.
+        error: When given, every embed raises it.
+    """
+
+    VOCABULARY = (
+        ("protein", "folding", "structure", "prediction", "polypeptides"),
+        ("glacier", "ice", "melt"),
+        ("ribosome", "translation"),
+        ("soil", "sampling"),
+    )
+
+    def __init__(self, model_id: str = "fake-1", *, block: threading.Event | None = None, error=None):
+        self.spec = EmbeddingSpec(model_id)
+        self.block = block
+        self.error = error
+        self.calls: list[tuple[str | None, int]] = []
+
+    def embed(self, texts, *, input_type=None):
+        single = isinstance(texts, str)
+        items = [texts] if single else list(texts)
+        self.calls.append((input_type, len(items)))
+        if self.error is not None:
+            raise self.error
+        if self.block is not None and input_type == "document":
+            self.block.wait(timeout=10)
+        vectors = [self._vector(text) for text in items]
+        return vectors[0] if single else vectors
+
+    def _vector(self, text: str) -> list[float]:
+        words = re.findall(r"\w+", text.lower())
+        counts = [float(sum(word in group for word in words)) for group in self.VOCABULARY]
+        if not any(counts):
+            return [0.0] * len(self.VOCABULARY) + [1.0]
+        norm = sum(count * count for count in counts) ** 0.5
+        return [count / norm for count in counts] + [0.0]
+
+
+def _index_threads() -> list[threading.Thread]:
+    return [thread for thread in threading.enumerate() if thread.name == index_module.WORKER_THREAD_NAME]
+
+
+@pytest.fixture(autouse=True)
+def no_leaked_index_workers():
+    """Every test leaves no index worker behind: one exits once idle, and close() stops it."""
+    yield
+    for thread in _index_threads():
+        thread.join(timeout=10)
+    assert _index_threads() == []
 
 
 # ---------------------------------------------------------------------------
@@ -359,8 +428,10 @@ def test_os_error_has_its_own_reason_and_no_export_advice(tmp_path):
         os.chmod(locked, 0o600)
 
 
-def test_concurrent_writes_and_searches_from_threads(tmp_path):
-    store = DocumentStore(persist_path=str(tmp_path / "d"), index_path=str(tmp_path / "i"))
+@pytest.mark.parametrize("embedder_type", [None, FakeEmbedder], ids=["keyword", "hybrid"])
+def test_concurrent_writes_and_searches_from_threads(tmp_path, embedder_type):
+    embedder = embedder_type() if embedder_type else None
+    store = DocumentStore(persist_path=str(tmp_path / "d"), index_path=str(tmp_path / "i"), embedding_client=embedder)
 
     def work(number: int) -> list[Passage]:
         store.write(f"/n{number}.md", f"topic{number} shared")
@@ -370,4 +441,366 @@ def test_concurrent_writes_and_searches_from_threads(tmp_path):
         results = list(pool.map(work, range(24)))
     assert all(hits and hits[0].path == f"/n{number}.md" for number, hits in enumerate(results))
     assert store.index_status().files == 24
+    assert store._index.wait_until_embedded(10)
     store.close()
+
+
+# ---------------------------------------------------------------------------
+# Rulings carried into the vector half: robustness of the store underneath it
+# ---------------------------------------------------------------------------
+
+
+def test_any_pdf_extraction_failure_is_unreadable_not_raised(tmp_path, monkeypatch):
+    (tmp_path / "p.pdf").write_bytes(minimal_pdf(["alpha"]))
+    (tmp_path / "a.md").write_text("alpha notes")
+
+    def broken_extractor(data):
+        raise KeyError("/Root")
+
+    monkeypatch.setattr(document_store_module, "pdf_to_markdown", broken_extractor)
+    store = DocumentStore(persist_path=str(tmp_path))
+    assert [hit.path for hit in store.search_passages("alpha")] == ["/a.md"]
+    assert "KeyError" in store.unreadable()["/p.pdf"]
+    assert "KeyError" in store.index_status().unreadable["/p.pdf"]
+
+
+def test_write_and_delete_drop_the_extraction_cache(tmp_path):
+    (tmp_path / "bin.md").write_bytes(b"\xff\xfe\x00")
+    (tmp_path / "p.pdf").write_bytes(minimal_pdf(["alpha"]))
+    store = DocumentStore(persist_path=str(tmp_path))
+    store.unreadable()
+    assert {str(tmp_path / "bin.md"), str(tmp_path / "p.pdf")} <= store._extractions.keys()
+    store.write("/bin.md", "now text")
+    store.delete("/p.pdf")
+    assert store._extractions == {}
+    assert store.read("/bin.md") == "now text" and store.unreadable() == {}
+
+
+@pytest.mark.parametrize("persist", [True, False])
+def test_write_over_max_file_bytes_is_refused(tmp_path, persist):
+    store = DocumentStore(persist_path=str(tmp_path) if persist else None, max_file_bytes=10)
+    store.write("/ok.md", "x" * 10)
+    with pytest.raises(ValueError, match="max_file_bytes"):
+        store.write("/big.md", "x" * 11)
+    # Six characters, twelve bytes: the limit is on the encoded file, not the string.
+    with pytest.raises(ValueError, match="12 bytes"):
+        store.write("/accented.md", "é" * 6)
+    assert store.list_paths() == ["/ok.md"]
+
+
+def test_index_from_an_older_schema_is_rebuilt(tmp_path):
+    folder, index_dir = tmp_path / "docs", tmp_path / "index"
+    folder.mkdir()
+    index_dir.mkdir()
+    (folder / "a.md").write_text("photosynthesis notes")
+    # The keyword-only index's schema, which set no user_version, holding a row for a file that is not there.
+    old = sqlite3.connect(index_dir / "index.sqlite3")
+    old.execute("CREATE TABLE files (path TEXT PRIMARY KEY, mtime REAL, size INTEGER, digest TEXT)")
+    old.execute("CREATE VIRTUAL TABLE passages USING fts5(path UNINDEXED, location UNINDEXED, text, digest UNINDEXED)")
+    old.execute("INSERT INTO files VALUES ('/ghost.md', 1.0, 5, 'x')")
+    old.execute("INSERT INTO passages VALUES ('/ghost.md', '', 'photosynthesis ghost', 'x')")
+    old.commit()
+    old.close()
+
+    store = DocumentStore(persist_path=str(folder), index_path=str(index_dir))
+    assert [hit.path for hit in store.search_passages("photosynthesis")] == ["/a.md"]
+    store.close()
+    check = sqlite3.connect(index_dir / "index.sqlite3")
+    try:
+        assert check.execute("PRAGMA user_version").fetchone() == (index_module.SCHEMA_VERSION,)
+        assert index_module.SCHEMA_VERSION == 1
+    finally:
+        check.close()
+
+
+def test_complete_requires_vectors_only_when_enabled():
+    keyword_only = IndexStatus(files=2, indexed=2, embedded=0, unreadable={})
+    assert keyword_only.complete and keyword_only.vectors is False
+    assert not IndexStatus(files=2, indexed=2, embedded=1, unreadable={}, vectors=True).complete
+    assert IndexStatus(files=2, indexed=2, embedded=2, unreadable={}, vectors=True).complete
+    assert not IndexStatus(files=3, indexed=2, embedded=2, unreadable={}, vectors=True).complete
+
+
+def test_first_build_over_the_inline_budget_finishes_in_the_background(tmp_path, monkeypatch):
+    monkeypatch.setattr(index_module, "INLINE_INDEX_SECONDS", 0.05)
+    for number in range(40):
+        (tmp_path / f"n{number}.md").write_text(f"shared note {number}")
+    store = DocumentStore(persist_path=str(tmp_path))
+    real_load = store._load
+
+    def slow_load(path):
+        time.sleep(0.025)
+        return real_load(path)
+
+    monkeypatch.setattr(store, "_load", slow_load)
+    # Loading every file takes a second; the search returns after about the inline budget.
+    started = time.monotonic()
+    hits = store.search_passages("shared")
+    assert time.monotonic() - started < 0.5
+    assert hits
+    early = store._index.status()
+    assert early.files == 40 and early.indexed < early.files and not early.complete
+
+    # The worker takes the store's lock one file at a time, so a read never waits for the whole build.
+    started = time.monotonic()
+    assert store.read("/n39.md") == "shared note 39"
+    assert time.monotonic() - started < 0.5
+
+    assert store._index.wait_until_embedded(10)
+    status = store.index_status()
+    assert (status.files, status.indexed) == (40, 40) and status.complete
+    assert len(store.search_passages("shared", n_results=50)) == 40
+    store.close()
+
+
+# ---------------------------------------------------------------------------
+# Vector half and fusion
+# ---------------------------------------------------------------------------
+
+
+def _vector_store(tmp_path, embedder, **files):
+    folder = tmp_path / "docs"
+    folder.mkdir(exist_ok=True)
+    for name, text in files.items():
+        (folder / f"{name}.md").write_text(text)
+    return DocumentStore(persist_path=str(folder), index_path=str(tmp_path / "index"), embedding_client=embedder)
+
+
+def test_vector_search_finds_paraphrase(tmp_path):
+    store = _vector_store(
+        tmp_path, FakeEmbedder(), a="structure prediction of polypeptides", b="glacier melt rates", c="soil sampling"
+    )
+    store.index_status()
+    assert store._index.wait_until_embedded(5)
+    assert store._index.keyword_search("protein folding", 8) == []
+    hits = store.search_passages("protein folding")
+    assert hits[0].path == "/a.md" and hits[0].text == "structure prediction of polypeptides"
+    assert hits[0].score > hits[1].score
+    store.close()
+
+
+def test_fusion_ranks_a_passage_both_halves_found_first(tmp_path):
+    store = _vector_store(
+        tmp_path,
+        FakeEmbedder(),
+        a="glacier ice",
+        b="glacier glacier glacier soil sampling sampling sampling",
+        d="glacier soil melt notes here",
+    )
+    store.index_status()
+    assert store._index.wait_until_embedded(5)
+    # Keyword ranks b, a, d (three "glacier"s first); vectors rank a, d, b (a is all ice words, b mostly soil).
+    assert [hit.path for hit in store._index.keyword_search("glacier", 8)] == ["/b.md", "/a.md", "/d.md"]
+    # a is 2nd and 1st, b 1st and 3rd: reciprocal ranks favour the passage both rankings placed high.
+    assert [hit.path for hit in store.search_passages("glacier")] == ["/a.md", "/b.md", "/d.md"]
+    store.close()
+
+
+def test_first_build_embeds_in_background_and_reports_status(tmp_path):
+    release = threading.Event()
+    embedder = FakeEmbedder(block=release)
+    store = _vector_store(tmp_path, embedder, a="ribosome notes", b="glacier notes")
+    try:
+        hits = store.search_passages("ribosome")
+        assert [hit.path for hit in hits] == ["/a.md"]
+        status = store.index_status()
+        assert status.vectors and status.files == status.indexed == 2
+        assert status.embedded < status.indexed and not status.complete and status.error is None
+        assert not store._index.wait_until_embedded(0.05)
+    finally:
+        release.set()
+    assert store._index.wait_until_embedded(5)
+    status = store.index_status()
+    assert status.embedded == status.indexed == 2 and status.complete
+    assert all(
+        input_type == "document" and size <= index_module.EMBEDDING_BATCH_SIZE for input_type, size in embedder.calls
+    )
+    store.close()
+
+
+def test_embedding_batches_hold_at_most_the_batch_size(tmp_path):
+    embedder = FakeEmbedder()
+    text = "\n\n".join(f"# Section {number}\nglacier paragraph {number}" for number in range(70))
+    store = _vector_store(tmp_path, embedder, big=text)
+    store.index_status()
+    assert store._index.wait_until_embedded(5)
+    assert [size for _, size in embedder.calls] == [32, 32, 6]
+    store.close()
+
+
+def test_stale_vector_hits_are_dropped(tmp_path):
+    embedder = FakeEmbedder()
+    store = _vector_store(tmp_path, embedder, a="protein folding", b="glacier melt")
+    store.index_status()
+    assert store._index.wait_until_embedded(5)
+    old_digest = store.search_passages("protein folding")[0].digest
+
+    release = threading.Event()
+    embedder.block = release
+    note = tmp_path / "docs" / "a.md"
+    note.write_text("soil sampling, rewritten")
+    os.utime(note, (time.time() + 5, time.time() + 5))
+    try:
+        # A vector left behind for the old text (by a crash, or a write this index did not make) still
+        # matches the query best, and must not come back as a passage the file no longer holds.
+        index = store._index
+        index._collection.upsert(
+            ids=[f"{old_digest}:0"],
+            embeddings=[embedder.embed("protein folding", input_type="query")],
+            metadatas=[{"digest": old_digest, "location": ""}],
+        )
+        hits = store.search_passages("protein folding")
+        assert hits and old_digest not in {hit.digest for hit in hits}
+        folder = tmp_path / "docs"
+        for hit in hits:
+            assert hit.digest == hashlib.sha256((folder / hit.path.lstrip("/")).read_text().encode()).hexdigest()
+    finally:
+        release.set()
+    assert store._index.wait_until_embedded(5)
+    store.close()
+
+
+def test_rewritten_file_loses_its_old_vectors(tmp_path):
+    store = _vector_store(tmp_path, FakeEmbedder(), a="protein folding")
+    store.index_status()
+    assert store._index.wait_until_embedded(5)
+    store.write("/a.md", "glacier melt")
+    assert store._index.wait_until_embedded(5)
+    digests = {metadata["digest"] for metadata in store._index._collection.get()["metadatas"]}
+    assert digests == {store.search_passages("glacier")[0].digest}
+    store.delete("/a.md")
+    assert store._index._collection.count() == 0
+    store.close()
+
+
+def test_a_copy_reuses_the_vectors_of_its_original(tmp_path):
+    embedder = FakeEmbedder()
+    store = _vector_store(tmp_path, embedder, a="protein folding")
+    store.index_status()
+    assert store._index.wait_until_embedded(5)
+    calls = len(embedder.calls)
+    store.write("/copy.md", "protein folding")
+    assert store._index.wait_until_embedded(5)
+    assert len(embedder.calls) == calls
+    hits = store.search_passages("polypeptides")
+    assert {hit.path for hit in hits} == {"/a.md", "/copy.md"}
+    store.delete("/a.md")
+    assert [hit.path for hit in store.search_passages("polypeptides")] == ["/copy.md"]
+    store.close()
+
+
+def test_changing_embedding_model_rebuilds_vectors(tmp_path):
+    first = _vector_store(tmp_path, FakeEmbedder("fake-1"), a="protein folding", b="glacier melt")
+    first.index_status()
+    assert first._index.wait_until_embedded(5)
+    first.close()
+
+    release = threading.Event()
+    second = _vector_store(tmp_path, FakeEmbedder("fake-2", block=release))
+    try:
+        status = second.index_status()
+        assert status.indexed == 2 and status.embedded == 0
+        assert second._index._collection.count() == 0
+    finally:
+        release.set()
+    assert second._index.wait_until_embedded(5)
+    assert second.index_status().embedded == 2
+    second.close()
+
+    third = _vector_store(tmp_path, FakeEmbedder("fake-2"))
+    assert third.index_status().embedded == 2
+    third.close()
+
+
+def test_reopening_without_an_embedder_forgets_the_vectors(tmp_path):
+    first = _vector_store(tmp_path, FakeEmbedder("fake-1"), a="protein folding")
+    first.index_status()
+    assert first._index.wait_until_embedded(5)
+    first.close()
+    keyword_only = _vector_store(tmp_path, None)
+    status = keyword_only.index_status()
+    assert (status.vectors, status.embedded) == (False, 0) and status.complete
+    keyword_only.close()
+    # The vectors were never deleted from disk, but the manifest no longer vouches for them: rebuild.
+    release = threading.Event()
+    again = _vector_store(tmp_path, FakeEmbedder("fake-1", block=release))
+    try:
+        assert again.index_status().embedded == 0
+    finally:
+        release.set()
+    assert again._index.wait_until_embedded(5)
+    again.close()
+
+
+def test_ephemeral_vector_indexes_do_not_share_vectors():
+    one, two = DocumentStore(embedding_client=FakeEmbedder()), DocumentStore(embedding_client=FakeEmbedder())
+    one.write("/a.md", "protein folding")
+    two.write("/b.md", "glacier melt")
+    for store in (one, two):
+        store.index_status()
+        assert store._index.wait_until_embedded(5)
+    assert [hit.path for hit in one.search_passages("ice")] == ["/a.md"]
+    assert [hit.path for hit in two.search_passages("polypeptides")] == ["/b.md"]
+    one.close()
+    two.close()
+
+
+def test_missing_chromadb_names_the_extra(monkeypatch):
+    real_import = builtins.__import__
+
+    def without_chromadb(name, *args, **kwargs):
+        if name == "chromadb" or name.startswith("chromadb."):
+            raise ImportError("No module named 'chromadb'", name="chromadb")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", without_chromadb)
+    store = DocumentStore(embedding_client=FakeEmbedder())
+    store.write("/a.md", "ribosome")
+    with pytest.raises(ImportError, match=r"aimu\[memory\]"):
+        store.search_passages("ribosome")
+    keyword_only = DocumentStore()
+    keyword_only.write("/a.md", "ribosome")
+    assert keyword_only.search_passages("ribosome")[0].path == "/a.md"
+
+
+def test_embedding_failure_degrades_to_keyword_with_error(tmp_path, caplog):
+    embedder = FakeEmbedder(error=RuntimeError("model download failed"))
+    store = _vector_store(tmp_path, embedder, a="ribosome notes")
+    assert [hit.path for hit in store.search_passages("ribosome")] == ["/a.md"]
+    assert not store._index.wait_until_embedded(5)
+    status = store.index_status()
+    assert "model download failed" in status.error and not status.complete
+    assert "model download failed" in caplog.text
+
+    # The next refresh tries again, and a success clears the error.
+    embedder.error = None
+    store.index_status()
+    assert store._index.wait_until_embedded(5)
+    status = store.index_status()
+    assert status.error is None and status.complete
+    store.close()
+
+
+def test_query_embedding_failure_falls_back_to_keyword(tmp_path):
+    embedder = FakeEmbedder()
+    store = _vector_store(tmp_path, embedder, a="ribosome notes")
+    store.index_status()
+    assert store._index.wait_until_embedded(5)
+    embedder.error = RuntimeError("embedding server went away")
+    assert [hit.path for hit in store.search_passages("ribosome")] == ["/a.md"]
+    assert "embedding server went away" in store._index.status().error
+    store.close()
+
+
+def test_close_stops_the_worker_mid_build(tmp_path):
+    release = threading.Event()
+    store = _vector_store(tmp_path, FakeEmbedder(block=release), a="ribosome", b="glacier")
+    store.index_status()
+    index = store._index
+    assert _index_threads()
+    closer = threading.Thread(target=store.close)
+    closer.start()
+    release.set()
+    closer.join(timeout=10)
+    assert not closer.is_alive() and _index_threads() == []
+    assert index._worker is None

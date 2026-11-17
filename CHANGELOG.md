@@ -58,6 +58,36 @@
   `write`, `edit`, and `delete` through such a path raise `ValueError`. `write` goes to a temp file in the same
   directory and `os.replace`s it in, so an editor or a concurrent scan never sees a half-written document; a
   file's permissions are kept, and an in-folder symlink is written through rather than replaced.
+- **New: DocumentStore hybrid passage search.** `DocumentStore(embedding_client=...)` adds vector search to
+  `search_passages`: each passage is embedded (`input_type="document"`, 32 per call) into a Chroma collection
+  beside the keyword index, the query is embedded with `input_type="query"`, and the keyword and vector top
+  `max(4 * n_results, 50)` are fused by reciprocal rank (k=60), so a passage that says the same thing in other
+  words is found alongside one that names the query's terms. It needs the `[memory]` extra (chromadb), imported
+  on the first search, whose `ImportError` names `aimu[memory]`; without a client the search is keyword-only as
+  before. Vectors are keyed by content (`digest:n`), so a copy of a document is not embedded twice, and a vector
+  is used only while some file still holds the text it came from. The embedding model's id is recorded, and
+  opening the index with a different model rebuilds the vectors rather than mixing two spaces. **A first build
+  no longer blocks a search**: a refresh indexes changed files for up to 2 seconds, then one background thread
+  indexes the rest and does all embedding, a file at a time, so `read`, `write`, and searches interleave with
+  it, and a search meanwhile ranks what is indexed so far. `index_status()` says how far along it is:
+  `IndexStatus` gains `vectors` (whether a client is configured), `complete` now also needs every indexed
+  document embedded when it is, and `error` reports an embedding model that failed to load or embed, in which
+  case search stays keyword-only, nothing raises, and the next search retries. `close()` stops the thread. See
+  [Use document memory](https://saxman.github.io/aimu/how-to/use-document-memory/).
+- **Change: DocumentStore is harder to stop with one bad file.** Any exception from extracting one PDF
+  (pypdf raises `KeyError` and others on a malformed file, not only its own error) makes that file unreadable
+  with the exception as its reason, instead of propagating out of `list_paths`, `search_full_text`, or a search.
+  `write` refuses content over `max_file_bytes` once encoded as UTF-8 (`ValueError`, nothing written), since the
+  store could not read it back. The passage index records its layout as SQLite's `user_version` and rebuilds
+  an index written by an older layout (the keyword-only index of the entry above is rebuilt once, on first
+  open). A file touched without changing (same text, new mtime) keeps its passages and vectors.
+
+### RAG
+
+- **New: `aimu.rag.reciprocal_rank_fusion(rankings, *, k=60)`.** Merges several rankings of string keys into
+  one by `sum(1 / (k + rank))`, returning `(key, score)` pairs best first, ties in first-appearance order. It
+  uses ranks alone, which is what lets a keyword ranking and a vector ranking be combined without putting BM25
+  scores and cosine distances on one scale; `DocumentStore.search_passages` fuses its two halves with it.
 
 ## v0.40.1 (2026-11-16): reading a stored web page works on Python 3.11 and 3.12
 

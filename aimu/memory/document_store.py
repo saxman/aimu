@@ -16,7 +16,9 @@ Persistence modes:
     immediately, without reconstructing the store.
 
 Passage search (:meth:`DocumentStore.search_passages`) adds an index beside the folder, never inside it:
-a derived cache (see ``aimu.memory._index``) kept in step by a metadata walk before each search.
+a derived cache (see ``aimu.memory._index``) kept in step by a metadata walk before each search. Keyword
+ranking needs nothing installed; vector ranking, fused with it, needs an embedding client and the
+``[memory]`` extra.
 """
 
 from __future__ import annotations
@@ -67,8 +69,11 @@ class DocumentStore(MemoryStore):
             *None* keeps it in memory, rebuilt on the first search of each process.
             Must lie outside *persist_path*: the index is derived from the folder
             and never written into it.
-        embedding_client: Reserved for vector search; must be *None* for now.
-        max_file_bytes: Files larger than this are unreadable rather than read.
+        embedding_client: An AIMU embedding client (``aimu.embedding_client(...)``) to add vector search to
+            :meth:`search_passages`, fused with its keyword ranking. Needs the ``[memory]`` extra
+            (chromadb), imported on the first search. *None* (the default) searches by keyword alone.
+        max_file_bytes: Files larger than this are unreadable rather than read, and :meth:`write`
+            refuses content that would make one.
 
     Examples:
         >>> store = DocumentStore()
@@ -88,10 +93,9 @@ class DocumentStore(MemoryStore):
         embedding_client: Optional[Any] = None,
         max_file_bytes: int = 50_000_000,
     ):
-        if embedding_client is not None:
-            raise NotImplementedError("vector search is not available yet; pass embedding_client=None")
         self._persist_path = persist_path
         self._index_path = index_path
+        self._embedding_client = embedding_client
         self._max_file_bytes = max_file_bytes
         # Created on the first search_passages / index_status, so a store nobody searches costs nothing.
         self._index: Optional[PassageIndex] = None
@@ -195,22 +199,41 @@ class DocumentStore(MemoryStore):
         cached = self._extractions.get(abs_file)
         if cached is not None and cached[0] == signature:
             _, text, reason = cached
-            return text if reason is None else self._unreadable(abs_file, reason)
+            return self._readable(abs_file, text) if reason is None else self._unreadable(abs_file, reason)
         try:
             if self._is_pdf(abs_file):
                 with open(abs_file, "rb") as f:
-                    text = pdf_to_markdown(f.read())
-                self._extractions[abs_file] = (signature, text, None)
-                return text
+                    data = f.read()
+                return self._extract_pdf(abs_file, signature, data)
             with open(abs_file, encoding="utf-8") as f:
-                return f.read()
-        except (DocumentConversionError, UnicodeDecodeError) as exc:
-            reason = str(exc) if isinstance(exc, DocumentConversionError) else "not UTF-8 text"
-            self._extractions[abs_file] = (signature, None, reason)
-            return self._unreadable(abs_file, reason)
+                return self._readable(abs_file, f.read())
+        except UnicodeDecodeError:
+            self._extractions[abs_file] = (signature, None, "not UTF-8 text")
+            return self._unreadable(abs_file, "not UTF-8 text")
         except OSError as exc:
             # Not cached: a permission change moves ctime, not the mtime the cache is keyed on.
             return self._unreadable(abs_file, str(exc))
+
+    def _extract_pdf(self, abs_file: str, signature: tuple[int, int], data: bytes) -> Optional[str]:
+        """Convert a PDF's bytes to Markdown, caching the text or the reason it has none."""
+        try:
+            text = pdf_to_markdown(data)
+        except Exception as exc:
+            # pypdf raises far more than DocumentConversionError on a malformed file (KeyError, ValueError,
+            # struct.error, ...), and one bad paper must not stop the rest of a folder being read.
+            if isinstance(exc, DocumentConversionError):
+                reason = str(exc)
+            else:
+                reason = f"could not extract text from this PDF ({type(exc).__name__}: {exc})"
+            self._extractions[abs_file] = (signature, None, reason)
+            return self._unreadable(abs_file, reason)
+        self._extractions[abs_file] = (signature, text, None)
+        return self._readable(abs_file, text)
+
+    def _readable(self, abs_file: str, text: str) -> str:
+        """Return *text*, forgetting any earlier reason *abs_file* was unreadable: it is readable now."""
+        self._unreadable_reasons.pop(abs_file, None)
+        return text
 
     def _unreadable(self, abs_file: str, reason: str) -> None:
         """Record why *abs_file* is not a document, warning the first time, and return None for the caller."""
@@ -315,25 +338,28 @@ class DocumentStore(MemoryStore):
             return self._docs.get(path)
         return self._read_file(self._abs_path(path))
 
+    def _locked_load(self, path: str) -> Optional[str]:
+        """:meth:`_load` under the store's lock, for one file: the index's worker thread reads through this."""
+        with self._lock:
+            return self._load(path)
+
     def _refreshed_index(self) -> tuple[PassageIndex, dict[str, str]]:
         """The passage index, created on first use and brought in step with the folder.
 
-        Also returns the unreadable files the refresh met, with reasons. An unreadable file never enters
-        the index's manifest, so every refresh tries it again (cheaply: the extraction cache holds its
-        failure), which is what lets this report it without a second walk that reads every file.
+        Also returns the folder's unreadable files, with reasons, from what reading them recorded. The index
+        does not reread a file that failed until it changes, and part of a build may still be in the
+        worker's hands, so the reasons on record are the answer, not what this refresh happened to read.
         """
         if self._index is None:
-            self._index = PassageIndex(self._index_path)
+            self._index = PassageIndex(self._index_path, self._embedding_client)
+        files = self._file_metadata()
+        self._index.refresh(files, self._locked_load)
         unreadable: dict[str, str] = {}
-
-        def load(path: str) -> Optional[str]:
-            text = self._load(path)
-            reason = self._unreadable_reasons.get(self._abs_path(path)) if self._persist_path else None
-            if text is None and reason is not None:
-                unreadable[path] = reason
-            return text
-
-        self._index.refresh(self._file_metadata(), load)
+        if self._persist_path:
+            for path in files:
+                reason = self._unreadable_reasons.get(self._abs_path(path))
+                if reason is not None:
+                    unreadable[path] = reason
         return self._index, unreadable
 
     def _index_document(self, path: str, content: str) -> None:
@@ -365,14 +391,25 @@ class DocumentStore(MemoryStore):
         Args:
             path:    Memory path, e.g. ``"/preferences.md"``.
             content: Text content to store (≤ 100 KB recommended).
+
+        Raises:
+            ValueError: If *path* is a PDF, if it resolves outside the folder, or if *content* is over
+                *max_file_bytes* once encoded as UTF-8.
         """
         path = self._normalize(path)
         if self._is_pdf(path):
             raise ValueError(f"PDFs are read-only: {path} can be read and searched, not written.")
+        size = len(content.encode("utf-8"))
+        if size > self._max_file_bytes:
+            raise ValueError(
+                f"{path} would be {size} bytes, over this store's max_file_bytes of {self._max_file_bytes}, "
+                "so it could not be read back; nothing was written."
+            )
         if self._persist_path:
             self._write_to_disk(path, content)
             # A path that was unreadable may now be a valid document; let it warn again if not.
             self._unreadable_reasons.pop(self._abs_path(path), None)
+            self._extractions.pop(self._abs_path(path), None)
         else:
             self._docs[path] = content
         self._index_document(path, content)
@@ -504,10 +541,16 @@ class DocumentStore(MemoryStore):
         chunks of documents (about 1200 characters, each section or PDF page chunked on its own), each
         with its location, ranked by BM25 over the query's words. Any query is accepted: punctuation and
         search-syntax characters are dropped, never raised on, and common English words are ignored.
+        With an *embedding_client*, passages are also ranked by vector similarity, which finds one that
+        says the same thing in other words, and the two rankings are fused by reciprocal rank (see
+        :func:`aimu.rag.reciprocal_rank_fusion`). A failing embedding model makes the search keyword-only
+        and is reported by :meth:`index_status`; it does not raise.
 
         The folder is the source of truth. A metadata walk before each search re-indexes only files
         whose size or modification time changed, so a file edited, added, or deleted out-of-band is
-        reflected at once. The index is built on the first call.
+        reflected at once. The index is built on the first call. A large build, and all embedding, carry
+        on in a background thread, so a search during one ranks what is indexed so far; check
+        :meth:`index_status` to tell a partial answer from a complete one.
 
         Args:
             query:     Natural-language or keyword query.
@@ -515,9 +558,12 @@ class DocumentStore(MemoryStore):
 
         Returns:
             :class:`~aimu.memory.Passage` records, highest score first.
+
+        Raises:
+            ImportError: If an *embedding_client* was given and chromadb is not installed.
         """
         index, _ = self._refreshed_index()
-        return index.keyword_search(query, n_results)
+        return index.search(query, n_results)
 
     @synchronized
     def index_status(self) -> IndexStatus:
@@ -525,12 +571,17 @@ class DocumentStore(MemoryStore):
         index, unreadable = self._refreshed_index()
         return dataclasses.replace(index.status(), unreadable=unreadable)
 
-    @synchronized
     def close(self) -> None:
-        """Release the passage index's database connection, if one was opened. The store stays usable."""
-        if self._index is not None:
-            self._index.close()
-            self._index = None
+        """Stop the passage index's background work and release its database, if one was opened.
+
+        The store stays usable; the next search reopens the index.
+        """
+        # Not @synchronized: the index's worker takes this store's lock to read a file, so stopping the
+        # worker while holding that lock would wait on a thread that is waiting on this one.
+        with self._lock:
+            index, self._index = self._index, None
+        if index is not None:
+            index.close()
 
     @synchronized
     def unreadable_paths(self) -> list[str]:
@@ -585,6 +636,7 @@ class DocumentStore(MemoryStore):
         if self._persist_path:
             self._delete_from_disk(identifier)
             self._unreadable_reasons.pop(self._abs_path(identifier), None)
+            self._extractions.pop(self._abs_path(identifier), None)
         else:
             self._docs.pop(identifier, None)
         if self._index is not None:
