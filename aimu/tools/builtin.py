@@ -2599,7 +2599,7 @@ def make_collection_tools(
         stores: Collection name to store. Its order is the order collections are listed in, and breaks
             ranking ties in search.
         writable: Names of the collections the write tools may change. Must be keys of *stores*.
-        rerank: Rerank each search's fused results with a cross-encoder (needs the ``[rag]`` extra).
+        rerank: Rerank each search's fused results with a cross-encoder (needs the ``[hf]`` extra).
 
     Returns:
         ``[list_documents, read_document, search_documents]``, then ``[save_document, edit_document]`` when

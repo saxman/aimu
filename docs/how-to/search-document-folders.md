@@ -70,6 +70,7 @@ if status.error:
 | --- | --- |
 | `files` | Documents in the folder, less those found unreadable |
 | `indexed` | Documents whose current text is keyword-searchable |
+| `unreadable` | Files that cannot be documents, as a dict of path to reason |
 | `embedded` | Indexed documents that also have vectors (0 without an embedding client) |
 | `vectors` | Whether the store has an embedding client, so `embedded` counts toward `complete` |
 | `error` | What is wrong, if anything: the embedding model failing, or files the index could not process |
@@ -102,7 +103,7 @@ for hit in search_collections(stores, "quarterly goals", n_results=5):
 ```
 
 A passage that appears verbatim in several folders is returned once, with the other copies listed in `also_in`.
-Pass `rerank=True` to rerank the top results with a cross-encoder (needs the `[rag]` extra).
+Pass `rerank=True` to rerank the top results with a cross-encoder (needs the `[hf]` extra).
 
 To give an agent the same folders, use `make_collection_tools`, the multi-folder counterpart to
 `make_document_tools`:

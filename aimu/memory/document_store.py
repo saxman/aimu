@@ -683,7 +683,7 @@ def search_collections(
         query:     Natural-language or keyword query.
         n_results: Maximum number of passages to return.
         rerank:    Reorder the fused top ``2 * n_results`` passages with a cross-encoder
-                   (:func:`aimu.rag.rerank`), which needs the ``[rag]`` extra.
+                   (:func:`aimu.rag.rerank`), which needs the ``[hf]`` extra.
 
     Returns:
         :class:`CollectionPassage` records, best first. An empty *stores* returns ``[]``.
