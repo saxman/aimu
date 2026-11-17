@@ -2367,15 +2367,25 @@ def make_retrieval_tool(store, *, n_results: int = 5):
 SEARCH_EXCERPT_CHARS = 1500
 
 
-def _excerpt(content: str, path: str) -> str:
-    """Return *content*, or its head plus a pointer to the tool that returns the whole thing."""
+def _excerpt(content: str, path: str, *, call: str = "") -> str:
+    """Return *content*, or its head plus a pointer to the tool call that returns the whole thing.
+
+    *call* replaces ``read_document('{path}')`` for a tool that needs more than a path to find it again.
+    """
     if len(content) <= SEARCH_EXCERPT_CHARS:
         return content
     return (
         content[:SEARCH_EXCERPT_CHARS]
         + f"\n... (excerpt of {len(content)} characters; "
-        + f"call read_document('{path}') to read it, paging with offset if it is long)"
+        + f"call {call or f"read_document('{path}')"} to read it, paging with offset if it is long)"
     )
+
+
+# IndexStatus.error is one string: the index's embedding problem first, then any others, joined by "; ".
+# Only the fixed wording aimu.memory._index opens each kind with tells them apart, so these follow it, and
+# tests/test_memory_tools.py pins them against the real index's messages.
+_EMBEDDING_PROBLEM_PREFIX = "Embedding "
+_INDEX_PROBLEM_BOUNDARY = re.compile(r"; (?=Background indexing stopped: |Could not index )")
 
 
 def make_document_tools(store):
@@ -2610,6 +2620,10 @@ def make_collection_tools(
         raise ValueError(f"writable names collections that are not in stores: {', '.join(unheld)}")
     held = ", ".join(stores)
 
+    def reread(path: str, collection: str) -> str:
+        """The read_document call a pointer names; collection may be left out only when it is the only one."""
+        return f"read_document('{path}', collection='{collection}')" if len(stores) > 1 else "read_document"
+
     # (collection, digest) of every document text shown to the model in full: make_document_tools'
     # read-before-replace guard, with the collection in the key because two collections can hold one text.
     shown_whole: set[tuple[str, str]] = set()
@@ -2713,7 +2727,7 @@ def make_collection_tools(
             shown_whole.add((name, digest(content)))
         else:
             shown_whole.discard((name, digest(content)))
-        return _window(lines, offset=offset, limit=max_lines, unit="line", tool="read_document", join="\n")
+        return _window(lines, offset=offset, limit=max_lines, unit="line", tool=reread(path, name), join="\n")
 
     @tool
     def search_documents(query: str, collections: list[str] | None = None, n_results: int = 8) -> str:
@@ -2740,7 +2754,7 @@ def make_collection_tools(
             return f"n_results must be 1 or greater, got {n_results}"
         try:
             found = search_collections(selected, query, n_results, rerank=rerank)
-            statuses = [store.index_status() for store in selected.values()]
+            statuses = {name: store.index_status() for name, store in selected.items()}
         except Exception as exc:
             return f"Search failed, so there are no results: {type(exc).__name__}: {exc}"
 
@@ -2750,7 +2764,8 @@ def make_collection_tools(
             header = f"[{result.collection}] {passage.path}"
             if passage.location:
                 header += f" ({passage.location})"
-            block = f"{header}\n{_excerpt(passage.text.strip(), passage.path)}"
+            call = reread(passage.path, result.collection) if len(stores) > 1 else ""
+            block = f"{header}\n{_excerpt(passage.text.strip(), passage.path, call=call)}"
             if result.also_in:
                 block += "\nalso in: " + ", ".join(f"{name}:{path}" for name, path in result.also_in)
             blocks.append(block)
@@ -2758,7 +2773,7 @@ def make_collection_tools(
             blocks.append("No matching passages found.")
 
         # Without these, a search over an index still being built reads as a search that found nothing.
-        incomplete = [status for status in statuses if not status.complete]
+        incomplete = [status for status in statuses.values() if not status.complete]
         counts = []
         embedding = [status for status in incomplete if status.vectors]
         if embedding:
@@ -2770,8 +2785,19 @@ def make_collection_tools(
             counts.append(f"{done} of {total} files indexed")
         if counts:
             blocks.append(f"Note: indexing in progress ({', '.join(counts)}); results may be incomplete.")
-        for error in dict.fromkeys(status.error for status in statuses if status.error):
-            blocks.append(f"Note: semantic search is unavailable ({error}); these are keyword matches only.")
+        problems = []
+        for name, status in statuses.items():
+            for problem in _INDEX_PROBLEM_BOUNDARY.split(status.error or ""):
+                if not problem:
+                    continue
+                if status.vectors and problem.startswith(_EMBEDDING_PROBLEM_PREFIX):
+                    problems.append(
+                        f"Note: semantic search is unavailable ({problem}); these are keyword matches only."
+                    )
+                else:
+                    problems.append(f"Note: indexing problem in '{name}': {problem}")
+        # A shared embedding model failing in several collections is one note, not one per collection.
+        blocks.extend(dict.fromkeys(problems))
         return "\n\n".join(blocks)
 
     @tool

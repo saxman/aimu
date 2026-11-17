@@ -110,9 +110,10 @@
   unknown collection, or a write to a read-only one (`Refusing: the 'work' collection is read-only`) is a
   returned message. `search_documents(query, collections=None, n_results=8)` ranks passages across every held
   collection with `search_collections`, citing each as `[collection] path (heading or page)` with any other
-  copies as `also in: collection:path`, and ends with a note when a searched index is still being built or
-  its embedding model has failed, since an incomplete search otherwise reads as one that found nothing; it
-  never raises. `list_documents()` names each collection and whether it is writable before listing its
+  copies as `also in: collection:path`, and ends with a note when a searched index is still being built,
+  its embedding model has failed, or it has another problem (named with its collection), since an incomplete
+  search otherwise reads as one that found nothing; it never raises. With several collections held, its
+  excerpt pointers and `read_document`'s truncation marker name the collection the next call needs. `list_documents()` names each collection and whether it is writable before listing its
   paths and its unreadable files with their reasons. `save_document` keeps
   [`make_document_tools`](https://github.com/saxman/aimu/blob/main/aimu/tools/builtin.py)' read-before-replace
   guard, keyed by collection and content digest, so a full read in one folder never permits replacing the

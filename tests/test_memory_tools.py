@@ -671,13 +671,101 @@ def test_search_result_format():
     result = tools["search_documents"]("glacier melt")
     assert "Note: indexing in progress (6 of 10 files indexed); results may be incomplete." in result
 
-    # A status error is reported verbatim.
+    # An embedding failure on a store with vectors is the semantic-search note, its error verbatim.
+    embedding_error = "Embedding failed, so search is keyword-only until it succeeds: RuntimeError: model down"
     personal.index_status = lambda: IndexStatus(
-        files=1, indexed=1, embedded=1, unreadable={}, error="model failed to load", vectors=True
+        files=1, indexed=1, embedded=1, unreadable={}, error=embedding_error, vectors=True
     )
     result = tools["search_documents"]("glacier melt")
-    assert "Note: semantic search is unavailable (model failed to load); these are keyword matches only." in result
+    assert f"Note: semantic search is unavailable ({embedding_error}); these are keyword matches only." in result
+    assert "indexing problem" not in result
     assert "indexing in progress" not in result
+
+
+def test_search_names_a_non_embedding_index_problem_by_collection():
+    personal, work = DocumentStore(), DocumentStore()
+    personal.write("/a.md", "glacier")
+    work.write("/b.md", "glacier")
+    tools = _collection_tools({"personal": personal, "work": work})
+
+    stopped = "Background indexing stopped: OperationalError: database is locked"
+    work.index_status = lambda: IndexStatus(files=1, indexed=1, embedded=0, unreadable={}, error=stopped)
+    result = tools["search_documents"]("glacier")
+    assert f"Note: indexing problem in 'work': {stopped}" in result
+    assert "semantic search" not in result
+
+    # One status can carry both kinds; each is reported as what it is.
+    embedding = "Embedding the query failed, so search is keyword-only: RuntimeError: gone; really gone"
+    failed = "Could not index /c.md: OperationalError: disk I/O error"
+    work.index_status = lambda: IndexStatus(
+        files=1, indexed=1, embedded=1, unreadable={}, error=f"{embedding}; {failed}", vectors=True
+    )
+    result = tools["search_documents"]("glacier")
+    assert f"Note: semantic search is unavailable ({embedding}); these are keyword matches only." in result
+    assert f"Note: indexing problem in 'work': {failed}" in result
+
+
+def test_index_problem_notes_match_the_real_index_wording(tmp_path, monkeypatch):
+    # The notes tell the kinds apart by the wording aimu.memory._index gives each; this pins that coupling.
+    pytest.importorskip("chromadb")
+    import aimu.memory._index as index_module
+    from tests.test_document_index import FakeEmbedder
+
+    (tmp_path / "vectors").mkdir()
+    (tmp_path / "vectors" / "a.md").write_text("ribosome notes")
+    embedded = DocumentStore(
+        persist_path=str(tmp_path / "vectors"),
+        index_path=str(tmp_path / "vectors-index"),
+        embedding_client=FakeEmbedder(error=RuntimeError("model download failed")),
+    )
+    embedded.search_passages("ribosome")
+    embedded._index.wait_until_embedded(5)
+
+    monkeypatch.setattr(index_module, "INLINE_INDEX_SECONDS", 0.0)
+    real_chunk_document = index_module.chunk_document
+
+    def chunk_document(path, text, **kwargs):
+        if "poison" in text:
+            raise RuntimeError("cannot chunk")
+        return real_chunk_document(path, text, **kwargs)
+
+    monkeypatch.setattr(index_module, "chunk_document", chunk_document)
+    (tmp_path / "keyword").mkdir()
+    (tmp_path / "keyword" / "bad.md").write_text("poison ribosome")
+    keyword = DocumentStore(persist_path=str(tmp_path / "keyword"))
+    keyword.index_status()
+    keyword._index.wait_until_embedded(5)
+
+    result = _collection_tools({"vectors": embedded, "keyword": keyword})["search_documents"]("ribosome")
+    embedded.close()
+    keyword.close()
+
+    assert "Note: semantic search is unavailable (Embedding failed" in result
+    assert "model download failed); these are keyword matches only." in result
+    assert "Note: indexing problem in 'keyword': Could not index /bad.md" in result
+    assert "indexing problem in 'vectors'" not in result
+
+
+def test_pointers_name_the_collection_when_several_are_held():
+    from aimu.memory import Passage
+
+    personal, work = DocumentStore(), DocumentStore()
+    # The chunker keeps real passages under the excerpt cap, so a longer one is stubbed in to reach the pointer.
+    long_passage = Passage(path="/long.md", location="", text="glacier " * 400, score=1.0, digest="d")
+    personal.search_passages = lambda query, n_results=8: [long_passage]
+    work.write("/lines.md", "\n".join(f"line {i}" for i in range(50)))
+    tools = _collection_tools({"personal": personal, "work": work})
+
+    search = tools["search_documents"]("glacier", collections=["personal"])
+    assert "call read_document('/long.md', collection='personal')" in search
+    window = tools["read_document"]("/lines.md", collection="work", max_lines=10)
+    assert "call read_document('/lines.md', collection='work') with offset=11" in window
+
+    # With one collection, collection may be omitted, so the pointers stay as make_document_tools writes them.
+    single = _collection_tools({"personal": personal})
+    assert "call read_document('/long.md')" in single["search_documents"]("glacier")
+    single_window = _collection_tools({"work": work})["read_document"]("/lines.md", max_lines=10)
+    assert "call read_document with offset=11" in single_window
 
 
 def test_also_in_names_a_second_copy_in_the_same_collection():
