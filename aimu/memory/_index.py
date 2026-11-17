@@ -133,6 +133,8 @@ class IndexStatus:
         unreadable: Files in the folder that cannot be documents, mapped to why.
         problems: What is wrong, if anything, one :class:`IndexProblem` per kind.
         vectors: Whether the index has an embedding client, so *embedded* counts toward *complete*.
+        failed: Documents that failed to index and are left out until they change. Counted in *files*, never
+            in *indexed*, and not work still to come: ``problems`` reports them, as a ``"file"`` problem.
     """
 
     files: int
@@ -141,11 +143,17 @@ class IndexStatus:
     unreadable: dict[str, str]
     problems: tuple[IndexProblem, ...] = ()
     vectors: bool = False
+    failed: int = 0
 
     @property
     def complete(self) -> bool:
-        """Whether every document is fully searchable, so a search that finds nothing found nothing."""
-        return self.indexed == self.files and (not self.vectors or self.embedded == self.indexed)
+        """Whether the index has nothing left to do, so a search that finds nothing found nothing.
+
+        Files that failed to index are the exception: they wait for a change, not for the index, so a store
+        whose only gap is failed files is complete, and its ``"file"`` problem is what says they are missing.
+        """
+        indexed = self.indexed + self.failed == self.files
+        return indexed and (not self.vectors or self.embedded == self.indexed)
 
     @property
     def error(self) -> str | None:
@@ -807,6 +815,7 @@ class PassageIndex:
                 unreadable={},
                 problems=tuple(problems),
                 vectors=self._embedder is not None,
+                failed=len(self._failed),
             )
 
     def wait_until_embedded(self, timeout: float) -> bool:

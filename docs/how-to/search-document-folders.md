@@ -90,15 +90,17 @@ for problem in status.problems:
 | `unreadable` | Files that cannot be documents, as a dict of path to reason |
 | `embedded` | Indexed documents that also have vectors (0 without an embedding client) |
 | `vectors` | Whether the store has an embedding client, so `embedded` counts toward `complete` |
+| `failed` | Documents that failed to index, counted in `files` but not `indexed`, left out until they change |
 | `problems` | What is wrong, as `IndexProblem(kind, message)` records (see below); `()` when nothing is |
 | `error` | Every problem's message joined into one string, or `None` |
-| `complete` | `True` when every document is indexed (and embedded, if `vectors`) |
+| `complete` | `True` when the index has nothing left to do: every document indexed (and embedded, if `vectors`) apart from `failed` ones, which a `"file"` problem reports |
 
 A problem's `kind` says what it means for a search:
 
 - `"embedding"`: the embedding model failed to load or to embed. Searches are keyword-only until it works, and
   each search retries it. Nothing raises.
-- `"file"`: files the index failed to process. Each is left out until it changes; the message names the first.
+- `"file"`: files the index failed to process (`failed` counts them). Each is left out until it changes, so it is
+  not work in progress and does not keep `complete` False; the message names the first.
 - `"worker"`: the background thread stopped on a failure outside any one file. The next search restarts it, and
   the problem stays reported until the thread gets work done again.
 
@@ -145,7 +147,8 @@ It returns `list_documents`, `read_document`, and `search_documents`, plus `save
 only for the collections named in `writable`, so an agent given read-only folders holds no tool that writes.
 `descriptions` puts what each collection holds beside its name in `list_documents`' overview, which is where the
 model chooses a collection. Its
-search ends with a note when an index is still building or has a problem, so an incomplete search does not read as
+search ends with a note when an index is still building or has a problem (a file that failed to index is a
+problem, not progress, so it never reads as indexing still to finish), so an incomplete search does not read as
 one that found nothing; a collection whose search fails is skipped and named in a note while the others' results
 come back (`search_collections(..., on_error=...)` does the same for your own code). `list_documents` lists from the
 folder's metadata (`DocumentStore.listing`), opening no file, and shows at most 200 paths per collection, then the

@@ -1030,6 +1030,72 @@ def test_in_progress_note_leaves_out_a_store_whose_embedding_fails():
     assert "Note: indexing in progress (1 of 4 files embedded, 2 of 5 files indexed)" in result
 
 
+def test_in_progress_note_leaves_out_permanently_failed_files():
+    personal, work = DocumentStore(), DocumentStore()
+    personal.write("/a.md", "glacier")
+    work.write("/b.md", "glacier")
+    tools = _collection_tools({"personal": personal, "work": work})
+    failed = "Could not index /c.md: RuntimeError: cannot chunk"
+    problems = (IndexProblem("file", failed),)
+
+    # The only gap is a file that failed: nothing is in progress, and the problem note says why.
+    personal.index_status = lambda **_: IndexStatus(
+        files=3, indexed=2, embedded=2, unreadable={}, problems=problems, failed=1, vectors=True
+    )
+    work.index_status = lambda **_: IndexStatus(files=2, indexed=1, embedded=0, unreadable={}, failed=1)
+    result = tools["search_documents"]("glacier")
+    assert "indexing in progress" not in result
+    assert f"Note: indexing problem in 'personal': {failed}" in result
+
+    # Work still to do is counted, without the failed files in either number.
+    personal.index_status = lambda **_: IndexStatus(
+        files=4, indexed=3, embedded=1, unreadable={}, problems=problems, failed=1, vectors=True
+    )
+    work.index_status = lambda **_: IndexStatus(files=5, indexed=2, embedded=0, unreadable={}, failed=1)
+    result = tools["search_documents"]("glacier")
+    assert "Note: indexing in progress (1 of 3 files embedded, 2 of 4 files indexed)" in result
+
+    # A stopped worker's files are still pending and retried on the next search, so they stay in progress.
+    stopped = (IndexProblem("worker", "Background indexing stopped: OperationalError: database is locked"),)
+    personal.index_status = lambda **_: IndexStatus(files=3, indexed=1, embedded=0, unreadable={}, problems=stopped)
+    work.index_status = lambda **_: IndexStatus(files=1, indexed=1, embedded=0, unreadable={})
+    result = tools["search_documents"]("glacier")
+    assert "Note: indexing in progress (1 of 3 files indexed)" in result
+
+
+@pytest.mark.parametrize("vectors", [False, True])
+def test_a_permanently_failed_file_is_a_problem_not_progress(tmp_path, monkeypatch, vectors):
+    import aimu.memory._index as index_module
+    from tests.test_document_index import FakeEmbedder
+
+    if vectors:
+        pytest.importorskip("chromadb")
+    real_chunk_document = index_module.chunk_document
+
+    def chunk_document(path, text, **kwargs):
+        if "poison" in text:
+            raise RuntimeError("cannot chunk")
+        return real_chunk_document(path, text, **kwargs)
+
+    monkeypatch.setattr(index_module, "chunk_document", chunk_document)
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "good.md").write_text("glacier melt")
+    (tmp_path / "docs" / "bad.md").write_text("poison glacier")
+    store = DocumentStore(
+        persist_path=str(tmp_path / "docs"),
+        index_path=str(tmp_path / "index"),
+        embedding_client=FakeEmbedder() if vectors else None,
+    )
+    store.index_status()
+    store._index.wait_until_embedded(5)
+    tools = _collection_tools({"vault": store})
+    for _ in range(2):
+        result = tools["search_documents"]("glacier")
+        assert "indexing in progress" not in result
+        assert "Note: indexing problem in 'vault': Could not index /bad.md: RuntimeError: cannot chunk" in result
+    store.close()
+
+
 def test_an_offline_first_build_says_semantic_search_is_unavailable_not_in_progress(tmp_path):
     pytest.importorskip("chromadb")
     from tests.test_document_index import FakeEmbedder

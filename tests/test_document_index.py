@@ -521,6 +521,14 @@ def test_complete_requires_vectors_only_when_enabled():
     assert not IndexStatus(files=3, indexed=2, embedded=2, unreadable={}, vectors=True).complete
 
 
+def test_a_permanently_failed_file_leaves_the_status_complete():
+    # A failed file is reported through problems and waits for a change, so it is not work still to come.
+    assert IndexStatus(files=3, indexed=2, embedded=2, unreadable={}, failed=1, vectors=True).complete
+    assert IndexStatus(files=3, indexed=2, embedded=0, unreadable={}, failed=1).complete
+    assert not IndexStatus(files=3, indexed=1, embedded=1, unreadable={}, failed=1, vectors=True).complete
+    assert not IndexStatus(files=3, indexed=2, embedded=1, unreadable={}, failed=1, vectors=True).complete
+
+
 def test_first_build_over_the_inline_budget_finishes_in_the_background(tmp_path, monkeypatch):
     monkeypatch.setattr(index_module, "INLINE_INDEX_SECONDS", 0.05)
     for number in range(40):
@@ -731,11 +739,12 @@ def test_a_worker_failure_on_one_file_is_recorded_not_retried(tmp_path, monkeypa
     monkeypatch.setattr(index_module, "chunk_document", chunk_document)
     store = DocumentStore(persist_path=str(tmp_path))
     store.index_status()
-    assert not store._index.wait_until_embedded(5)
+    # Complete apart from the failure: bad.md waits for a change, not for the worker.
+    assert store._index.wait_until_embedded(5)
     status = store.index_status()
-    assert (status.files, status.indexed) == (2, 1) and not status.complete
+    assert (status.files, status.indexed, status.failed) == (2, 1, 1) and status.complete
     assert "/bad.md" in status.error and "OperationalError: disk I/O error" in status.error
-    assert not store._index.wait_until_embedded(5)
+    assert store._index.wait_until_embedded(5)
     assert chunked.count("/bad.md") == 1
     assert [hit.path for hit in store.search_passages("fine")] == ["/good.md"]
 
@@ -745,7 +754,7 @@ def test_a_worker_failure_on_one_file_is_recorded_not_retried(tmp_path, monkeypa
     store.index_status()
     assert store._index.wait_until_embedded(5)
     status = store.index_status()
-    assert status.complete and status.error is None
+    assert status.complete and status.error is None and status.failed == 0
     store.close()
 
 
@@ -1032,9 +1041,30 @@ def test_an_inline_failure_on_one_file_is_recorded_not_raised(tmp_path, monkeypa
     assert [hit.path for hit in store.search_passages("fine")] == ["/good.md"]
     assert chunked.count("/bad.md") == 1
     status = store.index_status()
-    assert (status.files, status.indexed) == (2, 1)
+    assert (status.files, status.indexed, status.failed) == (2, 1, 1)
     assert [problem.kind for problem in status.problems] == ["file"]
     assert "/bad.md" in status.problems[0].message and "disk I/O error" in status.error
+    # Nothing is left to do until bad.md changes, so the index is complete apart from its reported problem.
+    assert status.complete and store._index.wait_until_embedded(5)
+    store.close()
+
+
+def test_a_failed_file_is_not_counted_toward_embedding(tmp_path, monkeypatch):
+    pytest.importorskip("chromadb")
+    real_chunk_document = index_module.chunk_document
+
+    def chunk_document(path, text, **kwargs):
+        if "poison" in text:
+            raise RuntimeError("cannot chunk")
+        return real_chunk_document(path, text, **kwargs)
+
+    monkeypatch.setattr(index_module, "chunk_document", chunk_document)
+    store = _vector_store(tmp_path, FakeEmbedder(), a="protein folding", bad="poison glacier")
+    store.index_status()
+    assert store._index.wait_until_embedded(5)
+    status = store.index_status()
+    assert (status.files, status.indexed, status.embedded, status.failed) == (2, 1, 1, 1)
+    assert status.complete and status.has_problem("file")
     store.close()
 
 

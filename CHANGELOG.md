@@ -67,7 +67,7 @@
   it survives a restart. A metadata walk before each search re-chunks only files whose size or modification time
   changed and drops files that are gone, so an edit made in another program is searchable at once. `write`,
   `edit`, and `delete` update it directly. `index_status()` returns `IndexStatus(files, indexed, embedded,
-  unreadable, problems)` with `complete` and `error` properties, and `close()` releases the database;
+  unreadable, problems, failed)` with `complete` and `error` properties, and `close()` releases the database;
   `index_status(refresh=False)` reports on the last walk instead of walking again, for a caller that has just
   searched. One process per `index_path`: two sharing one would each rebuild over the other's rows. `Passage`,
   `IndexStatus`, and `IndexProblem` are exported from `aimu.memory`. A store nobody searches builds no index.
@@ -99,7 +99,9 @@
   indexed document embedded when it is, and `problems`, a tuple of `IndexProblem(kind, message)`, reports
   each thing wrong by kind: `"embedding"` (the model failed to load or embed; search stays keyword-only,
   nothing raises, and the next search retries), `"file"` (files that failed to index, inline or in the
-  thread, each left out until it changes), and `"worker"` (the thread stopped on a failure outside any one
+  thread, each left out until it changes; `IndexStatus.failed` counts them, and they do not keep `complete`
+  False or count toward `make_collection_tools`' "indexing in progress" note, which would otherwise ask the
+  model to wait for work that will never finish), and `"worker"` (the thread stopped on a failure outside any one
   file; kept until a job succeeds, so the search that restarts the thread does not erase it). `error` is every
   message joined. `close()` stops the thread. A damaged `index.sqlite3` or `vectors/` (SQLite's "not a database"
   or "malformed", or a Chroma migration this chromadb does not recognize), or a vector collection left empty

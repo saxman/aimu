@@ -2850,21 +2850,22 @@ def make_collection_tools(
 
         # Without these, a search over an index still being built reads as a search that found nothing. A
         # store whose embedding is failing is embedding nothing, so its progress is keyword indexing alone,
-        # and once that is done there is nothing to wait for: the semantic-search note below says why.
+        # and once that is done there is nothing to wait for: the semantic-search note below says why. Files
+        # that failed to index are left out of both numbers for the same reason; the problem note names them.
         embedding, keyword = [], []
         for status in statuses.values():
             if status.complete:
                 continue
             if status.vectors and not status.has_problem("embedding"):
                 embedding.append(status)
-            elif status.indexed < status.files:
+            elif status.indexed < status.files - status.failed:
                 keyword.append(status)
         counts = []
         if embedding:
-            done, total = sum(s.embedded for s in embedding), sum(s.files for s in embedding)
+            done, total = sum(s.embedded for s in embedding), sum(s.files - s.failed for s in embedding)
             counts.append(f"{done} of {total} files embedded")
         if keyword:
-            done, total = sum(s.indexed for s in keyword), sum(s.files for s in keyword)
+            done, total = sum(s.indexed for s in keyword), sum(s.files - s.failed for s in keyword)
             counts.append(f"{done} of {total} files indexed")
         if counts:
             blocks.append(f"Note: indexing in progress ({', '.join(counts)}); results may be incomplete.")
