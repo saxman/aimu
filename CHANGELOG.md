@@ -99,6 +99,28 @@
   uses ranks alone, which is what lets a keyword ranking and a vector ranking be combined without putting BM25
   scores and cosine distances on one scale; `DocumentStore.search_passages` fuses its two halves with it.
 
+### Tools
+
+- **New: `make_collection_tools` gives an agent several document folders at once.**
+  `aimu.tools.builtin.make_collection_tools(stores, *, writable=(), rerank=False)` takes a
+  `{collection: DocumentStore}` mapping (a notes vault, a work vault, an assistant's own folder) and returns
+  `list_documents`, `read_document`, and `search_documents`, plus `save_document` and `edit_document` only
+  when `writable` names a collection, so an agent given read-only folders holds no tool that writes. Each
+  tool takes a `collection` argument, which may be omitted only when one collection is held; a miss, an
+  unknown collection, or a write to a read-only one (`Refusing: the 'work' collection is read-only`) is a
+  returned message. `search_documents(query, collections=None, n_results=8)` ranks passages across every held
+  collection with `search_collections`, citing each as `[collection] path (heading or page)` with any other
+  copies as `also in: collection:path`, and ends with a note when a searched index is still being built or
+  its embedding model has failed, since an incomplete search otherwise reads as one that found nothing; it
+  never raises. `list_documents()` names each collection and whether it is writable before listing its
+  paths and its unreadable files with their reasons. `save_document` keeps
+  [`make_document_tools`](https://github.com/saxman/aimu/blob/main/aimu/tools/builtin.py)' read-before-replace
+  guard, keyed by collection and content digest, so a full read in one folder never permits replacing the
+  same text in another. PDFs are read-only. Re-exported from `aimu.aio.tools.builtin`.
+- **Fix: a `list[T]` tool parameter declares its items.** `@tool` described `list[str]` as a bare
+  `{"type": "array"}`, which Gemini rejects as a function declaration. A typed list now carries
+  `"items"` (`{"type": "array", "items": {"type": "string"}}`); a bare `list` is unchanged.
+
 ## v0.40.1 (2026-11-16): reading a stored web page works on Python 3.11 and 3.12
 
 ### Tools

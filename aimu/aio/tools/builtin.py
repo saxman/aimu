@@ -26,6 +26,7 @@ from aimu.tools.builtin import (  # noqa: F401 (re-exports)
     get_web_content,
     get_webpage_html,
     list_directory,
+    make_collection_tools,
     make_command_tool,
     make_document_tools,
     make_memory_tools,

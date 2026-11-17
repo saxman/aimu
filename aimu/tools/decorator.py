@@ -124,6 +124,9 @@ def _schema_for(annotation) -> dict:
             schema["type"] = _PY_TO_JSON.get(value_types.pop(), "string")
         return schema
     origin = get_origin(annotation)
+    # Gemini rejects an array parameter whose schema has no "items", so a typed list says what it holds.
+    if origin is list and len(get_args(annotation)) == 1:
+        return {"type": "array", "items": _schema_for(get_args(annotation)[0])}
     if origin is not None:
         annotation = origin
     return {"type": _PY_TO_JSON.get(annotation, "string")}

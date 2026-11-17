@@ -212,6 +212,19 @@ def test_tool_maps_list_and_dict_generics():
     assert props["meta"]["type"] == "object"
 
 
+def test_typed_list_schema_names_its_items():
+    # Gemini rejects an array parameter declared without "items".
+    @tool
+    def f(names: list[str], maybe: list[int] | None = None, bare: list = ()) -> str:
+        """OK."""
+        return ""
+
+    props = f.__tool_spec__["function"]["parameters"]["properties"]
+    assert props["names"] == {"type": "array", "items": {"type": "string"}}
+    assert props["maybe"] == {"type": "array", "items": {"type": "integer"}}
+    assert props["bare"] == {"type": "array"}
+
+
 # ---------------------------------------------------------------------------
 # Dispatch: Python tool wired through the tool-loop engine (_ToolLoop._dispatch)
 # ---------------------------------------------------------------------------
