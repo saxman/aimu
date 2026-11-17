@@ -36,6 +36,28 @@
   `{path: reason}`, `unreadable_paths()` is its sorted keys, and `list_documents` names each file with its
   reason. The advice to export to Markdown now appears only for files that are not UTF-8 text. See
   [Use document memory](https://saxman.github.io/aimu/how-to/use-document-memory/).
+- **New: DocumentStore passage search.** `DocumentStore.search_passages(query, n_results=8)` returns
+  `Passage(path, location, text, score, digest)` records: chunks of about 1200 characters, each heading section
+  or PDF page chunked on its own, so `location` is a heading path (`"Methods > Sampling"`) or `"page 3"`, ranked
+  by SQLite FTS5's BM25. Where `search_full_text` returns whole documents holding a substring, this answers
+  which part of which file. Any query is accepted: only its words reach FTS5, each quoted, so `CRISPR-Cas13`,
+  a stray `"`, or `(a OR b)` never raises, and common English words are dropped. The index is a derived cache,
+  never written into the folder: in memory by default, or at `DocumentStore(index_path=...)/index.sqlite3`, where
+  it survives a restart. A metadata walk before each search re-chunks only files whose size or modification time
+  changed and drops files that are gone, so an edit made in another program is searchable at once. `write`,
+  `edit`, and `delete` update it directly. `index_status()` returns `IndexStatus(files, indexed, embedded,
+  unreadable, error)` with a `complete` property, and `close()` releases the database. `Passage` and
+  `IndexStatus` are exported from `aimu.memory`. A store nobody searches builds no index.
+- **Change: DocumentStore reads less, refuses symlinks out of its folder, and writes atomically.** An unchanged
+  PDF (same `st_mtime_ns` and size) is no longer re-extracted by every `list_paths` / `search_full_text` /
+  `unreadable()` rescan, which made a folder of hundreds of papers re-parse all of them per call; a file's
+  failure to read is held the same way. A file the process may not open now gives the operating system's reason
+  instead of "not UTF-8 text", so `list_documents` no longer tells the user to export it to Markdown. A file
+  over `max_file_bytes` (default 50,000,000) is unreadable with the reason "too large to index". A file whose
+  real path lies outside the folder (a symlink out of it) is skipped, and `read` treats it as missing, while
+  `write`, `edit`, and `delete` through such a path raise `ValueError`. `write` goes to a temp file in the same
+  directory and `os.replace`s it in, so an editor or a concurrent scan never sees a half-written document; a
+  file's permissions are kept, and an in-folder symlink is written through rather than replaced.
 
 ## v0.40.1 (2026-11-16): reading a stored web page works on Python 3.11 and 3.12
 
