@@ -813,6 +813,8 @@
       
         
       
+        
+      
     
     
     
@@ -1798,6 +1800,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../how-to/search-document-folders/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Search document folders
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../how-to/use-rag/" class="md-nav__link">
         
   
@@ -2649,6 +2679,17 @@
     <span class="md-ellipsis">
       
         bm25_scores
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.rag.reciprocal_rank_fusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        reciprocal_rank_fusion
       
     </span>
   </a>
@@ -3541,6 +3582,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#aimu.rag.reciprocal_rank_fusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        reciprocal_rank_fusion
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#reranking" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -4035,6 +4087,130 @@ want the model to cite which chunk it used).</p>
             <td>
               <div class="doc-md-description">
                 <p>query. An empty <code>documents</code> returns <code>[]</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.rag.reciprocal_rank_fusion" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.rag.reciprocal_rank_fusion</span>
+
+
+<a href="#aimu.rag.reciprocal_rank_fusion" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">reciprocal_rank_fusion</span><span class="p">(</span><span class="n">rankings</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span> <span class="o">*</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">60</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Fuse <em>rankings</em> (each a sequence of keys, best first) into one ranking.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>rankings</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Sequence">Sequence</span>[<span title="collections.abc.Sequence">Sequence</span>[<span title="str">str</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The rankings to fuse. A key may appear in any number of them; within one ranking only its
+first (best) position counts.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>k</code>
+            </td>
+            <td>
+                  <code><span title="int">int</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Damps the advantage of the very top ranks. 60 is the value the original paper found robust.</p>
+              </div>
+            </td>
+            <td>
+                  <code>60</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<span title="tuple">tuple</span>[<span title="str">str</span>, <span title="float">float</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>(key, fused score)</code> pairs, highest score first. Ties keep the order in which their keys first</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span>[<span title="tuple">tuple</span>[<span title="str">str</span>, <span title="float">float</span>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>appear, reading the rankings in the order given.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <em>k</em> is negative.</p>
               </div>
             </td>
           </tr>

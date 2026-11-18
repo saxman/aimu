@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://saxman.github.io/aimu/how-to/use-rag/">
       
       
-        <link rel="prev" href="../use-document-memory/">
+        <link rel="prev" href="../search-document-folders/">
       
       
         <link rel="next" href="../using-llms-inside-tools/">
@@ -725,6 +725,8 @@
       
         
           
+        
+      
         
       
         
@@ -1783,6 +1785,34 @@
     
   
     Use document memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../search-document-folders/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Search document folders
   
 
     
@@ -3601,14 +3631,18 @@ chunk it used, or <code>"No relevant context found."</code> when the store has n
   choice. Pair it with a chosen embedding model via <code>embedding_client=</code> (see
   <a href="../use-embeddings/">Embed text</a>).</li>
 <li><code>DocumentStore</code>: case-insensitive substring search; no embeddings, good for exact-term
-  lookup or when you can't run an embedding model.</li>
+  lookup or when you can't run an embedding model. For a folder of files it also has its own
+  passage index that cites file and heading or page; see
+  <a href="../search-document-folders/">Search document folders</a>.</li>
 </ul>
 <h2 id="scope">Scope<a class="headerlink" href="#scope" title="Permanent link">&para;</a></h2>
 <p><code>aimu.rag</code> ships the chunk/retrieve/rerank primitives only. Document <strong>loaders</strong> (PDF,
 HTML, etc.) are intentionally not included. The built-in <code>read_file</code> and <code>get_web_content</code>
 tools, or any library that returns text, feed <code>ingest</code> directly. Chunks are stored as
-plain strings (the <code>MemoryStore</code> contract), so per-chunk metadata (source, page) is not
-currently carried.</p>
+plain strings (the <code>MemoryStore</code> contract), so <code>ingest</code> and <code>retrieve</code> carry no per-chunk
+metadata. Where you need to cite a source, <code>DocumentStore</code> indexes a folder itself and
+returns <code>Passage</code> records with the file and the heading or page; see
+<a href="../search-document-folders/">Search document folders</a>.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../use-embeddings/">Embed text</a>: pick the embedding model behind your vector store</li>

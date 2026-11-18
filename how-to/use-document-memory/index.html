@@ -16,7 +16,7 @@
         <link rel="prev" href="../use-semantic-memory/">
       
       
-        <link rel="next" href="../use-rag/">
+        <link rel="next" href="../search-document-folders/">
       
       
         
@@ -725,6 +725,8 @@
       
         
           
+        
+      
         
       
         
@@ -1954,6 +1956,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../search-document-folders/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Search document folders
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -3600,9 +3630,12 @@ file into the directory, and it shows up on the next call, with no restart and n
 </span></code></pre></div>
 <p>Two rules govern what counts as a document:</p>
 <ul>
-<li><strong>UTF-8 text only.</strong> A PDF, an image, or any other non-text file is skipped and logged at
-  <code>WARNING</code> naming the file, so a document that will never appear says so instead of vanishing.
-  Convert it to text (or Markdown) first.</li>
+<li><strong>UTF-8 text and PDFs.</strong> A PDF is converted to Markdown when read (one <code>## Page N</code> heading per page), so
+  it can be read and searched like any document, but it is read-only: <code>write</code> and <code>edit</code> on a <code>.pdf</code> path
+  raise <code>ValueError</code>. Any other non-text file, and a PDF with no text layer (scanned) or a password, is
+  skipped and logged at <code>WARNING</code> naming the file, so a document that will never appear says so instead of
+  vanishing. <code>store.unreadable()</code> returns <code>{path: reason}</code> for each, and <code>list_documents</code> shows the agent the
+  same. For a non-text file, convert it to text (or Markdown) first; a scanned PDF needs OCR.</li>
 <li><strong>Dot-files and dot-directories are ignored</strong>, silently: <code>.DS_Store</code>, <code>.git/</code>, <code>.gitkeep</code> are
   not documents anyone placed there.</li>
 </ul>
@@ -3611,6 +3644,8 @@ file into the directory, and it shows up on the next call, with no restart and n
 <code>builtin.select(builtin.fs, exclude=builtin.unscoped)</code>, since <code>builtin.fs</code> itself now carries
 <code>write_file</code> and <code>edit_file</code>. <code>DocumentStore</code> earns its keep when the
 agent also writes back.</p>
+<p>To search a folder by passage (which file, which heading or page) with optional vectors, see
+<a href="../search-document-folders/">Search document folders</a>.</p>
 <h2 id="edit-existing-documents">Edit existing documents<a class="headerlink" href="#edit-existing-documents" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="n">store</span><span class="o">.</span><span class="n">edit</span><span class="p">(</span><span class="s2">"/preferences.md"</span><span class="p">,</span> <span class="n">old_str</span><span class="o">=</span><span class="s2">"concise"</span><span class="p">,</span> <span class="n">new_str</span><span class="o">=</span><span class="s2">"detailed"</span><span class="p">)</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># Replaces the one occurrence of "concise" with "detailed"</span>
@@ -3673,6 +3708,10 @@ matches, so the permission lapses. The tracking is per <code>make_document_tools
 in-process, so two agents over one store each answer for what they have read. A programmatic
 caller is unaffected -- <code>store.write()</code> has no such guard, because the caller holds the
 document and the tools exist to keep a <em>model</em> from discarding text it has never seen.</p>
+<p><code>save_document</code> also refuses to replace a file that is in the folder but cannot be read (not UTF-8,
+over <code>max_file_bytes</code>, or one the process may not open), naming why: <code>read_document</code> cannot show it,
+so a replacement would destroy it unseen. <code>store.unreadable_reason(path)</code> is what tells that file from
+a path with nothing there, which <code>store.read</code> cannot, since it raises <code>KeyError</code> for both.</p>
 <h2 id="expose-as-mcp-tools">Expose as MCP tools<a class="headerlink" href="#expose-as-mcp-tools" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nv">DOCUMENT_STORE_PATH</span><span class="o">=</span>./doc_store<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>aimu.memory.document_mcp
 </span></code></pre></div>

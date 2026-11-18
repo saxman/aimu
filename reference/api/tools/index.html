@@ -813,6 +813,8 @@
       
         
       
+        
+      
     
     
     
@@ -1778,6 +1780,34 @@
     
   
     Use document memory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../how-to/search-document-folders/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Search document folders
   
 
     
@@ -2868,6 +2898,17 @@
     <span class="md-ellipsis">
       
         Tool factories
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.make_collection_tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_collection_tools
       
     </span>
   </a>
@@ -4234,6 +4275,17 @@
     <span class="md-ellipsis">
       
         Tool factories
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#aimu.tools.builtin.make_collection_tools" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        make_collection_tools
       
     </span>
   </a>
@@ -5964,6 +6016,180 @@ rules to learn, and <code>exclude=builtin.fs</code> already says what <code>fs.*
 <p>Bind a tool to a specific resource (a memory store, a knowledge base) or policy (a command's
 environment allowlist) instead of a process-wide singleton.</p>
 
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="aimu.tools.builtin.make_collection_tools" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">aimu.tools.builtin.make_collection_tools</span>
+
+
+<a href="#aimu.tools.builtin.make_collection_tools" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="language-python doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">make_collection_tools</span><span class="p">(</span><span class="n">stores</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">DocumentStore</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">writable</span><span class="p">:</span> <span class="n">Collection</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span> <span class="n">rerank</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">descriptions</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Build <code>list_documents</code>, <code>read_document</code>, and <code>search_documents</code> over several named document
+stores, plus <code>save_document</code> and <code>edit_document</code> when any of them is <em>writable</em>.</p>
+<p>Where :func:<code>make_document_tools</code> binds one :class:<code>~aimu.memory.DocumentStore</code>, this binds a mapping of
+them, each a <em>collection</em> (a personal notes vault, a work vault, an assistant's own folder). Every tool
+but search takes a <code>collection</code> argument, which may be omitted only when one collection is held, and
+<code>search_documents</code> ranks passages across all of them at once through
+:func:<code>aimu.memory.search_collections</code>, citing each by collection, path, and heading or PDF page::</p>
+<div class="language-text highlight"><pre><span></span><code>stores = {"personal": DocumentStore("~/Vault"), "kokua": DocumentStore("~/.kokua/documents")}
+agent = Agent(client, tools=make_collection_tools(stores, writable=["kokua"]))
+</code></pre></div>
+<p>The tool names are :func:<code>make_document_tools</code>' names, so an agent carries one set or the other, not
+both. The write tools exist only when <em>writable</em> names a collection, so an agent given read-only
+collections holds no tool that writes; a write naming a read-only collection is refused by name. The
+read-before-replace guard on <code>save_document</code> is :func:<code>make_document_tools</code>' own, keyed by
+<code>(collection, content digest)</code> so a full read in one collection never permits replacing a copy of
+the same text in another. Every miss, including a failing search, is a returned message, not a raise.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>stores</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <a class="autorefs autorefs-internal" title="aimu.memory.DocumentStore" href="../memory/#aimu.memory.DocumentStore">DocumentStore</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Collection name to store. Its order is the order collections are listed in, and breaks
+ranking ties in search.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>writable</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Collection">Collection</span>[<span title="str">str</span>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Names of the collections the write tools may change. Must be keys of <em>stores</em>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>()</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>rerank</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Rerank each search's fused results with a cross-encoder (needs the <code>[hf]</code> extra).</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>descriptions</code>
+            </td>
+            <td>
+                  <code><span title="collections.abc.Mapping">Mapping</span>[<span title="str">str</span>, <span title="str">str</span>] | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Collection name to what it holds, shown beside that collection in <code>list_documents</code>'
+overview (<code>- work (read-only): Quarterly plans.</code>), which is where the model decides which
+collection a question belongs to. Must be keys of <em>stores</em>; a collection left out has none.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>[list_documents, read_document, search_documents]</code>, then <code>[save_document, edit_document]</code> when</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="list">list</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><em>writable</em> is non-empty.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="ValueError">ValueError</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <em>stores</em> is empty, or <em>writable</em> or <em>descriptions</em> names a collection <em>stores</em> does
+not hold.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
 
 <div class="doc doc-object doc-function">
 
