@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.41.0 (2026-11-18): Python 3.14, document folders indexed for hybrid passage search, PDFs as documents, and tools across several stores
 
 ### Packaging
 
