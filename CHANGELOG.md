@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+### Models
+
+- **New: Inkling 2 Mini (`INKLING_2_MINI`)**, Thinking Machines Lab's open-weight looped MoE (26.4B parameters, 3.4B active), in
+  `OllamaModel`, `OllamaOpenAIModel` (`inkling-2-mini:26b-a5b`), `LMStudioOpenAIModel`
+  (`thinkingmachines/inkling-2-mini`, without vision, like the other GGUF entries), and `VLLMOpenAIModel` /
+  `SGLangOpenAIModel` (`thinkingmachines/Inkling-2-Mini`). It supports tools, thinking and vision.
+  `thinking=False` warns and has no effect: the card says the lowest reasoning effort does not turn reasoning
+  off. The default `temperature=1.0` comes from the repo's `generation_config.json`, since the card gives no
+  sampling settings. Not added:
+  - **HuggingFace in-process and HF Serve:** transformers has no `inkling2_loop` architecture.
+  - **llama.cpp and llama-server:** no official GGUF filename has been published.
+  - **oMLX:** no official MLX build has been published.
+
+  On vLLM and SGLang, tool calls and reasoning arrive as typed content blocks and need a server-side parser.
+  `thinking="low"/"medium"/"high"` is not supported yet. The template takes a number, `reasoning_effort` in
+  [0.0, 0.99], and no serving path translates the levels into it
+  ([#21](https://github.com/saxman/aimu/issues/21)).
+
 ## v0.41.0 (2026-11-18): Python 3.14, document folders indexed for hybrid passage search, PDFs as documents, and tools across several stores
 
 ### Packaging

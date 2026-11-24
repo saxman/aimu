@@ -383,6 +383,18 @@ MODEL_FACTS: dict[str, ModelFacts] = {
     "GPT_OSS_20B_MXFP4_Q8": ModelFacts(
         tools=True, thinking=True, generation_kwargs={"temperature": 1.0, "top_p": 1.0, "top_k": 0}
     ),
+    # Thinking Machines Lab. The chat template takes a numeric `reasoning_effort` in
+    # [0.0, 0.99] (default 0.9), and the card says the minimum "does not fully disable
+    # reasoning", hence thinking_optional=False. thinking_levels stays False until each
+    # serving path has a translation from the portable low/medium/high levels to that number.
+    # The card states no sampling profile; temperature=1.0 is the repo's generation_config.json.
+    "INKLING_2_MINI": ModelFacts(
+        tools=True,
+        thinking=True,
+        vision=True,
+        thinking_optional=False,
+        generation_kwargs={"temperature": 1.0},
+    ),
     # Meta
     "LLAMA_3_1_8B": ModelFacts(tools=True),
     # Quantization variants of LLAMA_3_1_8B (MLX); intrinsic facts identical to the bare entry.

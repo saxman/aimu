@@ -59,6 +59,8 @@ class OllamaModel(Model):
     GLM_4_7_FLASH_31B_Q4 = Wire("glm-4.7-flash:q4_K_M", structured_output=True)
     # OpenAI
     GPT_OSS_20B = Wire("gpt-oss:20b", structured_output=True)
+    # Thinking Machines Lab
+    INKLING_2_MINI = Wire("inkling-2-mini:26b-a5b", structured_output=True)
     # Mistral
     MAGISTRAL_SMALL_24B = Wire("magistral:24b", structured_output=True)
     MINISTRAL_3_14B = Wire("ministral-3:14b", structured_output=True)
