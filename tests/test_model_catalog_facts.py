@@ -149,12 +149,13 @@ def test_hf_repo_runtimes_share_one_id_namespace():
     absent from another is drift. (Muse Glimmer is the documented exception: vLLM has
     dedicated tool/reasoning parsers for its framing and the other two do not. Nemotron 3.5
     Bolt 74B is the same case: its card serves it on vLLM through a custom `ultra_v3`
-    reasoning-parser plugin, and SGLang support for that parse is unstated.)
+    reasoning-parser plugin, and SGLang support for that parse is unstated. Inkling 2 Mini
+    is on vLLM and SGLang but not HF Serve: transformers has no `inkling2_loop` architecture.)
     """
     from aimu.models.providers.openai_compat import HFOpenAIModel, SGLangOpenAIModel, VLLMOpenAIModel
 
     catalogs = {"vLLM": VLLMOpenAIModel, "SGLang": SGLangOpenAIModel, "HF Serve": HFOpenAIModel}
-    exceptions = {"MUSE_GLIMMER_30B", "NEMOTRON_3_5_BOLT_74B"}
+    exceptions = {"MUSE_GLIMMER_30B", "NEMOTRON_3_5_BOLT_74B", "INKLING_2_MINI"}
     sets = {name: {m.name for m in enum} - exceptions for name, enum in catalogs.items()}
     reference = sets["vLLM"]
     for name, members in sets.items():

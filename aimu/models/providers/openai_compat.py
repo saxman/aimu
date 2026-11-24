@@ -581,6 +581,8 @@ class OllamaOpenAIModel(Model):
     GLM_4_7_FLASH_31B_Q4 = Wire("glm-4.7-flash:q4_K_M", structured_output=True)
     # OpenAI
     GPT_OSS_20B = Wire("gpt-oss:20b", structured_output=True)
+    # Thinking Machines Lab
+    INKLING_2_MINI = Wire("inkling-2-mini:26b-a5b", structured_output=True)
     # Mistral
     MAGISTRAL_SMALL_24B = Wire("magistral:24b", structured_output=True)
     MINISTRAL_3_14B = Wire("ministral-3:14b", structured_output=True)
@@ -723,6 +725,7 @@ class LMStudioOpenAIModel(Model):
     # weights limitation, not a serving-path one, so no tools=True override here either.
     GLM_4_7_FLASH_31B_Q4 = Wire("glm-4.7-flash-q4_k_m")
     GPT_OSS_20B = Wire("gpt-oss-20b")
+    INKLING_2_MINI = Wire("thinkingmachines/inkling-2-mini", why=_NO_MMPROJ, vision=False)
     MAGISTRAL_SMALL_24B = Wire("magistral-small-24b")
     MINISTRAL_3_14B = Wire("ministral-3-14b")
     NEMOTRON_CASCADE_2_30B = Wire("nemotron-cascade-2-30b-a3b")
@@ -929,6 +932,11 @@ class VLLMOpenAIModel(Model):
     GLM_4_7_FLASH_31B_Q4 = Wire("zai-org/GLM-4.7-Flash")
     # OpenAI (open-weight)
     GPT_OSS_20B = Wire("openai/gpt-oss-20b")
+    # Inkling 2 Mini uses typed content blocks (<|content_invoke_tool_json|>), not <think>
+    # tags or Hermes JSON, so tool calls and reasoning surface only through a server-side
+    # parser; vLLM ships `inkling` tool/reasoning parsers for first-gen Inkling. Not in
+    # HFOpenAIModel: its `inkling2_loop` architecture is not in transformers (5.19).
+    INKLING_2_MINI = Wire("thinkingmachines/Inkling-2-Mini")
     # HuggingFace: tool call responses don't always look correct (matches OllamaModel's note)
     SMOLLM2_1_7B = Wire("HuggingFaceTB/SmolLM2-1.7B-Instruct")
     # Muse Glimmer emits channel-scoped reasoning and ATEM-style XML tool calls instead of
@@ -1181,6 +1189,8 @@ class SGLangOpenAIModel(Model):
     GLM_4_7_FLASH_31B_Q4 = Wire("zai-org/GLM-4.7-Flash")
     # OpenAI (open-weight)
     GPT_OSS_20B = Wire("openai/gpt-oss-20b")
+    # Server-side parser required; see VLLMOpenAIModel.INKLING_2_MINI.
+    INKLING_2_MINI = Wire("thinkingmachines/Inkling-2-Mini")
     # HuggingFace: tool call responses don't always look correct (matches OllamaModel's note)
     SMOLLM2_1_7B = Wire("HuggingFaceTB/SmolLM2-1.7B-Instruct")
 

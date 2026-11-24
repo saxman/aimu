@@ -109,6 +109,7 @@ Gemini 2.5 thinking models emit `<think>` tags on Google's OpenAI-compatible end
 | `NEMOTRON_3_5_SUPER_120B` | `nemotron-3.5-super:120b` | ✅ | ✅ | ✅ |
 | `GLM_4_7_FLASH_31B_Q4` | `glm-4.7-flash:q4_K_M` | ✗ | ✅ | ✗ |
 | `GPT_OSS_20B` | `gpt-oss:20b` | ✅ | ✅ | ✗ |
+| `INKLING_2_MINI` ◇ | `inkling-2-mini:26b-a5b` | ✅ | ✅ | ✅ |
 | `MAGISTRAL_SMALL_24B` | `magistral:24b` | ✅ | ✅ | ✗ |
 | `MINISTRAL_3_14B` | `ministral-3:14b` | ✅ | ✗ | ✗ |
 | `MISTRAL_7B` | `mistral:7b` | ✅ | ✗ | ✗ |
@@ -316,6 +317,7 @@ No `MUSE_GLIMMER_30B` here: llama-cpp-python runs the same llama.cpp engine as l
 | `GPT_OSS_20B` | ✅ | ✅ | ✗ | all |
 | `GPT_OSS_20B_MXFP4_Q4` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
 | `GPT_OSS_20B_MXFP4_Q8` | ✅ | ✅ | ✗ | oMLX, LM Studio ¶ |
+| `INKLING_2_MINI` ◇ | ✅ | ✅ | ✅ ※ | Ollama, LM Studio, vLLM, SGLang |
 | `SMOLLM2_1_7B` | ✗ | ✗ | ✗ | all |
 | `MUSE_GLIMMER_30B` | ✅ | ✅ | ✅ | Ollama, vLLM, oMLX ‡ |
 | `MUSE_GLIMMER_30B_4BIT` | ✅ | ✅ | ✅ | oMLX ‡ ¶ |

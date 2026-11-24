@@ -202,6 +202,7 @@ EXPECTED_OVERRIDES = {
     ("LMStudioOpenAIModel", "GEMMA_3_12B", "vision"),
     ("LMStudioOpenAIModel", "GEMMA_4_E4B", "vision"),
     ("LMStudioOpenAIModel", "GEMMA_4_12B", "vision"),
+    ("LMStudioOpenAIModel", "INKLING_2_MINI", "vision"),
     ("LMStudioOpenAIModel", "GEMMA_4_26B", "vision"),
     ("LMStudioOpenAIModel", "GEMMA_4_31B", "vision"),
     ("LMStudioOpenAIModel", "QWEN_3_5_9B", "vision"),
